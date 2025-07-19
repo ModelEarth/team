@@ -12,17 +12,19 @@ Right click the membercommons folder and start a virtual environment.
 	python -m venv env
 	.\env\Scripts\activate
 
+**CLaude Code CLI Installation**
 
-**Start Claude**
-
-Inside the same terminal, run the followin to start [Claude Code CLI](https://www.anthropic.com/claude-code)
-
-**Skip this line** if you've already installed Claude Code CLI.  
 In the membercommons folder, install [NodeJS 18+](https://nodejs.org/en/download), then install Claude Code CLI:
 
 	npm install -g @anthropic-ai/claude-code
 
-Start Claude Code CLI:
+**Note for Windows users:** As per [Claude Code CLI setup instructions](https://docs.anthropic.com/en/docs/claude-code/setup),
+you need to either use WSL or Git for Windows.
+With WSL, the [installation](https://chatgpt.com/share/687bee87-4450-800d-953b-c0e229b73520) might not straightforward.
+
+**Start Claude**
+
+Inside the same terminal, run the following to start [Claude Code CLI](https://www.anthropic.com/claude-code)
 
 	npx @anthropic-ai/claude-code
 
