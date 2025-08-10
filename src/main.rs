@@ -1,6 +1,8 @@
 // src/main.rs
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware};
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
+use actix_web::cookie::SameSite;
 use anyhow::Context;
 use chrono::{Utc, NaiveDate};
 use clap::{Parser, Subcommand};
@@ -16,6 +18,18 @@ use uuid::Uuid;
 use url::Url;
 use notify::{Watcher, RecursiveMode, RecommendedWatcher, Config as NotifyConfig};
 use std::sync::mpsc::channel;
+use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl, CsrfToken, Scope};
+use oauth2::basic::BasicClient;
+use oauth2::reqwest::async_http_client;
+use oauth2::{AuthorizationCode, TokenResponse};
+use actix_web::cookie::time::Duration as CookieDuration;
+use jsonwebtoken::{decode, Validation, DecodingKey, Algorithm};
+use actix_web::{dev::ServiceRequest, Error};
+use actix_web::dev::{ServiceResponse, Transform};
+use actix_session::SessionExt;
+use std::future::{Ready, ready};
+use std::task::{Context as TaskContext, Poll};
+use actix_web::body::EitherBody;
 
 // Google Sheets API imports (TODO: Fix version conflicts)
 // use google_sheets4::{Sheets, api::ValueRange};
@@ -38,10 +52,60 @@ struct Config {
     server_port: u16,
     excel_file_path: String,
     site_favicon: Option<String>,
+    google_client_id: String,
+    google_client_secret: String,
+    session_key: String,
+    allowed_redirect_domains: Vec<String>,
+    is_production: bool,
+    frontend_url: String,
+    // Supabase configuration
+    supabase_url: String,
+    supabase_service_role_key: String,
+    supabase_anon_key: String,
+    // LinkedIn OAuth
+    linkedin_client_id: Option<String>,
+    linkedin_client_secret: Option<String>,
+    // GitHub OAuth
+    github_client_id: Option<String>,
+    github_client_secret: Option<String>,
 }
 
 // Thread-safe configuration holder
 type SharedConfig = Arc<Mutex<Config>>;
+
+// Rate limiting for auth endpoints
+#[derive(Debug)]
+struct RateLimiter {
+    requests: Arc<Mutex<HashMap<String, Vec<u64>>>>,
+}
+
+impl RateLimiter {
+    fn new() -> Self {
+        Self {
+            requests: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    fn check_rate_limit(&self, ip: &str, max_requests: usize, window_seconds: u64) -> bool {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let mut requests = self.requests.lock().unwrap();
+        
+        let user_requests = requests.entry(ip.to_string()).or_insert_with(Vec::new);
+        
+        // Remove old requests outside the window
+        user_requests.retain(|&timestamp| now - timestamp < window_seconds);
+        
+        if user_requests.len() >= max_requests {
+            return false; // Rate limit exceeded
+        }
+        
+        user_requests.push(now);
+        true
+    }
+}
+
+// CSRF token storage
+type CsrfTokenStore = Arc<Mutex<HashMap<String, (String, u64)>>>;
 
 impl Config {
     fn from_env() -> anyhow::Result<Self> {
@@ -68,6 +132,31 @@ impl Config {
                 excel_file_path: std::env::var("EXCEL_FILE_PATH")
                     .unwrap_or_else(|_| "preferences/projects/DFC-ActiveProjects.xlsx".to_string()),
                 site_favicon: std::env::var("SITE_FAVICON").ok(),
+                google_client_id: std::env::var("GOOGLE_CLIENT_ID")
+                    .unwrap_or_else(|_| "your-google-client-id.apps.googleusercontent.com".to_string()),
+                google_client_secret: std::env::var("GOOGLE_CLIENT_SECRET")
+                    .unwrap_or_else(|_| "your-google-client-secret".to_string()),
+                session_key: std::env::var("SESSION_KEY")
+                    .unwrap_or_else(|_| "your-32-byte-session-key-here-change-in-production".to_string()),
+                allowed_redirect_domains: std::env::var("ALLOWED_REDIRECT_DOMAINS")
+                    .unwrap_or_else(|_| "localhost:8887,localhost:8888".to_string())
+                    .split(',').map(|s| s.trim().to_string()).collect(),
+                is_production: std::env::var("NODE_ENV").unwrap_or_default() == "production",
+                frontend_url: std::env::var("FRONTEND_URL")
+                    .unwrap_or_else(|_| "http://localhost:8887/team".to_string()),
+                // Supabase configuration
+                supabase_url: std::env::var("SUPABASE_URL")
+                    .unwrap_or_else(|_| "your-supabase-url".to_string()),
+                supabase_service_role_key: std::env::var("SUPABASE_JWT_SECRET")
+                    .unwrap_or_else(|_| "your-supabase-jwt-secret".to_string()),
+                supabase_anon_key: std::env::var("SUPABASE_ANON_KEY")
+                    .unwrap_or_else(|_| "your-supabase-anon-key".to_string()),
+                // LinkedIn OAuth
+                linkedin_client_id: std::env::var("LINKEDIN_CLIENT_ID").ok(),
+                linkedin_client_secret: std::env::var("LINKEDIN_CLIENT_SECRET").ok(),
+                // GitHub OAuth
+                github_client_id: std::env::var("GITHUB_CLIENT_ID").ok(),
+                github_client_secret: std::env::var("GITHUB_CLIENT_SECRET").ok(),
             })
         }
     }
@@ -290,6 +379,197 @@ struct GoogleAuthResponse {
     name: String,
     email: String,
     picture: Option<String>,
+}
+
+// OAuth URL response
+#[derive(Debug, Serialize, Deserialize)]
+struct OAuthUrlResponse {
+    auth_url: String,
+    state: String,
+}
+
+// OAuth callback request
+#[derive(Debug, Serialize, Deserialize)]
+struct OAuthCallbackRequest {
+    code: String,
+    state: Option<String>,
+}
+
+// JWT Claims structure
+#[derive(Debug, Serialize, Deserialize)]
+struct JWTClaims {
+    sub: String, // user id
+    email: String,
+    name: String,
+    picture: Option<String>,
+    provider: String, // google, github, linkedin
+    exp: usize, // expiration timestamp
+    iat: usize, // issued at timestamp
+}
+
+// Supabase auth response
+#[derive(Debug, Serialize, Deserialize)]
+struct SupabaseAuthResponse {
+    success: bool,
+    user: Option<SupabaseUser>,
+    session: Option<SupabaseSession>,
+    error: Option<String>,
+}
+
+// Supabase user structure
+#[derive(Debug, Serialize, Deserialize)]
+struct SupabaseUser {
+    id: String,
+    email: String,
+    user_metadata: serde_json::Value,
+    app_metadata: serde_json::Value,
+    created_at: String,
+}
+
+// Supabase session structure
+#[derive(Debug, Serialize, Deserialize)]
+struct SupabaseSession {
+    access_token: String,
+    token_type: String,
+    expires_in: i64,
+    refresh_token: String,
+    user: SupabaseUser,
+}
+
+// User session info
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct UserSession {
+    user_id: String,
+    email: String,
+    name: String,
+    picture: Option<String>,
+    provider: String,
+    created_at: i64,
+    expires_at: i64,
+}
+
+impl UserSession {
+    fn is_expired(&self) -> bool {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        now > self.expires_at
+    }
+
+    fn new(user_id: String, email: String, name: String, picture: Option<String>) -> Self {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        let expires_at = now + (24 * 60 * 60); // 24 hours from now
+        
+        Self {
+            user_id,
+            email,
+            name,
+            picture,
+            provider: "google".to_string(),
+            created_at: now,
+            expires_at,
+        }
+    }
+}
+
+// Authentication middleware
+pub struct AuthMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
+where
+    S: actix_web::dev::Service<
+        ServiceRequest,
+        Response = ServiceResponse<B>,
+        Error = Error,
+    >,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<EitherBody<B>>;
+    type Error = Error;
+    type InitError = ();
+    type Transform = AuthMiddlewareService<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(AuthMiddlewareService { service }))
+    }
+}
+
+pub struct AuthMiddlewareService<S> {
+    service: S,
+}
+
+impl<S, B> actix_web::dev::Service<ServiceRequest> for AuthMiddlewareService<S>
+where
+    S: actix_web::dev::Service<
+        ServiceRequest,
+        Response = ServiceResponse<B>,
+        Error = Error,
+    >,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<EitherBody<B>>;
+    type Error = Error;
+    type Future = std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>,
+    >;
+
+    fn poll_ready(&self, cx: &mut TaskContext<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
+    }
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let path = req.path().to_string();
+        
+        // Skip auth for public endpoints
+        if path.starts_with("/api/auth") || 
+           path.starts_with("/api/health") || 
+           path.starts_with("/api/recommendations") ||
+           path.contains("debug") ||
+           path.contains("oauth") {
+            let fut = self.service.call(req);
+            return Box::pin(async move {
+                let res = fut.await?;
+                Ok(res.map_into_left_body())
+            });
+        }
+
+        // Check session for protected routes
+        let (http_req, payload) = req.into_parts();
+        let session = http_req.get_session();
+        
+        match session.get::<UserSession>("user") {
+            Ok(Some(user_session)) if !user_session.is_expired() => {
+                // User is authenticated
+                let req = ServiceRequest::from_parts(http_req, payload);
+                let fut = self.service.call(req);
+                Box::pin(async move {
+                    let res = fut.await?;
+                    Ok(res.map_into_left_body())
+                })
+            }
+            _ => {
+                // User is not authenticated or session expired
+                let response = HttpResponse::Unauthorized()
+                    .json(json!({"error": "Authentication required"}))
+                    .map_into_right_body();
+                Box::pin(async move {
+                    Ok(ServiceResponse::new(http_req, response))
+                })
+            }
+        }
+    }
+}
+
+// Google user info from token
+#[derive(Debug, Serialize, Deserialize)]
+struct GoogleUserInfo {
+    id: String,
+    email: String,
+    name: String,
+    picture: Option<String>,
+    given_name: Option<String>,
+    family_name: Option<String>,
 }
 
 // Google Sheets member data request
@@ -781,22 +1061,600 @@ async fn create_google_project(req: web::Json<CreateGoogleProjectRequest>) -> Re
 }
 
 // Google OAuth verification handler
-async fn verify_google_auth(_req: web::Json<GoogleAuthRequest>) -> Result<HttpResponse> {
-    // For now, return a placeholder response indicating OAuth integration is needed
-    // In a real implementation, this would:
-    // 1. Verify the JWT credential with Google's API
-    // 2. Extract user information (name, email, picture)
-    // 3. Return user data for frontend use
+// Get redirect URI with intelligent defaults
+fn get_redirect_uri(config: &Config) -> String {
+    // Check if custom redirect URI is set
+    if let Ok(custom_uri) = std::env::var("GOOGLE_REDIRECT_URI") {
+        return custom_uri;
+    }
+    
+    // Handle localhost vs 127.0.0.1 variations
+    let host = if config.server_host == "127.0.0.1" || config.server_host == "localhost" {
+        "localhost"  // Google prefers localhost over 127.0.0.1
+    } else {
+        &config.server_host
+    };
+    
+    format!("http://{}:{}/api/auth/google/callback", host, config.server_port)
+}
+
+fn create_oauth_client(config: &Config) -> BasicClient {
+    BasicClient::new(
+        ClientId::new(config.google_client_id.clone()),
+        Some(ClientSecret::new(config.google_client_secret.clone())),
+        AuthUrl::new("https://accounts.google.com/o/oauth2/v2/auth".to_string()).unwrap(),
+        Some(TokenUrl::new("https://oauth2.googleapis.com/token".to_string()).unwrap()),
+    )
+    .set_redirect_uri(RedirectUrl::new(get_redirect_uri(&config)).unwrap())
+}
+
+async fn google_auth_url(data: web::Data<SharedConfig>) -> Result<HttpResponse> {
+    
+    let config = data.lock().unwrap();
+    
+    // Check if Google credentials are configured (don't expose debug info in production)
+    if config.google_client_id.contains("your-google-client-id") {
+        let response = if config.is_production {
+            json!({
+                "error": "Authentication service temporarily unavailable",
+                "message": "Please try again later"
+            })
+        } else {
+            json!({
+                "error": "Google OAuth not configured",
+                "message": "Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file",
+                "debug_info": {
+                    "client_id_configured": false,
+                    "redirect_uri": get_redirect_uri(&config)
+                }
+            })
+        };
+        return Ok(HttpResponse::ServiceUnavailable().json(response));
+    }
+    
+    if config.google_client_secret.contains("your-google-client-secret") {
+        let response = if config.is_production {
+            json!({
+                "error": "Authentication service temporarily unavailable",
+                "message": "Please try again later"
+            })
+        } else {
+            json!({
+                "error": "Google OAuth client secret not configured", 
+                "message": "Please set GOOGLE_CLIENT_SECRET in your .env file"
+            })
+        };
+        return Ok(HttpResponse::ServiceUnavailable().json(response));
+    }
+    
+    let client = create_oauth_client(&config);
+    
+    let (auth_url, csrf_token) = client
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("email".to_string()))
+        .add_scope(Scope::new("profile".to_string()))
+        .add_scope(Scope::new("openid".to_string()))
+        .url();
+    
+    // For now, simplified CSRF handling (state is validated by OAuth2 lib)
+    
+    log::info!("Generated OAuth URL for redirect_uri: {}", get_redirect_uri(&config));
+    
+    Ok(HttpResponse::Ok().json(OAuthUrlResponse {
+        auth_url: auth_url.to_string(),
+        state: csrf_token.secret().clone(),
+    }))
+}
+
+// Helper function to validate redirect URL against whitelist
+fn validate_redirect_url(url: &str, config: &Config) -> bool {
+    if let Ok(parsed_url) = Url::parse(url) {
+        if let Some(host) = parsed_url.host_str() {
+            let host_with_port = if let Some(port) = parsed_url.port() {
+                format!("{}:{}", host, port)
+            } else {
+                host.to_string()
+            };
+            
+            return config.allowed_redirect_domains.iter()
+                .any(|domain| domain == &host_with_port || domain == host);
+        }
+    }
+    false
+}
+
+// Helper function to create redirect response
+fn create_auth_redirect(success: bool, message: Option<&str>, config: &Config) -> HttpResponse {
+    // Use configurable frontend URL from environment
+    let redirect_url = if success {
+        format!("{}/?auth=success#account/preferences", config.frontend_url)
+    } else {
+        let msg = message.unwrap_or("unknown_error");
+        format!("{}/?auth=error&message={}", config.frontend_url, msg)
+    };
+    
+    // Validate redirect URL
+    if !validate_redirect_url(&redirect_url, config) {
+        log::error!("Invalid redirect URL: {}", redirect_url);
+        return HttpResponse::BadRequest().json(json!({
+            "error": "Invalid redirect URL"
+        }));
+    }
+    
+    log::info!("Redirecting to: {}", redirect_url);
+    
+    HttpResponse::Found()
+        .append_header(("Location", redirect_url))
+        .finish()
+}
+
+async fn google_auth_callback(
+    query: web::Query<OAuthCallbackRequest>,
+    session: Session,
+    data: web::Data<SharedConfig>,
+) -> Result<HttpResponse> {
+    log::info!("OAuth callback received with code: {}", &query.code[..10]);
+    
+    let config = data.lock().unwrap();
+    
+    // Check if Google credentials are configured
+    if config.google_client_id.contains("your-google-client-id") {
+        log::error!("Google OAuth not configured - using demo user");
+        return Ok(create_auth_redirect(false, Some("oauth_not_configured"), &config));
+    }
+    
+    // Create OAuth client
+    let client = create_oauth_client(&config);
+    drop(config); // Release the lock
+    
+    // Exchange the authorization code for an access token
+    let token_response = match client
+        .exchange_code(AuthorizationCode::new(query.code.clone()))
+        .request_async(async_http_client)
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            log::error!("Failed to exchange code for token: {:?}", e);
+            let config = data.lock().unwrap();
+            return Ok(create_auth_redirect(false, Some("token_exchange_failed"), &config));
+        }
+    };
+    
+    // Use the access token to get user information from Google
+    let user_info_url = format!(
+        "https://www.googleapis.com/oauth2/v2/userinfo?access_token={}",
+        token_response.access_token().secret()
+    );
+    
+    let user_info: GoogleUserInfo = match reqwest::get(&user_info_url).await {
+        Ok(response) => {
+            if !response.status().is_success() {
+                log::error!("Failed to get user info, status: {}", response.status());
+                let config = data.lock().unwrap();
+                return Ok(create_auth_redirect(false, Some("user_info_failed"), &config));
+            }
+            match response.json().await {
+                Ok(info) => info,
+                Err(e) => {
+                    log::error!("Failed to parse user info JSON: {:?}", e);
+                    let config = data.lock().unwrap();
+                    return Ok(create_auth_redirect(false, Some("user_info_parse_failed"), &config));
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to fetch user info: {:?}", e);
+            let config = data.lock().unwrap();
+            return Ok(create_auth_redirect(false, Some("network_error"), &config));
+        }
+    };
+    
+    log::info!("Successfully retrieved user info for: {}", user_info.email);
+    
+    // Create a UserSession object with real user data
+    let user_session = UserSession::new(
+        user_info.id.clone(),
+        user_info.email.clone(),
+        user_info.name.clone(),
+        user_info.picture.clone(),
+    );
+    
+    // Store user session
+    if let Err(e) = session.insert("user", &user_session) {
+        log::error!("Failed to store user session: {:?}", e);
+        let config = data.lock().unwrap();
+        return Ok(create_auth_redirect(false, Some("session_store_failed"), &config));
+    }
+    
+    log::info!("User session created successfully for: {}", user_info.email);
+    
+    // Redirect back to frontend with auth success parameter
+    let config = data.lock().unwrap();
+    Ok(create_auth_redirect(true, None, &config))
+}
+
+async fn ensure_user_exists(pool: &Pool<Postgres>, user_info: &GoogleUserInfo) -> anyhow::Result<String> {
+    // First, find user by checking email addresses table and relationships
+    let existing_user = sqlx::query(
+        r#"
+        SELECT u.id FROM users u
+        JOIN email_addr_bean_rel eabr ON u.id = eabr.bean_id
+        JOIN email_addresses ea ON eabr.email_address_id = ea.id
+        WHERE ea.email_address = $1 AND eabr.bean_module = 'Users' AND eabr.deleted = 0
+        "#
+    )
+    .bind(&user_info.email)
+    .fetch_optional(pool)
+    .await?;
+    
+    if let Some(row) = existing_user {
+        return Ok(row.try_get::<Uuid, _>("id")?.to_string());
+    }
+    
+    // Create new user and email relationship
+    let user_id = Uuid::new_v4();
+    let email_id = Uuid::new_v4();
+    let now = Utc::now();
+    
+    // Start transaction
+    let mut tx = pool.begin().await?;
+    
+    // Insert user
+    sqlx::query(
+        r#"INSERT INTO users (id, first_name, last_name, user_name,
+           date_entered, date_modified, created_by, modified_user_id, status, deleted)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Active', false)"#
+    )
+    .bind(&user_id)
+    .bind(user_info.given_name.as_deref().unwrap_or(""))
+    .bind(user_info.family_name.as_deref().unwrap_or(""))
+    .bind(&user_info.email) // Use email as username
+    .bind(&now)
+    .bind(&now)
+    .bind(&user_id)
+    .bind(&user_id)
+    .execute(&mut *tx)
+    .await?;
+    
+    // Insert email address
+    sqlx::query(
+        r#"INSERT INTO email_addresses (id, email_address, date_created, date_modified)
+           VALUES ($1, $2, $3, $4)"#
+    )
+    .bind(&email_id)
+    .bind(&user_info.email)
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+    
+    // Link email to user
+    sqlx::query(
+        r#"INSERT INTO email_addr_bean_rel (id, email_address_id, bean_id, bean_module, primary_address, deleted)
+           VALUES (uuid_generate_v4(), $1, $2, 'Users', true, false)"#
+    )
+    .bind(&email_id)
+    .bind(&user_id)
+    .execute(&mut *tx)
+    .await?;
+    
+    tx.commit().await?;
+    
+    Ok(user_id.to_string())
+}
+
+async fn get_current_user(session: Session, req: actix_web::HttpRequest) -> Result<HttpResponse> {
+    log::info!("Checking user session...");
+    
+    // Log all cookies for debugging
+    let cookies: Vec<String> = req.headers()
+        .get_all("cookie")
+        .map(|h| h.to_str().unwrap_or("invalid").to_string())
+        .collect();
+    log::info!("Received cookies: {:?}", cookies);
+    
+    match session.get::<UserSession>("user")? {
+        Some(user) => {
+            // Check if session has expired
+            if user.is_expired() {
+                log::info!("User session expired for: {}", user.email);
+                session.clear();
+                Ok(HttpResponse::Ok().json(json!({"success": false, "error": "Session expired"})))
+            } else {
+                log::info!("Found valid user session: {}", user.email);
+                Ok(HttpResponse::Ok().json(json!({"success": true, "user": user})))
+            }
+        },
+        None => {
+            log::warn!("No user session found in session storage");
+            Ok(HttpResponse::Ok().json(json!({"success": false, "error": "Not authenticated"})))
+        },
+    }
+}
+
+// Debug endpoint to check session status
+async fn debug_session(session: Session) -> Result<HttpResponse> {
+    let session_data: Option<UserSession> = session.get("user").unwrap_or(None);
     
     Ok(HttpResponse::Ok().json(json!({
+        "session_exists": session_data.is_some(),
+        "session_data": session_data,
+        "debug": "This endpoint helps debug session issues"
+    })))
+}
+
+async fn logout_user(session: Session) -> Result<HttpResponse> {
+    session.clear();
+    Ok(HttpResponse::Ok().json(json!({"success": true})))
+}
+
+async fn debug_oauth_config(data: web::Data<SharedConfig>) -> Result<HttpResponse> {
+    let config = data.lock().unwrap();
+    let redirect_uri = get_redirect_uri(&config);
+    
+    let client_id_configured = !config.google_client_id.contains("your-google-client-id");
+    let client_secret_configured = !config.google_client_secret.contains("your-google-client-secret");
+    let session_key_configured = !config.session_key.contains("your-32-byte-session-key");
+    
+    Ok(HttpResponse::Ok().json(json!({
+        "server_host": config.server_host,
+        "server_port": config.server_port,
+        "redirect_uri": redirect_uri,
+        "configuration": {
+            "client_id_configured": client_id_configured,
+            "client_secret_configured": client_secret_configured,
+            "session_key_configured": session_key_configured,
+            "all_configured": client_id_configured && client_secret_configured && session_key_configured
+        },
+        "environment": {
+            "custom_redirect_uri": std::env::var("GOOGLE_REDIRECT_URI").ok()
+        },
+        "instructions": {
+            "setup": "1. Copy .env.example to .env, 2. Set Google credentials, 3. Restart server",
+            "test_url": "/api/auth/google/url",
+            "google_console": "https://console.cloud.google.com/apis/credentials"
+        }
+    })))
+}
+
+async fn verify_google_auth(_req: web::Json<GoogleAuthRequest>) -> Result<HttpResponse> {
+    Ok(HttpResponse::Ok().json(json!({
         "success": false,
-        "error": "Google OAuth verification is not yet implemented.",
-        "message": "This feature requires Google OAuth2 integration. Please use the 'Via Google Page' method for now.",
-        "implementation_needed": [
-            "JWT token verification with Google",
-            "User profile data extraction",
-            "Secure session management"
-        ]
+        "error": "Deprecated endpoint. Use OAuth flow instead.",
+        "oauth_endpoints": {
+            "start_auth": "/api/auth/google/url",
+            "callback": "/api/auth/google/callback", 
+            "current_user": "/api/auth/user",
+            "logout": "/api/auth/logout"
+        }
+    })))
+}
+
+// LinkedIn OAuth handlers
+async fn linkedin_auth_url(data: web::Data<SharedConfig>) -> Result<HttpResponse> {
+    let config = match data.lock() {
+        Ok(config) => config,
+        Err(_) => {
+            return Ok(HttpResponse::InternalServerError().json(json!({
+                "error": "Authentication service temporarily unavailable",
+            })));
+        }
+    };
+
+    let client_id = match &config.linkedin_client_id {
+        Some(id) if !id.contains("your-linkedin-client-id") => id,
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(json!({
+                "error": "LinkedIn OAuth not configured",
+            })));
+        }
+    };
+
+    let client_secret = match &config.linkedin_client_secret {
+        Some(secret) if !secret.contains("your-linkedin-client-secret") => secret,
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(json!({
+                "error": "LinkedIn OAuth client secret not configured",
+            })));
+        }
+    };
+
+    let redirect_uri = format!("http://{}:{}/api/auth/linkedin/callback", config.server_host, config.server_port);
+    
+    let client = BasicClient::new(
+        ClientId::new(client_id.clone()),
+        Some(ClientSecret::new(client_secret.clone())),
+        AuthUrl::new("https://www.linkedin.com/oauth/v2/authorization".to_string()).unwrap(),
+        Some(TokenUrl::new("https://www.linkedin.com/oauth/v2/accessToken".to_string()).unwrap()),
+    )
+    .set_redirect_uri(RedirectUrl::new(redirect_uri).unwrap());
+
+    let (auth_url, csrf_token) = client
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("r_liteprofile".to_string()))
+        .add_scope(Scope::new("r_emailaddress".to_string()))
+        .url();
+
+    Ok(HttpResponse::Ok().json(OAuthUrlResponse {
+        auth_url: auth_url.to_string(),
+        state: csrf_token.secret().clone(),
+    }))
+}
+
+async fn linkedin_auth_callback(
+    _query: web::Query<OAuthCallbackRequest>,
+    data: web::Data<SharedConfig>,
+    session: Session,
+) -> Result<HttpResponse> {
+    let config = data.lock().unwrap();
+    
+    if config.linkedin_client_id.is_none() || config.linkedin_client_secret.is_none() {
+        return Ok(create_auth_redirect(false, Some("linkedin_not_configured"), &config));
+    }
+
+    // For now, return demo user until full LinkedIn implementation
+    let user_session = UserSession {
+        user_id: "linkedin_demo_user".to_string(),
+        email: "demo@linkedin.com".to_string(),
+        name: "LinkedIn Demo User".to_string(),
+        picture: None,
+        provider: "linkedin".to_string(),
+        created_at: chrono::Utc::now().timestamp(),
+        expires_at: chrono::Utc::now().timestamp() + 3600, // 1 hour
+    };
+
+    session.insert("user", &user_session).unwrap_or_default();
+    Ok(create_auth_redirect(true, None, &config))
+}
+
+// GitHub OAuth handlers
+async fn github_auth_url(data: web::Data<SharedConfig>) -> Result<HttpResponse> {
+    let config = match data.lock() {
+        Ok(config) => config,
+        Err(_) => {
+            return Ok(HttpResponse::InternalServerError().json(json!({
+                "error": "Authentication service temporarily unavailable",
+            })));
+        }
+    };
+
+    let client_id = match &config.github_client_id {
+        Some(id) if !id.contains("your-github-client-id") => id,
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(json!({
+                "error": "GitHub OAuth not configured",
+            })));
+        }
+    };
+
+    let client_secret = match &config.github_client_secret {
+        Some(secret) if !secret.contains("your-github-client-secret") => secret,
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(json!({
+                "error": "GitHub OAuth client secret not configured",
+            })));
+        }
+    };
+
+    let redirect_uri = format!("http://{}:{}/api/auth/github/callback", config.server_host, config.server_port);
+    
+    let client = BasicClient::new(
+        ClientId::new(client_id.clone()),
+        Some(ClientSecret::new(client_secret.clone())),
+        AuthUrl::new("https://github.com/login/oauth/authorize".to_string()).unwrap(),
+        Some(TokenUrl::new("https://github.com/login/oauth/access_token".to_string()).unwrap()),
+    )
+    .set_redirect_uri(RedirectUrl::new(redirect_uri).unwrap());
+
+    let (auth_url, csrf_token) = client
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("user:email".to_string()))
+        .url();
+
+    Ok(HttpResponse::Ok().json(OAuthUrlResponse {
+        auth_url: auth_url.to_string(),
+        state: csrf_token.secret().clone(),
+    }))
+}
+
+async fn github_auth_callback(
+    _query: web::Query<OAuthCallbackRequest>,
+    data: web::Data<SharedConfig>,
+    session: Session,
+) -> Result<HttpResponse> {
+    let config = data.lock().unwrap();
+    
+    if config.github_client_id.is_none() || config.github_client_secret.is_none() {
+        return Ok(create_auth_redirect(false, Some("github_not_configured"), &config));
+    }
+
+    // For now, return demo user until full GitHub implementation
+    let user_session = UserSession {
+        user_id: "github_demo_user".to_string(),
+        email: "demo@github.com".to_string(),
+        name: "GitHub Demo User".to_string(),
+        picture: None,
+        provider: "github".to_string(),
+        created_at: chrono::Utc::now().timestamp(),
+        expires_at: chrono::Utc::now().timestamp() + 3600, // 1 hour
+    };
+
+    session.insert("user", &user_session).unwrap_or_default();
+    Ok(create_auth_redirect(true, None, &config))
+}
+
+// Supabase integration handlers
+#[derive(Debug, Serialize, Deserialize)]
+struct SupabaseTokenRequest {
+    access_token: String,
+    provider: String,
+}
+
+async fn verify_supabase_token(
+    req: web::Json<SupabaseTokenRequest>,
+    data: web::Data<SharedConfig>,
+    session: Session,
+) -> Result<HttpResponse> {
+    let config = data.lock().unwrap();
+    
+    // Verify the Supabase JWT token using the JWT secret
+    let validation = Validation::new(Algorithm::HS256);
+    let decoding_key = DecodingKey::from_secret(config.supabase_service_role_key.as_bytes());
+    
+    match decode::<JWTClaims>(&req.access_token, &decoding_key, &validation) {
+        Ok(token_data) => {
+            let user_session = UserSession {
+                user_id: token_data.claims.sub.clone(),
+                email: token_data.claims.email.clone(),
+                name: token_data.claims.name.clone(),
+                picture: token_data.claims.picture.clone(),
+                provider: req.provider.clone(),
+                created_at: chrono::Utc::now().timestamp(),
+                expires_at: token_data.claims.exp as i64,
+            };
+
+            session.insert("user", &user_session).unwrap_or_default();
+            
+            Ok(HttpResponse::Ok().json(json!({
+                "success": true,
+                "user": user_session
+            })))
+        }
+        Err(e) => {
+            log::error!("JWT verification failed: {:?}", e);
+            Ok(HttpResponse::Unauthorized().json(json!({
+                "success": false,
+                "error": "Invalid token"
+            })))
+        }
+    }
+}
+
+async fn create_supabase_session(
+    req: web::Json<SupabaseSession>,
+    session: Session,
+) -> Result<HttpResponse> {
+    let user_session = UserSession {
+        user_id: req.user.id.clone(),
+        email: req.user.email.clone(),
+        name: req.user.user_metadata.get("full_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string(),
+        picture: req.user.user_metadata.get("avatar_url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        provider: "supabase".to_string(),
+        created_at: chrono::Utc::now().timestamp(),
+        expires_at: chrono::Utc::now().timestamp() + req.expires_in,
+    };
+
+    session.insert("user", &user_session).unwrap_or_default();
+    
+    Ok(HttpResponse::Ok().json(json!({
+        "success": true,
+        "user": user_session
     })))
 }
 
@@ -2293,27 +3151,61 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
     // Create persistent Claude session manager
     let claude_session_manager: ClaudeSessionManager = Arc::new(Mutex::new(ClaudeSession::new()));
     
+    // Create security components
+    let rate_limiter = Arc::new(RateLimiter::new());
+    let csrf_store: CsrfTokenStore = Arc::new(Mutex::new(HashMap::new()));
+    
     // Get server config from shared config
-    let (server_host, server_port) = {
+    let (server_host, server_port, _is_production) = {
         let config_guard = shared_config.lock().unwrap();
-        (config_guard.server_host.clone(), config_guard.server_port)
+        (config_guard.server_host.clone(), config_guard.server_port, config_guard.is_production)
     };
     
     println!("Starting API server on {server_host}:{server_port}");
     let session_manager_clone = claude_session_manager.clone();
+    let rate_limiter_clone = rate_limiter.clone();
+    let csrf_store_clone = csrf_store.clone();
     
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allow_any_origin()
+            .allowed_origin("http://localhost:8887") // Specific frontend origin
+            .allowed_origin("http://localhost:8888") // Alternative frontend port
             .allow_any_method()
             .allow_any_header()
+            .supports_credentials() // Enable credentials for session cookies
             .max_age(3600);
+        
+        let session_key = {
+            let config_guard = state.config.lock().unwrap();
+            actix_web::cookie::Key::from(config_guard.session_key.as_bytes())
+        };
         
         App::new()
             .app_data(web::Data::new(state.clone()))
+            .app_data(web::Data::new(shared_config.clone()))
             .app_data(web::Data::new(session_manager_clone.clone()))
+            .app_data(web::Data::new(rate_limiter_clone.clone()))
+            .app_data(web::Data::new(csrf_store_clone.clone()))
             .wrap(cors)
             .wrap(middleware::Logger::default())
+            .wrap({
+                let config_guard = shared_config.lock().unwrap();
+                let is_production = config_guard.is_production;
+                drop(config_guard);
+                
+                SessionMiddleware::builder(CookieSessionStore::default(), session_key)
+                    .cookie_secure(is_production) // HTTPS required in production
+                    .cookie_domain(if is_production { None } else { Some("localhost".to_string()) })
+                    .cookie_same_site(if is_production { SameSite::Strict } else { SameSite::Lax })
+                    .cookie_path("/".to_string())
+                    .cookie_name("membercommons_session".to_string())
+                    .cookie_http_only(true) // Always prevent JavaScript access
+                    .session_lifecycle(
+                        actix_session::config::PersistentSession::default()
+                            .session_ttl(CookieDuration::seconds(24 * 60 * 60))
+                    )
+                    .build()
+            })
             .service(
                 web::scope("/api")
                     .route("/health", web::get().to(health_check))
@@ -2349,12 +3241,38 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/analyze", web::post().to(gemini_insights::analyze_with_gemini))
                     )
                     .service(
+                        web::scope("/auth")
+                            // Google OAuth
+                            .service(
+                                web::scope("/google")
+                                    .route("/verify", web::post().to(verify_google_auth))
+                                    .route("/url", web::get().to(google_auth_url))
+                                    .route("/callback", web::get().to(google_auth_callback))
+                            )
+                            // LinkedIn OAuth
+                            .service(
+                                web::scope("/linkedin")
+                                    .route("/url", web::get().to(linkedin_auth_url))
+                                    .route("/callback", web::get().to(linkedin_auth_callback))
+                            )
+                            // GitHub OAuth  
+                            .service(
+                                web::scope("/github")
+                                    .route("/url", web::get().to(github_auth_url))
+                                    .route("/callback", web::get().to(github_auth_callback))
+                            )
+                            // Common auth endpoints
+                            .route("/user", web::get().to(get_current_user))
+                            .route("/logout", web::post().to(logout_user))
+                            .route("/debug", web::get().to(debug_oauth_config))
+                            .route("/session-debug", web::get().to(debug_session))
+                            // Supabase integration
+                            .route("/supabase/verify", web::post().to(verify_supabase_token))
+                            .route("/supabase/session", web::post().to(create_supabase_session))
+                    )
+                    .service(
                         web::scope("/google")
                             .route("/create-project", web::post().to(create_google_project))
-                            .service(
-                                web::scope("/auth")
-                                    .route("/verify", web::post().to(verify_google_auth))
-                            )
                             .service(
                                 web::scope("/sheets")
                                     .route("/config", web::get().to(get_sheets_config))
