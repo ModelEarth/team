@@ -1,70 +1,72 @@
-# =====================
-# 1. Sensitive configs
-# =====================
+# Configuration files with sensitive data
 config/settings.js
 config/keys.json
 config/.env
 settings.local.json
 
-# Keys & secrets
+# Auth keys and secrets
 *.key
 *.pem
-env/
+env/*
 .env
-.env.*
-!.env.example  # Keep example env files in repo
+.env.local
+.env.production
 
-# =====================
-# 2. Logs & runtime data
-# =====================
+# Logs
 *.log
 logs/
+
+# Runtime data
 pids
 *.pid
 *.seed
 *.pid.lock
 
-# =====================
-# 3. Coverage / testing
-# =====================
+# Coverage directory used by tools like istanbul
 coverage/
 *.lcov
+
+# nyc test coverage
 .nyc_output
 
-# =====================
-# 4. Dependencies
-# =====================
+# Dependency directories
 node_modules/
+
+# Optional npm cache directory
 .npm
-.yarn-integrity
 
-# Rust target directory
-target/
+# Optional REPL history
+.node_repl_history
 
-# =====================
-# 5. Build / cache output
-# =====================
-.cache
-.parcel-cache
-.next
-.nuxt
-.vuepress/dist
-.serverless
-
-# Optional: compiled bundles
+# Output of 'npm pack'
 *.tgz
 
-# =====================
-# 6. IDE / editor files
-# =====================
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# =====================
-# 7. OS / miscellaneous
-# =====================
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -73,13 +75,10 @@ target/
 ehthumbs.db
 Thumbs.db
 
-# =====================
-# 8. Backups & dumps
-# =====================
+# Rust target directory
+target/
+*.tgz
+
+# Backup files
 *.bak
 *.backup
-.gcloud/*
-!*.md
-
-# JSON files (if containing sensitive data)
-*.json

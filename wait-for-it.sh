@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # wait-for-it.sh: Wait until a host:port becomes available
-
+# NOTE: may not be used in db yet
 # Usage:
 #   ./wait-for-it.sh host port [-- command args...]
 
