@@ -12,7 +12,7 @@ primary_region = "sin"
 
   # Postgres via Fly private network proxy on :5432
   # (Your PG machine listens on 5433, but the proxy you connect to is 5432.)
-  COMMONS_HOST = "model-earth-db.internal"
+  COMMONS_HOST = "model-earth-db.flycast"
   COMMONS_PORT = "5432"
   COMMONS_NAME = "ModelEarthDB"
   COMMONS_USER = "postgres"
