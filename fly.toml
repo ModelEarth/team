@@ -1,0 +1,56 @@
+# --- Fly app config for the Rust API (gemini_crm) ---
+app = "membercommons-team-api"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Actix server (your binary binds to this)
+  SERVER_HOST = "0.0.0.0"
+  SERVER_PORT = "8081"
+
+  # Postgres via Fly private network proxy on :5432
+  # (Your PG machine listens on 5433, but the proxy you connect to is 5432.)
+  COMMONS_HOST = "model-earth-db.internal"
+  COMMONS_PORT = "5432"
+  COMMONS_NAME = "ModelEarthDB"
+  COMMONS_USER = "postgres"
+  COMMONS_SSL_MODE = "disable"  # switch to "require" if/when you enable TLS
+
+  # Do NOT set passwords or API keys here; use `fly secrets set`.
+  # GEMINI_API_KEY and CLAUDE_API_KEY will be injected from secrets if you set them.
+
+# Public HTTP service → forwards to your app’s internal port 8081
+[[services]]
+  protocol = "tcp"
+  internal_port = 8081
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 150
+    hard_limit = 200
+
+  # Health check that hits your /api/health endpoint
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "10s"
+    method = "GET"
+    path = "/api/health"
+    protocol = "http"
+    tls_skip_verify = false
+    grace_period = "30s"
+
+# VM sizing (bump later if you need more headroom)
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"

@@ -1,55 +1,51 @@
-# ─── BUILD STAGE ────────────────────────────────────────────────
-FROM rust:1.88-slim as builder
+# ─────────────────────────────
+# BUILD STAGE
+# ─────────────────────────────
+FROM rust:1.88-slim AS builder
 
-# Add required system dependencies for building Rust app
+# System deps needed to compile with sqlx/postgres + openssl
 RUN apt-get update && apt-get install -y \
     libpq-dev \
+    libssl-dev \
     pkg-config \
     build-essential \
-    libssl-dev \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Optimize build cache by prefetching dependencies
+# Cache deps first
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo fetch
 
-# Now copy full source and build it
+# Now bring in the real sources and build release binary
 COPY . .
 RUN cargo build --release --bin gemini_crm
 
-
-
-# ─── RUNTIME STAGE ──────────────────────────────────────────────
+# ─────────────────────────────
+# RUNTIME STAGE
+# ─────────────────────────────
 FROM debian:bookworm-slim
 
-# Add only the runtime dependencies
+# Only runtime libs required by the compiled binary
 RUN apt-get update && apt-get install -y \
     libssl3 \
     libpq5 \
     ca-certificates \
-    netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy compiled Rust binary
+# Copy the compiled binary
 COPY --from=builder /app/target/release/gemini_crm ./gemini_crm
 
-# Copy static assets and runtime config
+# Copy static/runtime assets your app expects at runtime
 COPY admin admin
 COPY config config
 COPY preferences preferences
 
-# Copy the wait-for-it script into container
-COPY wait-for-it.sh ./wait-for-it.sh
-RUN chmod +x ./wait-for-it.sh
-
-# Expose app port
 EXPOSE 8081
 
-# Entrypoint waits for DB to be ready, then runs server
-ENTRYPOINT ["./wait-for-it.sh", "db", "5432", "--", "./gemini_crm", "serve"]
+# Keep startup simple & reproducible; health/waits handled by Compose/Fly
+ENTRYPOINT ["./gemini_crm", "serve"]

@@ -1,0 +1,42 @@
+# Build artifacts
+target
+**/target
+
+# Local & sensitive env
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+.idea
+.vscode
+
+# Node / web caches
+node_modules
+npm-debug.log
+yarn-error.log
+.cache
+.parcel-cache
+
+# Large local-only assets (keep image lean)
+*.psd
+*.ai
+*.zip
+
+# Raw SQL backups not needed in image
+admin/sql/*.backup
+
+# Optional: exclude big spreadsheets from build context.
+# If you need them in the container, comment this out (or COPY explicitly).
+!preferences/projects/*.xlsx
