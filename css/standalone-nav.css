@@ -140,7 +140,7 @@
     flex-shrink: 0;
 }
 
-/* Sidebar Footer */
+/* Sidebar Footer - Always visible at bottom */
 .sidebar-footer {
     margin-top: auto;
     border-top: 1px solid var(--border-light);

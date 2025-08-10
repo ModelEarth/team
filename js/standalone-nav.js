@@ -8,14 +8,34 @@ class StandaloneNavigation {
             return StandaloneNavigation.instance;
         }
         
+        // Auto-detect webroot container from script path
+        const autoDetected = this.detectWebrootFromScriptPath();
+        console.log('[Constructor] Auto-detected values:', autoDetected);
+        console.log('[Constructor] Options passed in:', options);
+        
         this.options = {
             basePath: options.basePath || '',
             currentPage: options.currentPage || 'admin',
-            isWebrootContainer: options.isWebrootContainer || false,
-            repoFolderName: options.repoFolderName || null,
+            // Use auto-detected values if they exist, otherwise fall back to options
+            isWebrootContainer: autoDetected.isWebrootContainer !== null ? autoDetected.isWebrootContainer : (options.isWebrootContainer || false),
+            repoFolderName: autoDetected.repoFolderName || options.repoFolderName || null,
+            webrootFolderName: autoDetected.webrootFolderName || options.webrootFolderName || null,
             isExternalSite: options.isExternalSite || false,
             ...options
         };
+        
+        // Override any conflicting options with auto-detected values if they exist
+        if (autoDetected.repoFolderName) {
+            this.options.repoFolderName = autoDetected.repoFolderName;
+        }
+        if (autoDetected.webrootFolderName) {
+            this.options.webrootFolderName = autoDetected.webrootFolderName;
+        }
+        if (autoDetected.isWebrootContainer !== null) {
+            this.options.isWebrootContainer = autoDetected.isWebrootContainer;
+        }
+        
+        console.log('[Constructor] Final options:', this.options);
         
         // Initialize collapsed state from localStorage immediately to prevent flash
         const savedCollapsed = localStorage.getItem('standaloneNavCollapsed');
@@ -46,6 +66,87 @@ class StandaloneNavigation {
         this.startPeriodicFaviconUpdate();
     }
     
+    // Auto-detect webroot container from script path
+    detectWebrootFromScriptPath() {
+        // Get the current script path
+        const scripts = document.getElementsByTagName('script');
+        let scriptSrc = '';
+        
+        // Find the standalone-nav.js script - check both src and resolved URL
+        for (const script of scripts) {
+            if (script.src && script.src.includes('standalone-nav.js')) {
+                scriptSrc = script.src;
+                console.log('[WebrootDetector] Found script element with src:', script.getAttribute('src'), 'resolved to:', script.src);
+                break;
+            }
+        }
+        
+        if (!scriptSrc) {
+            console.log('[WebrootDetector] Could not find standalone-nav.js script src');
+            return { isWebrootContainer: false, repoFolderName: null, webrootFolderName: null };
+        }
+        
+        console.log('[WebrootDetector] Script src:', scriptSrc);
+        
+        // Parse URL to get pathname
+        try {
+            const url = new URL(scriptSrc);
+            const pathname = url.pathname;
+            console.log('[WebrootDetector] Script pathname:', pathname);
+            
+            // Check for webroot container patterns
+            // Pattern 1: /{webrootFolder}/{repoFolder}/js/standalone-nav.js (two-level structure)
+            let match = pathname.match(/^\/([^\/]+)\/([^\/]+)\/js\/standalone-nav\.js$/);
+            
+            if (match) {
+                const [, firstFolder, secondFolder] = match;
+                
+                // Check if first folder looks like a webroot container name
+                const webrootNames = ['webroot', 'www', 'public', 'html', 'htdocs', 'public_html'];
+                const isLikelyWebroot = webrootNames.includes(firstFolder.toLowerCase());
+                
+                if (isLikelyWebroot) {
+                    console.log('[WebrootDetector] Detected webroot container:', { webrootName: firstFolder, repoName: secondFolder });
+                    
+                    return {
+                        isWebrootContainer: true,
+                        repoFolderName: secondFolder,
+                        webrootFolderName: firstFolder
+                    };
+                } else {
+                    // Could be a nested repo structure, treat second folder as repo
+                    console.log('[WebrootDetector] Detected nested structure (not webroot):', { parentFolder: firstFolder, repoName: secondFolder });
+                    
+                    return {
+                        isWebrootContainer: false,
+                        repoFolderName: secondFolder,
+                        webrootFolderName: null
+                    };
+                }
+            }
+            
+            // Pattern for direct repo serving: /{repoFolder}/js/standalone-nav.js
+            match = pathname.match(/^\/([^\/]+)\/js\/standalone-nav\.js$/);
+            if (match) {
+                const [, repoFolder] = match;
+                console.log('[WebrootDetector] Detected direct repo serving:', { repoName: repoFolder });
+                
+                return {
+                    isWebrootContainer: false,
+                    repoFolderName: repoFolder,
+                    webrootFolderName: null
+                };
+            }
+            
+            console.log('[WebrootDetector] No pattern matched, assuming relative path');
+            return { isWebrootContainer: false, repoFolderName: null, webrootFolderName: null };
+            
+        } catch (error) {
+            console.warn('[WebrootDetector] Error parsing script URL:', error);
+            return { isWebrootContainer: false, repoFolderName: null, webrootFolderName: null };
+        }
+    }
+
     // Debounced resize handler to prevent excessive calls
     checkMobile() {
         if (this.resizeTimeout) {
@@ -105,7 +206,7 @@ class StandaloneNavigation {
         
         // Calculate paths based on container type
         let rootPath, adminPath, logoPath;
-        
+        const webrootFolderName = this.options.webrootFolderName;
         if (isExternalSite) {
             // Called from external site, use absolute paths to repo folder
             const repoName = repoFolderName || 'team';
@@ -113,20 +214,37 @@ class StandaloneNavigation {
             adminPath = `/${repoName}/admin/`;
             logoPath = `/${repoName}/img/logo/neighborhood/favicon.png`;
         } else if (isWebrootContainer && repoFolderName) {
-            // In webroot container, need to include repo folder in paths
-            const repoPath = `/${repoFolderName}/`;
-            rootPath = repoPath;
-            adminPath = `${repoPath}admin/`;
-            logoPath = basePath ? `${basePath}${basePath.endsWith('/') ? '' : '/'}img/logo/neighborhood/favicon.png` : 'img/logo/neighborhood/favicon.png';
+            // In webroot container, need to include both webroot and repo folder in paths
+            if (webrootFolderName) {
+                rootPath = `/${webrootFolderName}/${repoFolderName}/`;
+                adminPath = `/${webrootFolderName}/${repoFolderName}/admin/`;
+                logoPath = `/${webrootFolderName}/${repoFolderName}/img/logo/neighborhood/favicon.png`;
+            } else {
+                // Fallback if webroot name not detected
+                const repoPath = `/${repoFolderName}/`;
+                rootPath = repoPath;
+                adminPath = `${repoPath}admin/`;
+                logoPath = `${repoPath}img/logo/neighborhood/favicon.png`;
+            }
         } else {
-            // Direct repo serving
+            // Direct repo serving or relative paths
             rootPath = basePath ? `${basePath}/` : './';
             adminPath = basePath ? `${basePath}/admin/` : './admin/';
             logoPath = basePath ? `${basePath}${basePath.endsWith('/') ? '' : '/'}img/logo/neighborhood/favicon.png` : 'img/logo/neighborhood/favicon.png';
         }
         
         // Debug logging
-        console.log('Navigation paths:', { repoFolderName, isWebrootContainer, isExternalSite, basePath, rootPath, adminPath, logoPath });
+        console.log('Navigation paths:', { 
+            repoFolderName, 
+            webrootFolderName, 
+            isWebrootContainer, 
+            isExternalSite, 
+            basePath, 
+            rootPath, 
+            adminPath, 
+            logoPath,
+            'options': this.options
+        });
         
         // Apply initial collapsed state to prevent flash
         const initialClasses = [
