@@ -6,7 +6,7 @@ authors = ["Loren Heyns <your.email@example.com>"]
 description = "Bolt AI Integration with Common SQL Rust REST API and Azure PostgreSQL"
 license = "MIT"
 repository = "https://github.com/modelearth/team"
-keywords = ["crm", "ai", "bolt.new", "suitecrm", "postgresql"]
+keywords = ["crm", "ai", "postgresql"]
 categories = ["command-line-utilities", "web-programming"]
 
 [dependencies]
@@ -97,7 +97,7 @@ opt-level = 0
 debug = true
 
 [[bin]]
-name = "gemini_crm"
+name = "partner_tools"
 path = "src/main.rs"
 
 [[bin]]

@@ -169,7 +169,7 @@ The `projects/index.html` page provides a user interface for loading and managin
 
 **Problem: FaviconManager making excessive API calls**
 - **Cause:** Periodic favicon updates running every 30 seconds
-- **Solution:** Disable periodic updates in `js/standalone-nav.js` by commenting out the `setInterval` in `startPeriodicFaviconUpdate()`
+- **Solution:** Disable periodic updates in `localsite/js/nav.js` by commenting out the `setInterval` in `startPeriodicFaviconUpdate()`
 
 **Problem: Buttons triggering multiple event handlers**
 - **Cause:** Event bubbling and multiple global click listeners

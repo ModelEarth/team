@@ -600,8 +600,8 @@ class ProjectsManager {
                 
                 <div class="projects-title-section" style="clear:both">
                     <h2 class="section-title">Project Opportunities</h2>
-                    <p><a href="../projects/">Our Active Projects</a></p>
-                    <p><a href="projects/#list=modelteam">Our Model Team</a></p>
+                    <p><a href="../projects/">Model.Earth Projects</a></p>
+                    <p><a href="projects/#list=modelteam">Model.Earth Team</a></p>
                 </div>
                 
                 <div class="projects-actions">

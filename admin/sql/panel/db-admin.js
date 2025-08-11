@@ -31,6 +31,11 @@ class DatabaseAdmin {
             }
         } catch (error) {
             this.addLog(`Failed to load .env config: ${error.message}`);
+            // Show API connection error in config display if available
+            const configDisplay = document.getElementById('config-display');
+            if (configDisplay) {
+                handleApiConnectionError(error, 'config-display');
+            }
         }
     }
 
@@ -174,7 +179,12 @@ class DatabaseAdmin {
             }
         } catch (error) {
             this.updateConnectionStatus('error');
-            this.showError(`Connection failed: ${error.message}`, 'connection-result');
+            // Check if this looks like an API connection failure
+            if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                handleApiConnectionError(error, 'connection-result');
+            } else {
+                this.showError(`Connection failed: ${error.message}`, 'connection-result');
+            }
             this.addLog(`❌ Connection failed: ${error.message}`);
             
             // Try fallback methods
@@ -268,11 +278,18 @@ class DatabaseAdmin {
                 throw new Error('Invalid response format');
             }
         } catch (error) {
-            this.showError(`Failed to list tables: ${error.message}`, 'tables-result');
+            // Check if this looks like an API connection failure
+            if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                handleApiConnectionError(error, 'tables-result');
+            } else {
+                this.showError(`Failed to list tables: ${error.message}`, 'tables-result');
+            }
             this.addLog(`❌ Table listing failed: ${error.message}`);
             
-            // Show mock data for demonstration
-            this.showMockTables();
+            // Show mock data for demonstration only if it's not an API connection error
+            if (!error.message.includes('fetch')) {
+                this.showMockTables();
+            }
         } finally {
             this.setLoading(buttonId, false);
         }
@@ -368,7 +385,12 @@ class DatabaseAdmin {
                 throw new Error(response.error || 'Table check failed');
             }
         } catch (error) {
-            this.showError(`Table ${tableName} check failed: ${error.message}`, 'quick-actions-result');
+            // Check if this looks like an API connection failure
+            if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                handleApiConnectionError(error, 'quick-actions-result');
+            } else {
+                this.showError(`Table ${tableName} check failed: ${error.message}`, 'quick-actions-result');
+            }
             this.addLog(`❌ Table ${tableName} check failed: ${error.message}`);
         }
     }
@@ -394,7 +416,12 @@ class DatabaseAdmin {
                 throw new Error(response.error || 'Query execution failed');
             }
         } catch (error) {
-            this.showError(`Query failed: ${error.message}`, 'quick-actions-result');
+            // Check if this looks like an API connection failure
+            if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                handleApiConnectionError(error, 'quick-actions-result');
+            } else {
+                this.showError(`Query failed: ${error.message}`, 'quick-actions-result');
+            }
             this.addLog(`❌ Query failed: ${error.message}`);
         }
     }

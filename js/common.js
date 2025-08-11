@@ -521,22 +521,7 @@ npx @anthropic-ai/claude-code</code></pre>`;
                 // Check if Initial install radio button is selected
                 const initialInstallRadio = document.querySelector('input[name="claude-install-status"][value="initial"]');
                 const isInitialInstall = initialInstallRadio && initialInstallRadio.checked;
-                
-                if (isInitialInstall) {
-                    // Show only first time instructions for initial install
-                    newContent = `WindowsOS (first time)
-
-<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>
-
-Install Node.js if this <a href="https://nodejs.org/" target="_blank" style="color: var(--accent-blue); text-decoration: none;">https://nodejs.org/</a>
-
-<pre><code>npx @anthropic-ai/claude-code</code></pre>`;
-                } else {
-                    // Show only subsequent times for already installed
-                    newContent = `WindowsOS (subsequent times)
-
-<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
-                }
+                newContent = `WindowsOS<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
             } else {
                 newContent = `# For Unix/Linux/Mac:
 <pre><code>python3 -m venv env
@@ -655,6 +640,63 @@ async function apiCall(endpoint, method = 'GET', data = null) {
             data: null
         };
     }
+}
+
+// Common API connection error handler
+function handleApiConnectionError(error, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error('Container not found:', containerId);
+        return;
+    }
+
+    // Determine the relative path to admin/server/ from current page
+    let adminPath = 'admin/server/';
+    const currentPath = window.location.pathname;
+    
+    // Calculate the correct path based on current location
+    if (currentPath.includes('/admin/')) {
+        // Already in admin folder, just go to server subfolder
+        adminPath = 'server/';
+    } else if (currentPath.includes('/projects/') || currentPath.includes('/preferences/')) {
+        // In subdirectories, go up one level then to admin/server
+        adminPath = '../admin/server/';
+    } else {
+        // From root team directory, path to admin/server
+        adminPath = 'admin/server/';
+    }
+
+    const errorMessage = `
+        <div style="color: #EF4444; padding: 8px 12px; border-radius: 6px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); margin: 8px 0;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="color: #EF4444; font-weight: 500;">API Connection Failed - Unable to connect to server.</span>
+                <a href="${adminPath}">
+                    Configure your server
+                </a>
+                <span style="cursor: pointer; color: var(--text-secondary); font-size: 14px;" onclick="
+                    const container = this.parentElement.parentElement;
+                    const details = container.querySelector('.error-tech-details');
+                    const arrow = this.querySelector('.toggle-arrow');
+                    if (details.style.display === 'none' || details.style.display === '') {
+                        details.style.display = 'block';
+                        arrow.innerHTML = '&#9660;';
+                        arrow.style.fontSize = '12px';
+                    } else {
+                        details.style.display = 'none';
+                        arrow.innerHTML = '&#9654;';
+                        arrow.style.fontSize = '10px';
+                    }
+                ">
+                    <span class="toggle-arrow" style="font-size: 10px;">&#9654;</span> Details
+                </span>
+            </div>
+            <div class="error-tech-details" style="display: none; margin-top: 4px; background: var(--bg-tertiary); border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--text-secondary);">
+                ${error.message || 'Failed to fetch'}
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = errorMessage;
 }
 
 // Notification utility
@@ -1103,6 +1145,7 @@ if (document.readyState === 'loading') {
 }
 
 // Make functions globally available
+window.handleApiConnectionError = handleApiConnectionError;
 window.apiCall = apiCall;
 window.showNotification = showNotification;
 window.formatDate = formatDate;

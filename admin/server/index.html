@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="../../css/shared-styles.css">
     
     <!-- Standalone Navigation -->
-    <link rel="stylesheet" href="../../css/standalone-nav.css">
-    <script src="../../js/standalone-nav.js"></script>
+    <link rel="stylesheet" href="../../../localsite/css/nav.css">
+    <script src="../../../localsite/js/nav.js"></script>
     <style>
         .container {
             max-width: 1000px;
@@ -32,7 +32,7 @@
             </h1>
             <p><a href="../import-data.html">Our Data Import Page</a> let's you send a dataset to Claude and Gemini for analysis when <a href="../">running the site locally</a>.<br>
 
-            <b>Getting Started:</b> <a href="https://github.com/modelearth/team/">Fork the team repo</a> and contribut to <a href="../../projects/#list=modelteam">Model Team Integrations</a></p>
+            <b>Getting Started:</b> <a href="https://github.com/modelearth/webroot/">Fork the webroot repo</a> and contribute to <a href="../../projects/#list=modelteam">Model Team Integrations</a></p>
         </div>
 
         <div id="os-detection-container"></div>
@@ -894,7 +894,7 @@
                 
                 // Try to call the restart endpoint to stop the server
                 try {
-                    const response = await fetch(`${GEMINI_API_BASE}/admin/restart`, {
+                    const response = await fetch(`${GEMINI_API_BASE}/config/restart`, {
                         method: 'POST'
                     });
                 } catch (e) {

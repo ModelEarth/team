@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CRM Database</title>
+    <title>Database Edit Test</title>
     <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
     <style>
         body {
@@ -12,9 +12,10 @@
             min-width: 250px;
         }
     </style>
+    <script src="../js/common.js"></script>
 </head>
 <body>
-    <h1>CRM Database Tables</h1>
+    <h1>Database Edit Test</h1>
     
     <div id="connection-status">
         <p>Checking database connection...</p>
@@ -43,8 +44,6 @@
     <div id="form-result"></div>
     
     <script>
-        const API_BASE = 'http://localhost:8081/api';
-        
         // Check database connection and load tables
         async function checkConnection() {
             try {
@@ -60,8 +59,7 @@
                         `<p style="color: red;">✗ Database connection failed: ${data.error}</p>`;
                 }
             } catch (error) {
-                document.getElementById('connection-status').innerHTML = 
-                    `<p style="color: red;">✗ API connection failed: ${error.message}</p>`;
+                handleApiConnectionError(error, 'connection-status');
             }
         }
         
@@ -79,8 +77,7 @@
                 
                 document.getElementById('tables-list').innerHTML = html;
             } catch (error) {
-                document.getElementById('tables-list').innerHTML = 
-                    `<p style="color: red;">Failed to load tables: ${error.message}</p>`;
+                handleApiConnectionError(error, 'tables-list');
             }
         }
         

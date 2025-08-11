@@ -1,33 +1,5 @@
 ### 🛡️ Run Claude Code CLL
 
-Right click the "team" folder and start a virtual environment.
-
-**Mac/Linux** 
-
-	python3 -m venv env
-	source env/bin/activate
-
-**For Windows**
-
-	python -m venv env
-	.\env\Scripts\activate
-
-**CLaude Code CLI Installation**
-
-In the "team" folder, install [NodeJS 18+](https://nodejs.org/en/download), then install Claude Code CLI:
-
-	npm install -g @anthropic-ai/claude-code
-
-**Note for Windows users:** As per [Claude Code CLI setup instructions](https://docs.anthropic.com/en/docs/claude-code/setup),
-you need to either use WSL or Git for Windows.
-With WSL, the [installation](https://chatgpt.com/share/687bee87-4450-800d-953b-c0e229b73520) might not straightforward.
-
-**Start Claude**
-
-Inside the same terminal, run the following to start [Claude Code CLI](https://www.anthropic.com/claude-code)
-
-	npx @anthropic-ai/claude-code
-
 Inside the claude cmd window, start your local Rust API server by running:
 (Maybe you can simply type "Start server")
 

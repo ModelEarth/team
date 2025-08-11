@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
     
     <!-- Standalone Navigation -->
-    <link rel="stylesheet" href="../css/standalone-nav.css">
-    <script src="../js/standalone-nav.js"></script>
+    <link rel="stylesheet" href="../../localsite/css/nav.css">
+    <script src="../../localsite/js/nav.js"></script>
     
     
     <style>
@@ -513,6 +513,7 @@
                 <strong>API Server:</strong> <span id="api-status">Checking...</span> • 
                 <strong>Status:</strong> <span id="overall-status">Checking system status...</span>
             </p>
+            <div id="api-connection-error" style="display: none;"></div>
         </div>
 
         <div style="margin-top: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
@@ -583,6 +584,9 @@
                 }
             } catch (error) {
                 console.log('API connection failed:', error.message);
+                // Show API connection error using common handler
+                handleApiConnectionError(error, 'api-connection-error');
+                document.getElementById('api-connection-error').style.display = 'block';
             }
             
             // Update status display

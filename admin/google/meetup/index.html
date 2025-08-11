@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
     
     <!-- Standalone Navigation -->
-    <link rel="stylesheet" href="../../../css/standalone-nav.css">
-    <script src="../../../js/standalone-nav.js"></script>
+    <link rel="stylesheet" href="../../../../localsite/css/nav.css">
+    <script src="../../../../localsite/js/nav.js"></script>
     <script src="../../../js/common.js"></script>
     
     <link rel="stylesheet" href="../../../css/claude.css">
@@ -788,15 +788,15 @@
                 if (window.feather) feather.replace();
                 
             } catch (error) {
-                status.className = 'status-message error';
-                status.style.display = 'block';
-                let errorMessage = 'Error loading configuration: ';
-                if (error.message === 'Failed to fetch') {
-                    errorMessage = 'Backend API not available (fetch failed). To view requested data, run locally using the commands on our Admin Page.';
+                // Check if this looks like an API connection failure
+                if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                    handleApiConnectionError(error, 'config-status');
                 } else {
-                    errorMessage += error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.className = 'status-message error';
+                    status.style.display = 'block';
+                    let errorMessage = 'Error loading configuration: ' + error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
                 }
-                status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
                 
                 // Reset button text on error
                 btn.innerHTML = '<i data-feather="refresh-cw"></i> Load from .env';
@@ -879,15 +879,15 @@
                 if (window.feather) feather.replace();
                 
             } catch (error) {
-                status.className = 'status-message error';
-                status.style.display = 'block';
-                let errorMessage = 'Error saving configuration: ';
-                if (error.message === 'Failed to fetch') {
-                    errorMessage = 'Backend API not available (fetch failed). To view requested data, run locally using the commands on our Admin Page.';
+                // Check if this looks like an API connection failure
+                if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                    handleApiConnectionError(error, 'config-status');
                 } else {
-                    errorMessage += error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.className = 'status-message error';
+                    status.style.display = 'block';
+                    let errorMessage = 'Error saving configuration: ' + error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
                 }
-                status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="save"></i> Save to .env';
