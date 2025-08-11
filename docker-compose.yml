@@ -1,48 +1,48 @@
 services:
   db:
     image: postgres:14
-    container_name: team-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ModelEarthDB
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${COMMONS_NAME}
+      POSTGRES_USER: ${COMMONS_USER}
+      POSTGRES_PASSWORD: ${COMMONS_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./admin/sql/suitecrm-postgres.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 6
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: team-api
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      SERVER_PORT: 8081
-      SERVER_HOST: 0.0.0.0
-      COMMONS_HOST: db
-      COMMONS_PORT: 5432
-      COMMONS_NAME: ModelEarthDB
-      COMMONS_USER: postgres
-      COMMONS_PASSWORD: postgres
-      COMMONS_SSL_MODE: disable
+      SERVER_PORT: ${SERVER_PORT}
+      SERVER_HOST: ${SERVER_HOST}
+      COMMONS_HOST: ${COMMONS_HOST}
+      COMMONS_PORT: ${COMMONS_PORT}
+      COMMONS_NAME: ${COMMONS_NAME}
+      COMMONS_USER: ${COMMONS_USER}
+      COMMONS_PASSWORD: ${COMMONS_PASSWORD}
+      COMMONS_SSL_MODE: ${COMMONS_SSL_MODE}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      PROJECTS_FILE_PATH: ${PROJECTS_FILE_PATH}
     ports:
-      - "8081:8081"
+      - "${SERVER_PORT}:${SERVER_PORT}"
     volumes:
-      - ./preferences:/app/preferences     # Excel import
-      - ./config:/app/config               # Env/settings
-      - ./admin:/app/admin                 # Static files
-      - ./wait-for-it.sh:/app/wait-for-it.sh  # DB wait script
+      - ./preferences:/app/preferences
+      - ./config:/app/config
+      - ./admin:/app/admin
 
 volumes:
   pgdata:

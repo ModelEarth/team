@@ -18,7 +18,7 @@ It covers both **first-time setup** and **daily/occasional restart & deployment 
 
 ## **Machine Specs Used**
 
-> You can adjust later, but these are the minimum to what we used successfully (any lower will immediately crash the db, even without additional data).
+> You can adjust later, but these are the minimum to what we used successfully (any lower will immediately crash the db, even without additional data). Make sure to adjust in fly.toml as well.
 [Requesting project team to update this as your needs scale. I'm sure you'll need more memory]
 
 **API app machine**
