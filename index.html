@@ -15,13 +15,16 @@
     <link rel="stylesheet" href="css/account.css">
 
     <!-- Standalone Navigation -->
-    <!-- <link rel="stylesheet" href="css/standalone-nav.css">
-    <script src="js/standalone-nav.js"></script> -->
+     <!-- Older version of css navs -->
+    <link rel="stylesheet" href="css/standalone-nav.css">
+    <script src="js/standalone-nav.js"></script>
     
     <!-- Configuration -->
     
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Newer version of css navs -->
     <link rel="stylesheet" href="../localsite/css/nav.css">
     <script src="../localsite/js/nav.js"></script>
 
@@ -1556,10 +1559,10 @@
                 </button>
             </div>
             
-            <div class="demo-notice">
+            <!-- <div class="demo-notice">
                 <i data-feather="info"></i>
                 <span>Demo Only - Login is not yet activated</span>
-            </div>
+            </div> -->
             
             <div class="auth-buttons">
                 <button class="auth-btn" onclick="signInWith('google')">
@@ -1578,11 +1581,11 @@
                 </button>
             </div>
             
-            <div class="auth-divider">
+            <!-- <div class="auth-divider">
                 <span>or</span>
-            </div>
+            </div> -->
             
-            <form onsubmit="signInWithEmail(event)">
+            <!-- <form onsubmit="signInWithEmail(event)">
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-input" required placeholder="your@email.com">
@@ -1592,7 +1595,7 @@
                     <input type="password" class="form-input" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
-            </form>
+            </form> -->
             
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="hideAuthModal()">Close</button>
