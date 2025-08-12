@@ -793,6 +793,20 @@
             background: var(--border-light);
         }
         
+        #add-visit-btn {
+            text-decoration: none !important;
+            background: #22c55e !important;
+            color: white !important;
+            border-color: #22c55e !important;
+            opacity: 0.8;
+        }
+        
+        #add-visit-btn:hover {
+            opacity: 1;
+            background: #16a34a !important;
+            border-color: #16a34a !important;
+        }
+        
         /* Column View (Default) - Using table-list style */
         .participants-grid {
             display: grid;
@@ -1424,7 +1438,7 @@
         </div>
 
         <div style="margin-bottom: 20px;">
-            <div class="input-button-group" id="input-button-group" style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="input-button-group" id="listSelectDiv" style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
                         <option value="custom">Choose File...</option>
@@ -1479,8 +1493,9 @@
         </div>
 
         <div class="card" id="participants-table-card" style="display: none;">
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
+                <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
             </div>
             
             <!-- Snapshots Control -->
@@ -4682,15 +4697,21 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Check if there's a list parameter in the hash
                 const listParam = getURLHashParam('list');
                 if (listParam) {
-                    // Look for matching option in dropdown to get proper title
-                    const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
-                    if (matchingOption && matchingOption.textContent) {
-                        titleText = matchingOption.textContent;
-                        participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
+                    // Special case for geo - use "Location Visits" title
+                    if (listParam === 'geo') {
+                        titleText = 'Location Visits';
+                        participantListTitle.textContent = `📊 Location Visits`;
                     } else {
-                        // Use the list parameter value as title if no matching option found
-                        titleText = listParam;
-                        participantListTitle.textContent = `📊 ${listParam}`;
+                        // Look for matching option in dropdown to get proper title
+                        const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
+                        if (matchingOption && matchingOption.textContent) {
+                            titleText = matchingOption.textContent;
+                            participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
+                        } else {
+                            // Use the list parameter value as title if no matching option found
+                            titleText = listParam;
+                            participantListTitle.textContent = `📊 ${listParam}`;
+                        }
                     }
                 } else {
                     const selectedOption = fileSelect.options[fileSelect.selectedIndex];
@@ -4783,17 +4804,32 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Add "All Lists" option after dynamic options are loaded
             addAllListsOption();
             
-            // Check if list=all is in hash parameter and select "All Lists" option
+            // Add geo option for location visits
+            addGeoOption();
+            
+            // Check for geo-related domains or hash parameter
             const listParam = getURLHashParam('list');
+            const shouldDefaultToGeo = !listParam && (window.location.hostname.includes('geo') || window.location.hostname.includes('location'));
+            
             if (listParam === 'all') {
                 fileSelect.value = 'all';
                 selectedFile = 'all';
+            } else if (listParam === 'geo' || shouldDefaultToGeo) {
+                fileSelect.value = 'geo';
+                selectedFile = 'map/cities.csv';
+                // Set hash if not already present
+                if (!listParam) {
+                    window.location.hash = 'list=geo';
+                }
             } else {
                 selectedFile = selectedOption.getAttribute('data-url') || selectedOption.value;
             }
             
             // Update the participant list title with the selected option
             updateParticipantListTitle();
+            
+            // Update list select visibility based on geo parameter
+            updateListSelectVisibility();
             
             // Add event listeners
             fileSelect.addEventListener('change', handleFileDropdownChange);
@@ -4818,6 +4854,51 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Insert as the first option
             fileSelect.insertBefore(allListsOption, fileSelect.firstChild);
+        }
+        
+        function addGeoOption() {
+            // Check if "Location Visits" option already exists
+            const existingGeoOption = Array.from(fileSelect.options).find(option => option.value === 'geo');
+            if (existingGeoOption) return;
+            
+            // Add "Location Visits" option
+            const geoOption = document.createElement('option');
+            geoOption.value = 'geo';
+            geoOption.textContent = 'Location Visits';
+            geoOption.setAttribute('data-url', 'map/cities.csv');
+            
+            // Insert after "All Lists" option if it exists, otherwise at the beginning
+            const allListsOption = Array.from(fileSelect.options).find(option => option.value === 'all');
+            if (allListsOption) {
+                fileSelect.insertBefore(geoOption, allListsOption.nextSibling);
+            } else {
+                fileSelect.insertBefore(geoOption, fileSelect.firstChild);
+            }
+        }
+        
+        function updateListSelectVisibility() {
+            const listParam = getURLHashParam('list');
+            const listSelectDiv = document.getElementById('listSelectDiv');
+            const breadcrumb = document.querySelector('.breadcrumb');
+            const addVisitBtn = document.getElementById('add-visit-btn');
+            
+            if (listParam === 'geo') {
+                listSelectDiv.style.display = 'none';
+                if (breadcrumb) {
+                    breadcrumb.style.display = 'none';
+                }
+                if (addVisitBtn) {
+                    addVisitBtn.style.display = 'inline-block';
+                }
+            } else {
+                listSelectDiv.style.display = 'flex';
+                if (breadcrumb) {
+                    breadcrumb.style.display = 'block';
+                }
+                if (addVisitBtn) {
+                    addVisitBtn.style.display = 'none';
+                }
+            }
         }
         
         // Restore saved view state
@@ -5124,6 +5205,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Update UI for hash changes (header visibility and title)
                 updateUIForHashChange();
                 
+                // Update list select visibility
+                updateListSelectVisibility();
+                
                 // Hide UI elements when list hash changes
                 if (listParam && listParam !== fileSelect.value) {
                     hideListDisplayElements();
@@ -5141,6 +5225,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         // Load the corresponding data
                         if (listParam === 'all') {
                             showAllFeeds();
+                        } else if (listParam === 'geo') {
+                            getMeetupParticipants();
                         } else {
                             getMeetupParticipants();
                         }
@@ -5309,6 +5395,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const listParam = getURLHashParam('list');
             if (listParam === 'all') {
                 showAllFeeds();
+            } else if (listParam === 'geo') {
+                // Auto-load geo data
+                getMeetupParticipants();
+            } else if (!listParam) {
+                // No list parameter - check if should default to geo
+                const shouldDefaultToGeo = window.location.hostname.includes('geo') || window.location.hostname.includes('location');
+                if (shouldDefaultToGeo) {
+                    window.location.hash = 'list=geo';
+                    fileSelect.value = 'geo';
+                    selectedFile = 'map/cities.csv';
+                    getMeetupParticipants();
+                } else {
+                    // Auto-load data if default option is selected
+                    const selectedOption = fileSelect.options[fileSelect.selectedIndex];
+                    if (selectedOption && selectedOption.getAttribute('data-url')) {
+                        getMeetupParticipants();
+                    }
+                }
             } else {
                 // Auto-load data if default option is selected
                 const selectedOption = fileSelect.options[fileSelect.selectedIndex];
