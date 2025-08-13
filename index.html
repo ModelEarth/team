@@ -15,6 +15,16 @@
     <link rel="stylesheet" href="css/account.css">
 
     <!-- Standalone Navigation -->
+     <!-- Older version of css navs -->
+    <link rel="stylesheet" href="css/standalone-nav.css">
+    <script src="js/standalone-nav.js"></script>
+    
+    <!-- Configuration -->
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Newer version of css navs -->
     <link rel="stylesheet" href="../localsite/css/nav.css">
     <script src="../localsite/js/nav.js"></script>
 
@@ -499,11 +509,11 @@
                     <!-- Welcome Tab -->
                     <div class="tab-content" id="welcome-tab">
                         <div class="welcome-hero">
-                            <!--
+<!--                             
                             <div style="float:right">
                                 <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/xxxx"></a>
                             </div>
-                            -->
+                             -->
                             <div style="overflow:auto">
                                 <h1 class="hero-title">Collaborative Data Science</h1>
                                 <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--technical teams working on --> code automation projects</p>
@@ -1549,10 +1559,10 @@
                 </button>
             </div>
             
-            <div class="demo-notice">
+            <!-- <div class="demo-notice">
                 <i data-feather="info"></i>
                 <span>Demo Only - Login is not yet activated</span>
-            </div>
+            </div> -->
             
             <div class="auth-buttons">
                 <button class="auth-btn" onclick="signInWith('google')">
@@ -1571,11 +1581,11 @@
                 </button>
             </div>
             
-            <div class="auth-divider">
+            <!-- <div class="auth-divider">
                 <span>or</span>
-            </div>
+            </div> -->
             
-            <form onsubmit="signInWithEmail(event)">
+            <!-- <form onsubmit="signInWithEmail(event)">
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-input" required placeholder="your@email.com">
@@ -1585,7 +1595,7 @@
                     <input type="password" class="form-input" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
-            </form>
+            </form> -->
             
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="hideAuthModal()">Close</button>
@@ -1993,7 +2003,7 @@
             }
         }
 
-        // Authentication Functions
+     // Authentication Functions
         function showAuthModal() {
             document.getElementById('auth-modal').classList.add('show');
         }
@@ -2025,28 +2035,58 @@
             }
         }
 
-        function signInWith(provider) {
-            console.log(`Signing in with ${provider}`);
-            // Implement OAuth flows here
-            switch(provider) {
-                case 'google':
-                    // Google OAuth implementation
-                    break;
-                case 'github':
-                    // GitHub OAuth implementation
-                    break;
-                case 'linkedin':
-                    // LinkedIn OAuth implementation
-                    break;
+        // Simple Supabase initialization
+        const supabase = window.supabase.createClient(
+            'https://udzhmsqqzodprrsypzmd.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkemhtc3Fxem9kcHJyc3lwem1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5Njg1MjcsImV4cCI6MjA2ODU0NDUyN30.Ox3AN68fC-dUoUHKiMjbyNUfcyCAMLDJCM9teE5YJNI'
+        );
+
+        // OAuth sign in function with real Supabase integration
+        async function signInWith(provider) {
+            const supabaseProvider = provider === 'linkedin' ? 'linkedin_oidc' : provider;
+            
+            // Determine the correct redirect URL based on environment
+            let redirectTo;
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            if (isGitHubPages) {
+                // For GitHub Pages, use the full current URL structure
+                const currentUrl = window.location.origin + window.location.pathname;
+                redirectTo = currentUrl + '?auth=success';
+            } else if (isLocalhost) {
+                // For localhost, always redirect to the current page URL
+                const currentUrl = window.location.origin + window.location.pathname;
+                redirectTo = currentUrl + '?auth=success';
+            } else {
+                // For any other deployment, use the current origin + path
+                redirectTo = window.location.origin + window.location.pathname + '?auth=success';
             }
             
-            // For demo purposes, simulate successful login
-            setTimeout(() => {
-                simulateLogin(`${provider}-user@example.com`);
-                hideAuthModal();
-            }, 1000);
+            console.log('Provider:', provider, '→ Supabase Provider:', supabaseProvider);
+            console.log('OAuth Redirect URL:', redirectTo);
+            
+            try {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: supabaseProvider,
+                    options: {
+                        redirectTo: redirectTo
+                    }
+                });
+                
+                if (error) {
+                    console.error(`${provider} OAuth error:`, error);
+                    alert(`${provider} sign-in failed: ${error.message}`);
+                } else {
+                    console.log(`${provider} OAuth initiated successfully`);
+                }
+            } catch (error) {
+                console.error(`${provider} OAuth error:`, error);
+                alert(`${provider} sign-in failed: ${error.message || 'Unknown error'}`);
+            }
         }
 
+        // Email authentication function
         function signInWithEmail(event) {
             event.preventDefault();
             const email = event.target.querySelector('input[type="email"]').value;
@@ -2061,11 +2101,16 @@
             }, 1000);
         }
 
+        // Admin demo function for testing
         function adminDemo() {
             simulateLogin('admin@PartnerTools.local', 'Admin User');
         }
 
+        // Simulate login for demo/testing purposes
         function simulateLogin(email, name = null) {
+            if (!window.AppState) {
+                window.AppState = {};
+            }
             AppState.isAuthenticated = true;
             AppState.currentUser = {
                 email: email,
@@ -2076,21 +2121,58 @@
             updateAuthUI();
         }
 
-        function signOut() {
-            AppState.isAuthenticated = false;
-            AppState.currentUser = null;
-            updateAuthUI();
-        }
-
+        // Update authentication UI based on state
         function updateAuthUI() {
             const authContainer = document.getElementById('auth-container');
             
-            if (AppState.isAuthenticated) {
+            if (AppState && AppState.isAuthenticated) {
                 authContainer.innerHTML = `
-                    <span style="color: var(--text-secondary); margin-right: 12px;">
-                        Welcome, ${AppState.currentUser.name}
-                    </span>
-                    <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
+                    <div class="auth-user-info" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <span class="welcome-text" style="color: var(--text-primary); font-weight: 500; font-size: 14px;">Welcome, ${AppState.currentUser.name}</span>
+                        <button class="btn logout-btn" onclick="logout()" style="
+                            background: linear-gradient(135deg, #F97316, #DC2626); 
+                            color: white; 
+                            border: none; 
+                            padding: 8px 16px; 
+                            border-radius: 6px; 
+                            font-size: 14px; 
+                            font-weight: 500;
+                            display: flex; 
+                            align-items: center; 
+                            gap: 6px;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
+                        " onmouseover="this.style.background='linear-gradient(135deg, #EA580C, #B91C1C)'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(249, 115, 22, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #F97316, #DC2626)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(249, 115, 22, 0.2)';">
+                            <span style="font-size: 16px;">🚪</span>
+                            <span class="logout-text">Sign Out</span>
+                        </button>
+                    </div>
+                    <style>
+                        @media (max-width: 768px) {
+                            .auth-user-info {
+                                flex-direction: column;
+                                align-items: flex-end !important;
+                                gap: 8px !important;
+                            }
+                            .welcome-text {
+                                font-size: 13px !important;
+                            }
+                            .logout-btn {
+                                padding: 6px 12px !important;
+                                font-size: 13px !important;
+                            }
+                        }
+                        @media (max-width: 480px) {
+                            .logout-text {
+                                display: none;
+                            }
+                            .logout-btn {
+                                padding: 8px !important;
+                                min-width: 40px;
+                                justify-content: center;
+                            }
+                        }
+                    </style>
                 `;
             } else {
                 authContainer.innerHTML = `
@@ -2100,7 +2182,37 @@
             }
         }
 
-        // API Functions loaded from common.js
+        // Logout function with Supabase integration
+        function logout() {
+            supabase.auth.signOut();
+            if (window.AppState) {
+                AppState.isAuthenticated = false;
+                AppState.currentUser = null;
+            }
+            updateAuthUI();
+        }
+
+        // Supabase auth state listener
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                console.log('User signed in:', session.user.email);
+                simulateLogin(session.user.email, session.user.user_metadata?.full_name || session.user.email.split('@')[0]);
+                hideAuthModal();
+            } else if (event === 'SIGNED_OUT') {
+                console.log('User signed out');
+                updateAuthUI();
+            }
+        });
+
+        // Handle auth callback from URL parameters
+        function handleAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auth') === 'success') {
+                // Clear the auth parameter from URL
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }
 
         // Load initial data
         async function loadInitialData() {
@@ -2110,7 +2222,7 @@
                 console.log('Backend health check:', healthCheck);
                 
                 // Load user data if authenticated
-                if (AppState.isAuthenticated) {
+                if (AppState && AppState.isAuthenticated) {
                     // Load user-specific data
                 }
                 
@@ -2255,6 +2367,50 @@
             // No text selected and not a text selection attempt, proceed with navigation
             navigationFunction();
         }
+
+        // Check for existing session on page load
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                simulateLogin(session.user.email, session.user.user_metadata?.full_name || session.user.email.split('@')[0]);
+            }
+        });
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle auth callback on page load
+            handleAuthCallback();
+            
+            // Setup tab click handlers
+            setupTabHandlers();
+
+            // Load initial data
+            loadInitialData();
+            
+            // Initialize projects manager
+            if (window.projectsManager) {
+                window.projectsManager.init();
+            }
+            
+            // Initialize survey and skills managers
+            if (window.surveyManager) {
+                window.surveyManager.init();
+                window.surveyManager.loadSavedResponses();
+            }
+            
+            if (window.skillsManager) {
+                window.skillsManager.init();
+            }
+            
+            // Setup filter change handlers to update URL
+            setupFilterHandlers();
+            
+            // Close modal when clicking outside
+            document.getElementById('auth-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideAuthModal();
+                }
+            });
+        });
 
         // Handle window resize for responsive design
         window.addEventListener('resize', function() {
