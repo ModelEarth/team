@@ -27,7 +27,19 @@
     <!-- Newer version of css navs -->
     <link rel="stylesheet" href="../localsite/css/nav.css">
     <script src="../localsite/js/nav.js"></script>
-
+    <script>
+    // Sign In button testing under localhost or harimayooram.github.io
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentHost = window.location.hostname;
+        const currentPath = window.location.href;
+        const allowSignIn = currentHost.includes('localhost') || 
+                           currentHost === '127.0.0.1' || 
+                           currentPath.includes('harimayooram.github.io');
+        if (allowSignIn) {
+            document.getElementById('signInTeam').style.display = 'inline-block';
+        }
+    });
+    </script>
     <style>
         :root {
             --bg-primary: #F9FAFB;
@@ -496,7 +508,7 @@
                 <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
                 <div class="user-menu">
                     <div class="auth-container" id="auth-container">
-                        <button class="btn btn-secondary" onclick="showAuthModal()">Sign In</button>
+                        <button id="signInTeam" class="btn btn-secondary" onclick="showAuthModal()" style="display:none">Sign In</button>
                         <button class="btn btn-primary" onclick="goProjects()">Search Projects</button>
                     </div>
                 </div>
