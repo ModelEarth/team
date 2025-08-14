@@ -1,0 +1,90 @@
+# OAuth2 Provider Configuration
+# Based on OpenID Connect Discovery and OAuth 2.0 standards
+# https://openid.net/specs/openid_connect_discovery-1_0.html
+
+[oauth.common]
+# Common OAuth settings
+default_redirect_uri = "http://localhost:8081/api/auth/{provider}/callback"
+session_timeout_hours = 24
+csrf_token_timeout_minutes = 10
+
+[oauth.providers.google]
+name = "Google"
+client_id = "${GOOGLE_CLIENT_ID}"
+client_secret = "${GOOGLE_CLIENT_SECRET}"
+authorization_endpoint = "https://accounts.google.com/o/oauth2/v2/auth"
+token_endpoint = "https://oauth2.googleapis.com/token"
+userinfo_endpoint = "https://www.googleapis.com/oauth2/v2/userinfo"
+issuer = "https://accounts.google.com"
+scopes = ["openid", "email", "profile"]
+pkce_enabled = true
+response_type = "code"
+grant_type = "authorization_code"
+
+[oauth.providers.github]
+name = "GitHub"
+client_id = "${GITHUB_CLIENT_ID}"
+client_secret = "${GITHUB_CLIENT_SECRET}"
+authorization_endpoint = "https://github.com/login/oauth/authorize"
+token_endpoint = "https://github.com/login/oauth/access_token"
+userinfo_endpoint = "https://api.github.com/user"
+scopes = ["user:email", "read:user"]
+pkce_enabled = false
+response_type = "code"
+grant_type = "authorization_code"
+
+[oauth.providers.linkedin]
+name = "LinkedIn"
+client_id = "${LINKEDIN_CLIENT_ID}"
+client_secret = "${LINKEDIN_CLIENT_SECRET}"
+authorization_endpoint = "https://www.linkedin.com/oauth/v2/authorization"
+token_endpoint = "https://www.linkedin.com/oauth/v2/accessToken"
+userinfo_endpoint = "https://api.linkedin.com/v2/people/~"
+scopes = ["r_liteprofile", "r_emailaddress"]
+pkce_enabled = false
+response_type = "code"
+grant_type = "authorization_code"
+
+[oauth.providers.microsoft]
+name = "Microsoft Outlook"
+client_id = "${MICROSOFT_CLIENT_ID}"
+client_secret = "${MICROSOFT_CLIENT_SECRET}"
+authorization_endpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+token_endpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+userinfo_endpoint = "https://graph.microsoft.com/v1.0/me"
+issuer = "https://login.microsoftonline.com/common/v2.0"
+scopes = ["openid", "profile", "email", "User.Read"]
+pkce_enabled = true
+response_type = "code"
+grant_type = "authorization_code"
+
+[oauth.providers.facebook]
+name = "Facebook"
+client_id = "${FACEBOOK_APP_ID}"
+client_secret = "${FACEBOOK_APP_SECRET}"
+authorization_endpoint = "https://www.facebook.com/v18.0/dialog/oauth"
+token_endpoint = "https://graph.facebook.com/v18.0/oauth/access_token"
+userinfo_endpoint = "https://graph.facebook.com/v18.0/me"
+scopes = ["email", "public_profile"]
+pkce_enabled = false
+response_type = "code"
+grant_type = "authorization_code"
+# Facebook specific parameters
+fields = "id,name,email,picture"
+
+# Development/Testing Provider (for bypassing OAuth during development)
+[oauth.providers.demo]
+name = "Demo Login"
+client_id = "demo_client_id"
+client_secret = "demo_client_secret"
+authorization_endpoint = "http://localhost:8081/api/auth/demo/authorize"
+token_endpoint = "http://localhost:8081/api/auth/demo/token"
+userinfo_endpoint = "http://localhost:8081/api/auth/demo/userinfo"
+scopes = ["demo"]
+pkce_enabled = false
+response_type = "code"
+grant_type = "authorization_code"
+[oauth.providers.demo.demo_user]
+id = "demo123"
+email = "demo@localhost"
+name = "Demo User"
