@@ -1,0 +1,3 @@
+name,id,description,installation_command,auth_required,default_enabled,api_endpoint,token_limit,model
+claude,claude-code-cli,Claude Code CLI (Recommended) - AI-powered coding assistant with advanced code analysis capabilities,npm install -g @anthropic/claude-cli,true,true,https://api.anthropic.com/v1/messages,100000,claude-3-5-sonnet
+gemini,gemini-cli,Gemini CLI (Not mature yet) - Google's AI model for code insights and generation,npm install -g @google/gemini-cli,true,false,https://generativelanguage.googleapis.com/v1beta/models,32768,gemini-1.5-pro
