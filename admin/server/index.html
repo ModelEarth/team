@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="../../img/logo/neighborhood/favicon.png">
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
     <title>Configure Your Server</title>
+
+    <link type="text/css" rel="stylesheet" href="../../../localsite/css/base.css" id="/localsite/css/base.css" />
     <link rel="stylesheet" href="../../css/common.css">
     <link rel="stylesheet" href="../../css/shared-styles.css">
+    <script src="../../js/setup.js"></script>
     
     <!-- Standalone Navigation -->
     <link rel="stylesheet" href="../../../localsite/css/nav.css">
@@ -32,7 +35,12 @@
             </h1>
             <p><a href="../import-data.html">Our Data Import Page</a> let's you send a dataset to Claude and Gemini for analysis when <a href="../">running the site locally</a>.<br>
 
-            <b>Getting Started:</b> <a href="https://github.com/modelearth/webroot/">Fork the webroot repo</a> and contribute to <a href="../../projects/#list=modelteam">Model Team Integrations</a></p>
+            <b>Getting Started:</b> <a href="https://github.com/modelearth/webroot/">Fork <span id="webrootFork">the webroot repo</span></a> and contribute to <a href="../../projects/#list=modelteam">Model Team Integrations</a></p>
+        </div>
+
+        <div class="card" id="textInPage">
+          <div id="gitAccountFieldsContainer"></div>
+          <div id="webrootSetup"></div>
         </div>
 
         <div id="os-detection-container"></div>
@@ -990,6 +998,16 @@ Ready: AI features are available`;
         // Use shared OS detection panel from team/js/common.js
         createOSDetectionPanel('os-detection-container');
 
+        // Setup webroot setup content and Git account fields
+        if (typeof setupWebrootSetup === 'function') {
+            setupWebrootSetup('webrootSetup');
+        }
+        if (typeof setupGitAccountFields === 'function') {
+            setupGitAccountFields('gitAccountFieldsContainer');
+        } else {
+            console.error('setup functions not available');
+        }
+        
         // Initialize page
         updateWebServerPanel(); // Check web server status
         updateRustApiPanel(false); // Start with inactive state

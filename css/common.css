@@ -23,6 +23,7 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
+    margin: 0px;
 }
 h2 {
     margin-top: 20px;
