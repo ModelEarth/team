@@ -629,12 +629,6 @@
     </style>
 </head>
 <body>
-    <!-- Sign In Button (positioned absolute) -->
-    <div class="sign-in-container">
-        <button id="signInBtn" class="sign-in-btn" onclick="showAuthModal()">Sign In</button>
-    </div>
-
-
     <div class="container">
         <div id="app">
             <div class="loading">
@@ -1580,7 +1574,10 @@
 
                 app.innerHTML = `
                     <!-- Header -->
-                    <div class="header">
+                    <div class="header" style="position:relative">
+                        <div class="sign-in-container">
+                            <button id="signInBtn" class="sign-in-btn" onclick="showAuthModal()">Sign In</button>
+                        </div>
                         <h1>${this.config?.listTitle || 'Listings'}</h1>
                         ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
                     </div>
@@ -1638,6 +1635,9 @@
                     ${this.renderNoResults()}
                     ${this.renderEmptyState()}
                 `;
+
+                // Apply domain-based sign-in button visibility
+                this.applySignInVisibility();
 
                 setTimeout(() => {
                     this.setupEventListeners();
@@ -1749,6 +1749,32 @@
                 
                 return data;
             }
+            
+            applySignInVisibility() {
+                const currentHost = window.location.hostname;
+                const currentPath = window.location.href;
+                
+                // Domain restrictions for sign-in button visibility:
+                // - localhost and 127.0.0.1 (development)
+                // - domains containing "geo" or "location"
+                // - harimayooram.github.io (specific deployment)
+                const allowSignIn = currentHost.includes('localhost') || 
+                                   currentHost === '127.0.0.1' || 
+                                   currentPath.includes('harimayooram.github.io') ||
+                                   currentHost.includes('geo') ||
+                                   currentHost.includes('location');
+                
+                const signInBtn = document.getElementById('signInBtn');
+                if (signInBtn) {
+                    if (allowSignIn) {
+                        signInBtn.style.display = 'inline-block';
+                        console.log('Sign-in button enabled for domain:', currentHost);
+                    } else {
+                        signInBtn.style.display = 'none';
+                        console.log('Sign-in button hidden for domain:', currentHost);
+                    }
+                }
+            }
         }
 
         // Global function for toggle details
@@ -1772,26 +1798,6 @@
         }
 
 
-        // Domain-based sign-in button visibility
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentHost = window.location.hostname;
-            const currentPath = window.location.href;
-            
-            // Show sign-in button for:
-            // - localhost/127.0.0.1 (development)
-            // - domains containing "geo" or "location"
-            // - harimayooram.github.io (specific deployment)
-            const allowSignIn = currentHost.includes('localhost') || 
-                               currentHost === '127.0.0.1' || 
-                               currentPath.includes('harimayooram.github.io') ||
-                               currentHost.includes('geo') ||
-                               currentHost.includes('location');
-            
-            if (allowSignIn) {
-                document.getElementById('signInBtn').style.display = 'inline-block';
-                console.log('Sign-in button enabled for domain:', currentHost);
-            }
-        });
 
         // Initialize the application when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {

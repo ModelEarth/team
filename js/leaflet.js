@@ -679,12 +679,45 @@ class LeafletMapManager {
         const zoomControl = L.control({ position: 'bottomleft' });
         
         zoomControl.onAdd = (map) => {
-            const div = L.DomUtil.create('div', 'zoom-display');
-            div.innerHTML = `Level: ${this.map.getZoom()}`;
+            const div = L.DomUtil.create('div', 'zoom-display-container');
+            
+            const currentLevel = this.map.getZoom();
+            div.innerHTML = `
+                <div class="zoom-display-current">Level: ${currentLevel}</div>
+                <div class="zoom-display-levels">
+                    ${this.generateZoomLevels(currentLevel)}
+                </div>
+            `;
             
             // Prevent map interaction when clicking display
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
+            
+            // Add click handlers for zoom levels
+            div.addEventListener('click', (e) => {
+                if (e.target.classList.contains('zoom-level-item')) {
+                    const zoomLevel = parseInt(e.target.dataset.zoom);
+                    this.map.setZoom(zoomLevel);
+                }
+            });
+            
+            // Add hover handlers to ensure proper positioning
+            div.addEventListener('mouseenter', () => {
+                const levelsContainer = div.querySelector('.zoom-display-levels');
+                if (levelsContainer) {
+                    setTimeout(() => {
+                        this.positionZoomLevelsOverButton(levelsContainer, this.map.getZoom());
+                    }, 10);
+                }
+            });
+            
+            // Position the levels container on initial load
+            setTimeout(() => {
+                const levelsContainer = div.querySelector('.zoom-display-levels');
+                if (levelsContainer) {
+                    this.positionZoomLevelsOverButton(levelsContainer, currentLevel);
+                }
+            }, 50);
             
             return div;
         };
@@ -693,11 +726,72 @@ class LeafletMapManager {
         this.zoomControl = zoomControl;
     }
     
-    updateZoomDisplay() {
-        const zoomDisplay = document.querySelector('.zoom-display');
-        if (zoomDisplay) {
-            zoomDisplay.innerHTML = `Level: ${this.map.getZoom()}`;
+    generateZoomLevels(currentZoom) {
+        const minZoom = 1;
+        const maxZoom = 18;
+        let levels = '';
+        
+        // Show all levels but put current level in the middle when possible
+        for (let i = minZoom; i <= maxZoom; i++) {
+            const isActive = i === currentZoom;
+            levels += `<div class="zoom-level-item ${isActive ? 'active' : ''}" data-zoom="${i}">Level: ${i}</div>`;
         }
+        
+        return levels;
+    }
+    
+    updateZoomDisplay() {
+        const zoomDisplayContainer = document.querySelector('.zoom-display-container');
+        if (zoomDisplayContainer) {
+            const currentLevel = this.map.getZoom();
+            const currentDisplay = zoomDisplayContainer.querySelector('.zoom-display-current');
+            const levelsContainer = zoomDisplayContainer.querySelector('.zoom-display-levels');
+            
+            if (currentDisplay) {
+                currentDisplay.innerHTML = `Level: ${currentLevel}`;
+            }
+            
+            if (levelsContainer) {
+                // Check if container is being hovered to avoid repositioning during interaction
+                const isHovered = zoomDisplayContainer.matches(':hover');
+                
+                levelsContainer.innerHTML = this.generateZoomLevels(currentLevel);
+                
+                // Only reposition if not currently being hovered
+                if (!isHovered) {
+                    setTimeout(() => {
+                        this.positionZoomLevelsOverButton(levelsContainer, currentLevel);
+                    }, 10);
+                }
+            }
+        }
+    }
+    
+    positionZoomLevelsOverButton(levelsContainer, currentLevel) {
+        const activeItem = levelsContainer.querySelector('.zoom-level-item.active');
+        if (!activeItem) return;
+        
+        // Calculate the height of one item
+        const itemHeight = activeItem.offsetHeight;
+        
+        // Set the max-height to show reasonable number of items
+        const maxVisibleItems = 7; // Show about 7 items at a time
+        const maxHeight = maxVisibleItems * itemHeight;
+        levelsContainer.style.maxHeight = `${maxHeight}px`;
+        
+        // Position popup to overlap button and extend downward past map edge
+        // Calculate how many items should appear above the current level in the visible area
+        const itemsAboveCurrent = currentLevel - 1;
+        const itemsToShowAbove = Math.min(3, itemsAboveCurrent); // Show up to 3 items above
+        
+        // Position popup so current level overlaps the button
+        const overlapOffset = itemsToShowAbove * itemHeight;
+        const adjustedOffset = overlapOffset - 60; // Move popup down by 60px
+        levelsContainer.style.transform = `translateY(-${adjustedOffset}px)`;
+        
+        // Set scroll position to show current level with context
+        const scrollPosition = Math.max(0, itemsAboveCurrent - itemsToShowAbove);
+        levelsContainer.scrollTop = scrollPosition * itemHeight;
     }
     
     addCustomCSS() {
@@ -715,15 +809,82 @@ class LeafletMapManager {
             }
             
             /* Zoom Level Display */
-            .zoom-display {
+            .zoom-display-container {
+                position: relative;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            
+            .zoom-display-current {
                 background: rgba(0, 0, 0, 0.8);
                 color: white;
                 padding: 4px 8px;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 500;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                cursor: pointer;
+                transition: all 0.2s ease;
+                width: 68px;
+                text-align: center;
+                white-space: nowrap;
+            }
+            
+            .zoom-display-container:hover .zoom-display-current {
+                background: rgba(0, 0, 0, 0.9);
+            }
+            
+            .zoom-display-levels {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 68px;
+                background: rgba(0, 0, 0, 0.8);
+                border-radius: 4px;
+                max-height: 200px;
+                overflow-y: scroll;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s ease, visibility 0.2s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                /* Hide scrollbar but keep functionality */
+                scrollbar-width: none; /* Firefox */
+                -ms-overflow-style: none; /* IE/Edge */
+            }
+            
+            .zoom-display-levels::-webkit-scrollbar {
+                display: none; /* Chrome/Safari */
+            }
+            
+            .zoom-display-container:hover .zoom-display-levels {
+                opacity: 1;
+                visibility: visible;
+            }
+            
+            .zoom-level-item {
+                color: white;
+                padding: 4px 8px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                text-align: center;
+                white-space: nowrap;
+                width: 68px;
+                box-sizing: border-box;
+            }
+            
+            .zoom-level-item:last-child {
+                border-bottom: none;
+            }
+            
+            .zoom-level-item:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
+            .zoom-level-item.active {
+                background: rgba(255, 255, 255, 0.3);
+                font-weight: 600;
             }
             
             .map-style-select {
