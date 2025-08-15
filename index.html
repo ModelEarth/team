@@ -1615,6 +1615,7 @@
                     'account': { section: 'account', tabs: ['preferences', 'skills', 'interests'] }
                 };
                 
+                this.isInitialLoad = true;
                 this.init();
             }
 
@@ -1655,6 +1656,12 @@
                 const hash = window.location.hash.slice(1);
                 const isSimpleSectionChange = hash && !hash.includes('/') && !hash.includes('?');
                 
+                // Skip automatic navigation on initial load when there's no hash
+                if (this.isInitialLoad && !hash) {
+                    this.isInitialLoad = false;
+                    return;
+                }
+                
                 // Update application state
                 AppState.currentSection = route.section;
                 AppState.currentTab = route.tab;
@@ -1673,6 +1680,9 @@
                 
                 // Handle special parameters
                 this.handleSpecialParams(route.params);
+                
+                // Mark initial load as complete
+                this.isInitialLoad = false;
             }
 
             // Update UI based on route
