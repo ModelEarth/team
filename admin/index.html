@@ -290,6 +290,12 @@
 </head>
 <body>
     <div class="container">
+        <!-- Load Shared Auth Modal -->
+        <script src="../js/auth-modal.js"></script>
+        <div class="sign-in-container" style="text-align: right; margin-bottom: 24px;">
+            <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showAuthModal()">Sign In</button>
+        </div>
+
         <div class="breadcrumb">
             <a href="../index.html">← Back to PartnerTools</a>
         </div>
@@ -529,6 +535,9 @@
         </div>
 
     </div>
+
+    <!-- for .btn -->
+    <link rel="stylesheet" href="../css/common.css">
 
     <!-- Formatting for pre code in readme -->
     <link rel="stylesheet" href="../css/shared-styles.css">
