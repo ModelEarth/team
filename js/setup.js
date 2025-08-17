@@ -27,6 +27,25 @@ function createWebrootSetupHTML() {
       5. Start your Command Line Interface (CLI) using the following commands:<br>`;
 }
 
+// HTML content for the trade flow repos section
+function createTradeFlowReposHTML() {
+    return `
+        <h2>Get Trade Flow Repos</h2>
+        
+        <p>To contribute to our trade flow visualizations, run the following to fork and clone:<br>
+        <a href="https://github.com/ModelEarth/exiobase/tree/main/tradeflow">exiobase</a>, profile, useeio.js and io</p>
+        
+        <pre><code id="forkReposCmds">using claude.md
+fork trade repos to [your github account]
+clone trade repos from [your github account]
+</code></pre>
+
+        <p>The above requires having GitHub CLI (gh) installed locally and authenticated with your GitHub account.</p>
+        
+        <p><a href="https://model.earth/codechat/">Overview of repos (codechat)</a></p>
+    `;
+}
+
 // Function to update git account fields and browser storage
 function updateGitAccountFields() {
     const gitAccount = document.getElementById("gitAccount").value;
@@ -44,6 +63,9 @@ function updateGitAccountFields() {
     
     // Update the webrootFork link
     updateWebrootForkLink();
+    
+    // Update fork repos commands with git account
+    updateForkReposCommands();
 }
 
 // Function to update the webroot fork link
@@ -66,6 +88,28 @@ function updateWebrootForkLink() {
             span.innerHTML = linkHTML;
         });
     }
+}
+
+// Function to update fork repos commands with git account
+function updateForkReposCommands() {
+    const gitAccountField = document.getElementById("gitAccount");
+    const forkReposCmds = document.getElementById("forkReposCmds");
+    
+    if (!forkReposCmds) return;
+    
+    // Get git account value from field or localStorage
+    const gitAccount = (gitAccountField ? gitAccountField.value : '') || localStorage.gitAccount;
+    const replacementText = gitAccount || '[your github account]';
+    
+    // Store original template if not already stored
+    if (!forkReposCmds.dataset.originalTemplate) {
+        forkReposCmds.dataset.originalTemplate = forkReposCmds.textContent;
+    }
+    
+    // Always work from the original template and replace placeholders
+    const originalTemplate = forkReposCmds.dataset.originalTemplate;
+    const updatedContent = originalTemplate.replace(/\[your github account\]/g, replacementText);
+    forkReposCmds.textContent = updatedContent;
 }
 
 // Initialize fields on page load
@@ -100,8 +144,9 @@ function initializeGitFields() {
         });
     }
     
-    // Update the link
+    // Update the link and fork repos commands
     updateWebrootForkLink();
+    updateForkReposCommands();
     
     // Re-initialize after a delay to ensure persistence
     setTimeout(() => {
@@ -112,6 +157,7 @@ function initializeGitFields() {
             myWebrootForkNameField.value = localStorage.myWebrootForkName;
         }
         updateWebrootForkLink();
+        updateForkReposCommands();
     }, 500);
 }
 
@@ -141,6 +187,21 @@ function setupWebrootSetup(containerId) {
         // Update the webroot fork link after inserting the content
         setTimeout(() => {
             updateWebrootForkLink();
+        }, 100);
+    }
+}
+
+// Setup trade flow repos section in a target container
+function setupTradeFlowRepos(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        // Insert the trade flow repos HTML
+        const tradeFlowHTML = createTradeFlowReposHTML();
+        container.innerHTML = tradeFlowHTML;
+        
+        // Update the fork repos commands after inserting the content
+        setTimeout(() => {
+            updateForkReposCommands();
         }, 100);
     }
 }
