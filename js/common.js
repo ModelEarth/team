@@ -288,6 +288,46 @@ function createOSDetectionPanel(containerId) {
                 </div>
             </div>
             <div style="margin-bottom: 16px;">
+
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <span>Do you have Github CLI installed?</span>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                        <input type="radio" name="github-cli-status" value="yes" style="margin: 0;">
+                        <span>Yes</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                        <input type="radio" name="github-cli-status" value="no" style="margin: 0;" checked>
+                        <span>No</span>
+                    </label>
+                </div>
+                
+                
+
+                <div id="githubCLIinstall">
+                <pre><code>gh auth status</code></pre>
+
+                Install the Github CLI by running 
+
+                <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br><br>
+                
+               
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span><b>Resolving Github CLI Install Error</b><br>
+                    If you see an error updating the .config fire, run the following to check ownership of the .config directory. If you see root ownership on your .config directory, it was probably created by a process running with elevated privileges.
+                    </span>
+                    <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
+                </div>
+
+                <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
+
+                Add yourself as owner instead of root.
+                <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
+
+                <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br><hr><br>
+
+                </div>
+
+
                 <span style="font-weight: 500; margin-right: 12px;">I'll be coding with...</span><br>
                 <div style="margin-bottom: 4px;"></div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -315,8 +355,14 @@ function createOSDetectionPanel(containerId) {
                         </label>
                     </div>
                     <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
-                        If you haven't installed Claude yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a>, then install Claude Code CLI with:<br><br>
+                        
+                        
+
+                        If you haven't installed Claude yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a>, then install Claude Code CLI with:<br>
                         <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+
+                        Run /terminal-setup to set up terminal integration
+
                     </div>
 
                     <div id="cli-instructions" style="margin-bottom: 16px;">
@@ -597,6 +643,114 @@ npx @anthropic-ai/claude-code</code></pre>`;
         
         // Initial update of install text visibility
         updateInstallTextVisibility();
+    }, 200);
+    
+    // Add event listeners for GitHub CLI status radio buttons and userComputer text box
+    setTimeout(() => {
+        const githubCliRadios = document.querySelectorAll('input[name="github-cli-status"]');
+        const githubInstallDiv = document.getElementById('githubCLIinstall');
+        const userComputerInput = document.getElementById('userComputer');
+        const savedGithubCliStatus = localStorage.getItem('github-cli-status');
+        const savedUserComputer = localStorage.getItem('user-computer-name');
+        
+        // Set radio button based on saved preference, default to "no"
+        if (savedGithubCliStatus === 'yes') {
+            const yesRadio = document.querySelector('input[name="github-cli-status"][value="yes"]');
+            const noRadio = document.querySelector('input[name="github-cli-status"][value="no"]');
+            if (yesRadio) yesRadio.checked = true;
+            if (noRadio) noRadio.checked = false;
+        }
+        
+        // Set userComputer input from saved value
+        if (userComputerInput && savedUserComputer) {
+            userComputerInput.value = savedUserComputer;
+        }
+        
+        // Store original templates and current user placeholders for tracking
+        let originalTemplates = {};
+        let currentUserLength = 0;
+        
+        // Function to update [MyUserAcct] placeholders in the GitHub CLI instructions
+        function updateUserAcctPlaceholders() {
+            if (!githubInstallDiv) return;
+            
+            // Get current value from the input
+            const currentUserComputerInput = document.getElementById('userComputer');
+            const userComputer = currentUserComputerInput ? currentUserComputerInput.value.trim() : '';
+            const replacementText = userComputer || '[MyUserAcct]';
+            
+            // Store original templates on first run
+            const myUser1 = document.getElementById('MyUser1');
+            const myUser2 = document.getElementById('MyUser2');
+            
+            if (myUser1 && !originalTemplates.MyUser1) {
+                originalTemplates.MyUser1 = myUser1.textContent;
+            }
+            if (myUser2 && !originalTemplates.MyUser2) {
+                originalTemplates.MyUser2 = myUser2.textContent;
+            }
+            
+            // Update MyUser1 (contains one [MyUserAcct])
+            if (myUser1 && originalTemplates.MyUser1) {
+                myUser1.textContent = originalTemplates.MyUser1.replace(/\[MyUserAcct\]/g, replacementText);
+            }
+            
+            // Update MyUser2 (contains two [MyUserAcct])
+            if (myUser2 && originalTemplates.MyUser2) {
+                myUser2.textContent = originalTemplates.MyUser2.replace(/\[MyUserAcct\]/g, replacementText);
+            }
+            
+            // Update current user length for future reference
+            currentUserLength = replacementText.length;
+        }
+        
+        // Function to update GitHub CLI install div and userComputer text box visibility
+        function updateGithubCliVisibility() {
+            const yesSelected = document.querySelector('input[name="github-cli-status"][value="yes"]:checked');
+            if (githubInstallDiv) {
+                if (yesSelected) {
+                    githubInstallDiv.style.display = 'none';
+                } else {
+                    githubInstallDiv.style.display = 'block';
+                }
+            }
+            
+            // Hide/show userComputer text box based on radio selection
+            if (userComputerInput) {
+                if (yesSelected) {
+                    userComputerInput.style.display = 'none';
+                } else {
+                    userComputerInput.style.display = 'block';
+                }
+            }
+        }
+        
+        // Add event listeners for radio buttons
+        githubCliRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                console.log('GitHub CLI radio button changed to:', this.value);
+                // Save the selected radio button value to localStorage
+                localStorage.setItem('github-cli-status', this.value);
+                
+                // Update div visibility
+                updateGithubCliVisibility();
+            });
+        });
+        
+        // Add event listener for userComputer text box
+        if (userComputerInput) {
+            userComputerInput.addEventListener('input', function() {
+                // Save to localStorage while typing
+                localStorage.setItem('user-computer-name', this.value);
+                
+                // Update placeholders in real-time
+                updateUserAcctPlaceholders();
+            });
+        }
+        
+        // Initial updates
+        updateGithubCliVisibility();
+        updateUserAcctPlaceholders();
     }, 200);
     
     // Initial update
