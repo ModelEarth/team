@@ -15,6 +15,10 @@
             crossorigin=""></script>
     <!-- Our Leaflet integration -->
     <script type="text/javascript" src="../../js/leaflet.js"></script>
+    
+    <!-- Button styles -->
+    <link rel="stylesheet" href="../../css/common.css">
+    
     <style>
         * {
             margin: 0;
@@ -597,36 +601,12 @@
             word-break: break-all;
         }
 
-        /* Sign In Button Styles - matches admin page design */
+        /* Sign In Button Container */
         .sign-in-container {
             position: absolute;
             top: 24px;
             right: 24px;
             z-index: 1000;
-        }
-
-        .sign-in-btn {
-            padding: 8px 16px;
-            background: #FFFFFF;
-            color: #374151;
-            border: 1px solid #E5E7EB;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            display: inline-block;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            min-width: 80px;
-            text-align: center;
-        }
-
-        .sign-in-btn:hover {
-            background: #F9FAFB;
-            border-color: #D1D5DB;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
         }
 
     </style>
@@ -1579,7 +1559,7 @@
                     <!-- Header -->
                     <div class="header" style="position:relative">
                         <div class="sign-in-container">
-                            <button id="signInBtn" class="sign-in-btn" onclick="showAuthModal()">Sign In</button>
+                            <button id="signInBtn" class="btn btn-primary" onclick="showAuthModal()">Sign In</button>
                         </div>
                         <h1>${this.config?.listTitle || 'Listings'}</h1>
                         ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
