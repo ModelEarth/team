@@ -159,6 +159,29 @@ pub struct FacebookPictureData {
     pub url: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DiscordUserInfo {
+    pub id: String,
+    pub username: String,
+    pub email: Option<String>,
+    pub avatar: Option<String>,
+    pub discriminator: String,
+    pub global_name: Option<String>,
+}
+
+impl DiscordUserInfo {
+    pub fn get_display_name(&self) -> String {
+        self.global_name.clone()
+            .unwrap_or_else(|| self.username.clone())
+    }
+    
+    pub fn get_avatar_url(&self) -> Option<String> {
+        self.avatar.as_ref().map(|avatar_hash| {
+            format!("https://cdn.discordapp.com/avatars/{}/{}.png", self.id, avatar_hash)
+        })
+    }
+}
+
 impl OAuthConfig {
     pub fn load() -> anyhow::Result<Self> {
         // Load environment variables from .env file first

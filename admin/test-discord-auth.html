@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord OAuth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #4752C4;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Discord OAuth Integration Test</h1>
+    
+    <div class="test-section info">
+        <h3>ℹ️ Test Setup</h3>
+        <p>This page tests the Discord OAuth integration for the team platform.</p>
+        <p><strong>Requirements:</strong></p>
+        <ul>
+            <li>Backend server running on port 8081</li>
+            <li>Discord app configured with proper credentials</li>
+            <li>Environment variables set in .env file</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>1. Test Auth Modal Integration</h3>
+        <p>Test if the Discord button appears in the auth modal:</p>
+        <button onclick="testAuthModal()">Open Auth Modal</button>
+        <div id="auth-modal-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test OAuth URL Generation</h3>
+        <p>Test if the backend generates a valid Discord OAuth URL:</p>
+        <button onclick="testOAuthURL()">Test OAuth URL</button>
+        <div id="oauth-url-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Provider Configuration</h3>
+        <p>Test if Discord is listed as an available provider:</p>
+        <button onclick="testProviderList()">Check Providers</button>
+        <div id="provider-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Manual OAuth Flow Test</h3>
+        <p>Start the Discord OAuth flow manually:</p>
+        <button onclick="startDiscordAuth()">Start Discord OAuth</button>
+        <div id="discord-auth-result"></div>
+    </div>
+
+    <!-- Load auth modal -->
+    <script src="../js/auth-modal.js"></script>
+
+    <script>
+        async function testAuthModal() {
+            const result = document.getElementById('auth-modal-result');
+            try {
+                // Show the auth modal
+                window.authModal?.show();
+                
+                // Check if Discord button exists
+                setTimeout(() => {
+                    const discordBtn = document.querySelector('button[onclick*="discord"]');
+                    if (discordBtn) {
+                        result.className = 'test-section success';
+                        result.innerHTML = '<p>✅ Success: Discord button found in auth modal</p>';
+                    } else {
+                        result.className = 'test-section error';
+                        result.innerHTML = '<p>❌ Error: Discord button not found in auth modal</p>';
+                    }
+                    
+                    // Hide modal after test
+                    setTimeout(() => window.authModal?.hide(), 2000);
+                }, 100);
+                
+            } catch (error) {
+                result.className = 'test-section error';
+                result.innerHTML = `<p>❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testOAuthURL() {
+            const result = document.getElementById('oauth-url-result');
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/discord/url');
+                const data = await response.json();
+                
+                if (response.ok && data.auth_url) {
+                    result.className = 'test-section success';
+                    result.innerHTML = `
+                        <p>✅ Success: OAuth URL generated</p>
+                        <pre>${data.auth_url}</pre>
+                    `;
+                } else {
+                    result.className = 'test-section error';
+                    result.innerHTML = `<p>❌ Error: ${data.message || 'Failed to generate OAuth URL'}</p>`;
+                }
+            } catch (error) {
+                result.className = 'test-section error';
+                result.innerHTML = `<p>❌ Network Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testProviderList() {
+            const result = document.getElementById('provider-result');
+            try {
+                // This uses the legacy endpoint that lists providers
+                const response = await fetch('http://localhost:8081/api/auth/google/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+                
+                if (data.providers && data.providers.includes('discord')) {
+                    result.className = 'test-section success';
+                    result.innerHTML = `
+                        <p>✅ Success: Discord found in provider list</p>
+                        <pre>Available providers: ${data.providers.join(', ')}</pre>
+                    `;
+                } else {
+                    result.className = 'test-section error';
+                    result.innerHTML = `
+                        <p>❌ Error: Discord not found in provider list</p>
+                        <pre>Available providers: ${data.providers ? data.providers.join(', ') : 'None'}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.className = 'test-section error';
+                result.innerHTML = `<p>❌ Network Error: ${error.message}</p>`;
+            }
+        }
+
+        async function startDiscordAuth() {
+            const result = document.getElementById('discord-auth-result');
+            try {
+                // Start the Discord OAuth flow
+                const response = await fetch('http://localhost:8081/api/auth/discord/url');
+                const data = await response.json();
+                
+                if (response.ok && data.auth_url) {
+                    result.className = 'test-section info';
+                    result.innerHTML = `
+                        <p>🔄 Redirecting to Discord...</p>
+                        <p><strong>OAuth URL:</strong> <a href="${data.auth_url}" target="_blank">Open in new tab</a></p>
+                    `;
+                    
+                    // Redirect to Discord OAuth
+                    setTimeout(() => {
+                        window.location.href = data.auth_url;
+                    }, 2000);
+                } else {
+                    result.className = 'test-section error';
+                    result.innerHTML = `<p>❌ Error: ${data.message || 'Failed to start OAuth flow'}</p>`;
+                }
+            } catch (error) {
+                result.className = 'test-section error';
+                result.innerHTML = `<p>❌ Network Error: ${error.message}</p>`;
+            }
+        }
+
+        // Check URL parameters for OAuth callback results
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const authStatus = urlParams.get('auth');
+            const message = urlParams.get('message');
+            
+            if (authStatus) {
+                const callbackResult = document.createElement('div');
+                callbackResult.className = `test-section ${authStatus === 'success' ? 'success' : 'error'}`;
+                callbackResult.innerHTML = `
+                    <h3>OAuth Callback Result</h3>
+                    <p>${authStatus === 'success' ? '✅' : '❌'} OAuth flow completed with status: ${authStatus}</p>
+                    ${message ? `<p>Message: ${message}</p>` : ''}
+                `;
+                document.body.insertBefore(callbackResult, document.body.firstChild);
+            }
+        });
+    </script>
+</body>
+</html>

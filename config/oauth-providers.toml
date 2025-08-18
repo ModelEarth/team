@@ -72,6 +72,18 @@ grant_type = "authorization_code"
 # Facebook specific parameters
 fields = "id,name,email,picture"
 
+[oauth.providers.discord]
+name = "Discord"
+client_id = "${DISCORD_CLIENT_ID}"
+client_secret = "${DISCORD_CLIENT_SECRET}"
+authorization_endpoint = "https://discord.com/api/oauth2/authorize"
+token_endpoint = "https://discord.com/api/oauth2/token"
+userinfo_endpoint = "https://discord.com/api/users/@me"
+scopes = ["identify", "email"]
+pkce_enabled = false
+response_type = "code"
+grant_type = "authorization_code"
+
 # Development/Testing Provider (for bypassing OAuth during development)
 [oauth.providers.demo]
 name = "Demo Login"

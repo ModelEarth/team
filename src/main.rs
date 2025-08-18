@@ -949,7 +949,7 @@ async fn verify_google_auth(_req: web::Json<GoogleAuthRequest>) -> Result<HttpRe
         "success": false,
         "error": "Deprecated endpoint",
         "message": "Please use the new OAuth flow: /api/auth/{provider}/url",
-        "providers": ["google", "github", "linkedin", "microsoft", "facebook"]
+        "providers": ["google", "github", "linkedin", "microsoft", "facebook", "discord"]
     })))
 }
 
