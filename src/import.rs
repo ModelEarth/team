@@ -76,6 +76,21 @@ pub async fn import_excel_data(
     pool: web::Data<std::sync::Arc<crate::ApiState>>,
     req: web::Json<ImportRequest>,
 ) -> Result<HttpResponse> {
+    let db = match &pool.db {
+        Some(db) => db,
+        None => {
+            return Ok(HttpResponse::ServiceUnavailable().json(ImportResponse {
+                success: false,
+                message: "Database not available. Server started without database connection.".to_string(),
+                records_processed: Some(0),
+                records_inserted: Some(0),
+                records_skipped: Some(0),
+                duplicate_check_columns: None,
+                errors: vec!["Database connection not available".to_string()],
+            }));
+        }
+    };
+    
     let mut errors = Vec::new();
     
     // Read Excel file
@@ -100,7 +115,7 @@ pub async fn import_excel_data(
     let total_records = records.len();
 
     for (index, record) in records.iter().enumerate() {
-        match insert_project_record(&pool.db, record).await {
+        match insert_project_record(db, record).await {
             Ok(InsertResult::Inserted) => inserted_count += 1,
             Ok(InsertResult::Skipped) => skipped_count += 1,
             Err(e) => {
@@ -397,6 +412,21 @@ pub async fn import_data(
     pool: web::Data<std::sync::Arc<crate::ApiState>>,
     req: web::Json<DataImportRequest>,
 ) -> Result<HttpResponse> {
+    let db = match &pool.db {
+        Some(db) => db,
+        None => {
+            return Ok(HttpResponse::ServiceUnavailable().json(ImportResponse {
+                success: false,
+                message: "Database not available. Server started without database connection.".to_string(),
+                records_processed: Some(0),
+                records_inserted: Some(0),
+                records_skipped: Some(0),
+                duplicate_check_columns: None,
+                errors: vec!["Database connection not available".to_string()],
+            }));
+        }
+    };
+    
     let mut errors = Vec::new();
     let mut imported_count = 0;
     let mut skipped_count = 0;
@@ -408,7 +438,7 @@ pub async fn import_data(
     match req.table_name.as_str() {
         "accounts" => {
             for (index, record) in req.data.iter().enumerate() {
-                match import_account_record(&pool.db, record).await {
+                match import_account_record(db, record).await {
                     Ok((InsertResult::Inserted, fields_used)) => {
                         imported_count += 1;
                         if actual_duplicate_check_columns.is_none() {
@@ -431,7 +461,7 @@ pub async fn import_data(
         }
         "projects" => {
             for (index, record) in req.data.iter().enumerate() {
-                match import_project_record_from_json(&pool.db, record).await {
+                match import_project_record_from_json(db, record).await {
                     Ok((InsertResult::Inserted, fields_used)) => {
                         imported_count += 1;
                         if actual_duplicate_check_columns.is_none() {
@@ -672,13 +702,28 @@ pub async fn import_democracylab_projects(
     pool: web::Data<std::sync::Arc<crate::ApiState>>,
     req: web::Json<DemocracyLabApiResponse>,
 ) -> Result<HttpResponse> {
+    let db = match &pool.db {
+        Some(db) => db,
+        None => {
+            return Ok(HttpResponse::ServiceUnavailable().json(ImportResponse {
+                success: false,
+                message: "Database not available. Server started without database connection.".to_string(),
+                records_processed: Some(0),
+                records_inserted: Some(0),
+                records_skipped: Some(0),
+                duplicate_check_columns: None,
+                errors: vec!["Database connection not available".to_string()],
+            }));
+        }
+    };
+    
     let mut errors = Vec::new();
     let mut inserted_count = 0;
     let mut skipped_count = 0;
     let total_records = req.projects.len();
 
     for (index, project) in req.projects.iter().enumerate() {
-        match insert_democracylab_project(&pool.db, project).await {
+        match insert_democracylab_project(db, project).await {
             Ok(InsertResult::Inserted) => inserted_count += 1,
             Ok(InsertResult::Skipped) => skipped_count += 1,
             Err(e) => {

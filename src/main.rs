@@ -187,7 +187,7 @@ enum Commands {
 
 // API State
 struct ApiState {
-    db: Pool<Postgres>,
+    db: Option<Pool<Postgres>>,
     config: SharedConfig,
 }
 
@@ -387,16 +387,25 @@ struct FetchCsvRequest {
 
 // Health check endpoint
 async fn health_check(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
-    match sqlx::query("SELECT 1").fetch_one(&data.db).await {
-        Ok(_) => Ok(HttpResponse::Ok().json(json!({
+    match &data.db {
+        Some(db) => {
+            match sqlx::query("SELECT 1").fetch_one(db).await {
+                Ok(_) => Ok(HttpResponse::Ok().json(json!({
+                    "status": "healthy",
+                    "database_connected": true
+                }))),
+                Err(e) => Ok(HttpResponse::Ok().json(json!({
+                    "status": "unhealthy",
+                    "database_connected": false,
+                    "error": e.to_string()
+                }))),
+            }
+        }
+        None => Ok(HttpResponse::Ok().json(json!({
             "status": "healthy",
-            "database_connected": true
-        }))),
-        Err(e) => Ok(HttpResponse::Ok().json(json!({
-            "status": "unhealthy",
             "database_connected": false,
-            "error": e.to_string()
-        }))),
+            "message": "Server running without database connection"
+        })))
     }
 }
 
@@ -1456,7 +1465,14 @@ async fn get_tables(data: web::Data<Arc<ApiState>>, query: web::Query<std::colle
         }
     } else {
         // Use default connection
-        data.db.clone()
+        match &data.db {
+            Some(db) => db.clone(),
+            None => {
+                return Ok(HttpResponse::ServiceUnavailable().json(json!({
+                    "error": "Database not available. Server started without database connection."
+                })));
+            }
+        }
     };
     
     match get_database_tables(&pool, None).await {
@@ -1515,19 +1531,29 @@ async fn get_tables_mock() -> Result<HttpResponse> {
 
 // Test database connection
 async fn db_test_connection(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
-    match test_db_connection(&data.db).await {
-        Ok(info) => Ok(HttpResponse::Ok().json(DatabaseResponse {
-            success: true,
-            message: Some("Database connection successful".to_string()),
-            error: None,
-            data: Some(serde_json::to_value(info).unwrap()),
-        })),
-        Err(e) => Ok(HttpResponse::InternalServerError().json(DatabaseResponse {
+    match &data.db {
+        Some(db) => {
+            match test_db_connection(db).await {
+                Ok(info) => Ok(HttpResponse::Ok().json(DatabaseResponse {
+                    success: true,
+                    message: Some("Database connection successful".to_string()),
+                    error: None,
+                    data: Some(serde_json::to_value(info).unwrap()),
+                })),
+                Err(e) => Ok(HttpResponse::InternalServerError().json(DatabaseResponse {
+                    success: false,
+                    message: None,
+                    error: Some(format!("Connection failed: {e}")),
+                    data: None,
+                })),
+            }
+        }
+        None => Ok(HttpResponse::ServiceUnavailable().json(DatabaseResponse {
             success: false,
             message: None,
-            error: Some(format!("Connection failed: {e}")),
+            error: Some("Database not available. Server started without database connection.".to_string()),
             data: None,
-        })),
+        }))
     }
 }
 
@@ -1537,19 +1563,29 @@ async fn db_list_tables(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse> {
     let limit = query.get("limit").and_then(|s| s.parse::<i32>().ok());
-    match get_database_tables(&data.db, limit).await {
-        Ok(tables) => Ok(HttpResponse::Ok().json(DatabaseResponse {
-            success: true,
-            message: Some(format!("Found {} tables", tables.len())),
-            error: None,
-            data: Some(serde_json::json!({ "tables": tables })),
-        })),
-        Err(e) => Ok(HttpResponse::InternalServerError().json(DatabaseResponse {
+    match &data.db {
+        Some(db) => {
+            match get_database_tables(db, limit).await {
+                Ok(tables) => Ok(HttpResponse::Ok().json(DatabaseResponse {
+                    success: true,
+                    message: Some(format!("Found {} tables", tables.len())),
+                    error: None,
+                    data: Some(serde_json::json!({ "tables": tables })),
+                })),
+                Err(e) => Ok(HttpResponse::InternalServerError().json(DatabaseResponse {
+                    success: false,
+                    message: None,
+                    error: Some(format!("Failed to list tables: {e}")),
+                    data: None,
+                })),
+            }
+        }
+        None => Ok(HttpResponse::ServiceUnavailable().json(DatabaseResponse {
             success: false,
             message: None,
-            error: Some(format!("Failed to list tables: {e}")),
+            error: Some("Database not available. Server started without database connection.".to_string()),
             data: None,
-        })),
+        }))
     }
 }
 
@@ -1609,7 +1645,17 @@ async fn db_get_table_info(
         }
     } else {
         // Use default connection
-        data.db.clone()
+        match &data.db {
+            Some(db) => db.clone(),
+            None => {
+                return Ok(HttpResponse::ServiceUnavailable().json(DatabaseResponse {
+                    success: false,
+                    message: None,
+                    error: Some("Database not available. Server started without database connection.".to_string()),
+                    data: None,
+                }));
+            }
+        }
     };
     
     match get_table_details(&pool, &table_name).await {
@@ -1693,7 +1739,17 @@ async fn db_execute_query(
         }
     } else {
         // Use default connection
-        data.db.clone()
+        match &data.db {
+            Some(db) => db.clone(),
+            None => {
+                return Ok(HttpResponse::ServiceUnavailable().json(DatabaseResponse {
+                    success: false,
+                    message: None,
+                    error: Some("Database not available. Server started without database connection.".to_string()),
+                    data: None,
+                }));
+            }
+        }
     };
 
     match execute_safe_query(&pool, &query_req.query).await {
@@ -1715,10 +1771,19 @@ async fn db_execute_query(
 // Create a new project
 // Get all projects from database
 async fn get_projects(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    let db = match &data.db {
+        Some(db) => db,
+        None => {
+            return Ok(HttpResponse::ServiceUnavailable().json(json!({
+                "error": "Database not available. Server started without database connection."
+            })));
+        }
+    };
+    
     let projects_query = sqlx::query(
         "SELECT id, name, description, status, date_entered, date_modified FROM projects ORDER BY date_modified DESC LIMIT 50"
     )
-    .fetch_all(&data.db)
+    .fetch_all(db)
     .await;
     
     match projects_query {
@@ -1754,6 +1819,15 @@ async fn create_project(
     data: web::Data<Arc<ApiState>>,
     req: web::Json<CreateProjectRequest>,
 ) -> Result<HttpResponse> {
+    let db = match &data.db {
+        Some(db) => db,
+        None => {
+            return Ok(HttpResponse::ServiceUnavailable().json(json!({
+                "error": "Database not available. Server started without database connection."
+            })));
+        }
+    };
+    
     let id = Uuid::new_v4();
     let now = Utc::now();
     
@@ -1785,7 +1859,7 @@ async fn create_project(
     .bind(now)
     .bind("1") // Default user ID
     .bind("1") // Default user ID
-    .execute(&data.db)
+    .execute(db)
     .await;
     
     match result {
@@ -2422,13 +2496,23 @@ fn get_table_description(table_name: &str) -> Option<String> {
 // Run the API server
 async fn run_api_server(config: Config) -> anyhow::Result<()> {
     println!("Attempting to connect to database: {}", &config.database_url);
-    let pool = PgPoolOptions::new()
+    
+    let pool = match PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.database_url)
         .await
-        .context("Failed to connect to database")?;
-    
-    println!("Database connection successful!");
+    {
+        Ok(pool) => {
+            println!("Database connection successful!");
+            Some(pool)
+        }
+        Err(e) => {
+            println!("Warning: Failed to connect to database: {}", e);
+            println!("Server will start without database functionality.");
+            println!("OAuth and other features will work normally.");
+            None
+        }
+    };
     
     // Create shared config for hot reloading
     let shared_config = Arc::new(Mutex::new(config));

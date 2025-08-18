@@ -12,11 +12,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Build and Run
 - `cargo build` - Build the project
-- `cargo run -- serve` - Start the REST API server  
-- `cargo run -- init-db` - Initialize database schema
+- `cargo run --bin partner_tools -- serve` - Start the REST API server  
+- `cargo run --bin partner_tools -- init-db` - Initialize database schema
 - `cargo check` - Check code without building
 - `cargo clippy` - Run linting
 - `cargo test` - Run tests
+
+**For Development Without Database**: Export a demo database URL to prevent startup crashes:
+```bash
+export DATABASE_URL="postgres://demo:demo@localhost:5432/demo"
+cargo run --bin partner_tools -- serve
+```
 
 ### Development Mode
 - Server host/port configurable via `SERVER_HOST`/`SERVER_PORT` environment variables
@@ -25,7 +31,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Background Development Server (ALWAYS USE THIS)
 ```bash
 # ALWAYS use this command to start server - keeps running in background
-nohup cargo run serve > server.log 2>&1 &
+# Used for .env database settings if the ones in .env are blank or don't connect - only needed for development without a database.
+export COMMONS_HOST="localhost"
+export COMMONS_PORT="5432" 
+export COMMONS_NAME="demo"
+export COMMONS_USER="demo"
+export COMMONS_PASSWORD="demo"
+export COMMONS_SSL_MODE="disable"
+export EXIOBASE_HOST="localhost"
+export EXIOBASE_PORT="5432"
+export EXIOBASE_NAME="demo" 
+export EXIOBASE_USER="demo"
+export EXIOBASE_PASSWORD="demo"
+export EXIOBASE_SSL_MODE="disable"
+nohup cargo run --bin partner_tools -- serve > server.log 2>&1 &
 
 # Check if dev server is running
 curl http://localhost:8081/api/health
@@ -33,6 +52,8 @@ curl http://localhost:8081/api/health
 # Stop dev background server
 lsof -ti:8081 | xargs kill -9
 ```
+
+**Note for Development**: The server now gracefully handles database connection failures and will start successfully even without a database connection. These environment variable exports are only needed if you want to override blank or invalid .env database settings. When no database is available, OAuth and non-database features work normally, while database-dependent features will return appropriate error messages.
 
 ### Alternative Commands (NOT RECOMMENDED)
 - `cargo run serve` - Blocks terminal, stops when you exit (DO NOT USE)
