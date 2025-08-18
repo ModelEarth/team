@@ -339,6 +339,10 @@ function createOSDetectionPanel(containerId) {
                         <input type="checkbox" id="gemini-cli" style="margin: 0;">
                         <span>Gemini CLI (Not mature yet)</span>
                     </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                        <input type="checkbox" id="vscode-claude" style="margin: 0;">
+                        <span>VS Code with Claude</span>
+                    </label>
                 </div>
             </div>
             <div id="cli-commands" style="display: none;">
@@ -386,6 +390,11 @@ npm install -g @google/generative-ai
 gemini</code></pre>
                 </div>
             </div>
+            <div class="cardsection" id="vscode-cmds" style="display: none;">
+                <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">VS Code command</h4>
+                After forking and cloning the webroot repo, initialize the submodules:
+                <pre><code>git submodule update --init --recursive</code></pre>
+            </div>
             <div class="cardsection" id="gemini-resources">
                 <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">Add AI Insights Key:</h4>
                 You can use a free Gemini key for AI insights.<br>
@@ -406,10 +415,12 @@ function initializeOSDetectionPanel() {
     const osInfo = document.getElementById('os-info');
     const claudeCodeCli = document.getElementById('claude-code-cli');
     const geminiCli = document.getElementById('gemini-cli');
+    const vscodeClaude = document.getElementById('vscode-claude');
     const cliCommands = document.getElementById('cli-commands');
     const claudeCodeCommands = document.getElementById('claude-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
     const geminiResources = document.getElementById('gemini-resources');
+    const vscodeCommands = document.getElementById('vscode-cmds');
     const claudeInstallText = document.getElementById('claude-install-text');
     const repoNameSpan = document.getElementById('repo-name');
     
@@ -443,6 +454,7 @@ function initializeOSDetectionPanel() {
     // Load saved CLI preferences
     const savedClaudeCode = localStorage.getItem('claude-code-cli-installed');
     const savedGemini = localStorage.getItem('gemini-cli-installed');
+    const savedVscode = localStorage.getItem('vscode-claude-installed');
     const savedInstallStatus = localStorage.getItem('claude-install-status');
     
     // Check Claude by default if no saved preference exists
@@ -455,6 +467,9 @@ function initializeOSDetectionPanel() {
     }
     if (geminiCli && savedGemini === 'true') {
         geminiCli.checked = true;
+    }
+    if (vscodeClaude && savedVscode === 'true') {
+        vscodeClaude.checked = true;
     }
     
     // Radio button initialization will be done in the setTimeout below
@@ -484,6 +499,7 @@ function initializeOSDetectionPanel() {
         const selectedOS = osSelect.value;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
         const geminiChecked = geminiCli ? geminiCli.checked : false;
+        const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
         
         // Update title based on number of checked tools
         const cliToolsTitle = document.getElementById('cli-tools-title');
@@ -516,6 +532,17 @@ function initializeOSDetectionPanel() {
             // Hide Gemini installation section
             if (geminiInstallation) {
                 geminiInstallation.style.display = 'none';
+            }
+        }
+        
+        // Handle VS Code with Claude section
+        if (vscodeChecked) {
+            // Show and expand VS Code commands section
+            expandSection('vscode-cmds');
+        } else {
+            // Hide VS Code commands section
+            if (vscodeCommands) {
+                vscodeCommands.style.display = 'none';
             }
         }
     }
@@ -601,6 +628,13 @@ npx @anthropic-ai/claude-code</code></pre>`;
     if (geminiCli) {
         geminiCli.addEventListener('change', function() {
             localStorage.setItem('gemini-cli-installed', this.checked);
+            updateCliCommands();
+        });
+    }
+    
+    if (vscodeClaude) {
+        vscodeClaude.addEventListener('change', function() {
+            localStorage.setItem('vscode-claude-installed', this.checked);
             updateCliCommands();
         });
     }
@@ -761,6 +795,7 @@ npx @anthropic-ai/claude-code</code></pre>`;
         makeCollapsible('cli-commands', 'Claude Code CLI Installation');
         makeCollapsible('gemini-installation', 'Gemini CLI Installation');
         makeCollapsible('gemini-resources', 'Gemini AI Insights Key');
+        makeCollapsible('vscode-cmds', 'VS Code Commands');
     }, 100);
 }
 
