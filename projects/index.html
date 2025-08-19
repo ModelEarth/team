@@ -18,6 +18,9 @@
         // Initialize Feather Icons
         feather.replace();
     </script>
+    
+    <!-- Load Shared Auth Modal -->
+    <script src="../js/auth-modal.js"></script>
 
     <style>
         .container {
@@ -1678,7 +1681,10 @@
         <div class="card" id="participants-table-card" style="display: none;">
             <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
-                <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
+                <div style="display: flex; gap: 10px;">
+                    <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
+                    <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
+                </div>
             </div>
             
             <!-- Snapshots Control -->
@@ -5108,6 +5114,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const listSelectDiv = document.getElementById('listSelectDiv');
             const breadcrumb = document.querySelector('.breadcrumb');
             const addVisitBtn = document.getElementById('add-visit-btn');
+            const signInBtn = document.getElementById('sign-in-btn');
             
             if (listParam === 'geo') {
                 listSelectDiv.style.display = 'none';
@@ -5117,6 +5124,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (addVisitBtn) {
                     addVisitBtn.style.display = 'inline-block';
                 }
+                if (signInBtn) {
+                    signInBtn.style.display = 'inline-block';
+                }
             } else {
                 listSelectDiv.style.display = 'flex';
                 if (breadcrumb) {
@@ -5124,6 +5134,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 if (addVisitBtn) {
                     addVisitBtn.style.display = 'none';
+                }
+                if (signInBtn) {
+                    signInBtn.style.display = 'none';
                 }
             }
         }

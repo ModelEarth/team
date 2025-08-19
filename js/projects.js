@@ -632,8 +632,9 @@ class ProjectsManager {
             </div>
 
             ${this.isUsingPlaceholderData ? `
-                <div class="placeholder-message" style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin: 16px 0; color: #92400e;">
-                    <strong>ℹ️ Demo Mode:</strong> Showing sample projects. Database connection unavailable - projects will load automatically locally when you've <a href="admin/server/" style="white-space:nowrap">Configured your Server</a>.
+                <div class="demo-mode-notice" style="color: #856404; background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 16px 0; display: flex; align-items: center; gap: 8px;">
+                    <i data-feather="info" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
+                    <span><strong>Demo Mode:</strong> Database connection inactive. <a href="admin/server/" style="color: #856404; text-decoration: underline;">Configure Your Local Server</a></span>
                 </div>
             ` : ''}
 
@@ -653,8 +654,8 @@ class ProjectsManager {
         `;
 
         // Re-initialize Feather icons
-         if (window.initializeFeatherIcons) {
-            window.initializeFeatherIcons();
+        if (window.feather) {
+            window.feather.replace();
         }
 
         // Restore search input focus and cursor position if it was focused before
