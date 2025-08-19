@@ -3072,6 +3072,22 @@ Keep the response structured and actionable for a data import workflow.`;
                     </div>
                     ${basicInsights}
                 `;
+            } else if (errorMessage.includes('API request failed: 400')) {
+                // Check if this is likely due to blank/invalid GEMINI_API_KEY
+                // 400 errors often indicate invalid API key when key is blank or contains no numbers
+                insightsContent.innerHTML = `
+                    <div class="insights-error">
+                        <strong>⚙️ Add your GEMINI_API_KEY</strong>
+                        <br>The Gemini API request failed (400 error). This usually means the GEMINI_API_KEY is blank or invalid.
+                        <br>Please <a href="../server/" target="_blank">Configure Your Local Server</a> to add a valid API key.
+                        <br><small>Dataset contains ${totalRecords} records - manual review recommended</small>
+                        <br><br>
+                        <button onclick="retryGeminiAnalysis()" class="btn btn-secondary" style="margin-top: 8px;">
+                            🔄 Retry After Configuration
+                        </button>
+                    </div>
+                    ${basicInsights}
+                `;
             } else {
                 // Enhanced error message with detailed explanation
                 let errorExplanation = '';

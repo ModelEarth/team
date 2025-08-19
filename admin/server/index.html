@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
-    <title>Configure Your Server</title>
+    <title>Configure Your Local Server</title>
 
     <link type="text/css" rel="stylesheet" href="../../../localsite/css/base.css" id="/localsite/css/base.css" />
     <link rel="stylesheet" href="../../css/common.css">
@@ -30,12 +30,10 @@
         <div class="header">
             <h1>
                 <div class="gemini-icon">C</div>
-                Configure Your Server
+                Configure Your Local Server
                 <!-- Google Gemini Insights -->
             </h1>
-            <p><a href="../import-data.html">Our Data Import Page</a> let's you send a dataset to Claude and Gemini for analysis when <a href="../">running the site locally</a>.<br>
-
-            <b>Getting Started:</b> <a href="https://github.com/modelearth/webroot/">Fork <span id="webrootFork">the webroot repo</span></a> and contribute to <a href="../../projects/#list=modelteam">Model Team Integrations</a></p>
+            <p><a href="../../projects/#list=all">Our Data Insights Page</a> let's you send a dataset to Claude and Gemini for analysis when <a href="../">running the site locally</a>.</p>
         </div>
 
         <div class="card" id="textInPage">
@@ -147,26 +145,7 @@
             </div>
         </div>
 
-        <div class="card">
-            <h2 class="card-title">Connection Troubleshooting</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                If you're having issues connecting to the backend API or database, try these troubleshooting steps:
-            </p>
-            
-            <div style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                <ol style="margin: 8px 0 0 20px; color: var(--text-secondary);">
-                    <li>Make sure the Rust backend server is running: <code>cargo run serve</code></li>
-                    <li>Verify the server is listening on port 8081</li>
-                    <li>Check that your Azure PostgreSQL credentials are correct</li>
-                    <li>Ensure your IP is allowed in Azure PostgreSQL firewall rules</li>
-                    <li>Verify SSL certificate settings for Azure connection</li>
-                </ol>
-                <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
-                    <strong>Quick Fix:</strong> You can tell Claude Code CLI to restart the server:<br>
-                    <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;">"Go ahead and restart now"</code>
-                </div>
-            </div>
-        </div>
+        <div id="connection-troubleshooting-container"></div>
 
         <div id="readmeDiv" class="card readme-content">
             <p style="color: var(--text-secondary); font-style: italic;">
@@ -997,6 +976,9 @@ Ready: AI features are available`;
 
         // Use shared OS detection panel from team/js/common.js
         createOSDetectionPanel('os-detection-container');
+
+        // Use shared Connection Troubleshooting panel from team/js/common.js
+        createConnectionTroubleshootingPanel('connection-troubleshooting-container', true);
 
         // Setup webroot setup content and Git account fields
         if (typeof setupWebrootSetup === 'function') {

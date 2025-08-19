@@ -306,14 +306,15 @@ function createOSDetectionPanel(containerId) {
                 <div id="githubCLIinstall">
                 <pre><code>gh auth status</code></pre>
 
-                Install the Github CLI by running 
+                <b>Install the Github CLI by running outside your Code CLI</b><br>
 
                 <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br><br>
                 
                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <span><b>Resolving Github CLI Install Error</b><br>
-                    If you see an error updating the .config fire, run the following to check ownership of the .config directory. If you see root ownership on your .config directory, it was probably created by a process running with elevated privileges.
+                    If you see an error updating the .config fire, run the following to check ownership of the .config directory. 
+                    Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
                     </span>
                     <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
                 </div>
@@ -860,7 +861,7 @@ function handleApiConnectionError(error, containerId) {
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span style="color: #EF4444; font-weight: 500;">API Connection Failed - Unable to connect to server.</span>
                 <a href="${adminPath}">
-                    Configure your server
+                    Configure Your Local Server
                 </a>
                 <span style="cursor: pointer; color: var(--text-secondary); font-size: 14px;" onclick="
                     const container = this.parentElement.parentElement;
@@ -1335,6 +1336,109 @@ if (document.readyState === 'loading') {
 
 // Make functions globally available
 window.handleApiConnectionError = handleApiConnectionError;
+
+// Function to create Connection Troubleshooting panel
+function createConnectionTroubleshootingPanel(containerId, showDbStatus = true) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`createConnectionTroubleshootingPanel: Container '${containerId}' not found`);
+        return;
+    }
+
+    // Create the panel HTML
+    let panelHtml = `
+        <div class="card">
+            <h2 class="card-title">Connection Troubleshooting</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                If you're having issues connecting to the backend API or database, try these troubleshooting steps:
+            </p>`;
+
+    // Add database status check if enabled
+    if (showDbStatus) {
+        panelHtml += `
+            <div id="database-status-check" style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span class="status-indicator loading" id="db-status-indicator"></span>
+                    <strong>Database Connection Status</strong>
+                </div>
+                <div id="db-status-message" style="color: var(--text-secondary); font-size: 14px;">
+                    Checking database connection...
+                </div>
+            </div>`;
+    }
+
+    panelHtml += `
+            <div style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <ol style="margin: 8px 0 0 20px; color: var(--text-secondary);">
+                    <li>Make sure the Rust backend server is running: <code>cargo run serve</code></li>
+                    <li>Verify the server is listening on port 8081</li>
+                    <li>Check that your Azure PostgreSQL credentials are correct</li>
+                    <li>Ensure your IP is allowed in Azure PostgreSQL firewall rules</li>
+                    <li>Verify SSL certificate settings for Azure connection</li>
+                </ol>
+                <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
+                    <strong>Quick Fix:</strong> You can tell Claude Code CLI to restart the server:<br>
+                    <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;">"Go ahead and restart now"</code>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = panelHtml;
+
+    // Check database status if enabled
+    if (showDbStatus) {
+        checkDatabaseStatus();
+    }
+}
+
+// Function to check database connection status
+async function checkDatabaseStatus() {
+    const indicator = document.getElementById('db-status-indicator');
+    const message = document.getElementById('db-status-message');
+    
+    if (!indicator || !message) return;
+
+    try {
+        // Try to connect to the health endpoint first
+        const healthResponse = await fetch('http://localhost:8081/api/health', {
+            method: 'GET',
+            timeout: 5000
+        });
+
+        if (healthResponse.ok) {
+            // Backend is running, now check database connection
+            try {
+                const dbResponse = await fetch('http://localhost:8081/api/db/test-connection');
+                const dbResult = await dbResponse.json();
+
+                if (dbResult.success) {
+                    indicator.className = 'status-indicator connected';
+                    message.innerHTML = `<span style="color: var(--accent-green);">✅ Database connection active</span><br>
+                        <span style="font-size: 12px;">Connected to: ${dbResult.data?.database || 'database'}</span>`;
+                } else {
+                    indicator.className = 'status-indicator error';
+                    message.innerHTML = `<span style="color: var(--accent-red);">❌ Database connection failed</span><br>
+                        <span style="font-size: 12px;">${dbResult.error || 'Unknown database error'}</span>`;
+                }
+            } catch (dbError) {
+                indicator.className = 'status-indicator error';
+                message.innerHTML = `<span style="color: var(--accent-red);">❌ Database unreachable</span><br>
+                    <span style="font-size: 12px;">Backend running but database connection failed</span>`;
+            }
+        } else {
+            throw new Error('Backend not responding');
+        }
+    } catch (error) {
+        indicator.className = 'status-indicator error';
+        message.innerHTML = `<span style="color: var(--accent-red);">❌ Backend API offline</span><br>
+            <span style="font-size: 12px;">Rust server not running on port 8081</span>`;
+    }
+}
+
+// Make functions globally available
+window.createConnectionTroubleshootingPanel = createConnectionTroubleshootingPanel;
+window.checkDatabaseStatus = checkDatabaseStatus;
 window.apiCall = apiCall;
 window.showNotification = showNotification;
 window.formatDate = formatDate;

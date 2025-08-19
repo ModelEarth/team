@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="../../localsite/css/nav.css">
     <script src="../../localsite/js/nav.js"></script>
     
-    
     <style>
         :root {
             --bg-primary: #F9FAFB;
@@ -287,22 +286,23 @@
             }
         }
     </style>
+    <!-- Load Shared Auth Modal -->
+    <script src="../js/auth-modal.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Load Shared Auth Modal -->
-        <script src="../js/auth-modal.js"></script>
-        <div class="sign-in-container" style="text-align: right; margin-bottom: 24px;">
-            <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showAuthModal()">Sign In</button>
-        </div>
 
-        <div class="breadcrumb">
-            <a href="../index.html">← Back to PartnerTools</a>
+        <div style="display:flex;width:100%;">
+            <div class="breadcrumb">
+                <a href="../index.html">← Explore</a>
+            </div>
+            <div class="sign-in-container" style="margin-left:auto;">
+                <button id="signInBtn" class="btn btn-primary sign-in-btn" style="margin-top:10px" onclick="showAuthModal()">Sign In</button>
+            </div>
         </div>
-
         <div class="header">
-            <h1>Admin Dashboard</h1>
-            <p>Administrative tools for managing teams, database operations, dataset AI insights, and system monitoring.</p>
+            <h1>Collaborative Parter Tools</h1>
+            <p>Dashboard for managing projects, locations, data insights and partner directories.</p>
         </div>
 
         <div class="admin-grid">
@@ -353,7 +353,7 @@
                 </div>
             </div>
 
-            <!-- Database Admin Panel -->
+            <!-- Database Admin -->
             <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='sql/panel/'; })">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
@@ -361,7 +361,7 @@
                             <i data-feather="database"></i>
                         </div>
                         <div>
-                            <h3>Database Admin Panel</h3>
+                            <h3>Database Admin</h3>
                             <span class="status-badge active">Active</span>
                         </div>
                     </div>

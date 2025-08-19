@@ -1,4 +1,4 @@
-# 📖 Database Admin Panel
+# 📖 Database Admin
 
 A web-based interface to test PostgreSQL database connections and explore the SuiteCRM schema.
 
@@ -134,13 +134,9 @@ All endpoints return JSON in this format:
 
 ### Common Issues
 
-**Connection Refused**
-- Check if Rust backend is running on port 8081
-- Verify `cargo run -- serve` is active
+The Connection Troubleshooting panel on the interface provides real-time status checks and detailed troubleshooting steps for backend API and database connectivity.
 
-**Database Connection Failed**
-- Verify Azure PostgreSQL credentials in .env
-- Check Azure firewall rules allow your IP address
+### Database-Specific Issues
 
 **Tables Not Loading**
 - Ensure database schema is properly initialized

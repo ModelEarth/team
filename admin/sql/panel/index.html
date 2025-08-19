@@ -339,7 +339,7 @@
     <div class="container">
         <div class="header">
             <a href="../../">Admin Dashboard</a>
-            <h1>Database Admin Panel</h1>
+            <h1>Database Admin</h1>
             <p><strong>Azure PostgreSQL Database Connection</strong> - Test live connection and explore actual database tables.<br>
                 You can create your Azure database from our <a href="https://github.com/modelearth/team/blob/main/admin/sql/suitecrm-postgres.sql">SQL create script</a> and <a href="https://github.com/modelearth/team/blob/main/admin/sql/add_foreign_keys.sql">foreign keys script</a>.<br>
                 Here's a page where you can <a href="../../../projects/edit.html">experiment with posting a row</a> in the Azure projects table.<br>
@@ -406,6 +406,8 @@
             <div id="quick-actions-result"></div>
         </div>
 
+        <div id="connection-troubleshooting-container"></div>
+
         <div id="readmeDiv" class="card readme-content">
             <p style="color: var(--text-secondary); font-style: italic;">
                 Loading README.md documentation...
@@ -416,6 +418,9 @@
     <script src="../../../js/common.js"></script>
     <script src="db-admin.js"></script>
     <script>
+        // Use shared Connection Troubleshooting panel from team/js/common.js
+        createConnectionTroubleshootingPanel('connection-troubleshooting-container', true);
+        
         // Load README without logging to keep the interface clean
         displayFile("README.md", "readmeDiv", "_parent", null, false);
     </script>

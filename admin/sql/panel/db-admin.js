@@ -1,4 +1,4 @@
-// Database Admin Panel JavaScript
+// Database Admin JavaScript
 class DatabaseAdmin {
     constructor() {
         // Use config from settings.js if available, otherwise fallback
@@ -15,7 +15,7 @@ class DatabaseAdmin {
         await this.loadEnvConfig();
         this.setupEventListeners();
         this.displayConfig();
-        this.addLog('Database Admin Panel initialized');
+        this.addLog('Database Admin initialized');
     }
 
     async loadEnvConfig() {

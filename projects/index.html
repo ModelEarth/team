@@ -1419,6 +1419,189 @@
             gap: 12px;
             justify-content: flex-end;
         }
+
+        /* Image Gallery Styles */
+        .participant-image-container {
+            position: relative;
+            width: 100%;
+            height: 120px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .participant-image {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .participant-image:hover {
+            transform: scale(1.02);
+        }
+
+        .image-dots-container {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            z-index: 2;
+        }
+
+        .image-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(128, 128, 128, 0.7);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .image-dot.active {
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.2);
+        }
+
+        .image-dot:hover {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Gallery View Image Styles */
+        .gallery-card {
+            position: relative;
+            overflow: hidden;
+            min-height: 180px;
+        }
+
+        .gallery-card .participant-image-container {
+            height: 140px;
+            margin-bottom: 0;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+        }
+
+        .gallery-card .participant-image {
+            height: 140px;
+        }
+
+        .gallery-card .gallery-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            padding: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        /* Dark overlay for cards with background images */
+        .gallery-card.has-background-image .gallery-content {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+        }
+        
+        /* Cards without images get the original bottom positioning without white background */
+        .gallery-card:not(.has-background-image) .gallery-content {
+            top: auto;
+            bottom: 0;
+            background: transparent;
+            justify-content: flex-start;
+            align-items: flex-start;
+            text-align: left;
+        }
+        
+        .gallery-card.has-background-image .gallery-name {
+            color: white;
+        }
+        
+        .gallery-card.has-background-image .gallery-info {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .gallery-card.text-mode .gallery-content {
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        /* Text mode for cards without images */
+        .gallery-card.text-mode:not(.has-background-image) .gallery-content {
+            top: 0;
+            bottom: 0;
+        }
+
+        .gallery-toggle-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: none;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 3;
+            padding: 4px;
+        }
+
+        .gallery-toggle-btn:hover {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
+            transform: scale(1.1);
+        }
+
+        .no-image-placeholder {
+            width: 100%;
+            height: 120px;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            border-radius: var(--radius-md);
+        }
+
+        /* Auto-advance indicator */
+        .image-container.auto-advancing .image-dot.active {
+            animation: pulse 0.3s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1.2); }
+            50% { transform: scale(1.4); }
+        }
+
+        /* Image loading placeholder */
+        .participant-image-container.loading {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
     </style>
 </head>
 <body>
@@ -2511,8 +2694,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             const isMetaList = getURLHashParam('list') === 'all';
             
+            let imageCount = 0;
             data.forEach(participant => {
                 if (!participant) return; // Skip null/undefined participants
+                
+                // Extract image paths from participant data
+                const imagePaths = extractImagePaths(participant);
+                
+                // Only display first 12 items with images, or all items if no images found in any
+                if (imagePaths.length > 0 && imageCount >= 12) return;
+                if (imagePaths.length > 0) imageCount++;
+                
                 const card = document.createElement('div');
                 card.className = 'participant-card';
                 
@@ -2533,7 +2725,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const status = participant.Status || 'Unknown';
                 const location = participant.Location || 'Location not specified';
                 
+                // Create image container if images are found
+                const imageContainer = imagePaths.length > 0 ? createImageContainer(imagePaths, false) : '';
+                
                 card.innerHTML = `
+                    ${imageContainer}
                     <div class="participant-name">${name}</div>
                     <div class="participant-info"><strong>Team:</strong> ${team}</div>
                     <div class="participant-info"><strong>Status:</strong> <span class="participant-status ${status.toLowerCase()}">${status}</span></div>
@@ -2911,8 +3107,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             const isMetaList = getURLHashParam('list') === 'all';
             
+            let imageCount = 0;
             data.forEach(participant => {
                 if (!participant) return; // Skip null/undefined participants
+                
+                // Extract image paths from participant data
+                const imagePaths = extractImagePaths(participant);
+                
+                // Only display first 12 items with images, or all items if no images found in any
+                if (imagePaths.length > 0 && imageCount >= 12) return;
+                if (imagePaths.length > 0) imageCount++;
+                
                 const card = document.createElement('div');
                 const teamClass = getTeamClass(participant.Team);
                 card.className = `gallery-card ${teamClass}`;
@@ -2929,17 +3134,39 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         updateParticipantListTitle(participant.Title || participant.Feed);
                     });
                 }
+                
                 const location = participant.Location || 'Location TBD';
                 const status = participant.Status || 'Status TBD';
+                const team = participant.Team || 'Not specified';
+                const projects = participant.Projects || 'No projects listed';
+                
+                // Set background image if available
+                if (imagePaths.length > 0) {
+                    card.style.backgroundImage = `url(${imagePaths[0]})`;
+                    card.style.backgroundSize = 'cover';
+                    card.style.backgroundPosition = 'center';
+                    card.style.backgroundRepeat = 'no-repeat';
+                    card.classList.add('has-background-image');
+                }
                 
                 card.innerHTML = `
-                    <div class="gallery-name">${name}</div>
-                    <div class="gallery-info">${location}</div>
-                    <div class="gallery-info">${status}</div>
+                    <div class="gallery-content">
+                        <div class="gallery-name">${name}</div>
+                        <div class="gallery-info">${location}</div>
+                        <div class="gallery-info">${status}</div>
+                        <div class="gallery-info"><strong>Team:</strong> ${team}</div>
+                        <div class="gallery-info"><strong>Projects:</strong> ${projects}</div>
+                    </div>
+                    <button class="gallery-toggle-btn" onclick="toggleGalleryTextMode(this.parentElement)" title="Show info">
+                        <i data-feather="info" style="width: 20px; height: 20px; stroke-width: 2.5px;"></i>
+                    </button>
                 `;
                 
                 container.appendChild(card);
             });
+            
+            // Initialize feather icons for the newly created gallery cards
+            setTimeout(() => feather.replace(), 100);
         }
         
         // Sort functionality
@@ -5555,6 +5782,260 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         document.getElementById('next-page').addEventListener('click', () => {
             goToPage(currentPage + 1);
+        });
+
+        // Image Gallery Functionality
+        
+        // Extract image paths from participant data
+        function extractImagePaths(participantData) {
+            const imagePaths = [];
+            const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg)$/i;
+            
+            // Check all fields for image paths
+            Object.values(participantData).forEach(value => {
+                if (typeof value === 'string') {
+                    // Split by common delimiters and check each part
+                    const parts = value.split(/[,;\s\n\r]+/);
+                    parts.forEach(part => {
+                        const trimmed = part.trim();
+                        if (trimmed && imageExtensions.test(trimmed)) {
+                            // Convert relative paths to absolute if needed
+                            let imagePath = trimmed;
+                            if (!imagePath.startsWith('http') && !imagePath.startsWith('/')) {
+                                imagePath = imagePath.startsWith('../') ? imagePath : '../' + imagePath;
+                            }
+                            imagePaths.push(imagePath);
+                        }
+                    });
+                }
+            });
+            
+            return imagePaths.slice(0, 9); // Limit to 9 images max
+        }
+
+        // Create image container with navigation
+        function createImageContainer(imagePaths, isGalleryView = false) {
+            if (!imagePaths || imagePaths.length === 0) {
+                return `<div class="no-image-placeholder">No images available</div>`;
+            }
+
+            const containerId = 'img-' + Math.random().toString(36).substr(2, 9);
+            const height = isGalleryView ? 140 : 120;
+            
+            let html = `<div class="participant-image-container" id="${containerId}" data-current="0" data-auto-advance="false" data-image-paths='${JSON.stringify(imagePaths)}'>`;
+            
+            // Add the first image
+            html += `<img class="participant-image" src="${imagePaths[0]}" alt="Project Image" style="height: ${height}px" onclick="openImageInNewTab('${imagePaths[0]}')" onerror="this.style.display='none'; this.nextElementSibling?.style.display='flex';">`;
+            
+            // Add placeholder for failed images
+            html += `<div class="no-image-placeholder" style="display: none;">Image not found</div>`;
+            
+            // Add navigation dots if multiple images
+            if (imagePaths.length > 1) {
+                html += `<div class="image-dots-container">`;
+                imagePaths.forEach((_, index) => {
+                    const activeClass = index === 0 ? ' active' : '';
+                    html += `<div class="image-dot${activeClass}" onclick="showImageByIndex('${containerId}', ${index})"></div>`;
+                });
+                html += `</div>`;
+            }
+            
+            html += `</div>`;
+            return html;
+        }
+
+        // Show specific image by index
+        function showImageByIndex(containerId, index) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Get image paths from container data attribute
+            const imagePaths = container.dataset.imagePaths ? JSON.parse(container.dataset.imagePaths) : [];
+            if (index >= imagePaths.length) return;
+            
+            const img = container.querySelector('.participant-image');
+            const placeholder = container.querySelector('.no-image-placeholder');
+            const dots = container.querySelectorAll('.image-dot');
+            
+            // Update image
+            img.src = imagePaths[index];
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+            
+            // Update dots
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+            
+            // Update current index
+            container.dataset.current = index;
+        }
+
+        // Auto-advance functionality
+        let autoAdvanceIntervals = new Map();
+
+        function startAutoAdvance(containerId, imagePaths) {
+            if (imagePaths.length <= 1) return;
+            
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.classList.add('auto-advancing');
+            container.dataset.autoAdvance = 'true';
+            
+            const interval = setInterval(() => {
+                if (container.dataset.autoAdvance !== 'true') {
+                    clearInterval(interval);
+                    return;
+                }
+                
+                const current = parseInt(container.dataset.current) || 0;
+                const next = (current + 1) % imagePaths.length;
+                showImage(containerId, next, imagePaths);
+            }, 3000);
+            
+            autoAdvanceIntervals.set(containerId, interval);
+        }
+
+        function stopAutoAdvance(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.classList.remove('auto-advancing');
+                container.dataset.autoAdvance = 'false';
+            }
+            
+            if (autoAdvanceIntervals.has(containerId)) {
+                clearInterval(autoAdvanceIntervals.get(containerId));
+                autoAdvanceIntervals.delete(containerId);
+            }
+        }
+
+        // Keyboard navigation
+        let focusedContainer = null;
+
+        function handleKeyboardNavigation(event, containerId, imagePaths) {
+            if (!focusedContainer || focusedContainer !== containerId) return;
+            
+            const container = document.getElementById(containerId);
+            if (!container || imagePaths.length <= 1) return;
+            
+            const current = parseInt(container.dataset.current) || 0;
+            
+            switch(event.key) {
+                case 'ArrowRight':
+                    event.preventDefault();
+                    const next = (current + 1) % imagePaths.length;
+                    showImage(containerId, next, imagePaths);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    const prev = (current - 1 + imagePaths.length) % imagePaths.length;
+                    showImage(containerId, prev, imagePaths);
+                    break;
+                case ' ':
+                    event.preventDefault();
+                    if (container.dataset.autoAdvance === 'true') {
+                        stopAutoAdvance(containerId);
+                    } else {
+                        startAutoAdvance(containerId, imagePaths);
+                    }
+                    break;
+            }
+        }
+
+        // Open image in new tab
+        function openImageInNewTab(imagePath) {
+            window.open(imagePath, '_blank');
+        }
+
+        // Gallery view toggle functionality
+        function toggleGalleryTextMode(cardElement) {
+            cardElement.classList.toggle('text-mode');
+            const toggleBtn = cardElement.querySelector('.gallery-toggle-btn');
+            const icon = toggleBtn.querySelector('i[data-feather]');
+            
+            if (cardElement.classList.contains('text-mode')) {
+                icon.setAttribute('data-feather', 'image');
+                toggleBtn.title = 'Show image';
+            } else {
+                icon.setAttribute('data-feather', 'info');
+                toggleBtn.title = 'Show info';
+            }
+            
+            // Reinitialize feather icons to apply the change
+            feather.replace();
+        }
+
+        // Add event listeners for hover and keyboard navigation
+        document.addEventListener('mouseover', (event) => {
+            const container = event.target.closest('.participant-image-container');
+            if (container && container.querySelectorAll('.image-dot').length > 1) {
+                const imagePaths = Array.from(container.querySelectorAll('.image-dot')).map((_, index) => {
+                    return container.querySelector('.participant-image').src.replace(/\/[^\/]*$/, '/image' + index + '.jpg'); // This will be replaced with actual paths
+                });
+                
+                // Extract actual image paths from the dots' onclick attributes
+                const actualPaths = [];
+                container.querySelectorAll('.image-dot').forEach(dot => {
+                    const onclickAttr = dot.getAttribute('onclick');
+                    if (onclickAttr) {
+                        const match = onclickAttr.match(/\[(.*?)\]/);
+                        if (match) {
+                            try {
+                                const paths = JSON.parse(match[1].replace(/&quot;/g, '"'));
+                                paths.forEach(path => {
+                                    if (!actualPaths.includes(path)) actualPaths.push(path);
+                                });
+                            } catch (e) {
+                                console.warn('Could not parse image paths from onclick attribute');
+                            }
+                        }
+                    }
+                });
+                
+                focusedContainer = container.id;
+                if (actualPaths.length > 1) {
+                    startAutoAdvance(container.id, actualPaths);
+                }
+            }
+        });
+
+        document.addEventListener('mouseout', (event) => {
+            const container = event.target.closest('.participant-image-container');
+            if (container && focusedContainer === container.id) {
+                stopAutoAdvance(container.id);
+                focusedContainer = null;
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (focusedContainer) {
+                const container = document.getElementById(focusedContainer);
+                if (container) {
+                    // Extract image paths from dots
+                    const actualPaths = [];
+                    container.querySelectorAll('.image-dot').forEach(dot => {
+                        const onclickAttr = dot.getAttribute('onclick');
+                        if (onclickAttr) {
+                            const match = onclickAttr.match(/\[(.*?)\]/);
+                            if (match) {
+                                try {
+                                    const paths = JSON.parse(match[1].replace(/&quot;/g, '"'));
+                                    paths.forEach(path => {
+                                        if (!actualPaths.includes(path)) actualPaths.push(path);
+                                    });
+                                } catch (e) {
+                                    console.warn('Could not parse image paths from onclick attribute');
+                                }
+                            }
+                        }
+                    });
+                    
+                    if (actualPaths.length > 1) {
+                        handleKeyboardNavigation(event, focusedContainer, actualPaths);
+                    }
+                }
+            }
         });
     </script>
 

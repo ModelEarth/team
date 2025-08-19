@@ -13,15 +13,15 @@
     <link rel="stylesheet" href="css/projects.css">
     <link rel="stylesheet" href="css/people-teams.css">
     <link rel="stylesheet" href="css/account.css">
-    
-    <!-- Configuration -->
-    
-    <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Newer version of css navs -->
     <link rel="stylesheet" href="../localsite/css/nav.css">
     <script src="../localsite/js/nav.js"></script>
+
+    <script src="../localsite/js/localsite.js?showheader=true"></script>
+    <script src="../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
+    <script src="../localsite/js/navigation.js" id="/localsite/js/navigation.js"></script>
+
     <script>
     // Sign In button testing under localhost or harimayooram.github.io
     document.addEventListener('DOMContentLoaded', function() {
@@ -38,6 +38,12 @@
     });
     </script>
     <style>
+        #sideIcons, #local-footer {
+            display:none !important;
+        }
+        .top-bar {
+            display:none !important;
+        }
         :root {
             --bg-primary: #F9FAFB;
             --bg-secondary: #FFFFFF;
@@ -384,12 +390,21 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
-            <header class="top-bar">
+
+            <img src="img/banner.webp" class="geo" style="width:100%;display:none">
+
+            <header class="top-bar geo-hide">
+                <div>
+                <!--
                 <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
+                -->
+                </div>
                 <div class="user-menu">
                     <div class="auth-container" id="auth-container">
                         <button id="signInTeam" class="btn btn-secondary" onclick="showAuthModal()" style="display:none">Sign In</button>
+                        <!--
                         <button class="btn btn-primary" onclick="goProjects()">Search Projects</button>
+                        -->
                     </div>
                 </div>
             </header>
@@ -400,25 +415,29 @@
 
                     <!-- Welcome Tab -->
                     <div class="tab-content" id="welcome-tab">
-                        <div class="welcome-hero">
+                        <div class="welcome-hero geo-hide">
 <!--                             
                             <div style="float:right">
                                 <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/xxxx"></a>
                             </div>
                              -->
                             <div style="overflow:auto">
-                                <h1 class="hero-title">Collaborative Data Science</h1>
-                                <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--technical teams working on --> code automation projects</p>
-                                <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
+                                <h1 class="hero-title">Collaborative Parter Tools</h1>
+                                <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused team projects</p>
+
                                 <!--
-                                <button class="btn btn-secondary" onclick="goPreferences()">Team Map</button>
+                                <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
+                                -->
+
+                                <!--
+                                <button class="btn btn-secondary" onclick="goPreferences()">Preferences</button>
                                 -->
                             </div>
 
                         </div>
 
                         <div style="float:right; margin-right:20px">
-                            <b><a href="admin">Admin Dashboard</a></b><br>
+                            <!--<b><a href="admin">Admin Dashboard</a></b><br>-->
                         </div>
 
                         <div class="tabs">
@@ -428,11 +447,11 @@
                         </div>
 
                         <div class="feature-grid">
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href='./admin/import-data.html')">
+                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href='./projects/#list=all')">
                                 <div class="feature-icon">
                                     <i data-feather="zap"></i>
                                 </div>
-                                <h3 class="feature-title">AI-Powered Insights</h3>
+                                <h3 class="feature-title">Data Insights</h3>
                                 <p class="feature-desc">Get smart recommendations and natural language search with customizations using AI to accelerate your project workflows.</p>
                             </div>
 
@@ -452,7 +471,7 @@
                                 <p class="feature-desc">Manage opportunities, track progress, assign tasks, and monitor timelines with beautiful, intuitive interfaces.</p>
                             </div>
 
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './projects/')">
+                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/google/meetup/')">
                                 <div class="feature-icon">
                                     <i data-feather="target"></i>
                                 </div>
@@ -471,8 +490,6 @@
                     <!-- Documentation Tab -->
                     <div class="tab-content" id="documentation-tab">
                         <div class="card">
-                            <h2 class="card-title">Getting Started</h2>
-                            <p>PartnerTools is designed for technical collaborators working AI integrated projects. Here's how to get the most out of the platform:</p>
                             
                             <!--
                             <h3 style="margin-top: 24px; margin-bottom: 12px;">Quick Start Guide</h3>
@@ -485,16 +502,14 @@
                             </ol>
                             -->
 
-                            <h3 style="margin-top: 24px; margin-bottom: 12px;">Key Features</h3>
+                            <h2 class="card-title">Key Features</h2>
                             <ul style="margin-left: 20px; line-height: 1.8;">
-                                <li><strong>Smart Search:</strong> Use natural language to find contacts, projects, and opportunities</li>
-                                <li><strong>Project Management:</strong> Post activities and track tasks<!--, manage timelines--> using Google Docs</li>
-                                <li><strong>Team Building:</strong> Create and manage teams and organizations using Google Sheets</li>
-                                <li><strong>Preference Matching:</strong> AI-powered recommendations based on your interests and policy preferences</li>
+                                <li><strong>Smart Search:</strong> Use natural language to find profiles, projects, and opportunities.</li>
+                                <li><strong>Project Management:</strong> Post team activities and track tasks using the Projects Hub.</li>
+                                <li><strong>Team Building:</strong> Create and manage teams and organizations using API integrations.</li>
+                                <li><strong>Preference Matching:</strong> AI-powered recommendations based on member interests.</li>
                             </ul>
-                            <br>
 
-                            View <a href="admin/">Rust and PostgreSQL setup</a>
                         </div>
                     </div>
 
@@ -522,8 +537,7 @@
                             <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
                                 <h4 style="margin-bottom: 12px;">Recent Activity</h4>
                                 <div style="font-size: 14px; color: var(--text-secondary);">
-                                    <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local AI Government Initiative"</div>
-                                    <div style="margin-bottom: 8px;">• New opportunity posted: "Database Optimization for Government Services"</div>
+                                    <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local Logistics Summit Planning"</div>
                                     <div style="margin-bottom: 8px;">• Team "Innovation Catalysts" completed milestone review</div>
                                 </div>
                             </div>
@@ -531,7 +545,7 @@
                             <div style="margin-top: 24px;">
                                 <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
                                     <i data-feather="settings"></i>
-                                    Admin Dashboard
+                                    Partner Tools
                                 </a>
                             </div>
                         </div>
@@ -1880,202 +1894,6 @@
             }
         }
 
-        // Simple Supabase initialization
-        const supabase = window.supabase.createClient(
-            'https://udzhmsqqzodprrsypzmd.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkemhtc3Fxem9kcHJyc3lwem1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5Njg1MjcsImV4cCI6MjA2ODU0NDUyN30.Ox3AN68fC-dUoUHKiMjbyNUfcyCAMLDJCM9teE5YJNI'
-        );
-
-        // OAuth sign in function with real Supabase integration
-        async function signInWith(provider) {
-            const supabaseProvider = provider === 'linkedin' ? 'linkedin_oidc' : provider;
-            
-            // Determine the correct redirect URL based on environment
-            let redirectTo;
-            const isGitHubPages = window.location.hostname.includes('github.io');
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            
-            if (isGitHubPages) {
-                // For GitHub Pages, use the full current URL structure
-                const currentUrl = window.location.origin + window.location.pathname;
-                redirectTo = currentUrl + '?auth=success';
-            } else if (isLocalhost) {
-                // For localhost, always redirect to the current page URL
-                const currentUrl = window.location.origin + window.location.pathname;
-                redirectTo = currentUrl + '?auth=success';
-            } else {
-                // For any other deployment, use the current origin + path
-                redirectTo = window.location.origin + window.location.pathname + '?auth=success';
-            }
-            
-            console.log('Provider:', provider, '→ Supabase Provider:', supabaseProvider);
-            console.log('OAuth Redirect URL:', redirectTo);
-            
-            try {
-                const { error } = await supabase.auth.signInWithOAuth({
-                    provider: supabaseProvider,
-                    options: {
-                        redirectTo: redirectTo
-                    }
-                });
-                
-                if (error) {
-                    console.error(`${provider} OAuth error:`, error);
-                    alert(`${provider} sign-in failed: ${error.message}`);
-                } else {
-                    console.log(`${provider} OAuth initiated successfully`);
-                }
-            } catch (error) {
-                console.error(`${provider} OAuth error:`, error);
-                alert(`${provider} sign-in failed: ${error.message || 'Unknown error'}`);
-            }
-        }
-
-        // Email authentication function
-        function signInWithEmail(event) {
-            event.preventDefault();
-            const email = event.target.querySelector('input[type="email"]').value;
-            
-            // Implement email authentication here
-            console.log(`Signing in with email: ${email}`);
-            
-            // For demo purposes, simulate successful login
-            setTimeout(() => {
-                simulateLogin(email);
-                hideAuthModal();
-            }, 1000);
-        }
-
-        // Admin demo function for testing
-        function adminDemo() {
-            simulateLogin('admin@PartnerTools.local', 'Admin User');
-        }
-
-        // Simulate login for demo/testing purposes
-        function simulateLogin(email, name = null) {
-            if (!window.AppState) {
-                window.AppState = {};
-            }
-            AppState.isAuthenticated = true;
-            AppState.currentUser = {
-                email: email,
-                name: name || email.split('@')[0],
-                role: email.includes('admin') ? 'admin' : 'user'
-            };
-            
-            updateAuthUI();
-        }
-
-        // Update authentication UI based on state
-        function updateAuthUI() {
-            const authContainer = document.getElementById('auth-container');
-            
-            if (AppState && AppState.isAuthenticated) {
-                authContainer.innerHTML = `
-                    <div class="auth-user-info" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                        <span class="welcome-text" style="color: var(--text-primary); font-weight: 500; font-size: 14px;">Welcome, ${AppState.currentUser.name}</span>
-                        <button class="btn logout-btn" onclick="logout()" style="
-                            background: linear-gradient(135deg, #F97316, #DC2626); 
-                            color: white; 
-                            border: none; 
-                            padding: 8px 16px; 
-                            border-radius: 6px; 
-                            font-size: 14px; 
-                            font-weight: 500;
-                            display: flex; 
-                            align-items: center; 
-                            gap: 6px;
-                            transition: all 0.2s ease;
-                            box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
-                        " onmouseover="this.style.background='linear-gradient(135deg, #EA580C, #B91C1C)'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(249, 115, 22, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #F97316, #DC2626)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(249, 115, 22, 0.2)';">
-                            <span style="font-size: 16px;">🚪</span>
-                            <span class="logout-text">Sign Out</span>
-                        </button>
-                    </div>
-                    <style>
-                        @media (max-width: 768px) {
-                            .auth-user-info {
-                                flex-direction: column;
-                                align-items: flex-end !important;
-                                gap: 8px !important;
-                            }
-                            .welcome-text {
-                                font-size: 13px !important;
-                            }
-                            .logout-btn {
-                                padding: 6px 12px !important;
-                                font-size: 13px !important;
-                            }
-                        }
-                        @media (max-width: 480px) {
-                            .logout-text {
-                                display: none;
-                            }
-                            .logout-btn {
-                                padding: 8px !important;
-                                min-width: 40px;
-                                justify-content: center;
-                            }
-                        }
-                    </style>
-                `;
-            } else {
-                authContainer.innerHTML = `
-                    <button class="btn btn-secondary" onclick="showAuthModal()">Sign In</button>
-                    <button class="btn btn-primary" onclick="adminDemo()">Search Projects</button>
-                `;
-            }
-        }
-
-        // Logout function with Supabase integration
-        function logout() {
-            supabase.auth.signOut();
-            if (window.AppState) {
-                AppState.isAuthenticated = false;
-                AppState.currentUser = null;
-            }
-            updateAuthUI();
-        }
-
-        // Supabase auth state listener
-        supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                console.log('User signed in:', session.user.email);
-                simulateLogin(session.user.email, session.user.user_metadata?.full_name || session.user.email.split('@')[0]);
-                hideAuthModal();
-            } else if (event === 'SIGNED_OUT') {
-                console.log('User signed out');
-                updateAuthUI();
-            }
-        });
-
-        // Handle auth callback from URL parameters
-        function handleAuthCallback() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('auth') === 'success') {
-                // Clear the auth parameter from URL
-                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
-                window.history.replaceState({}, document.title, newUrl);
-            }
-        }
-
-        // Load initial data
-        async function loadInitialData() {
-            try {
-                // Test backend connection
-                const healthCheck = await apiCall('/health');
-                console.log('Backend health check:', healthCheck);
-                
-                // Load user data if authenticated
-                if (AppState && AppState.isAuthenticated) {
-                    // Load user-specific data
-                }
-                
-            } catch (error) {
-                console.log('Backend not available, using demo data');
-            }
-        }
-
         // Initialize HashRouter
         const router = new HashRouter();
 
@@ -2115,8 +1933,6 @@
             
             // Setup tab click handlers
             setupTabHandlers();
-
-            loadInitialData();
             
             // Initialize projects manager
             if (window.projectsManager) {
@@ -2213,23 +2029,11 @@
             navigationFunction();
         }
 
-        // Check for existing session on page load
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                simulateLogin(session.user.email, session.user.user_metadata?.full_name || session.user.email.split('@')[0]);
-            }
-        });
-
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            // Handle auth callback on page load
-            handleAuthCallback();
             
             // Setup tab click handlers
             setupTabHandlers();
-
-            // Load initial data
-            loadInitialData();
             
             // Initialize projects manager
             if (window.projectsManager) {
