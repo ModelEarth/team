@@ -599,9 +599,11 @@ class ProjectsManager {
             <div class="projects-header">
                 
                 <div class="projects-title-section" style="clear:both">
-                    <h2 class="section-title">Project Opportunities</h2>
+                    <h2 class="section-title">Project Tracking</h2>
+                    <div style="display:none" class="earth">
                     <p><a href="../projects/">Model.Earth Projects</a></p>
                     <p><a href="projects/#list=modelteam">Model.Earth Team</a></p>
+                    </div>
                 </div>
                 
                 <div class="projects-actions">
