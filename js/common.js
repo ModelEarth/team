@@ -1337,6 +1337,257 @@ if (document.readyState === 'loading') {
 // Make functions globally available
 window.handleApiConnectionError = handleApiConnectionError;
 
+// Function to create combined Rust API Status and Connection panel
+function createRustApiStatusPanel(containerId, showConfigureLink = true) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`createRustApiStatusPanel: Container '${containerId}' not found`);
+        return;
+    }
+
+    // Determine the relative path to admin/server/ from current page
+    let adminPath = 'admin/server/';
+    const currentPath = window.location.pathname;
+    
+    // Calculate the correct path based on current location
+    if (currentPath.includes('/admin/server/')) {
+        // Already on the admin/server page, no link needed
+        showConfigureLink = false;
+    } else if (currentPath.includes('/admin/')) {
+        // Already in admin folder, just go to server subfolder
+        adminPath = 'server/';
+    } else if (currentPath.includes('/projects/') || currentPath.includes('/preferences/')) {
+        // In subdirectories, go up one level then to admin/server
+        adminPath = '../admin/server/';
+    } else {
+        // From root team directory, path to admin/server
+        adminPath = 'admin/server/';
+    }
+
+    // Create the combined panel HTML
+    const panelHtml = `
+        <div class="card" id="rust-api-status-panel">
+            <h2 class="card-title">
+                <span class="status-indicator" id="rust-api-status-indicator"></span>
+                <span id="rust-api-status-title">Backend Rust API and Database Status</span>
+            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                
+                <div>
+                    
+                    <!-- Status Indicators -->
+                    <div id="backend-status-indicators" style="display: none;">
+                        
+                        <!-- Rust API Status Section -->
+                        <div id="rust-api-status-content" style="margin-bottom: 16px;">
+                            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                                Checking backend API status...
+                            </p>
+                        </div>
+
+                        <!-- Database Status Items -->
+                        <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                            <span class="status-box" id="commons-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">✗</span>
+                            <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">MemberCommons database inactive</span>
+                        </div>
+                        <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                            <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">✗</span>
+                            <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth industry database inactive</span>
+                        </div>
+
+                        <!-- Info Icon with Tests Link -->
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <i data-feather="info" style="width: 16px; height: 16px; color: var(--text-secondary); cursor: pointer;" onclick="toggleTestsInfo()" id="tests-info-icon"></i>
+                            <div id="tests-info-content" style="display: none;">
+                                <a href="https://colab.research.google.com/drive/1TgA9FJzhhue74Bgf-MJoOAKSBrzpiyss?usp=sharing" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 14px;">
+                                    Run tests
+                                </a>
+                            </div>
+                        </div>
+                       
+                    </div>
+
+                    <div id="troubleshooting-section" style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); displayX: none;">
+                        <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">Troubleshooting Steps:</h4>
+                        <ol style="margin: 8px 0 0 20px; color: var(--text-secondary);">
+                            <li>Make sure the Rust backend server is running: <code>cargo run serve</code></li>
+                            <li>Verify the server is listening on port 8081</li>
+                            <li>Check that your PostgreSQL credentials are correct</li>
+                            <li>Ensure your IP is allowed in PostgreSQL firewall rules</li>
+                            <li>Verify SSL certificate settings for database connection</li>
+                        </ol>
+                        <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
+                            <strong>Quick Fix:</strong> You can tell Claude Code CLI to restart the server:<br>
+                            <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;">"Go ahead and restart now"</code>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0;" id="reload-status-btn">
+                        Reload Status
+                </button>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = panelHtml;
+
+    // Initialize the status check
+    updateRustApiStatusPanel(showConfigureLink, adminPath);
+}
+
+// Function to update the Rust API status panel
+async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'admin/server/') {
+    const indicator = document.getElementById('rust-api-status-indicator');
+    const title = document.getElementById('rust-api-status-title');
+    const content = document.getElementById('rust-api-status-content');
+    const dbIndicators = document.getElementById('backend-status-indicators');
+    const troubleshootingSection = document.getElementById('troubleshooting-section');
+    const reloadBtn = document.getElementById('reload-status-btn');
+    
+    if (!indicator || !title || !content) return;
+
+    try {
+        // Check if backend API is running
+        const healthResponse = await fetch('http://localhost:8081/api/health', {
+            method: 'GET',
+            timeout: 5000
+        });
+
+        if (healthResponse.ok) {
+            // Backend is active
+            indicator.className = 'status-indicator connected';
+            title.textContent = 'Backend API and Database Status';
+            
+            content.innerHTML = `
+                <div style="color: var(--accent-green); margin-bottom: 16px;">
+                    ✅ Backend Rust API is accessible
+                </div>
+            `;
+            
+            // Show reload button
+            if (reloadBtn) {
+                reloadBtn.style.display = 'block';
+            }
+            
+            // Show and check backend status indicators
+            if (dbIndicators) {
+                checkBackendStatus();
+                dbIndicators.style.display = 'block';
+            }
+            
+            // Hide troubleshooting section when API is active
+            if (troubleshootingSection) {
+                troubleshootingSection.style.display = 'none';
+            }
+            
+        } else {
+            throw new Error('Backend not responding');
+        }
+    } catch (error) {
+        // Backend is inactive - show demo mode
+        indicator.className = 'status-indicator error';
+        title.textContent = 'Backend Rust API and Database Status';
+        
+        const configureServerText = showConfigureLink 
+            ? `<a href="${adminPath}" style="color: #856404; text-decoration: underline;">Configure Your Local Server</a>`
+            : 'Configure Your Local Server';
+        
+        content.innerHTML = `
+            <div style="color: #856404; background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;">
+                <i data-feather="info" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
+                <span><strong>Demo Mode:</strong> Database connection inactive. ${configureServerText}</span>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                The Rust backend server needs to be started to access full configuration and testing capabilities.
+            </p>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="startRustApiWithClaude()">
+                    🤖 Use Claude (Recommended)
+                </button>
+                <button class="btn btn-secondary" onclick="startRustApiWithoutClaude()">
+                    ⚙️ Without Claude
+                </button>
+            </div>
+            <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                Claude option will automatically start the server for you. Manual option shows commands to run yourself.
+            </div>
+        `;
+        
+        // Hide reload button when API is inactive
+        if (reloadBtn) {
+            reloadBtn.style.display = 'none';
+        }
+        
+        // Hide backend status indicators when API is inactive
+        if (dbIndicators) {
+            dbIndicators.style.display = 'none';
+        }
+        
+        // Show troubleshooting section when API is inactive
+        if (troubleshootingSection) {
+            troubleshootingSection.style.display = 'block';
+        }
+        
+        // Initialize feather icons for the info icon
+        if (window.feather) {
+            setTimeout(() => feather.replace(), 100);
+        }
+    }
+}
+
+// Helper functions for the combined panel
+function startRustApiWithClaude() {
+    const content = document.getElementById('rust-api-status-content');
+    if (content) {
+        content.innerHTML = `
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or <strong>"Start the Rust API"</strong> or similar.
+            </p>
+            <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="margin-top: 12px;">
+                ← Back to Status
+            </button>
+        `;
+    }
+}
+
+function startRustApiWithoutClaude() {
+    const content = document.getElementById('rust-api-status-content');
+    if (content) {
+        content.innerHTML = `
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
+            </p>
+            <div style="margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                <h5 style="margin: 0 0 12px 0;">Manual Setup Commands:</h5>
+                <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code>cd team
+cargo run --bin partner_tools -- serve</code></pre>
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0 0;">
+                    Run this in your terminal from the webroot directory.
+                </p>
+            </div>
+            <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="margin-top: 16px;">
+                ← Back to Status
+            </button>
+        `;
+    }
+}
+
+// Function to toggle the tests info visibility
+function toggleTestsInfo() {
+    const testsInfoContent = document.getElementById('tests-info-content');
+    const testsInfoIcon = document.getElementById('tests-info-icon');
+    
+    if (testsInfoContent && testsInfoIcon) {
+        if (testsInfoContent.style.display === 'none' || testsInfoContent.style.display === '') {
+            testsInfoContent.style.display = 'inline-block';
+            testsInfoIcon.style.color = 'var(--accent-blue)';
+        } else {
+            testsInfoContent.style.display = 'none';
+            testsInfoIcon.style.color = 'var(--text-secondary)';
+        }
+    }
+}
+
 // Function to create Connection Troubleshooting panel
 function createConnectionTroubleshootingPanel(containerId, showDbStatus = true) {
     const container = document.getElementById(containerId);
@@ -1392,51 +1643,100 @@ function createConnectionTroubleshootingPanel(containerId, showDbStatus = true) 
     }
 }
 
-// Function to check database connection status
-async function checkDatabaseStatus() {
-    const indicator = document.getElementById('db-status-indicator');
-    const message = document.getElementById('db-status-message');
+// Helper function to update a single status indicator
+function updateStatusIndicator(indicatorId, textId, isActive, activeText, inactiveText) {
+    const indicator = document.getElementById(indicatorId);
+    const text = document.getElementById(textId);
     
-    if (!indicator || !message) return;
-
-    try {
-        // Try to connect to the health endpoint first
-        const healthResponse = await fetch('http://localhost:8081/api/health', {
-            method: 'GET',
-            timeout: 5000
-        });
-
-        if (healthResponse.ok) {
-            // Backend is running, now check database connection
-            try {
-                const dbResponse = await fetch('http://localhost:8081/api/db/test-connection');
-                const dbResult = await dbResponse.json();
-
-                if (dbResult.success) {
-                    indicator.className = 'status-indicator connected';
-                    message.innerHTML = `<span style="color: var(--accent-green);">✅ Database connection active</span><br>
-                        <span style="font-size: 12px;">Connected to: ${dbResult.data?.database || 'database'}</span>`;
-                } else {
-                    indicator.className = 'status-indicator error';
-                    message.innerHTML = `<span style="color: var(--accent-red);">❌ Database connection failed</span><br>
-                        <span style="font-size: 12px;">${dbResult.error || 'Unknown database error'}</span>`;
-                }
-            } catch (dbError) {
-                indicator.className = 'status-indicator error';
-                message.innerHTML = `<span style="color: var(--accent-red);">❌ Database unreachable</span><br>
-                    <span style="font-size: 12px;">Backend running but database connection failed</span>`;
-            }
-        } else {
-            throw new Error('Backend not responding');
-        }
-    } catch (error) {
-        indicator.className = 'status-indicator error';
-        message.innerHTML = `<span style="color: var(--accent-red);">❌ Backend API offline</span><br>
-            <span style="font-size: 12px;">Rust server not running on port 8081</span>`;
+    if (!indicator || !text) return;
+    
+    if (isActive) {
+        indicator.style.background = 'transparent';
+        indicator.style.width = '20px';
+        indicator.style.height = '20px';
+        indicator.style.borderRadius = '3px';
+        indicator.style.display = 'flex';
+        indicator.style.alignItems = 'center';
+        indicator.style.justifyContent = 'center';
+        indicator.style.fontSize = '14px';
+        indicator.style.fontWeight = 'bold';
+        indicator.innerHTML = '✓';
+        indicator.style.color = '#10b981';
+        text.textContent = activeText;
+        text.style.color = 'var(--accent-green)';
+    } else {
+        indicator.style.background = '#dc2626';
+        indicator.style.width = '20px';
+        indicator.style.height = '20px';
+        indicator.style.borderRadius = '3px';
+        indicator.style.display = 'flex';
+        indicator.style.alignItems = 'center';
+        indicator.style.justifyContent = 'center';
+        indicator.style.fontSize = '14px';
+        indicator.style.fontWeight = 'bold';
+        indicator.innerHTML = '✗';
+        indicator.style.color = 'white';
+        text.textContent = inactiveText;
+        text.style.color = 'var(--text-secondary)';
     }
 }
 
+// Function to check a single database connection
+async function checkDatabaseConnection(endpoint, indicatorId, textId, activeText, inactiveText) {
+    try {
+        const response = await fetch(`http://localhost:8081/api/db/${endpoint}`);
+        const result = await response.json();
+        updateStatusIndicator(indicatorId, textId, result.success, activeText, inactiveText);
+        return result.success;
+    } catch (error) {
+        updateStatusIndicator(indicatorId, textId, false, activeText, inactiveText);
+        return false;
+    }
+}
+
+// Function to check all backend status (API + databases)
+async function checkBackendStatus() {
+    // Check individual database connections
+    await Promise.all([
+        checkDatabaseConnection(
+            'test-commons-connection',
+            'commons-db-indicator',
+            'commons-db-text',
+            'MemberCommons database active',
+            'MemberCommons database inactive'
+        ),
+        checkDatabaseConnection(
+            'test-exiobase-connection',
+            'exiobase-db-indicator',
+            'exiobase-db-text',
+            'Industry database active',
+            'ModelEarth industry database inactive'
+        )
+    ]);
+}
+
+// Function to check individual database connections (legacy function for compatibility)
+async function checkIndividualDatabaseStatus() {
+    // Redirect to new backend status check
+    await checkBackendStatus();
+}
+
+// Function to check database connection status (legacy function for compatibility)
+async function checkDatabaseStatus() {
+    // Redirect to new individual database status check
+    checkIndividualDatabaseStatus();
+}
+
 // Make functions globally available
+window.createRustApiStatusPanel = createRustApiStatusPanel;
+window.updateRustApiStatusPanel = updateRustApiStatusPanel;
+window.checkBackendStatus = checkBackendStatus;
+window.checkDatabaseConnection = checkDatabaseConnection;
+window.updateStatusIndicator = updateStatusIndicator;
+window.checkIndividualDatabaseStatus = checkIndividualDatabaseStatus;
+window.startRustApiWithClaude = startRustApiWithClaude;
+window.startRustApiWithoutClaude = startRustApiWithoutClaude;
+window.toggleTestsInfo = toggleTestsInfo;
 window.createConnectionTroubleshootingPanel = createConnectionTroubleshootingPanel;
 window.checkDatabaseStatus = checkDatabaseStatus;
 window.apiCall = apiCall;

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="../../img/logo/neighborhood/favicon.png">
+    <title>Post New Activity - Project Collaboration Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
+
+    <link rel="stylesheet" href="../../css/projects.css">
+    <link rel="stylesheet" href="../../css/people-teams.css">
+    <link rel="stylesheet" href="../../css/account.css">
+
+    <!-- Newer version of css navs -->
+    <link rel="stylesheet" href="../../../localsite/css/nav.css">
+    <script src="../../../localsite/js/nav.js"></script>
+
+    <script src="../../../localsite/js/localsite.js?showheader=true"></script>
+    <script src="../../../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
+    <script src="../../../localsite/js/navigation.js" id="/localsite/js/navigation.js"></script>
+
+    <style>
+        #sideIcons, #local-footer {
+            display:none !important;
+        }
+        .top-bar {
+            display:none !important;
+        }
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F3F4F6;
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --accent-green: #10B981;
+            --accent-blue: #3B82F6;
+            --accent-orange: #F59E0B;
+            --border-light: #E5E7EB;
+            --border-medium: #D1D5DB;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --sidebar-width: 280px;
+            --sidebar-collapsed: 64px;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .page-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-green);
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 32px;
+            transition: var(--transition-smooth);
+        }
+
+        .back-link:hover {
+            color: #059669;
+        }
+
+        .form-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            transition: var(--transition-smooth);
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        textarea.form-input {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .notification {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--accent-green);
+        }
+
+        .notification.error {
+            border-left: 4px solid #ef4444;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 24px 16px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../" class="back-link">
+            <i data-feather="arrow-left"></i>
+            Back to Projects
+        </a>
+
+        <div class="page-header">
+            <h1 class="page-title">Post New Activity</h1>
+            <p class="page-subtitle">Share opportunities, tasks, and collaboration requests with the community</p>
+        </div>
+
+        <div class="form-container">
+            <form id="activity-form" class="activity-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Activity Type</label>
+                        <select name="type" class="form-input" required>
+                            <option value="">Select type...</option>
+                            <option value="task">Task/Assignment</option>
+                            <option value="job_opening">Job Opening</option>
+                            <option value="volunteer">Volunteer Opportunity</option>
+                            <option value="collaboration">Collaboration Request</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Priority Level</label>
+                        <select name="priority" class="form-input" required>
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Activity Title</label>
+                    <input type="text" name="title" class="form-input" required 
+                           placeholder="e.g., Frontend Developer for City Dashboard">
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-input" rows="4" required
+                              placeholder="Describe the activity, requirements, and expected outcomes..."></textarea>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Required Skills</label>
+                        <input type="text" name="skills" class="form-input" 
+                               placeholder="e.g., React, Node.js, PostgreSQL (comma-separated)">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Location</label>
+                        <input type="text" name="location" class="form-input" 
+                               placeholder="e.g., Atlanta, GA or Remote">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" name="start_date" class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Deadline</label>
+                        <input type="date" name="deadline" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group full-width" id="compensation-group" style="display: none;">
+                    <label class="form-label">Compensation/Budget</label>
+                    <input type="text" name="compensation" class="form-input" 
+                           placeholder="e.g., $5000, Volunteer, Innovation Bond Funding">
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Additional Requirements</label>
+                    <textarea name="requirements" class="form-input" rows="3"
+                              placeholder="Any specific requirements, qualifications, or preferences..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="send"></i>
+                        Post Activity
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <!-- Load Common JS -->
+    <script src="../../js/common.js"></script>
+    
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+
+        // Show/hide compensation field based on type
+        document.querySelector('[name="type"]').addEventListener('change', (e) => {
+            const compensationGroup = document.querySelector('#compensation-group');
+            if (e.target.value === 'job_opening') {
+                compensationGroup.style.display = 'block';
+            } else {
+                compensationGroup.style.display = 'none';
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('activity-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const activityData = {
+                type: formData.get('type'),
+                title: formData.get('title'),
+                description: formData.get('description'),
+                skills: formData.get('skills')?.split(',').map(s => s.trim()).filter(s => s) || [],
+                location: formData.get('location'),
+                priority: formData.get('priority'),
+                start_date: formData.get('start_date'),
+                deadline: formData.get('deadline'),
+                compensation: formData.get('compensation'),
+                requirements: formData.get('requirements')
+            };
+
+            try {
+                const response = await apiCall('/activities', 'POST', activityData);
+                if (response.error) {
+                    console.log('Activity posted (demo mode):', activityData);
+                    showNotification('Activity posted successfully! (Demo mode)', 'success');
+                } else {
+                    showNotification('Activity posted successfully!', 'success');
+                }
+                
+                // Redirect back to projects after a delay
+                setTimeout(() => {
+                    window.location.href = '../#opportunities';
+                }, 2000);
+                
+            } catch (error) {
+                console.log('Activity posted (demo mode):', activityData);
+                showNotification('Activity posted successfully! (Demo mode)', 'success');
+                
+                // Redirect back to projects after a delay
+                setTimeout(() => {
+                    window.location.href = '../#opportunities';
+                }, 2000);
+            }
+        });
+
+        // Notification system
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i data-feather="${type === 'success' ? 'check-circle' : 'alert-circle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; margin-left: auto;">
+                    <i data-feather="x"></i>
+                </button>
+            `;
+            
+            document.body.appendChild(notification);
+            feather.replace();
+            
+            // Show notification
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

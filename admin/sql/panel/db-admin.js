@@ -8,6 +8,7 @@ class DatabaseAdmin {
         this.log = [];
         this.envConfig = null;
         this.selectedConnection = 'COMMONS'; // Default to COMMONS
+        this.databaseConnectionStatus = {}; // Track individual database connection status
         this.init();
     }
 
@@ -82,6 +83,8 @@ class DatabaseAdmin {
                 this.addLog(`Selected database connection: ${e.target.value}`);
                 console.log('Connection changed to:', this.selectedConnection);
                 this.displayConfig();
+                // Reset connection status indicator when switching databases
+                this.updateConnectionStatus('');
             });
         }
 
@@ -169,8 +172,19 @@ class DatabaseAdmin {
 
             if (response.success) {
                 this.updateConnectionStatus('connected');
-                this.showSuccess(`Database connection successful! (${response.connection_name})`, 'connection-result');
-                this.addLog(`✅ Connection successful: ${response.message}`);
+                // Track this database connection as successful
+                this.databaseConnectionStatus[this.selectedConnection] = true;
+                
+                // Check if this is actually mock/placeholder data
+                if (response.is_mock || response.placeholder || response.demo || 
+                    (response.message && response.message.toLowerCase().includes('placeholder'))) {
+                    this.databaseConnectionStatus[this.selectedConnection] = 'mock';
+                    this.showMock(`Mock Data: Database connection simulated (${response.connection_name})`, 'connection-result');
+                    this.addLog(`🎭 Mock connection response: ${response.message}`);
+                } else {
+                    this.showSuccess(`Database connection successful! (${response.connection_name})`, 'connection-result');
+                    this.addLog(`✅ Connection successful: ${response.message}`);
+                }
                 if (response.config) {
                     this.addLog(`📊 Server info: ${JSON.stringify(response.config, null, 2)}`);
                 }
@@ -179,6 +193,9 @@ class DatabaseAdmin {
             }
         } catch (error) {
             this.updateConnectionStatus('error');
+            // Mark this database connection as failed
+            this.databaseConnectionStatus[this.selectedConnection] = false;
+            
             // Check if this looks like an API connection failure
             if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                 handleApiConnectionError(error, 'connection-result');
@@ -254,6 +271,12 @@ class DatabaseAdmin {
         document.getElementById('connection-result').innerHTML += helpMessage;
     }
 
+    // Check if the current database connection is actually working
+    isDatabaseConnected() {
+        const status = this.databaseConnectionStatus[this.selectedConnection];
+        return status === true; // Only true means actually connected, not 'mock' or false
+    }
+
     async listTables(limit = null) {
         const buttonId = limit ? 'list-10-tables' : 'list-all-tables';
         this.setLoading(buttonId, true);
@@ -269,10 +292,14 @@ class DatabaseAdmin {
             if (response.tables) {
                 // Limit results if requested
                 const tables = limit ? response.tables.slice(0, limit) : response.tables;
-                this.displayTables(tables, response.tables.length);
+                
+                // Check if this is mock data - either from response flags or if database isn't actually connected
+                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                
+                this.displayTables(tables, response.tables.length, isMock);
                 const foundMessage = limit ? 
-                    `✅ Found ${response.tables.length} tables (showing first ${Math.min(limit, response.tables.length)})` :
-                    `✅ Found ${response.tables.length} tables (showing all)`;
+                    `${isMock ? '🎭' : '✅'} Found ${response.tables.length} tables (showing first ${Math.min(limit, response.tables.length)})` :
+                    `${isMock ? '🎭' : '✅'} Found ${response.tables.length} tables (showing all)`;
                 this.addLog(foundMessage);
             } else {
                 throw new Error('Invalid response format');
@@ -319,15 +346,10 @@ class DatabaseAdmin {
             tablesCountInfo.innerHTML = `<strong>Mock data</strong> - Expected SuiteCRM tables (actual count available when connected to Azure database)`;
         }
         
-        document.getElementById('tables-result').innerHTML = `
-            <div class="error-message">
-                Note: These are expected tables based on the SuiteCRM schema. 
-                Actual counts will be available when database connection is established.
-            </div>
-        `;
+        this.showMock('Mock Data: These are expected tables based on the SuiteCRM schema. Actual counts will be available when database connection is established.', 'tables-result');
     }
 
-    displayTables(tables, totalCount = null) {
+    displayTables(tables, totalCount = null, isMock = false) {
         const tablesList = document.getElementById('tables-list');
         const tablesCountInfo = document.getElementById('tables-count-info');
         
@@ -335,10 +357,15 @@ class DatabaseAdmin {
         if (tablesCountInfo) {
             const actualTotal = totalCount || tables.length;
             const displayedCount = tables.length;
-            const countText = actualTotal === displayedCount ? 
-                `<strong>${actualTotal} total tables found</strong> in the actual Azure database (showing all)` :
-                `<strong>${actualTotal} total tables found</strong> in the actual Azure database (showing ${displayedCount})`;
-            tablesCountInfo.innerHTML = countText;
+            if (isMock) {
+                const countText = `<strong>Mock data</strong> - Expected tables (actual count available when connected to Azure database)`;
+                tablesCountInfo.innerHTML = countText;
+            } else {
+                const countText = actualTotal === displayedCount ? 
+                    `<strong>${actualTotal} total tables found</strong> in the actual Azure database (showing all)` :
+                    `<strong>${actualTotal} total tables found</strong> in the actual Azure database (showing ${displayedCount})`;
+                tablesCountInfo.innerHTML = countText;
+            }
         }
         
         tablesList.innerHTML = tables.map(table => `
@@ -353,10 +380,18 @@ class DatabaseAdmin {
 
         const actualTotal = totalCount || tables.length;
         const displayedCount = tables.length;
-        const successText = actualTotal === displayedCount ? 
-            `Displaying all ${displayedCount} tables from Azure database` :
-            `Displaying ${displayedCount} of ${actualTotal} total tables from Azure database`;
-        this.showSuccess(successText, 'tables-result');
+        
+        if (isMock) {
+            const mockText = actualTotal === displayedCount ? 
+                `Mock Data: Displaying all ${displayedCount} expected tables` :
+                `Mock Data: Displaying ${displayedCount} of ${actualTotal} expected tables`;
+            this.showMock(mockText, 'tables-result');
+        } else {
+            const successText = actualTotal === displayedCount ? 
+                `Displaying all ${displayedCount} tables from Azure database` :
+                `Displaying ${displayedCount} of ${actualTotal} total tables from Azure database`;
+            this.showSuccess(successText, 'tables-result');
+        }
     }
 
     async checkTable(tableName) {
@@ -379,8 +414,15 @@ class DatabaseAdmin {
                     tableInfo += `<br><strong>Columns:</strong> ${columnNames}`;
                 }
                 
-                this.showSuccess(`Table ${tableName}: ${tableInfo}`, 'quick-actions-result');
-                this.addLog(`✅ Table ${tableName} check successful: ${JSON.stringify(data)}`);
+                // Check if this is mock data - either from response flags or if database isn't actually connected
+                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                if (isMock) {
+                    this.showMock(`Mock Data: Table ${tableName}: ${tableInfo}`, 'quick-actions-result');
+                    this.addLog(`🎭 Mock table ${tableName} check: ${JSON.stringify(data)}`);
+                } else {
+                    this.showSuccess(`Table ${tableName}: ${tableInfo}`, 'quick-actions-result');
+                    this.addLog(`✅ Table ${tableName} check successful: ${JSON.stringify(data)}`);
+                }
             } else {
                 throw new Error(response.error || 'Table check failed');
             }
@@ -410,8 +452,15 @@ class DatabaseAdmin {
             });
 
             if (response.success && response.data) {
-                this.showSuccess(`Query executed successfully: ${JSON.stringify(response.data)}`, 'quick-actions-result');
-                this.addLog(`✅ Query result: ${JSON.stringify(response.data, null, 2)}`);
+                // Check if this is mock data - either from response flags or if database isn't actually connected
+                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                if (isMock) {
+                    this.showMock(`Mock Query: ${JSON.stringify(response.data)}`, 'quick-actions-result');
+                    this.addLog(`🎭 Mock query result: ${JSON.stringify(response.data, null, 2)}`);
+                } else {
+                    this.showSuccess(`Query executed successfully: ${JSON.stringify(response.data)}`, 'quick-actions-result');
+                    this.addLog(`✅ Query result: ${JSON.stringify(response.data, null, 2)}`);
+                }
             } else {
                 throw new Error(response.error || 'Query execution failed');
             }
@@ -502,6 +551,13 @@ class DatabaseAdmin {
         const container = document.getElementById(containerId);
         if (container) {
             container.innerHTML = `<div class="success-message">${message}</div>`;
+        }
+    }
+
+    showMock(message, containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `<div class="mock-message">${message}</div>`;
         }
     }
 
