@@ -1493,12 +1493,12 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
             <!-- Tab Navigation -->
-            <div style="border-bottom: 1px solid var(--border-light); margin: 16px 0;">
+            <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">
                 <div style="display: flex; gap: 0;">
                     <button class="rust-tab-btn active" data-tab="with-claude" onclick="switchRustTab('with-claude')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid var(--accent-blue); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
                         🤖 With Claude
                     </button>
-                    <button class="rust-tab-btn" data-tab="without-claude" onclick="switchRustTab('without-claude')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0; opacity: 0.7;">
+                    <button class="rust-tab-btn" data-tab="without-claude" onclick="switchRustTab('without-claude')" style="padding: 12px 20px; border: 1px solid var(--border-medium); background: white; color: var(--text-primary); border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
                         ⚙️ Without Claude
                     </button>
                 </div>
@@ -1566,17 +1566,21 @@ function switchRustTab(tabName) {
     tabs.forEach(tab => {
         const isActive = tab.dataset.tab === tabName;
         if (isActive) {
+            // Active tab: colored background with white text
             tab.classList.add('active');
             tab.style.background = 'var(--accent-blue)';
             tab.style.color = 'white';
-            tab.style.borderBottomColor = 'var(--accent-blue)';
+            tab.style.border = 'none';
+            tab.style.borderBottom = '3px solid var(--accent-blue)';
             tab.style.opacity = '1';
         } else {
+            // Inactive tab: white background with normal text
             tab.classList.remove('active');
-            tab.style.background = 'var(--accent-blue)';
-            tab.style.color = 'white';
+            tab.style.background = 'white';
+            tab.style.color = 'var(--text-primary)';
+            tab.style.border = '1px solid var(--border-medium)';
             tab.style.borderBottomColor = 'transparent';
-            tab.style.opacity = '0.7';
+            tab.style.opacity = '1';
         }
     });
     
