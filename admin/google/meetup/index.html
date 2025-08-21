@@ -353,6 +353,17 @@
             }
         }
         
+        /* Toggle button states */
+        .btn.toggle-active {
+            background-color: #4A5568 !important;
+            color: white !important;
+            border-color: #4A5568 !important;
+        }
+        
+        .btn.toggle-active:hover:not(:disabled) {
+            background-color: #2D3748 !important;
+        }
+        
         /* Extra small screens */
         @media (max-width: 480px) {
             .container {
@@ -397,73 +408,82 @@
         <div class="card">
             <h2 class="card-title">🚀 Meetup Integration</h2>
 
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                Configure your Google Cloud project for Meetup Integration and <a href="../form">Member Form authentication</a>.
-            </p>
-            
-            <div class="config-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Project ID</label>
-                        <input type="text" id="project-id" class="form-control" placeholder="e.g., my-meetup-project">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Google Account Email</label>
-                        <input type="email" id="user-email" class="form-control" placeholder="your.email@gmail.com">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Organization ID (Optional)</label>
-                        <input type="text" id="org-id" class="form-control" placeholder="e.g., 123456789012">
-                        <small class="form-help">Leave blank for personal projects</small>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Billing Account ID (Optional)</label>
-                        <input type="text" id="billing-id" class="form-control" placeholder="e.g., 01234A-567890-BCDEF1">
-                        <small class="form-help">Required for API-enabled projects</small>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Service Account Key (JSON)</label>
-                    <textarea id="service-key" class="form-control" rows="4" placeholder="Paste your service account JSON key here for automated project creation">
-                    </textarea>
-                    <small class="form-help">Required for creating projects via API. Should have Cloud Resource Manager Admin role.</small>
-                </div>
-                <div class="config-actions">
-                    <button class="btn btn-secondary" id="load-config" onclick="loadConfiguration()">
-                        <i data-feather="refresh-cw"></i>
-                        Load from .env
-                    </button>
-                    <button class="btn btn-primary" id="save-config" onclick="saveConfiguration()">
-                        <i data-feather="save"></i>
-                        Save to .env
-                    </button>
-                </div>
-                <div id="config-status" class="status-message"></div>
-            </div>
-            
+            <!-- Step 1 moved up -->
             <div class="setup-steps">
                 <div class="step-item">
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <h4>Create Google Cloud Project</h4>
-                        <p>Create the "[project name]" project in Google Cloud Console or via API</p>
+                        <p>Create the "[project name]" project in <a href="https://console.cloud.google.com/" target="google_cloud">Google Cloud Console</a> or via API</p>
                         <div class="button-group">
                             <button class="btn btn-secondary" id="create-project-manual" onclick="createGoogleProjectManual()">
                                 <i data-feather="external-link"></i>
                                 Via Google Page
                             </button>
-                            <button class="btn btn-primary" id="create-project-api" onclick="createGoogleProjectAPI()">
+                            <button class="btn btn-secondary" id="create-project-api" onclick="toggleAPICreation()">
                                 <i data-feather="zap"></i>
                                 Create via API
                             </button>
                         </div>
                         <div id="project-status" class="status-message"></div>
+                    
+                        <div id="config-status" class="status-message"></div>
+                        <br>
+
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                            Configure your Google Cloud project for Meetup Integration and <a href="../form">Member Form authentication</a>.
+                        </p>
+
+                        <div class="config-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Project ID</label>
+                                    <input type="text" id="project-id" class="form-control" placeholder="e.g., my-meetup-project">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Google Account Email</label>
+                                    <input type="email" id="user-email" class="form-control" placeholder="your.email@gmail.com">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Organization ID (Optional)</label>
+                                    <input type="text" id="org-id" class="form-control" placeholder="e.g., 123456789012">
+                                    <small class="form-help">Leave blank for personal projects</small>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Billing Account ID (Optional)</label>
+                                    <input type="text" id="billing-id" class="form-control" placeholder="e.g., 01234A-567890-BCDEF1">
+                                    <small class="form-help">Required for API-enabled projects</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Service Account Key (JSON)</label>
+                                <textarea id="service-key" class="form-control" rows="4" placeholder="Paste your service account JSON key here for automated project creation">
+                                </textarea>
+                                <small class="form-help">Required for creating projects via API. Should have Cloud Resource Manager Admin role.</small>
+                            </div>
+                            <div class="config-actions">
+                                <button class="btn btn-secondary" id="load-config" onclick="loadConfiguration()">
+                                    <i data-feather="refresh-cw"></i>
+                                    Load from .env
+                                </button>
+                                <button class="btn btn-primary" id="save-config" onclick="saveConfiguration()">
+                                    <i data-feather="save"></i>
+                                    Save to .env
+                                </button>
+                            </div>
+                            
+                        </div>
                     </div>
                 </div>
+            </div>
+            
+           
+            
+            <div class="setup-steps">
                 
                 <div class="step-item">
                     <div class="step-number">2</div>
@@ -723,6 +743,7 @@
         // Google Project Setup Functions
         let PROJECT_ID = '';
         let USER_EMAIL = '';
+        let apiToggleActive = false;
         
         // Load configuration from .env file
         async function loadConfiguration() {
@@ -972,6 +993,26 @@
             }
         }
         
+        // Toggle API creation mode
+        function toggleAPICreation() {
+            const btn = document.getElementById('create-project-api');
+            
+            apiToggleActive = !apiToggleActive;
+            
+            if (apiToggleActive) {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary', 'toggle-active');
+                btn.innerHTML = '<i data-feather="settings"></i> API Mode Active';
+                createGoogleProjectAPI();
+            } else {
+                btn.classList.remove('btn-primary', 'toggle-active');
+                btn.classList.add('btn-secondary');
+                btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+            }
+            
+            if (window.feather) feather.replace();
+        }
+        
         // API-based project creation
         async function createGoogleProjectAPI() {
             const btn = document.getElementById('create-project-api');
@@ -1107,6 +1148,10 @@
                     `;
                 }
                 
+                // Reset toggle state on error
+                apiToggleActive = false;
+                btn.classList.remove('btn-primary', 'toggle-active');
+                btn.classList.add('btn-secondary');
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
                 if (window.feather) feather.replace();
@@ -1121,16 +1166,21 @@
             status.className = 'status-message success';
             status.innerHTML = '<i data-feather="check-circle"></i> Project created successfully!';
             
-            btnManual.disabled = true;
-            btnManual.innerHTML = '<i data-feather="check"></i> Completed';
+            // Reset manual button for reuse
+            btnManual.innerHTML = '<i data-feather="external-link"></i> Via Google Page';
+            btnManual.onclick = () => createGoogleProjectManual();
             
-            // Also disable API button since project is created
+            // Reset API button toggle state
             const btnAPI = document.getElementById('create-project-api');
-            btnAPI.disabled = true;
-            btnAPI.innerHTML = '<i data-feather="check"></i> Completed';
+            apiToggleActive = false;
+            btnAPI.classList.remove('btn-primary', 'toggle-active');
+            btnAPI.classList.add('btn-secondary');
+            btnAPI.innerHTML = '<i data-feather="zap"></i> Create via API';
             
             // Enable next step
             enableBtn.disabled = false;
+            
+            if (window.feather) feather.replace();
         }
         
         async function enableAPIs() {

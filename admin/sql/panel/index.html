@@ -416,6 +416,8 @@
             <div id="quick-actions-result"></div>
         </div>
 
+        <div id="combined-rust-api-container"></div>
+
         <div id="connection-troubleshooting-container"></div>
 
         <div id="readmeDiv" class="card readme-content">
@@ -428,6 +430,9 @@
     <script src="../../../js/common.js"></script>
     <script src="db-admin.js"></script>
     <script>
+        // Use shared combined Rust API Status panel from team/js/common.js
+        createRustApiStatusPanel('combined-rust-api-container', false);
+        
         // Use shared Connection Troubleshooting panel from team/js/common.js
         createConnectionTroubleshootingPanel('connection-troubleshooting-container', true);
         

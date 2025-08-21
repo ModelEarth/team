@@ -1557,6 +1557,91 @@ async fn db_test_connection(data: web::Data<Arc<ApiState>>) -> Result<HttpRespon
     }
 }
 
+// Test Commons database connection specifically
+async fn db_test_commons_connection(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    match &data.db {
+        Some(db) => {
+            // The current db connection is to the Commons database
+            match test_db_connection(db).await {
+                Ok(info) => Ok(HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "message": "Commons database connection successful",
+                    "database": "membercommons",
+                    "active": true,
+                    "info": info
+                }))),
+                Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+                    "success": false,
+                    "message": "Commons database connection failed",
+                    "database": "membercommons", 
+                    "active": false,
+                    "error": e.to_string()
+                }))),
+            }
+        }
+        None => Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "message": "Commons database not available",
+            "database": "membercommons",
+            "active": false,
+            "error": "Server started without database connection"
+        })))
+    }
+}
+
+// Test Exiobase database connection specifically
+async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    // Check if Exiobase environment variables are configured
+    let exiobase_host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
+    let exiobase_name = std::env::var("EXIOBASE_NAME").unwrap_or_default();
+    let exiobase_user = std::env::var("EXIOBASE_USER").unwrap_or_default();
+    let exiobase_password = std::env::var("EXIOBASE_PASSWORD").unwrap_or_default();
+    
+    // Check if configuration has placeholder values
+    if exiobase_host.contains("your-server") || exiobase_password == "your_password" || 
+       exiobase_host.is_empty() || exiobase_name.is_empty() || exiobase_user.is_empty() || exiobase_password.is_empty() {
+        return Ok(HttpResponse::Ok().json(json!({
+            "success": false,
+            "message": "Exiobase database not configured",
+            "database": "model_earth_db",
+            "active": false,
+            "error": "Database credentials not configured (placeholder values detected)"
+        })));
+    }
+    
+    // Attempt to create a temporary connection to test
+    let ssl_mode = std::env::var("EXIOBASE_SSL_MODE").unwrap_or_else(|_| "require".to_string());
+    let database_url = format!("postgres://{exiobase_user}:{exiobase_password}@{exiobase_host}:5432/{exiobase_name}?sslmode={ssl_mode}");
+    
+    match sqlx::postgres::PgPool::connect(&database_url).await {
+        Ok(pool) => {
+            match test_db_connection(&pool).await {
+                Ok(info) => Ok(HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "message": "Exiobase database connection successful",
+                    "database": "model_earth_db",
+                    "active": true,
+                    "info": info
+                }))),
+                Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+                    "success": false,
+                    "message": "Exiobase database connection failed",
+                    "database": "model_earth_db",
+                    "active": false,
+                    "error": e.to_string()
+                }))),
+            }
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "message": "Exiobase database connection failed",
+            "database": "model_earth_db",
+            "active": false,
+            "error": e.to_string()
+        })))
+    }
+}
+
 // List database tables with detailed info
 async fn db_list_tables(
     data: web::Data<Arc<ApiState>>,
@@ -2561,6 +2646,8 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                     .service(
                         web::scope("/db")
                             .route("/test-connection", web::get().to(db_test_connection))
+                            .route("/test-commons-connection", web::get().to(db_test_commons_connection))
+                            .route("/test-exiobase-connection", web::get().to(db_test_exiobase_connection))
                             .route("/tables", web::get().to(db_list_tables))
                             .route("/table/{table_name}", web::get().to(db_get_table_info))
                             .route("/query", web::post().to(db_execute_query))

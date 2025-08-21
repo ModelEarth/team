@@ -551,23 +551,52 @@
                     }
                 }, 100);
             } else {
-                geminiKeyContainer.style.display = 'none';
-                geminiKeyContainer.innerHTML = '';
+                // Show "Change" button when API key is present
+                geminiKeyContainer.style.display = 'block';
+                geminiKeyContainer.innerHTML = `
+<div style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <strong>Gemini API Key:</strong>
+        <button id="change-key-btn" class="btn btn-secondary" onclick="showChangeKeyForm()" style="font-size: 12px; padding: 4px 12px;">Change</button>
+    </div>
+    <div style="font-size: 12px; color: var(--text-secondary);">
+        API key is configured and ready to use
+    </div>
+    <div id="change-key-form" style="display: none; margin-top: 12px; border-top: 1px solid var(--border-light); padding-top: 12px;">
+        <strong>Enter New Gemini API Key:</strong>
+        <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="gemini-key-input-change" placeholder="AIzaSy..." 
+                   style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-family: monospace;">
+            <button id="save-new-key-btn" class="btn btn-primary" onclick="saveGeminiKey(true)">Save</button>
+            <button id="cancel-change-btn" class="btn btn-secondary" onclick="hideChangeKeyForm()">Cancel</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+            Get your API key from <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent-blue);">Google AI Studio</a>
+        </div>
+    </div>
+</div>`;
             }
 
             // Display regular configuration info
+            const keyDisplay = config.gemini_api_key_present ? 
+                `<span style="color: ${statusColor};">Configured and ready</span>` : 
+                `<span style="color: ${statusColor};">${status}</span>`;
+                
             configDisplay.innerHTML = `
 <strong>Configuration Source:</strong> ${configSource}
-<strong>Gemini API Key:</strong> <span style="color: ${statusColor};">${status}</span>
+<strong>Gemini API Key:</strong> ${keyDisplay}
 <strong>Database:</strong> ${config.database ? config.database.database + ' @ ' + config.database.server : 'Not configured'}
 <strong>SSL:</strong> ${config.database ? (config.database.ssl ? 'Enabled' : 'Disabled') : 'N/A'}
 <strong>Environment:</strong> ${config.gemini_api_key_present ? 'Production' : 'Development'}`;
         }
 
         // Save Gemini API key
-        async function saveGeminiKey() {
-            const keyInput = document.getElementById('gemini-key-input');
-            const saveBtn = document.getElementById('save-key-btn');
+        async function saveGeminiKey(isChange = false) {
+            const keyInputId = isChange ? 'gemini-key-input-change' : 'gemini-key-input';
+            const saveBtnId = isChange ? 'save-new-key-btn' : 'save-key-btn';
+            
+            const keyInput = document.getElementById(keyInputId);
+            const saveBtn = document.getElementById(saveBtnId);
             
             if (!keyInput || !keyInput.value.trim()) {
                 alert('Please enter a valid API key');
@@ -653,7 +682,7 @@
                     }
                 } else {
                     // .env file exists, just update the key
-                    const response = await fetch(`${GEMINI_API_BASE}/config/save-env`, {
+                    const response = await fetch(`${GEMINI_API_BASE}/config/env`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -664,14 +693,18 @@
                     });
                     
                     if (response.ok) {
-                        // Hide the input field and reload configuration
-                        geminiKeyContainer.style.display = 'none';
+                        // Hide the change form if this was a change operation
+                        if (isChange) {
+                            hideChangeKeyForm();
+                        }
+                        
+                        // Reload configuration to update the display
                         await loadConfiguration();
                         
                         // Show success message
                         configDisplay.innerHTML += `
                             <br><div style="color: var(--accent-green); margin-top: 16px; font-weight: bold;">
-                                ✅ Gemini API key updated successfully!
+                                ✅ Gemini API key ${isChange ? 'changed' : 'updated'} successfully!
                             </div>
                         `;
                     } else {
@@ -688,6 +721,46 @@
             }
         }
 
+        // Show the change API key form
+        function showChangeKeyForm() {
+            const changeForm = document.getElementById('change-key-form');
+            const changeBtn = document.getElementById('change-key-btn');
+            
+            if (changeForm && changeBtn) {
+                changeForm.style.display = 'block';
+                changeBtn.style.display = 'none';
+                
+                // Focus on the input field and add enter key listener
+                setTimeout(() => {
+                    const keyInput = document.getElementById('gemini-key-input-change');
+                    if (keyInput) {
+                        keyInput.focus();
+                        keyInput.addEventListener('keypress', function(e) {
+                            if (e.key === 'Enter') {
+                                saveGeminiKey(true);
+                            }
+                        });
+                    }
+                }, 100);
+            }
+        }
+
+        // Hide the change API key form
+        function hideChangeKeyForm() {
+            const changeForm = document.getElementById('change-key-form');
+            const changeBtn = document.getElementById('change-key-btn');
+            const keyInput = document.getElementById('gemini-key-input-change');
+            
+            if (changeForm && changeBtn) {
+                changeForm.style.display = 'none';
+                changeBtn.style.display = 'inline-block';
+                
+                // Clear the input field
+                if (keyInput) {
+                    keyInput.value = '';
+                }
+            }
+        }
 
         // Test Gemini API key
         async function testGeminiAPI() {

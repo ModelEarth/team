@@ -89,7 +89,9 @@ h2 {
     max-width: 100%;
     box-sizing: border-box;
 }
-
+.dark .card {
+    background: #555;
+}
 .card-title {
     font-size: 20px;
     font-weight: 600;

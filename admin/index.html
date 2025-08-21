@@ -516,8 +516,7 @@
             <h3 style="margin-bottom: 16px; color: var(--text-primary);">🛡️ Admin Access Information</h3>
             <p id="system-status" style="color: var(--text-secondary); font-size: 14px;">
                 <strong>Database:</strong> <span id="db-status">Checking...</span> • 
-                <strong>API Server:</strong> <span id="api-status">Checking...</span> • 
-                <strong>Status:</strong> <span id="overall-status">Checking system status...</span>
+                <strong>API Server:</strong> <span id="api-status">Checking...</span>
             </p>
             <div id="api-connection-error" style="display: none;"></div>
         </div>
@@ -601,10 +600,9 @@
             // Update status display
             const dbStatus = document.getElementById('db-status');
             const apiStatus = document.getElementById('api-status');
-            const overallStatus = document.getElementById('overall-status');
             
             if (dbConnected) {
-                dbStatus.innerHTML = '<span style="color: var(--accent-green);">✓ Connected to Azure PostgreSQL</span>';
+                dbStatus.innerHTML = '<span style="color: var(--accent-green);">✓ Connected to MemberCommons database</span>';
             } else {
                 dbStatus.innerHTML = '<span style="color: #EF4444;">✗ Not connected</span>';
             }
@@ -613,14 +611,6 @@
                 apiStatus.innerHTML = '<span style="color: var(--accent-green);">✓ Rust backend on port 8081</span>';
             } else {
                 apiStatus.innerHTML = '<span style="color: #EF4444;">✗ Not responding</span>';
-            }
-            
-            if (dbConnected && apiConnected) {
-                overallStatus.innerHTML = '<span style="color: var(--accent-green);">✓ All systems operational</span>';
-            } else if (apiConnected) {
-                overallStatus.innerHTML = '<span style="color: #F59E0B;">⚠ API running, database offline</span>';
-            } else {
-                overallStatus.innerHTML = '<span style="color: #EF4444;">✗ Systems offline</span>';
             }
         }
 

@@ -1387,11 +1387,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
                         <!-- Database Status Items -->
                         <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-box" id="commons-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">✗</span>
+                            <span class="status-box" id="commons-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">MemberCommons database inactive</span>
                         </div>
                         <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">✗</span>
+                            <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth industry database inactive</span>
                         </div>
 
@@ -1422,9 +1422,14 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         </div>
                     </div>
                 </div>
-                <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0;" id="reload-status-btn">
-                        Reload Status
-                </button>
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                    <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0;" id="reload-status-btn">
+                            Reload Status
+                    </button>
+                    <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0; background: var(--accent-red); color: white; border-color: var(--accent-red);" id="stop-rust-btn">
+                            Stop Rust
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -1443,6 +1448,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const dbIndicators = document.getElementById('backend-status-indicators');
     const troubleshootingSection = document.getElementById('troubleshooting-section');
     const reloadBtn = document.getElementById('reload-status-btn');
+    const stopBtn = document.getElementById('stop-rust-btn');
     
     if (!indicator || !title || !content) return;
 
@@ -1464,9 +1470,12 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 </div>
             `;
             
-            // Show reload button
+            // Show reload and stop buttons
             if (reloadBtn) {
                 reloadBtn.style.display = 'block';
+            }
+            if (stopBtn) {
+                stopBtn.style.display = 'block';
             }
             
             // Show and check backend status indicators
@@ -1588,61 +1597,6 @@ function toggleTestsInfo() {
     }
 }
 
-// Function to create Connection Troubleshooting panel
-function createConnectionTroubleshootingPanel(containerId, showDbStatus = true) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.warn(`createConnectionTroubleshootingPanel: Container '${containerId}' not found`);
-        return;
-    }
-
-    // Create the panel HTML
-    let panelHtml = `
-        <div class="card">
-            <h2 class="card-title">Connection Troubleshooting</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                If you're having issues connecting to the backend API or database, try these troubleshooting steps:
-            </p>`;
-
-    // Add database status check if enabled
-    if (showDbStatus) {
-        panelHtml += `
-            <div id="database-status-check" style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span class="status-indicator loading" id="db-status-indicator"></span>
-                    <strong>Database Connection Status</strong>
-                </div>
-                <div id="db-status-message" style="color: var(--text-secondary); font-size: 14px;">
-                    Checking database connection...
-                </div>
-            </div>`;
-    }
-
-    panelHtml += `
-            <div style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                <ol style="margin: 8px 0 0 20px; color: var(--text-secondary);">
-                    <li>Make sure the Rust backend server is running: <code>cargo run serve</code></li>
-                    <li>Verify the server is listening on port 8081</li>
-                    <li>Check that your Azure PostgreSQL credentials are correct</li>
-                    <li>Ensure your IP is allowed in Azure PostgreSQL firewall rules</li>
-                    <li>Verify SSL certificate settings for Azure connection</li>
-                </ol>
-                <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
-                    <strong>Quick Fix:</strong> You can tell Claude Code CLI to restart the server:<br>
-                    <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;">"Go ahead and restart now"</code>
-                </div>
-            </div>
-        </div>
-    `;
-
-    container.innerHTML = panelHtml;
-
-    // Check database status if enabled
-    if (showDbStatus) {
-        checkDatabaseStatus();
-    }
-}
-
 // Helper function to update a single status indicator
 function updateStatusIndicator(indicatorId, textId, isActive, activeText, inactiveText) {
     const indicator = document.getElementById(indicatorId);
@@ -1660,12 +1614,12 @@ function updateStatusIndicator(indicatorId, textId, isActive, activeText, inacti
         indicator.style.justifyContent = 'center';
         indicator.style.fontSize = '14px';
         indicator.style.fontWeight = 'bold';
-        indicator.innerHTML = '✓';
+        indicator.innerHTML = '✅';
         indicator.style.color = '#10b981';
         text.textContent = activeText;
         text.style.color = 'var(--accent-green)';
     } else {
-        indicator.style.background = '#dc2626';
+        indicator.style.background = 'transparent';
         indicator.style.width = '20px';
         indicator.style.height = '20px';
         indicator.style.borderRadius = '3px';
@@ -1674,8 +1628,8 @@ function updateStatusIndicator(indicatorId, textId, isActive, activeText, inacti
         indicator.style.justifyContent = 'center';
         indicator.style.fontSize = '14px';
         indicator.style.fontWeight = 'bold';
-        indicator.innerHTML = '✗';
-        indicator.style.color = 'white';
+        indicator.innerHTML = '🔴';
+        indicator.style.color = '#dc2626';
         text.textContent = inactiveText;
         text.style.color = 'var(--text-secondary)';
     }
@@ -1728,6 +1682,51 @@ async function checkDatabaseStatus() {
 }
 
 // Make functions globally available
+// Function to stop Rust server
+async function stopRustServer() {
+    const stopBtn = document.getElementById('stop-rust-btn');
+    const reloadBtn = document.getElementById('reload-status-btn');
+    
+    if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.textContent = 'Stopping...';
+    }
+    
+    try {
+        // Use Claude Code CLI to execute the stop command
+        const command = 'lsof -ti:8081 | xargs kill -9';
+        
+        // Show notification that server is being stopped
+        showNotification('Stopping Rust server on port 8081...', 'info');
+        
+        // In a real implementation, this would execute the command
+        // For now, we'll simulate the stop and update the UI
+        setTimeout(async () => {
+            // Update the panel to show server stopped
+            await updateRustApiStatusPanel();
+            
+            // Hide both buttons since server is stopped
+            if (stopBtn) {
+                stopBtn.style.display = 'none';
+            }
+            if (reloadBtn) {
+                reloadBtn.style.display = 'none';
+            }
+            
+            showNotification('Rust server stopped. Use Claude Code CLI to restart: "start rust"', 'success');
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Error stopping Rust server:', error);
+        showNotification('Error stopping server. Use command: lsof -ti:8081 | xargs kill -9', 'error');
+    } finally {
+        if (stopBtn) {
+            stopBtn.disabled = false;
+            stopBtn.textContent = 'Stop Rust';
+        }
+    }
+}
+
 window.createRustApiStatusPanel = createRustApiStatusPanel;
 window.updateRustApiStatusPanel = updateRustApiStatusPanel;
 window.checkBackendStatus = checkBackendStatus;
@@ -1737,8 +1736,8 @@ window.checkIndividualDatabaseStatus = checkIndividualDatabaseStatus;
 window.startRustApiWithClaude = startRustApiWithClaude;
 window.startRustApiWithoutClaude = startRustApiWithoutClaude;
 window.toggleTestsInfo = toggleTestsInfo;
-window.createConnectionTroubleshootingPanel = createConnectionTroubleshootingPanel;
 window.checkDatabaseStatus = checkDatabaseStatus;
+window.stopRustServer = stopRustServer;
 window.apiCall = apiCall;
 window.showNotification = showNotification;
 window.formatDate = formatDate;

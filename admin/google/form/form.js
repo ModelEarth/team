@@ -65,6 +65,9 @@ async function loadConfiguration() {
     } catch (error) {
         console.warn('Failed to load configuration:', error);
     }
+    
+    // Check OAuth configuration from both sources
+    await checkOAuthConfiguration();
 }
 
 // Apply configuration to form appearance and behavior
@@ -153,6 +156,132 @@ function applyFormConfiguration(config) {
                 );
             }
         }
+    }
+}
+
+// Check OAuth configuration from both .env and config.json
+async function checkOAuthConfiguration() {
+    let configClientId = null;
+    let envClientId = null;
+    let hasValidClientId = false;
+    
+    // Check config.json client ID
+    if (sheetsConfig && sheetsConfig.oauth && sheetsConfig.oauth.clientId) {
+        configClientId = sheetsConfig.oauth.clientId;
+        // Check if it's not the default placeholder
+        if (configClientId !== 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID' && 
+            configClientId.includes('.apps.googleusercontent.com')) {
+            hasValidClientId = true;
+        }
+    }
+    
+    // Check .env file client ID via API
+    try {
+        const response = await fetch(`${API_BASE}/config/env`);
+        if (response.ok) {
+            const envData = await response.json();
+            if (envData.GOOGLE_CLIENT_ID) {
+                envClientId = envData.GOOGLE_CLIENT_ID;
+                // Check if it's not the default placeholder and is a valid format
+                if (envClientId !== 'your-google-client-id.apps.googleusercontent.com' && 
+                    envClientId.includes('.apps.googleusercontent.com')) {
+                    hasValidClientId = true;
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('Could not check .env configuration:', error);
+    }
+    
+    // Display warning if no valid client ID found
+    if (!hasValidClientId) {
+        showOAuthConfigWarning(configClientId, envClientId);
+        disableGoogleSignIn();
+    } else {
+        // If we have a valid client ID, initialize Google Auth
+        initializeGoogleAuth();
+    }
+}
+
+// Display OAuth configuration warning
+function showOAuthConfigWarning(configClientId, envClientId) {
+    const authStatus = document.getElementById('auth-status');
+    if (authStatus) {
+        authStatus.className = 'status-message error';
+        authStatus.style.display = 'block';
+        
+        let message = '⚠️ <strong>Google OAuth Client ID Required</strong><br><br>';
+        message += 'The "Sign in with Google" button will not work because no valid Google OAuth Client ID was found.<br><br>';
+        
+        message += '<strong>Configuration Status:</strong><br>';
+        
+        // Config.json status
+        if (configClientId) {
+            if (configClientId === 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID') {
+                message += '• config.json: Contains placeholder value<br>';
+            } else {
+                message += `• config.json: "${configClientId}" (invalid format)<br>`;
+            }
+        } else {
+            message += '• config.json: No client ID found<br>';
+        }
+        
+        // .env status
+        if (envClientId) {
+            if (envClientId === 'your-google-client-id.apps.googleusercontent.com') {
+                message += '• .env file: Contains placeholder value<br>';
+            } else {
+                message += `• .env file: "${envClientId}" (invalid format)<br>`;
+            }
+        } else {
+            message += '• .env file: No GOOGLE_CLIENT_ID found<br>';
+        }
+        
+        message += '<br><strong>To fix this:</strong><br>';
+        message += '1. Get a Google OAuth Client ID from <a href="https://console.developers.google.com" target="_blank" style="color: var(--accent-blue);">Google Cloud Console</a><br>';
+        message += '2. Update either the config.json file or the GOOGLE_CLIENT_ID in your .env file<br>';
+        message += '3. Reload this page to try again';
+        
+        authStatus.innerHTML = message;
+    }
+}
+
+// Disable Google Sign-In button when no valid client ID
+function disableGoogleSignIn() {
+    const gSignInElement = document.querySelector('.g_id_signin');
+    const gOnLoadElement = document.getElementById('g_id_onload');
+    
+    if (gSignInElement) {
+        gSignInElement.style.display = 'none';
+    }
+    
+    if (gOnLoadElement) {
+        gOnLoadElement.style.display = 'none';
+    }
+    
+    // Add a disabled placeholder button
+    const authSection = document.querySelector('.auth-section');
+    if (authSection) {
+        const disabledButton = document.createElement('div');
+        disabledButton.className = 'btn btn-secondary';
+        disabledButton.style.opacity = '0.5';
+        disabledButton.style.cursor = 'not-allowed';
+        disabledButton.style.margin = '16px auto';
+        disabledButton.style.display = 'inline-flex';
+        disabledButton.innerHTML = '<i data-feather="alert-triangle"></i> Sign in with Google (Disabled)';
+        
+        // Insert after the hidden Google sign-in elements
+        const existingButton = authSection.querySelector('.g_id_signin') || authSection.querySelector('#g_id_onload');
+        if (existingButton) {
+            existingButton.parentNode.insertBefore(disabledButton, existingButton.nextSibling);
+        }
+        
+        // Initialize feather icons for the new button
+        setTimeout(() => {
+            if (window.feather) {
+                feather.replace();
+            }
+        }, 100);
     }
 }
 
