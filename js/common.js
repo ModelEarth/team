@@ -348,7 +348,7 @@ function createOSDetectionPanel(containerId) {
             </div>
             <div id="cli-commands" style="display: none;">
                 <div id="claude-code-commands" style="display: none;">
-                    <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">Claude Code CLI Installation:</h4>
+                    <h4 style="margin: 0 0 8px 0;">Claude Code CLI Installation:</h4>
                     <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
                         <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                             <input type="radio" name="claude-install-status" value="initial" style="margin: 0;" checked>
@@ -383,7 +383,7 @@ npx @anthropic-ai/claude-code</div>
                 </div>
             </div>
             <div class="cardsection" id="gemini-installation" style="display: none;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">Gemini CLI Installation:</h4>
+                <h4 style="margin: 0 0 8px 0;">Gemini CLI Installation:</h4>
                 <div id="gemini-command-display">
                     <pre><code>python -m venv env
 env\Scripts\activate.bat
@@ -392,12 +392,12 @@ gemini</code></pre>
                 </div>
             </div>
             <div class="cardsection" id="vscode-cmds" style="display: none;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">VS Code command</h4>
+                <h4 style="margin: 0 0 8px 0;">VS Code command</h4>
                 After forking and cloning the webroot repo, initialize the submodules:
                 <pre><code>git submodule update --init --recursive</code></pre>
             </div>
             <div class="cardsection" id="gemini-resources">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">Add AI Insights Key:</h4>
+                <h4 style="margin: 0 0 8px 0;">Add AI Insights Key:</h4>
                 You can use a free Gemini key for AI insights.<br>
                 <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
             </div>

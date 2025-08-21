@@ -32,12 +32,12 @@ function createTradeFlowReposHTML() {
     return `
         <h2>Get Trade Flow Repos</h2>
         
-        <p>To contribute to our trade flow visualizations, run the following to fork and clone:<br>
+        <p>To contribute to our industry tradeflow visualizations, run the following to fork and clone:<br>
         <a href="https://github.com/ModelEarth/exiobase/tree/main/tradeflow">exiobase</a>, profile, useeio.js and io</p>
         
         <pre><code id="forkReposCmds">using claude.md
-fork trade repos to [your github account]
-clone trade repos from [your github account]
+fork industry repos to [your github account]
+clone industry repos from [your github account]
 </code></pre>
 
         <p>The above requires having GitHub CLI (gh) installed locally and authenticated with your GitHub account.</p>

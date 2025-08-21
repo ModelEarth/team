@@ -364,6 +364,18 @@
             background-color: #E68900 !important;
         }
         
+        /* Inactive toggle buttons should have no special color */
+        .btn.toggle-inactive {
+            background-color: transparent !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-medium) !important;
+        }
+        
+        .btn.toggle-inactive:hover:not(:disabled) {
+            background-color: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        
         /* Collapsible panel styles */
         .config-panel {
             display: block;
@@ -1024,14 +1036,16 @@
             configPanelVisible = apiToggleActive;
             
             if (apiToggleActive) {
-                btn.classList.remove('btn-primary', 'toggle-active');
-                btn.classList.add('btn-secondary');
+                // Active state: orange with white text
+                btn.classList.remove('btn-secondary', 'toggle-inactive');
+                btn.classList.add('btn-primary', 'toggle-active');
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
                 configPanel.classList.remove('hidden');
                 configPanel.style.display = 'block';
             } else {
-                btn.classList.remove('btn-secondary');
-                btn.classList.add('btn-primary', 'toggle-active');
+                // Inactive state: no color, normal text
+                btn.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+                btn.classList.add('toggle-inactive');
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
                 configPanel.classList.add('hidden');
                 configPanel.style.display = 'none';
@@ -1175,10 +1189,10 @@
                     `;
                 }
                 
-                // Reset toggle state on error
+                // Reset toggle state on error - set to inactive (no color)
                 apiToggleActive = false;
-                btn.classList.remove('btn-primary', 'toggle-active');
-                btn.classList.add('btn-secondary');
+                btn.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+                btn.classList.add('toggle-inactive');
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
                 if (window.feather) feather.replace();
@@ -1197,11 +1211,11 @@
             btnManual.innerHTML = '<i data-feather="external-link"></i> Via Google Page';
             btnManual.onclick = () => createGoogleProjectManual();
             
-            // Reset API button toggle state
+            // Reset API button toggle state to inactive (no color)
             const btnAPI = document.getElementById('create-project-api');
             apiToggleActive = false;
-            btnAPI.classList.remove('btn-primary', 'toggle-active');
-            btnAPI.classList.add('btn-secondary');
+            btnAPI.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+            btnAPI.classList.add('toggle-inactive');
             btnAPI.innerHTML = '<i data-feather="zap"></i> Create via API';
             
             // Enable next step
