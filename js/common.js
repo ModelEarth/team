@@ -1395,40 +1395,28 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                             <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth industry database inactive</span>
                         </div>
 
-                        <!-- Info Icon with Tests Link -->
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                            <i data-feather="info" style="width: 16px; height: 16px; color: var(--text-secondary); cursor: pointer;" onclick="toggleTestsInfo()" id="tests-info-icon"></i>
-                            <div id="tests-info-content" style="display: none;">
-                                <a href="https://colab.research.google.com/drive/1TgA9FJzhhue74Bgf-MJoOAKSBrzpiyss?usp=sharing" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 14px;">
-                                    Run tests
-                                </a>
-                            </div>
-                        </div>
                        
                     </div>
 
-                    <div id="troubleshooting-section" style="margin: 16px 0; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); displayX: none;">
-                        <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">Troubleshooting Steps:</h4>
-                        <ol style="margin: 8px 0 0 20px; color: var(--text-secondary);">
-                            <li>Make sure the Rust backend server is running: <code>cargo run serve</code></li>
-                            <li>Verify the server is listening on port 8081</li>
-                            <li>Check that your PostgreSQL credentials are correct</li>
-                            <li>Ensure your IP is allowed in PostgreSQL firewall rules</li>
-                            <li>Verify SSL certificate settings for database connection</li>
-                        </ol>
-                        <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
-                            <strong>Quick Fix:</strong> You can tell Claude Code CLI to restart the server:<br>
-                            <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px;">"Go ahead and restart now"</code>
+                </div>
+                <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; min-height: 120px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                        <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0; width: 100%;" id="reload-status-btn">
+                                Reload Status
+                        </button>
+                        <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
+                                Stop Rust
+                        </button>
+                    </div>
+                    <!-- Info Icon with Tests Link -->
+                    <div style="display: flex; align-items: center; gap: 8px; align-self: flex-end;">
+                        <i data-feather="info" style="width: 16px; height: 16px; color: var(--text-secondary); cursor: pointer;" onclick="toggleTestsInfo()" id="tests-info-icon"></i>
+                        <div id="tests-info-content" style="display: none;">
+                            <a href="https://colab.research.google.com/drive/1TgA9FJzhhue74Bgf-MJoOAKSBrzpiyss?usp=sharing" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 14px;">
+                                Run tests
+                            </a>
                         </div>
                     </div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                    <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0;" id="reload-status-btn">
-                            Reload Status
-                    </button>
-                    <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0; background: var(--accent-red); color: white; border-color: var(--accent-red);" id="stop-rust-btn">
-                            Stop Rust
-                    </button>
                 </div>
             </div>
         </div>
@@ -1446,7 +1434,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const title = document.getElementById('rust-api-status-title');
     const content = document.getElementById('rust-api-status-content');
     const dbIndicators = document.getElementById('backend-status-indicators');
-    const troubleshootingSection = document.getElementById('troubleshooting-section');
     const reloadBtn = document.getElementById('reload-status-btn');
     const stopBtn = document.getElementById('stop-rust-btn');
     
@@ -1484,10 +1471,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 dbIndicators.style.display = 'block';
             }
             
-            // Hide troubleshooting section when API is active
-            if (troubleshootingSection) {
-                troubleshootingSection.style.display = 'none';
-            }
             
         } else {
             throw new Error('Backend not responding');
@@ -1522,20 +1505,22 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             </div>
         `;
         
-        // Hide reload button when API is inactive
+        // Hide stop button when API is inactive, but keep reload button visible
+        if (stopBtn) {
+            stopBtn.style.display = 'none';
+        }
+        // Keep reload button visible so user can refresh status
         if (reloadBtn) {
-            reloadBtn.style.display = 'none';
+            reloadBtn.style.display = 'block';
         }
         
-        // Hide backend status indicators when API is inactive
+        // Show backend status indicators even when main API is inactive - they can still be checked
         if (dbIndicators) {
-            dbIndicators.style.display = 'none';
+            dbIndicators.style.display = 'block';
+            // Check database status independently
+            checkBackendStatus();
         }
         
-        // Show troubleshooting section when API is inactive
-        if (troubleshootingSection) {
-            troubleshootingSection.style.display = 'block';
-        }
         
         // Initialize feather icons for the info icon
         if (window.feather) {
@@ -1550,7 +1535,7 @@ function startRustApiWithClaude() {
     if (content) {
         content.innerHTML = `
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or <strong>"Start the Rust API"</strong> or similar.
+                🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or similar.
             </p>
             <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="margin-top: 12px;">
                 ← Back to Status
@@ -1685,7 +1670,6 @@ async function checkDatabaseStatus() {
 // Function to stop Rust server
 async function stopRustServer() {
     const stopBtn = document.getElementById('stop-rust-btn');
-    const reloadBtn = document.getElementById('reload-status-btn');
     
     if (stopBtn) {
         stopBtn.disabled = true;
@@ -1693,32 +1677,40 @@ async function stopRustServer() {
     }
     
     try {
-        // Use Claude Code CLI to execute the stop command
-        const command = 'lsof -ti:8081 | xargs kill -9';
-        
-        // Show notification that server is being stopped
-        showNotification('Stopping Rust server on port 8081...', 'info');
-        
-        // In a real implementation, this would execute the command
-        // For now, we'll simulate the stop and update the UI
-        setTimeout(async () => {
-            // Update the panel to show server stopped
-            await updateRustApiStatusPanel();
-            
-            // Hide both buttons since server is stopped
-            if (stopBtn) {
-                stopBtn.style.display = 'none';
+        // Call the Rust API restart endpoint which performs a clean shutdown
+        const response = await fetch('http://localhost:8081/api/config/restart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             }
-            if (reloadBtn) {
-                reloadBtn.style.display = 'none';
-            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            showNotification('✅ ' + result.message, 'success');
             
-            showNotification('Rust server stopped. Use Claude Code CLI to restart: "start rust"', 'success');
-        }, 1500);
+            // Wait a moment for shutdown to complete, then refresh the status
+            setTimeout(async () => {
+                await updateRustApiStatusPanel();
+            }, 2000);
+        } else {
+            throw new Error(`Server responded with status: ${response.status}`);
+        }
         
     } catch (error) {
-        console.error('Error stopping Rust server:', error);
-        showNotification('Error stopping server. Use command: lsof -ti:8081 | xargs kill -9', 'error');
+        console.error('Error stopping server via API:', error);
+        
+        // Fallback to showing terminal command
+        const command = 'lsof -ti:8081 | xargs kill -9';
+        const confirmed = confirm(`API stop failed. To manually stop the Rust server, run this command in your terminal:\n\n${command}\n\nOr tell Claude Code CLI: "Stop the Rust server"\n\nClick OK if you've run the command, then use Reload Status to refresh.`);
+        
+        if (confirmed) {
+            showNotification('Manual server stop command provided. Use Reload Status to refresh.', 'info');
+            
+            setTimeout(async () => {
+                await updateRustApiStatusPanel();
+            }, 1000);
+        }
     } finally {
         if (stopBtn) {
             stopBtn.disabled = false;

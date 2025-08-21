@@ -355,13 +355,33 @@
         
         /* Toggle button states */
         .btn.toggle-active {
-            background-color: #4A5568 !important;
+            background-color: var(--accent-orange) !important;
             color: white !important;
-            border-color: #4A5568 !important;
+            border-color: var(--accent-orange) !important;
         }
         
         .btn.toggle-active:hover:not(:disabled) {
-            background-color: #2D3748 !important;
+            background-color: #E68900 !important;
+        }
+        
+        /* Collapsible panel styles */
+        .config-panel {
+            display: block;
+            margin-top: 16px;
+        }
+        
+        .config-panel.hidden {
+            display: none;
+        }
+        
+        /* Done/Show toggle button */
+        .collapse-toggle-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 6px 12px;
+            font-size: 12px;
+            z-index: 10;
         }
         
         /* Extra small screens */
@@ -410,7 +430,7 @@
 
             <!-- Step 1 moved up -->
             <div class="setup-steps">
-                <div class="step-item">
+                <div class="step-item" style="position: relative;" id="google-cloud-setup">
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <h4>Create Google Cloud Project</h4>
@@ -420,7 +440,7 @@
                                 <i data-feather="external-link"></i>
                                 Via Google Page
                             </button>
-                            <button class="btn btn-secondary" id="create-project-api" onclick="toggleAPICreation()">
+                            <button class="btn btn-primary toggle-active" id="create-project-api" onclick="toggleAPICreation()">
                                 <i data-feather="zap"></i>
                                 Create via API
                             </button>
@@ -428,54 +448,55 @@
                         <div id="project-status" class="status-message"></div>
                     
                         <div id="config-status" class="status-message"></div>
-                        <br>
+                        
+                        <div class="config-panel" id="api-config-panel">
+                            <br>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                                Configure your Google Cloud project for Meetup Integration and <a href="../form">Member Form authentication</a>.
+                            </p>
 
-                        <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                            Configure your Google Cloud project for Meetup Integration and <a href="../form">Member Form authentication</a>.
-                        </p>
-
-                        <div class="config-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Project ID</label>
-                                    <input type="text" id="project-id" class="form-control" placeholder="e.g., my-meetup-project">
+                            <div class="config-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Project ID</label>
+                                        <input type="text" id="project-id" class="form-control" placeholder="e.g., my-meetup-project">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Google Account Email</label>
+                                        <input type="email" id="user-email" class="form-control" placeholder="your.email@gmail.com">
+                                    </div>
                                 </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Organization ID (Optional)</label>
+                                        <input type="text" id="org-id" class="form-control" placeholder="e.g., 123456789012">
+                                        <small class="form-help">Leave blank for personal projects</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Billing Account ID (Optional)</label>
+                                        <input type="text" id="billing-id" class="form-control" placeholder="e.g., 01234A-567890-BCDEF1">
+                                        <small class="form-help">Required for API-enabled projects</small>
+                                    </div>
+                                </div>
+                                
                                 <div class="form-group">
-                                    <label class="form-label">Google Account Email</label>
-                                    <input type="email" id="user-email" class="form-control" placeholder="your.email@gmail.com">
+                                    <label class="form-label">Service Account Key (JSON)</label>
+                                    <textarea id="service-key" class="form-control" rows="4" placeholder="Paste your service account JSON key here for automated project creation">
+                                    </textarea>
+                                    <small class="form-help">Required for creating projects via API. Should have Cloud Resource Manager Admin role.</small>
+                                </div>
+                                <div class="config-actions">
+                                    <button class="btn btn-secondary" id="load-config" onclick="loadConfiguration()">
+                                        <i data-feather="refresh-cw"></i>
+                                        Load from .env
+                                    </button>
+                                    <button class="btn btn-primary" id="save-config" onclick="saveConfiguration()">
+                                        <i data-feather="save"></i>
+                                        Save to .env
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Organization ID (Optional)</label>
-                                    <input type="text" id="org-id" class="form-control" placeholder="e.g., 123456789012">
-                                    <small class="form-help">Leave blank for personal projects</small>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Billing Account ID (Optional)</label>
-                                    <input type="text" id="billing-id" class="form-control" placeholder="e.g., 01234A-567890-BCDEF1">
-                                    <small class="form-help">Required for API-enabled projects</small>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Service Account Key (JSON)</label>
-                                <textarea id="service-key" class="form-control" rows="4" placeholder="Paste your service account JSON key here for automated project creation">
-                                </textarea>
-                                <small class="form-help">Required for creating projects via API. Should have Cloud Resource Manager Admin role.</small>
-                            </div>
-                            <div class="config-actions">
-                                <button class="btn btn-secondary" id="load-config" onclick="loadConfiguration()">
-                                    <i data-feather="refresh-cw"></i>
-                                    Load from .env
-                                </button>
-                                <button class="btn btn-primary" id="save-config" onclick="saveConfiguration()">
-                                    <i data-feather="save"></i>
-                                    Save to .env
-                                </button>
-                            </div>
-                            
                         </div>
                     </div>
                 </div>
@@ -744,6 +765,7 @@
         let PROJECT_ID = '';
         let USER_EMAIL = '';
         let apiToggleActive = false;
+        let configPanelVisible = false;
         
         // Load configuration from .env file
         async function loadConfiguration() {
@@ -996,18 +1018,23 @@
         // Toggle API creation mode
         function toggleAPICreation() {
             const btn = document.getElementById('create-project-api');
+            const configPanel = document.getElementById('api-config-panel');
             
             apiToggleActive = !apiToggleActive;
+            configPanelVisible = apiToggleActive;
             
             if (apiToggleActive) {
-                btn.classList.remove('btn-secondary');
-                btn.classList.add('btn-primary', 'toggle-active');
-                btn.innerHTML = '<i data-feather="settings"></i> API Mode Active';
-                createGoogleProjectAPI();
-            } else {
                 btn.classList.remove('btn-primary', 'toggle-active');
                 btn.classList.add('btn-secondary');
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+                configPanel.classList.remove('hidden');
+                configPanel.style.display = 'block';
+            } else {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary', 'toggle-active');
+                btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+                configPanel.classList.add('hidden');
+                configPanel.style.display = 'none';
             }
             
             if (window.feather) feather.replace();
@@ -1604,10 +1631,88 @@
             });
         }
 
+        // Make the Google Cloud setup panel collapsible
+        function makeGoogleCloudCollapsible() {
+            const targetDiv = document.getElementById('google-cloud-setup');
+            if (!targetDiv) return;
+            
+            // Check if already collapsed from localStorage
+            const isCollapsed = localStorage.getItem('google-cloud-setup-collapsed') === 'true';
+            
+            // Create toggle button  
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-secondary' : 'collapse-toggle-btn btn btn-primary';
+            toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+            toggleBtn.textContent = isCollapsed ? 'Show' : 'Done';
+            
+            // Create status div (hidden by default)
+            const statusDiv = document.createElement('div');
+            statusDiv.style.cssText = 'color: var(--accent-green); margin-top: 8px; font-weight: bold; display: none;';
+            statusDiv.innerHTML = '✅ Google Cloud project setup completed and collapsed';
+            
+            // Create content wrapper to contain all content except the step number
+            const stepContent = targetDiv.querySelector('.step-content');
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'collapsible-content';
+            
+            // Move all step content into wrapper
+            while (stepContent.firstChild) {
+                contentWrapper.appendChild(stepContent.firstChild);
+            }
+            stepContent.appendChild(contentWrapper);
+            stepContent.appendChild(statusDiv);
+            
+            // Set initial state
+            if (isCollapsed) {
+                contentWrapper.style.display = 'none';
+                statusDiv.style.display = 'block';
+            }
+            
+            // Add toggle functionality
+            toggleBtn.addEventListener('click', function() {
+                const isCurrentlyCollapsed = contentWrapper.style.display === 'none';
+                
+                if (isCurrentlyCollapsed) {
+                    // Show content
+                    contentWrapper.style.display = 'block';
+                    statusDiv.style.display = 'none';
+                    toggleBtn.textContent = 'Done';
+                    toggleBtn.className = 'collapse-toggle-btn btn btn-primary';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+                    localStorage.setItem('google-cloud-setup-collapsed', 'false');
+                } else {
+                    // Hide content
+                    contentWrapper.style.display = 'none';
+                    statusDiv.style.display = 'block';
+                    toggleBtn.textContent = 'Show';
+                    toggleBtn.className = 'collapse-toggle-btn btn btn-secondary';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+                    localStorage.setItem('google-cloud-setup-collapsed', 'true');
+                }
+            });
+            
+            // Add toggle button to the step item
+            targetDiv.appendChild(toggleBtn);
+        }
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize feather icons
             feather.replace();
+            
+            // Show config panel initially since button starts in orange state
+            const configPanel = document.getElementById('api-config-panel');
+            if (configPanel) {
+                configPanel.style.display = 'block';
+                configPanel.classList.remove('hidden');
+            }
+            
+            // Set initial state
+            apiToggleActive = true;
+            configPanelVisible = true;
+            
+            // Make Google Cloud setup collapsible
+            makeGoogleCloudCollapsible();
             
             // Load configurations automatically
             loadConfiguration();

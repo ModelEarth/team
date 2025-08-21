@@ -66,7 +66,11 @@
             --sidebar-collapsed: 64px;
             --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
+        .dark {
+            --bg-secondary: #555;
+            --bg-tertiary: #555;
+            --text-secondary: #aaa;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -197,7 +201,9 @@
             border: 1px solid var(--border-light);
             margin-bottom: 24px;
         }
-
+        .dark .card {
+            background: #555;
+        }
         .card-header {
             display: flex;
             align-items: center;
@@ -249,7 +255,9 @@
             border: 1px solid var(--border-light);
             transition: var(--transition-smooth);
         }
-
+        .dark .feature-card {
+            background: #555;
+        }
         .feature-card:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
@@ -296,7 +304,9 @@
             color: var(--text-secondary);
             line-height: 1.6;
         }
-
+        .dark .feature-desc {
+            color: #aaa;
+        }
 
         .demo-notice {
             background: rgba(239, 68, 68, 0.1);
@@ -509,7 +519,7 @@
                     <div class="tab-content" id="dashboard-tab">
                         <div class="card">
                             <h2 class="card-title">Dashboard</h2>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
+                            <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
                             
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
                                 <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
