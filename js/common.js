@@ -1492,16 +1492,46 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
                 The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
-            <div class="actions">
-                <button class="btn btn-primary" onclick="startRustApiWithClaude()">
-                    🤖 Use Claude (Recommended)
-                </button>
-                <button class="btn btn-secondary" onclick="startRustApiWithoutClaude()">
-                    ⚙️ Without Claude
-                </button>
+            <!-- Tab Navigation -->
+            <div style="border-bottom: 1px solid var(--border-light); margin: 16px 0;">
+                <div style="display: flex; gap: 0;">
+                    <button class="rust-tab-btn active" data-tab="with-claude" onclick="switchRustTab('with-claude')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid var(--accent-blue); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
+                        🤖 With Claude
+                    </button>
+                    <button class="rust-tab-btn" data-tab="without-claude" onclick="switchRustTab('without-claude')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0; opacity: 0.7;">
+                        ⚙️ Without Claude
+                    </button>
+                </div>
             </div>
-            <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
-                Claude option will automatically start the server for you. Manual option shows commands to run yourself.
+            
+            <!-- Tab Content -->
+            <div id="rust-tab-content">
+                <!-- Default to With Claude content -->
+                <div id="with-claude-content" class="rust-tab-content active">
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                        🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or similar.
+                    </p>
+                    <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                        Claude option will automatically start the server and databases for you.
+                    </div>
+                </div>
+                
+                <div id="without-claude-content" class="rust-tab-content" style="display: none;">
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                        ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
+                    </p>
+                    <div style="margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                        <h5 style="margin: 0 0 12px 0;">Manual Setup Commands:</h5>
+                        <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code>cd team
+cargo run --bin partner_tools -- serve</code></pre>
+                        <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0 0;">
+                            Run this in your terminal from the webroot directory.
+                        </p>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                        Manual option shows commands to run yourself.
+                    </div>
+                </div>
             </div>
         `;
         
@@ -1530,40 +1560,37 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
 }
 
 // Helper functions for the combined panel
-function startRustApiWithClaude() {
-    const content = document.getElementById('rust-api-status-content');
-    if (content) {
-        content.innerHTML = `
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or similar.
-            </p>
-            <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="margin-top: 12px;">
-                ← Back to Status
-            </button>
-        `;
-    }
-}
-
-function startRustApiWithoutClaude() {
-    const content = document.getElementById('rust-api-status-content');
-    if (content) {
-        content.innerHTML = `
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
-            </p>
-            <div style="margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                <h5 style="margin: 0 0 12px 0;">Manual Setup Commands:</h5>
-                <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code>cd team
-cargo run --bin partner_tools -- serve</code></pre>
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0 0;">
-                    Run this in your terminal from the webroot directory.
-                </p>
-            </div>
-            <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="margin-top: 16px;">
-                ← Back to Status
-            </button>
-        `;
-    }
+function switchRustTab(tabName) {
+    // Update tab buttons
+    const tabs = document.querySelectorAll('.rust-tab-btn');
+    tabs.forEach(tab => {
+        const isActive = tab.dataset.tab === tabName;
+        if (isActive) {
+            tab.classList.add('active');
+            tab.style.background = 'var(--accent-blue)';
+            tab.style.color = 'white';
+            tab.style.borderBottomColor = 'var(--accent-blue)';
+            tab.style.opacity = '1';
+        } else {
+            tab.classList.remove('active');
+            tab.style.background = 'var(--accent-blue)';
+            tab.style.color = 'white';
+            tab.style.borderBottomColor = 'transparent';
+            tab.style.opacity = '0.7';
+        }
+    });
+    
+    // Update tab content
+    const contents = document.querySelectorAll('.rust-tab-content');
+    contents.forEach(content => {
+        if (content.id === `${tabName}-content`) {
+            content.style.display = 'block';
+            content.classList.add('active');
+        } else {
+            content.style.display = 'none';
+            content.classList.remove('active');
+        }
+    });
 }
 
 // Function to toggle the tests info visibility
@@ -1725,8 +1752,7 @@ window.checkBackendStatus = checkBackendStatus;
 window.checkDatabaseConnection = checkDatabaseConnection;
 window.updateStatusIndicator = updateStatusIndicator;
 window.checkIndividualDatabaseStatus = checkIndividualDatabaseStatus;
-window.startRustApiWithClaude = startRustApiWithClaude;
-window.startRustApiWithoutClaude = startRustApiWithoutClaude;
+window.switchRustTab = switchRustTab;
 window.toggleTestsInfo = toggleTestsInfo;
 window.checkDatabaseStatus = checkDatabaseStatus;
 window.stopRustServer = stopRustServer;
