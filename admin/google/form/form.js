@@ -1,7 +1,7 @@
 // Member Registration Form JavaScript
 // Google Sheets integration with OAuth authentication
 
-const API_BASE = 'http://localhost:8081/api';
+// API_BASE is already defined in common.js
 let currentUser = null;
 let existingMemberData = null;
 let sheetsConfig = null;
@@ -37,11 +37,24 @@ const jobTitleSuggestions = [
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, hostname:', window.location.hostname);
+    
     initializeFeatherIcons();
     setupFormEventListeners();
-    loadConfiguration();
     setupJobTitleAutocomplete();
     updateProgressIndicator();
+    
+    // Show form on localhost without authentication
+    if (window.location.hostname === 'localhost') {
+        console.log('Localhost detected, showing form');
+        // Add a small delay to ensure all elements are ready
+        setTimeout(() => {
+            showLocalhostMode();
+        }, 100);
+    } else {
+        console.log('Not localhost, loading OAuth configuration');
+        loadConfiguration();
+    }
 });
 
 function initializeFeatherIcons() {
@@ -263,8 +276,10 @@ function disableGoogleSignIn() {
     const authSection = document.querySelector('.auth-section');
     if (authSection) {
         const disabledButton = document.createElement('div');
-        disabledButton.className = 'btn btn-secondary';
-        disabledButton.style.opacity = '0.5';
+        disabledButton.className = 'btn';
+        disabledButton.style.background = 'var(--accent-orange)';
+        disabledButton.style.color = 'white';
+        disabledButton.style.opacity = '0.8';
         disabledButton.style.cursor = 'not-allowed';
         disabledButton.style.margin = '16px auto';
         disabledButton.style.display = 'inline-flex';
@@ -342,6 +357,77 @@ function showUserInfo(userData) {
 function showFormSection() {
     document.querySelector('.auth-required').style.display = 'none';
     document.querySelector('.form-section').classList.add('active');
+}
+
+function showLocalhostMode() {
+    console.log('showLocalhostMode called');
+    
+    // Remove/hide Google Sign-In elements to prevent errors
+    const gOnLoad = document.getElementById('g_id_onload');
+    const gSignIn = document.querySelector('.g_id_signin');
+    
+    if (gOnLoad) {
+        gOnLoad.remove();
+    }
+    if (gSignIn) {
+        gSignIn.remove();
+    }
+    
+    // Create a fake user for localhost development
+    currentUser = {
+        name: 'Localhost Developer',
+        email: 'developer@localhost',
+        picture: ''
+    };
+    
+    // Show the form without authentication on localhost
+    const authSection = document.querySelector('.auth-required');
+    const formSection = document.querySelector('.form-section');
+    
+    console.log('Auth section:', authSection);
+    console.log('Form section:', formSection);
+    
+    if (authSection) {
+        authSection.style.display = 'none';
+    }
+    
+    if (formSection) {
+        formSection.classList.add('active');
+        // Force display to override CSS
+        formSection.style.setProperty('display', 'block', 'important');
+    }
+    
+    // Show user info with localhost indicator
+    const userInfo = document.getElementById('user-info');
+    const userAvatar = document.getElementById('user-avatar');
+    const userName = document.getElementById('user-name');
+    const userEmail = document.getElementById('user-email');
+    
+    console.log('User info elements:', {userInfo, userAvatar, userName, userEmail});
+    
+    if (userAvatar) {
+        userAvatar.src = '';
+        userAvatar.style.display = 'none'; // Hide avatar for localhost
+    }
+    if (userName) {
+        userName.textContent = 'Localhost Development Mode';
+    }
+    if (userEmail) {
+        userEmail.textContent = 'Authentication bypassed for localhost';
+    }
+    
+    // Set email in hidden form field
+    const emailField = document.getElementById('email');
+    if (emailField) {
+        emailField.value = 'developer@localhost';
+    }
+    
+    if (userInfo) {
+        userInfo.style.display = 'flex';
+    }
+    
+    // Show status message at top of form
+    showTopStatus('info', '🔧 Development Mode: Form is accessible without authentication on localhost');
 }
 
 function signOut() {
@@ -750,6 +836,28 @@ function showStatus(type, message) {
     }
 }
 
+function showTopStatus(type, message) {
+    // Create or update top status message
+    let topStatus = document.getElementById('top-status');
+    
+    if (!topStatus) {
+        topStatus = document.createElement('div');
+        topStatus.id = 'top-status';
+        topStatus.className = `status-message ${type}`;
+        topStatus.style.marginBottom = '20px';
+        
+        // Insert at the very top of the form section
+        const formSection = document.querySelector('.form-section');
+        if (formSection) {
+            formSection.insertBefore(topStatus, formSection.firstChild);
+        }
+    }
+    
+    topStatus.className = `status-message ${type}`;
+    topStatus.innerHTML = message;
+    topStatus.style.display = 'block';
+}
+
 function hideStatus() {
     const statusDivs = document.querySelectorAll('.status-message');
     statusDivs.forEach(div => {
@@ -759,6 +867,12 @@ function hideStatus() {
 
 // Initialize Google Sign-In with dynamic client ID
 function initializeGoogleAuth() {
+    // Don't initialize Google Auth on localhost
+    if (window.location.hostname === 'localhost') {
+        console.log('Skipping Google Auth initialization on localhost');
+        return;
+    }
+    
     if (typeof google !== 'undefined' && google.accounts && sheetsConfig && sheetsConfig.oauth) {
         google.accounts.id.initialize({
             client_id: sheetsConfig.oauth.clientId,

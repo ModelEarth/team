@@ -1490,7 +1490,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 <span><strong>Demo Mode:</strong> Database connection inactive. ${configureServerText}</span>
             </div>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                The Rust backend server needs to be started to access full configuration and testing capabilities.
+                <span style="color: #dc3545; margin-right: 8px;">⚠️</span>The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
             <!-- Tab Navigation -->
             <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">

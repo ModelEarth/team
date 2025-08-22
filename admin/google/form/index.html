@@ -18,8 +18,16 @@
     
     <link rel="stylesheet" href="../../../css/claude.css">
 
-    <!-- Google OAuth -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google OAuth (only load if not localhost) -->
+    <script>
+        if (window.location.hostname !== 'localhost') {
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+    </script>
 
     <style>
         :root {
@@ -60,6 +68,7 @@
             margin: 20px auto;
             padding: 0 20px;
             width: 100%;
+            container-type: inline-size;
         }
 
         .card {
@@ -195,6 +204,20 @@
             margin-top: 8px;
         }
 
+        /* Responsive grid: 2 columns when container < 800px */
+        @container (max-width: 799px) {
+            .checkbox-group {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Single column for very small containers */
+        @container (max-width: 399px) {
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .checkbox-item {
             display: flex;
             align-items: center;
@@ -203,6 +226,7 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
             transition: all 0.2s ease;
+            font-size: 14px;
         }
 
         .checkbox-item:hover {
@@ -363,17 +387,13 @@
             border-top: 1px solid var(--border-light);
         }
 
-        @media (max-width: 768px) {
+        @container (max-width: 500px) {
             .form-row {
                 grid-template-columns: 1fr;
             }
             
             .form-actions {
                 flex-direction: column;
-            }
-            
-            .checkbox-group {
-                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -487,7 +507,7 @@
                             </div>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="team-io" name="team" value="IO">
-                                <label for="team-io">IO - Multi-Region Input-Output impact models</label>
+                                <label for="team-io">IO - Multi-Region Input-Output models</label>
                             </div>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="team-discord" name="team" value="Discord">
