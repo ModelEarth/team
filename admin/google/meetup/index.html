@@ -1656,7 +1656,7 @@
             // Create toggle button  
             const toggleBtn = document.createElement('button');
             toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-secondary' : 'collapse-toggle-btn btn btn-primary';
-            toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+            toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; color: white !important;';
             toggleBtn.textContent = isCollapsed ? 'Show' : 'Done';
             
             // Create status div (hidden by default)
@@ -1692,7 +1692,7 @@
                     statusDiv.style.display = 'none';
                     toggleBtn.textContent = 'Done';
                     toggleBtn.className = 'collapse-toggle-btn btn btn-primary';
-                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; color: white !important;';
                     localStorage.setItem('google-cloud-setup-collapsed', 'false');
                 } else {
                     // Hide content
@@ -1700,7 +1700,7 @@
                     statusDiv.style.display = 'block';
                     toggleBtn.textContent = 'Show';
                     toggleBtn.className = 'collapse-toggle-btn btn btn-secondary';
-                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: #F3F4F6 !important; border-color: #D1D5DB !important; color: #374151 !important;';
                     localStorage.setItem('google-cloud-setup-collapsed', 'true');
                 }
             });
