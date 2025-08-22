@@ -567,6 +567,32 @@
                 <button class="btn btn-secondary" onclick="clearDeploymentUrl()" style="float: right; padding: 4px 8px; font-size: 12px;">Clear</button>
             </div>
             
+            <!-- Integration Selection -->
+            <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 2px solid var(--accent-blue);">
+                <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">🔗 Integrate my site with:</h4>
+                <div class="checkbox-group" style="grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div class="checkbox-item" style="background: var(--bg-secondary); border: 1px solid var(--border-light);">
+                        <input type="checkbox" id="integration-membership" name="integrations" value="membership" style="margin-right: 8px;">
+                        <label for="integration-membership">📊 Membership Google Sheet</label>
+                    </div>
+                    <div class="checkbox-item" style="background: var(--bg-secondary); border: 1px solid var(--border-light);">
+                        <input type="checkbox" id="integration-meetups" name="integrations" value="meetups" style="margin-right: 8px;">
+                        <label for="integration-meetups">📅 Google Meetups</label>
+                    </div>
+                    <div class="checkbox-item" style="background: var(--bg-secondary); border: 1px solid var(--border-light);">
+                        <input type="checkbox" id="integration-discord" name="integrations" value="discord" style="margin-right: 8px;">
+                        <label for="integration-discord">💬 Discord Group Members</label>
+                    </div>
+                    <div class="checkbox-item" style="background: var(--bg-secondary); border: 1px solid var(--border-light);">
+                        <input type="checkbox" id="integration-reports" name="integrations" value="reports" style="margin-right: 8px;">
+                        <label for="integration-reports">🐍 Python Reports on Google Cloud</label>
+                    </div>
+                </div>
+                <small style="color: var(--text-secondary); margin-top: 8px; display: block;">
+                    Select which services to integrate with your Discord Bot API deployment. These will be configured during the setup process.
+                </small>
+            </div>
+            
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
                 Deploy the Discord Bot API from <code>feed/membersense/backend</code> to Google Cloud Run with automated setup.
             </p>
@@ -2111,8 +2137,15 @@
                 const serviceName = document.getElementById('service-name').value.trim();
                 const appPath = document.getElementById('app-path').value.trim();
                 
+                // Collect selected integrations
+                const integrations = [];
+                document.querySelectorAll('input[name="integrations"]:checked').forEach(checkbox => {
+                    integrations.push(checkbox.value);
+                });
+                
                 deploymentConfig.serviceName = serviceName;
                 deploymentConfig.appPath = appPath;
+                deploymentConfig.integrations = integrations;
                 
                 const response = await fetch(`${GEMINI_API_BASE}/google/cloud/deploy-cloud-run`, {
                     method: 'POST',
@@ -2123,7 +2156,8 @@
                         serviceName: serviceName,
                         githubOwner: deploymentConfig.githubOwner,
                         githubRepo: deploymentConfig.githubRepo,
-                        appPath: appPath
+                        appPath: appPath,
+                        integrations: integrations
                     })
                 });
                 
@@ -2134,12 +2168,16 @@
                 
                 const result = await response.json();
                 
+                const integrationSummary = integrations.length > 0 ? 
+                    `<br>Integrations: <strong>${integrations.map(i => i.charAt(0).toUpperCase() + i.slice(1)).join(', ')}</strong>` : '';
+                
                 status.className = 'status-message success';
                 status.style.display = 'block';
                 status.innerHTML = `
                     <i data-feather="check-circle"></i> <strong>Deployment Successful!</strong><br>
                     Service URL: <a href="${result.serviceUrl}" target="_blank" style="color: var(--accent-blue);">${result.serviceUrl}</a><br>
                     Build Details: <a href="${result.buildUrl}" target="_blank" style="color: var(--accent-blue);">View Build</a>
+                    ${integrationSummary}
                 `;
                 
                 // Show deployment URL at top and save to cache
@@ -2190,6 +2228,14 @@
                     setIfExists('deployment-region', config.region);
                     setIfExists('service-name', config.serviceName);
                     
+                    // Load integration checkboxes
+                    if (config.integrations) {
+                        config.integrations.forEach(integration => {
+                            const checkbox = document.getElementById(`integration-${integration}`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
                     showDeploymentStatus('success', 'Configuration loaded from browser cache');
                 } catch (error) {
                     showDeploymentStatus('error', 'Failed to load saved configuration');
@@ -2205,17 +2251,24 @@
 
         // Save deployment configuration
         function saveDeploymentConfiguration() {
+            // Collect selected integrations
+            const integrations = [];
+            document.querySelectorAll('input[name="integrations"]:checked').forEach(checkbox => {
+                integrations.push(checkbox.value);
+            });
+            
             const config = {
                 projectId: document.getElementById('discord-project-id').value,
                 githubOwner: document.getElementById('github-owner').value,
                 githubRepo: document.getElementById('github-repo').value,
                 appPath: document.getElementById('app-path').value,
                 region: document.getElementById('deployment-region').value,
-                serviceName: document.getElementById('service-name').value
+                serviceName: document.getElementById('service-name').value,
+                integrations: integrations
             };
             
             localStorage.setItem('discord-bot-deployment-config', JSON.stringify(config));
-            showDeploymentStatus('success', 'Configuration saved to browser cache');
+            showDeploymentStatus('success', `Configuration saved to browser cache${integrations.length > 0 ? ` with ${integrations.length} integration(s)` : ''}`);
         }
 
         // Show deployment status message
