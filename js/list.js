@@ -891,17 +891,47 @@ async function initializeFileSelectionWithGoogleSheet(fileSelect, hashParam = 'f
                 selectedOption = savedOption;
                 console.log('Restored file selection from browser storage:', savedSelection);
             } else {
-                // Saved selection no longer available, use default
-                selectedOption = fileSelect.options && fileSelect.options.length > 0 ? fileSelect.options[fileSelect.selectedIndex] : null;
-                if (selectedOption) {
-                    console.log('Saved file selection not available, using default:', selectedOption.value);
+                // Saved selection no longer available, use default (prefer "videos")
+                const videosOption = Array.from(fileSelect.options).find(option => option.value === 'videos');
+                if (videosOption) {
+                    fileSelect.value = 'videos';
+                    selectedOption = videosOption;
+                    console.log('Saved file selection not available, defaulting to videos');
+                } else {
+                    // No videos option, find first non-custom option
+                    const firstNonCustomOption = Array.from(fileSelect.options).find(option => option.value !== 'custom');
+                    if (firstNonCustomOption) {
+                        fileSelect.value = firstNonCustomOption.value;
+                        selectedOption = firstNonCustomOption;
+                        console.log('Saved file selection not available, using first non-custom option:', firstNonCustomOption.value);
+                    } else {
+                        selectedOption = fileSelect.options && fileSelect.options.length > 0 ? fileSelect.options[fileSelect.selectedIndex] : null;
+                        if (selectedOption) {
+                            console.log('Saved file selection not available, using fallback:', selectedOption.value);
+                        }
+                    }
                 }
             }
         } else {
-            // No saved selection, use default
-            selectedOption = fileSelect.options && fileSelect.options.length > 0 ? fileSelect.options[fileSelect.selectedIndex] : null;
-            if (selectedOption) {
-                console.log('No saved file selection, using default:', selectedOption.value);
+            // No saved selection, use default (prefer "videos")
+            const videosOption = Array.from(fileSelect.options).find(option => option.value === 'videos');
+            if (videosOption) {
+                fileSelect.value = 'videos';
+                selectedOption = videosOption;
+                console.log('No saved file selection, defaulting to videos');
+            } else {
+                // No videos option, find first non-custom option
+                const firstNonCustomOption = Array.from(fileSelect.options).find(option => option.value !== 'custom');
+                if (firstNonCustomOption) {
+                    fileSelect.value = firstNonCustomOption.value;
+                    selectedOption = firstNonCustomOption;
+                    console.log('No saved file selection, using first non-custom option:', firstNonCustomOption.value);
+                } else {
+                    selectedOption = fileSelect.options && fileSelect.options.length > 0 ? fileSelect.options[fileSelect.selectedIndex] : null;
+                    if (selectedOption) {
+                        console.log('No saved file selection, using fallback:', selectedOption.value);
+                    }
+                }
             }
         }
         

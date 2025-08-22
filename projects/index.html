@@ -15,8 +15,20 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <script>
-        // Initialize Feather Icons
-        feather.replace();
+        // Initialize Feather Icons after ensuring library is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            } else {
+                console.warn('Feather Icons library not yet loaded');
+                // Retry after a short delay
+                setTimeout(() => {
+                    if (typeof feather !== 'undefined') {
+                        feather.replace();
+                    }
+                }, 100);
+            }
+        });
     </script>
     
     <!-- Load Shared Auth Modal -->
@@ -1634,7 +1646,10 @@
                         Get List
                     </button>
                 </div>
-                <div class="menu-container">
+                <div class="menu-container" style="display: flex; align-items: center; gap: 8px;">
+                    <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; border: 1px solid var(--border-light); color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
+                        <i data-feather="settings"></i>
+                    </button>
                     <button class="menu-button" id="menu-toggle">
                         ⋯
                     </button>
@@ -1675,6 +1690,42 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- README Documentation Section -->
+        <div class="card" id="readme-section" style="margin-top: 20px; display: none;">
+            <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary);">📋 Page Documentation & Cache</h3>
+                <button class="btn btn-secondary" id="toggle-readme" onclick="toggleReadmeSection()" style="font-size: 12px; padding: 6px 12px;">
+                    Hide Documentation
+                </button>
+            </div>
+            
+            <!-- Browser Cache YAML Editor -->
+            <div style="margin-bottom: 20px;">
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; color: var(--text-primary);">🗄️ Browser Cache (YAML)</h4>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" id="copy-cache-btn" onclick="copyCacheYaml()" style="font-size: 11px; padding: 4px 8px;">
+                            📋 Copy
+                        </button>
+                        <button class="btn btn-primary" id="save-cache-btn" onclick="saveCacheFromYaml()" style="font-size: 11px; padding: 4px 8px;">
+                            💾 Save
+                        </button>
+                        <button class="btn btn-secondary" id="refresh-cache-btn" onclick="refreshCacheYaml()" style="font-size: 11px; padding: 4px 8px;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                </div>
+                <textarea id="pageCacheYaml" style="width: 100%; height: 200px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid var(--border-light); border-radius: 4px; background: #f8f9fa;" placeholder="Browser cache will appear here..."></textarea>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">
+                    Edit the YAML above and click Save to update your browser cache. Click Refresh to reload current cache values.
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border-light); padding-top: 20px;">
+                <div id="readme-content"></div>
             </div>
         </div>
 
@@ -6049,6 +6100,464 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     }
                 }
             }
+        });
+
+        // README and Cache Management Functions
+        function showReadmeSection() {
+            const readmeSection = document.getElementById('readme-section');
+            const toggleBtn = document.getElementById('toggle-readme');
+            
+            // Show the section
+            readmeSection.style.display = 'block';
+            toggleBtn.textContent = 'Hide Documentation';
+            
+            // Close the menu dropdown
+            const menuDropdown = document.getElementById('menu-dropdown');
+            const menuToggle = document.getElementById('menu-toggle');
+            if (menuDropdown) {
+                menuDropdown.style.display = 'none';
+                menuToggle.classList.remove('active');
+            }
+            
+            // Scroll to the listSelectDiv instead of the documentation section
+            const listSelectDiv = document.getElementById('listSelectDiv');
+            if (listSelectDiv) {
+                listSelectDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        function toggleReadmeSection() {
+            const readmeSection = document.getElementById('readme-section');
+            const toggleBtn = document.getElementById('toggle-readme');
+            
+            if (readmeSection.style.display === 'none' || readmeSection.style.display === '') {
+                // Show the section
+                readmeSection.style.display = 'block';
+                toggleBtn.textContent = 'Hide Documentation';
+                
+                // Scroll to the listSelectDiv
+                const listSelectDiv = document.getElementById('listSelectDiv');
+                if (listSelectDiv) {
+                    listSelectDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } else {
+                // Hide the section
+                readmeSection.style.display = 'none';
+                toggleBtn.textContent = 'Show Documentation';
+            }
+        }
+
+        function loadReadmeDocumentation() {
+            // Use the displayFile function from common.js to load README.md
+            if (typeof displayFile === 'function') {
+                displayFile('README.md', 'readme-content');
+            } else {
+                // Fallback if displayFile is not available
+                fetch('README.md')
+                    .then(response => response.text())
+                    .then(text => {
+                        const readmeContent = document.getElementById('readme-content');
+                        // Simple markdown to HTML conversion for basic formatting
+                        const html = text
+                            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                            .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+                            .replace(/\*(.*)\*/gim, '<em>$1</em>')
+                            .replace(/```([^`]+)```/gim, '<pre><code>$1</code></pre>')
+                            .replace(/`([^`]+)`/gim, '<code>$1</code>')
+                            .replace(/\n\n/gim, '</p><p>')
+                            .replace(/\n/gim, '<br>');
+                        readmeContent.innerHTML = '<p>' + html + '</p>';
+                    })
+                    .catch(error => {
+                        console.warn('Could not load README.md:', error);
+                        document.getElementById('readme-content').innerHTML = '<p>README.md documentation could not be loaded.</p>';
+                    });
+            }
+        }
+
+        function getAllCacheData() {
+            const currentListId = getURLHashParam('list') || 'default';
+            const cacheData = {
+                currentList: currentListId,
+                globalSettings: {},
+                listSpecificSettings: {},
+                allSnapshots: {}
+            };
+            
+            // Get all localStorage keys to find all list-specific data
+            const allKeys = Object.keys(localStorage);
+            const listPattern = /^([^_]+)_1_(.+)$/;
+            const discoveredLists = new Set();
+            
+            // Global settings (not list-specific)
+            const participantsViewMode = localStorage.getItem('participantsViewMode');
+            if (participantsViewMode) cacheData.globalSettings.participantsViewMode = participantsViewMode;
+            
+            const isFullscreen = localStorage.getItem('isFullscreen');
+            if (isFullscreen) {
+                try {
+                    cacheData.globalSettings.isFullscreen = JSON.parse(isFullscreen);
+                } catch (e) {
+                    cacheData.globalSettings.isFullscreen = isFullscreen;
+                }
+            }
+            
+            const isCondensed = localStorage.getItem('isCondensed');
+            if (isCondensed) {
+                try {
+                    cacheData.globalSettings.isCondensed = JSON.parse(isCondensed);
+                } catch (e) {
+                    cacheData.globalSettings.isCondensed = isCondensed;
+                }
+            }
+            
+            // AI Insights cache (global)
+            const aiInsightsCache = localStorage.getItem('aiInsightsCache');
+            if (aiInsightsCache) {
+                try {
+                    cacheData.globalSettings.aiInsightsCache = JSON.parse(aiInsightsCache);
+                } catch (e) {
+                    cacheData.globalSettings.aiInsightsCache = aiInsightsCache;
+                }
+            }
+            
+            const claudeInsightsCache = localStorage.getItem('claudeInsightsCache');
+            if (claudeInsightsCache) {
+                try {
+                    cacheData.globalSettings.claudeInsightsCache = JSON.parse(claudeInsightsCache);
+                } catch (e) {
+                    cacheData.globalSettings.claudeInsightsCache = claudeInsightsCache;
+                }
+            }
+            
+            // File selection storage
+            const fileSelection = localStorage.getItem('PartnerTools_selected_file');
+            if (fileSelection) cacheData.globalSettings.lastSelectedFile = fileSelection;
+            
+            // Custom files
+            const customFilesPrefix = 'PartnerTools_customFile_';
+            allKeys.forEach(key => {
+                if (key.startsWith(customFilesPrefix)) {
+                    const fileName = key.replace(customFilesPrefix, '');
+                    if (!cacheData.globalSettings.customFiles) cacheData.globalSettings.customFiles = {};
+                    try {
+                        cacheData.globalSettings.customFiles[fileName] = JSON.parse(localStorage.getItem(key));
+                    } catch (e) {
+                        cacheData.globalSettings.customFiles[fileName] = localStorage.getItem(key);
+                    }
+                }
+            });
+            
+            // Scan for all list-specific data
+            allKeys.forEach(key => {
+                const match = key.match(listPattern);
+                if (match) {
+                    const listId = match[1];
+                    const settingKey = match[2];
+                    discoveredLists.add(listId);
+                    
+                    if (!cacheData.listSpecificSettings[listId]) {
+                        cacheData.listSpecificSettings[listId] = {};
+                    }
+                    
+                    const value = localStorage.getItem(key);
+                    try {
+                        // Try to parse as JSON for arrays and objects
+                        if (value && (value.startsWith('[') || value.startsWith('{'))) {
+                            cacheData.listSpecificSettings[listId][settingKey] = JSON.parse(value);
+                        } else if (value === 'true' || value === 'false') {
+                            cacheData.listSpecificSettings[listId][settingKey] = JSON.parse(value);
+                        } else {
+                            cacheData.listSpecificSettings[listId][settingKey] = value;
+                        }
+                    } catch (e) {
+                        cacheData.listSpecificSettings[listId][settingKey] = value;
+                    }
+                }
+            });
+            
+            // Get snapshots for all discovered lists
+            discoveredLists.forEach(listId => {
+                const snapshotsKey = `${listId}_1_snapshots`;
+                const snapshots = localStorage.getItem(snapshotsKey);
+                if (snapshots) {
+                    try {
+                        cacheData.allSnapshots[listId] = JSON.parse(snapshots);
+                    } catch (e) {
+                        cacheData.allSnapshots[listId] = snapshots;
+                    }
+                }
+            });
+            
+            // Summary information
+            cacheData.summary = {
+                discoveredLists: Array.from(discoveredLists).sort(),
+                totalListSpecificKeys: Object.values(cacheData.listSpecificSettings).reduce((acc, settings) => acc + Object.keys(settings).length, 0),
+                totalGlobalKeys: Object.keys(cacheData.globalSettings).length,
+                totalSnapshotCollections: Object.keys(cacheData.allSnapshots).length,
+                totalSnapshots: Object.values(cacheData.allSnapshots).reduce((acc, snapshots) => {
+                    return acc + (typeof snapshots === 'object' ? Object.keys(snapshots).length : 0);
+                }, 0)
+            };
+            
+            return cacheData;
+        }
+
+        function objectToYaml(obj, indent = 0) {
+            const spaces = '  '.repeat(indent);
+            let yaml = '';
+            
+            for (const [key, value] of Object.entries(obj)) {
+                if (value === null || value === undefined) {
+                    yaml += `${spaces}${key}: null\n`;
+                } else if (typeof value === 'object' && !Array.isArray(value)) {
+                    yaml += `${spaces}${key}:\n`;
+                    yaml += objectToYaml(value, indent + 1);
+                } else if (Array.isArray(value)) {
+                    yaml += `${spaces}${key}:\n`;
+                    value.forEach(item => {
+                        if (typeof item === 'object') {
+                            yaml += `${spaces}  -\n`;
+                            yaml += objectToYaml(item, indent + 2);
+                        } else {
+                            yaml += `${spaces}  - ${JSON.stringify(item)}\n`;
+                        }
+                    });
+                } else if (typeof value === 'string') {
+                    yaml += `${spaces}${key}: "${value}"\n`;
+                } else {
+                    yaml += `${spaces}${key}: ${JSON.stringify(value)}\n`;
+                }
+            }
+            
+            return yaml;
+        }
+
+        function yamlToObject(yamlText) {
+            // Simple YAML parser for our specific use case
+            const lines = yamlText.split('\n');
+            const result = {};
+            const stack = [{ obj: result, indent: -1 }];
+            
+            for (let line of lines) {
+                if (line.trim() === '' || line.trim().startsWith('#')) continue;
+                
+                const match = line.match(/^(\s*)([^:]+):\s*(.*)$/);
+                if (!match) continue;
+                
+                const indent = match[1].length;
+                const key = match[2].trim();
+                const value = match[3].trim();
+                
+                // Find the correct parent based on indentation
+                while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+                    stack.pop();
+                }
+                
+                const parent = stack[stack.length - 1].obj;
+                
+                if (value === '' || value === 'null') {
+                    parent[key] = null;
+                } else if (value.startsWith('"') && value.endsWith('"')) {
+                    parent[key] = value.slice(1, -1);
+                } else if (value === 'true') {
+                    parent[key] = true;
+                } else if (value === 'false') {
+                    parent[key] = false;
+                } else if (!isNaN(value) && value !== '') {
+                    parent[key] = parseFloat(value);
+                } else if (value.startsWith('[') && value.endsWith(']')) {
+                    try {
+                        parent[key] = JSON.parse(value);
+                    } catch (e) {
+                        parent[key] = value;
+                    }
+                } else if (value.startsWith('{') && value.endsWith('}')) {
+                    try {
+                        parent[key] = JSON.parse(value);
+                    } catch (e) {
+                        parent[key] = value;
+                    }
+                } else if (value === '') {
+                    // This is a parent key for nested values
+                    parent[key] = {};
+                    stack.push({ obj: parent[key], indent: indent });
+                } else {
+                    parent[key] = value;
+                }
+            }
+            
+            return result;
+        }
+
+        function refreshCacheYaml() {
+            const cacheData = getAllCacheData();
+            const yaml = objectToYaml(cacheData);
+            document.getElementById('pageCacheYaml').value = yaml;
+        }
+
+        // Auto-update YAML when cache changes
+        function updateYamlDisplay() {
+            const yamlTextarea = document.getElementById('pageCacheYaml');
+            const readmeSection = document.getElementById('readme-section');
+            
+            // Only update if the documentation section is visible and textarea exists
+            if (yamlTextarea && readmeSection && readmeSection.style.display !== 'none') {
+                refreshCacheYaml();
+            }
+        }
+
+        // Override localStorage.setItem to trigger YAML updates
+        const originalSetItem = localStorage.setItem;
+        localStorage.setItem = function(key, value) {
+            originalSetItem.apply(this, arguments);
+            
+            // Check if this is a cache-related key and update YAML display
+            if (key.includes('_1_') || key === 'aiInsightsCache' || key === 'claudeInsightsCache' || 
+                key === 'participantsViewMode' || key === 'isFullscreen' || key === 'isCondensed' ||
+                key === 'PartnerTools_selected_file' || key.startsWith('PartnerTools_customFile_')) {
+                setTimeout(updateYamlDisplay, 100); // Small delay to ensure storage is updated
+            }
+        };
+
+        function copyCacheYaml() {
+            const textarea = document.getElementById('pageCacheYaml');
+            if (textarea.value.trim() === '') {
+                refreshCacheYaml();
+            }
+            
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                // Visual feedback
+                const btn = document.getElementById('copy-cache-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 1500);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Copy failed. Please select and copy manually.');
+            }
+        }
+
+        function saveCacheFromYaml() {
+            const yamlText = document.getElementById('pageCacheYaml').value;
+            
+            try {
+                const cacheData = yamlToObject(yamlText);
+                let itemsUpdated = 0;
+                
+                // Handle the new structured format
+                if (cacheData.globalSettings) {
+                    // Apply global settings
+                    Object.entries(cacheData.globalSettings).forEach(([key, value]) => {
+                        if (key === 'aiInsightsCache' || key === 'claudeInsightsCache') {
+                            localStorage.setItem(key, JSON.stringify(value));
+                            itemsUpdated++;
+                        } else if (key === 'participantsViewMode' || key === 'isFullscreen' || key === 'isCondensed') {
+                            if (typeof value === 'boolean') {
+                                localStorage.setItem(key, JSON.stringify(value));
+                            } else {
+                                localStorage.setItem(key, value);
+                            }
+                            itemsUpdated++;
+                        } else if (key === 'lastSelectedFile') {
+                            localStorage.setItem('PartnerTools_selected_file', value);
+                            itemsUpdated++;
+                        } else if (key === 'customFiles' && typeof value === 'object') {
+                            // Handle custom files
+                            Object.entries(value).forEach(([fileName, fileData]) => {
+                                const storageKey = `PartnerTools_customFile_${fileName}`;
+                                localStorage.setItem(storageKey, JSON.stringify(fileData));
+                                itemsUpdated++;
+                            });
+                        }
+                    });
+                }
+                
+                // Handle list-specific settings
+                if (cacheData.listSpecificSettings) {
+                    Object.entries(cacheData.listSpecificSettings).forEach(([listId, settings]) => {
+                        Object.entries(settings).forEach(([settingKey, value]) => {
+                            const storageKey = `${listId}_1_${settingKey}`;
+                            if (typeof value === 'object') {
+                                localStorage.setItem(storageKey, JSON.stringify(value));
+                            } else {
+                                localStorage.setItem(storageKey, value);
+                            }
+                            itemsUpdated++;
+                        });
+                    });
+                }
+                
+                // Handle snapshots for all lists
+                if (cacheData.allSnapshots) {
+                    Object.entries(cacheData.allSnapshots).forEach(([listId, snapshots]) => {
+                        const storageKey = `${listId}_1_snapshots`;
+                        localStorage.setItem(storageKey, JSON.stringify(snapshots));
+                        itemsUpdated++;
+                    });
+                }
+                
+                // Handle legacy format (flat structure) for backward compatibility
+                if (!cacheData.globalSettings && !cacheData.listSpecificSettings && !cacheData.allSnapshots) {
+                    Object.entries(cacheData).forEach(([key, value]) => {
+                        if (key === 'aiInsightsCache' || key === 'claudeInsightsCache' || key === 'snapshots') {
+                            localStorage.setItem(key, JSON.stringify(value));
+                            itemsUpdated++;
+                        } else if (key === 'participantsViewMode' || key === 'isFullscreen' || key === 'isCondensed') {
+                            if (typeof value === 'boolean') {
+                                localStorage.setItem(key, JSON.stringify(value));
+                            } else {
+                                localStorage.setItem(key, value);
+                            }
+                            itemsUpdated++;
+                        } else if (key !== 'currentList' && key !== 'summary') {
+                            // List-specific settings for current list
+                            const storageKey = getListStorageKey(key);
+                            if (typeof value === 'object') {
+                                localStorage.setItem(storageKey, JSON.stringify(value));
+                            } else {
+                                localStorage.setItem(storageKey, value);
+                            }
+                            itemsUpdated++;
+                        }
+                    });
+                }
+                
+                // Visual feedback
+                const btn = document.getElementById('save-cache-btn');
+                const originalText = btn.textContent;
+                btn.textContent = `✅ Saved (${itemsUpdated} items)`;
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2500);
+                
+                // Suggest page reload to apply changes
+                if (confirm(`Cache updated successfully! ${itemsUpdated} items were saved to localStorage.\n\nWould you like to reload the page to apply the changes?`)) {
+                    location.reload();
+                }
+                
+            } catch (error) {
+                console.error('Failed to parse YAML:', error);
+                alert('Failed to parse YAML. Please check the syntax and try again.\n\nError: ' + error.message);
+            }
+        }
+
+        // Initialize README and cache functionality when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load README documentation
+            setTimeout(() => {
+                loadReadmeDocumentation();
+                // Initialize cache YAML display
+                refreshCacheYaml();
+            }, 1000); // Delay to ensure other scripts have loaded
         });
     </script>
 
