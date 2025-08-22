@@ -302,6 +302,35 @@ struct GoogleSheetsMemberRequest {
     update_existing: bool,
 }
 
+// Google Cloud API structures
+#[derive(Debug, Serialize, Deserialize)]
+struct GoogleCloudProject {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    #[serde(rename = "projectNumber")]
+    project_number: Option<String>,
+    name: String,
+    #[serde(rename = "lifecycleState")]
+    lifecycle_state: Option<String>,
+    #[serde(rename = "createTime")]
+    create_time: Option<String>,
+    parent: Option<GoogleCloudProjectParent>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GoogleCloudProjectParent {
+    #[serde(rename = "type")]
+    parent_type: Option<String>,
+    id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GoogleCloudProjectsResponse {
+    projects: Option<Vec<GoogleCloudProject>>,
+    #[serde(rename = "nextPageToken")]
+    next_page_token: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 struct TableInfo {
     name: String,
@@ -949,6 +978,54 @@ async fn logout_user() -> Result<HttpResponse> {
     // In a real implementation, this would clear the session
     Ok(HttpResponse::Ok().json(json!({
         "success": true
+    })))
+}
+
+// Google Cloud projects handler - fetches user's Google Cloud projects
+async fn get_google_cloud_projects() -> Result<HttpResponse> {
+    // TODO: In a real implementation, this would:
+    // 1. Get the user's OAuth token from the session
+    // 2. Make an authenticated request to Google Cloud Resource Manager API
+    // 3. Return the list of projects
+    
+    // For now, return a mock response indicating authentication is needed
+    Ok(HttpResponse::Unauthorized().json(json!({
+        "success": false,
+        "error": "Authentication required",
+        "message": "Please connect your Google account first",
+        "auth_url": "/api/auth/google/url"
+    })))
+}
+
+// Google Cloud projects handler with mock data (for development)
+async fn get_google_cloud_projects_mock() -> Result<HttpResponse> {
+    // Mock data for development/testing
+    let mock_projects = vec![
+        GoogleCloudProject {
+            project_id: "my-test-project-123".to_string(),
+            project_number: Some("123456789".to_string()),
+            name: "My Test Project".to_string(),
+            lifecycle_state: Some("ACTIVE".to_string()),
+            create_time: Some("2024-01-15T10:30:00Z".to_string()),
+            parent: Some(GoogleCloudProjectParent {
+                parent_type: Some("organization".to_string()),
+                id: Some("123456789".to_string()),
+            }),
+        },
+        GoogleCloudProject {
+            project_id: "discord-bot-project".to_string(),
+            project_number: Some("987654321".to_string()),
+            name: "Discord Bot API".to_string(),
+            lifecycle_state: Some("ACTIVE".to_string()),
+            create_time: Some("2024-02-20T14:45:00Z".to_string()),
+            parent: None,
+        },
+    ];
+    
+    Ok(HttpResponse::Ok().json(json!({
+        "success": true,
+        "projects": mock_projects,
+        "total": mock_projects.len()
     })))
 }
 
@@ -2717,6 +2794,11 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/demo/login", web::post().to(demo_login))
                             .route("/{provider}/url", web::get().to(oauth_provider_url))
                             .route("/{provider}/callback", web::get().to(oauth_provider_callback))
+                    )
+                    .service(
+                        web::scope("/google")
+                            .route("/projects", web::get().to(get_google_cloud_projects))
+                            .route("/projects/mock", web::get().to(get_google_cloud_projects_mock))
                     )
             )
     })

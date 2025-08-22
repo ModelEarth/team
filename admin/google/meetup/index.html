@@ -429,6 +429,50 @@
                 gap: 8px;
             }
         }
+
+        /* Google OAuth Integration Styles */
+        .status-message {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .status-message.success {
+            background-color: #d1edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #connect-google-btn {
+            transition: all 0.2s ease;
+        }
+
+        #connect-google-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        #google-connection-status {
+            border: 1px solid var(--accent-green);
+        }
     </style>
 </head>
 <body>
@@ -597,16 +641,32 @@
                 Deploy the Discord Bot API from <code>feed/membersense/backend</code> to Google Cloud Run with automated setup.
             </p>
 
+            <!-- Google Account Connection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <div id="google-connection-status" style="display: none; background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="google-status-icon">🔗</span>
+                        <span id="google-status-text">Connected to Google Cloud</span>
+                        <button class="btn btn-secondary" onclick="disconnectGoogle()" style="margin-left: auto; padding: 4px 8px; font-size: 12px;">Disconnect</button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" id="connect-google-btn" onclick="connectGoogle()" style="display: flex; align-items: center; gap: 8px;">
+                    <span>🔗</span>
+                    Connect My Google Account
+                </button>
+            </div>
+
             <!-- Project Selection -->
             <div class="form-group" style="margin-bottom: 20px;">
                 <label class="form-label">Google Cloud Project</label>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <select id="project-selection" class="form-control" style="flex: 1;" onchange="handleProjectSelection()">
-                        <option value="">Select or create project...</option>
-                        <option value="reuse">Reuse existing project from above</option>
-                        <option value="new">Create new project for Discord Bot</option>
+                        <option value="">Connect Google account first...</option>
+                        <option value="reuse" disabled>Reuse existing project from above</option>
+                        <option value="new" disabled>Create new project for Discord Bot</option>
                     </select>
-                    <button class="btn btn-secondary" id="refresh-projects" onclick="loadUserProjects()" style="padding: 8px 12px;">
+                    <button class="btn btn-secondary" id="refresh-projects" onclick="loadUserProjects()" style="padding: 8px 12px;" disabled>
                         <i data-feather="refresh-cw"></i>
                     </button>
                 </div>
@@ -954,6 +1014,304 @@
         let USER_EMAIL = '';
         let apiToggleActive = false;
         let configPanelVisible = false;
+        let isGoogleConnected = false;
+
+        // Google OAuth Integration Functions
+        async function connectGoogle() {
+            const connectBtn = document.getElementById('connect-google-btn');
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span>🔄</span> Connecting...';
+
+            try {
+                // Check if Rust API is running and properly configured
+                const healthCheck = await fetch(`${GEMINI_API_BASE}/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(() => null);
+
+                // If server is completely down (no response)
+                if (!healthCheck) {
+                    showServerNotRunningPopup();
+                    return;
+                }
+
+                // If server returns 503 Service Unavailable or other error status
+                if (!healthCheck.ok) {
+                    showServerNotRunningPopup();
+                    return;
+                }
+
+                // Get OAuth URL from our backend
+                const response = await fetch(`${GEMINI_API_BASE}/auth/google/url`);
+                
+                // Check if OAuth endpoint returns an error (server not configured)
+                if (!response.ok) {
+                    if (response.status === 503 || response.status === 500) {
+                        showServerNotRunningPopup();
+                        return;
+                    }
+                }
+
+                const data = await response.json();
+
+                if (data.auth_url) {
+                    // Open OAuth flow in new window
+                    const authWindow = window.open(
+                        data.auth_url,
+                        'google-oauth',
+                        'width=500,height=600,scrollbars=yes,resizable=yes'
+                    );
+
+                    // Poll for completion
+                    const checkClosed = setInterval(() => {
+                        if (authWindow.closed) {
+                            clearInterval(checkClosed);
+                            // Check if authentication was successful
+                            setTimeout(() => checkGoogleConnection(), 1000);
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error('Failed to get OAuth URL');
+                }
+            } catch (error) {
+                console.error('Google connection error:', error);
+                // Check if it's a network error (API not running)
+                if (error.message.includes('fetch') || error.message.includes('NetworkError') || error.toString().includes('TypeError')) {
+                    showServerNotRunningPopup();
+                } else {
+                    showStatus('connect-status', 'Connection failed: ' + error.message, 'error');
+                }
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span>🔗</span> Connect My Google Account';
+            }
+        }
+
+        function showServerNotRunningPopup() {
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                padding: 24px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                max-width: 400px;
+                width: 90%;
+                text-align: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 16px;">⚙️</div>
+                <h3 style="margin: 0 0 16px 0; color: var(--text-primary);">Server Configuration Required</h3>
+                <p style="margin: 0 0 20px 0; color: var(--text-secondary); line-height: 1.6;">
+                    The Rust API server needs to be started and configured before you can connect to Google&nbsp;Cloud.
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button onclick="closeServerPopup()" style="
+                        background: var(--bg-tertiary);
+                        border: 1px solid var(--border-medium);
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        color: var(--text-primary);
+                    ">Cancel</button>
+                    <button onclick="openDatabaseAdmin()" style="
+                        background: var(--accent-blue);
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 500;
+                    ">🗄️ Database Admin</button>
+                </div>
+            `;
+
+            popup.appendChild(modal);
+            document.body.appendChild(popup);
+            
+            // Store reference for cleanup
+            window.serverPopup = popup;
+
+            // Close on background click
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup) {
+                    closeServerPopup();
+                }
+            });
+        }
+
+        function closeServerPopup() {
+            if (window.serverPopup) {
+                document.body.removeChild(window.serverPopup);
+                window.serverPopup = null;
+            }
+        }
+
+        function openDatabaseAdmin() {
+            // Open Database Admin in new tab
+            window.open('../../sql/panel/', 'config_server');
+            closeServerPopup();
+        }
+
+        async function checkGoogleConnection() {
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/auth/user`);
+                const data = await response.json();
+
+                if (data.success && data.user) {
+                    isGoogleConnected = true;
+                    updateGoogleConnectionUI(true, data.user);
+                    await loadUserProjects();
+                } else {
+                    updateGoogleConnectionUI(false);
+                }
+            } catch (error) {
+                console.error('Error checking Google connection:', error);
+                updateGoogleConnectionUI(false);
+            }
+        }
+
+        function updateGoogleConnectionUI(connected, userInfo = null) {
+            const connectBtn = document.getElementById('connect-google-btn');
+            const statusDiv = document.getElementById('google-connection-status');
+            const statusText = document.getElementById('google-status-text');
+            const projectSelect = document.getElementById('project-selection');
+            const refreshBtn = document.getElementById('refresh-projects');
+
+            if (connected && userInfo) {
+                connectBtn.style.display = 'none';
+                statusDiv.style.display = 'block';
+                statusText.textContent = `Connected as ${userInfo.name} (${userInfo.email})`;
+                
+                // Enable project selection
+                projectSelect.disabled = false;
+                refreshBtn.disabled = false;
+                
+                // Update first option
+                projectSelect.options[0].text = 'Select or create project...';
+                projectSelect.options[1].disabled = false;
+                projectSelect.options[2].disabled = false;
+            } else {
+                connectBtn.style.display = 'block';
+                statusDiv.style.display = 'none';
+                
+                // Disable project selection
+                projectSelect.disabled = true;
+                refreshBtn.disabled = true;
+                
+                // Reset project dropdown
+                projectSelect.innerHTML = `
+                    <option value="">Connect Google account first...</option>
+                    <option value="reuse" disabled>Reuse existing project from above</option>
+                    <option value="new" disabled>Create new project for Discord Bot</option>
+                `;
+            }
+        }
+
+        async function disconnectGoogle() {
+            try {
+                await fetch(`${GEMINI_API_BASE}/auth/logout`, { method: 'POST' });
+                isGoogleConnected = false;
+                updateGoogleConnectionUI(false);
+                showStatus('connect-status', 'Disconnected from Google', 'success');
+            } catch (error) {
+                console.error('Error disconnecting:', error);
+            }
+        }
+
+        async function loadUserProjects() {
+            if (!isGoogleConnected) {
+                showStatus('project-status', 'Please connect your Google account first', 'error');
+                return;
+            }
+
+            const refreshBtn = document.getElementById('refresh-projects');
+            const projectSelect = document.getElementById('project-selection');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i data-feather="loader" style="animation: spin 1s linear infinite;"></i>';
+
+            try {
+                // For now, use mock data - replace with real API call when authentication is implemented
+                const response = await fetch(`${GEMINI_API_BASE}/google/projects/mock`);
+                const data = await response.json();
+
+                if (data.success && data.projects) {
+                    // Clear existing options except default ones
+                    projectSelect.innerHTML = `
+                        <option value="">Select a project...</option>
+                        <option value="new">Create new project for Discord Bot</option>
+                    `;
+
+                    // Add user's projects
+                    data.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.projectId;
+                        option.textContent = `${project.name} (${project.projectId})`;
+                        projectSelect.appendChild(option);
+                    });
+
+                    showStatus('project-status', `Loaded ${data.projects.length} projects`, 'success');
+                } else {
+                    throw new Error(data.message || 'Failed to load projects');
+                }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                showStatus('project-status', 'Failed to load projects: ' + error.message, 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
+                feather.replace();
+            }
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            // Create status element if it doesn't exist
+            let statusElement = document.getElementById(elementId);
+            if (!statusElement) {
+                statusElement = document.createElement('div');
+                statusElement.id = elementId;
+                statusElement.className = 'status-message';
+                statusElement.style.marginTop = '8px';
+                
+                // Insert after the relevant form element
+                const targetElement = document.getElementById(elementId.replace('-status', '')) || 
+                                    document.getElementById('connect-google-btn');
+                if (targetElement && targetElement.parentNode) {
+                    targetElement.parentNode.insertBefore(statusElement, targetElement.nextSibling);
+                }
+            }
+
+            statusElement.textContent = message;
+            statusElement.className = `status-message ${type}`;
+            
+            // Auto-hide success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusElement.textContent = '';
+                    statusElement.className = 'status-message';
+                }, 3000);
+            }
+        }
+
+        // Check Google connection on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkGoogleConnection();
+        });
         
         // Load configuration from .env file
         async function loadConfiguration() {
