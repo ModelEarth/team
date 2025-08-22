@@ -559,6 +559,156 @@
             </div>
         </div>
 
+        <!-- Discord Bot API Deployment -->
+        <div class="card">
+            <h2 class="card-title">🤖 Discord Bot API Deployment</h2>
+            <div id="deployment-url-display" style="display: none; background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong>🚀 Deployed Service:</strong> <a id="deployed-url-link" href="" target="_blank" style="color: var(--accent-blue);"></a>
+                <button class="btn btn-secondary" onclick="clearDeploymentUrl()" style="float: right; padding: 4px 8px; font-size: 12px;">Clear</button>
+            </div>
+            
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                Deploy the Discord Bot API from <code>feed/membersense/backend</code> to Google Cloud Run with automated setup.
+            </p>
+
+            <!-- Project Selection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Google Cloud Project</label>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <select id="project-selection" class="form-control" style="flex: 1;" onchange="handleProjectSelection()">
+                        <option value="">Select or create project...</option>
+                        <option value="reuse">Reuse existing project from above</option>
+                        <option value="new">Create new project for Discord Bot</option>
+                    </select>
+                    <button class="btn btn-secondary" id="refresh-projects" onclick="loadUserProjects()" style="padding: 8px 12px;">
+                        <i data-feather="refresh-cw"></i>
+                    </button>
+                </div>
+                <div id="new-project-fields" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">New Project ID</label>
+                            <input type="text" id="discord-project-id" class="form-control" placeholder="my-discord-bot-project">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Display Name</label>
+                            <input type="text" id="discord-project-name" class="form-control" placeholder="Discord Bot API">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Billing Account Selection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Billing Account</label>
+                <select id="billing-account" class="form-control">
+                    <option value="">Loading billing accounts...</option>
+                </select>
+                <small class="form-help">Required for Cloud Run deployment. Will auto-load your available billing accounts.</small>
+            </div>
+
+            <!-- GitHub Repository Configuration -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">GitHub Repository</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Repository Owner</label>
+                        <input type="text" id="github-owner" class="form-control" placeholder="modelearth" value="modelearth">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repository Name</label>
+                        <input type="text" id="github-repo" class="form-control" placeholder="feed" value="feed">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Application Path</label>
+                    <input type="text" id="app-path" class="form-control" placeholder="membersense/backend" value="membersense/backend">
+                    <small class="form-help">Path within the repository to the Bun backend application</small>
+                </div>
+            </div>
+
+            <!-- Deployment Configuration -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Deployment Configuration</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Region</label>
+                        <select id="deployment-region" class="form-control">
+                            <option value="us-central1">us-central1 (Iowa)</option>
+                            <option value="us-east1">us-east1 (South Carolina)</option>
+                            <option value="us-west1">us-west1 (Oregon)</option>
+                            <option value="europe-west1">europe-west1 (Belgium)</option>
+                            <option value="asia-east1">asia-east1 (Taiwan)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Service Name</label>
+                        <input type="text" id="service-name" class="form-control" placeholder="discord-bot-api" value="discord-bot-api">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deployment Steps -->
+            <div class="setup-steps">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Setup Project & Enable APIs</h4>
+                        <p>Create/select project and enable required APIs: Cloud Build, Cloud Run, Artifact Registry, Developer Connect</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="setup-project-btn" onclick="setupProjectAndAPIs()" disabled>
+                                <i data-feather="settings"></i>
+                                Setup Project & APIs
+                            </button>
+                        </div>
+                        <div id="project-setup-status" class="status-message"></div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Configure Developer Connect</h4>
+                        <p>Setup GitHub integration for automated deployments</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="setup-github-btn" onclick="setupDeveloperConnect()" disabled>
+                                <i data-feather="github"></i>
+                                Connect GitHub Repository
+                            </button>
+                        </div>
+                        <div id="github-setup-status" class="status-message"></div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Deploy to Cloud Run</h4>
+                        <p>Build and deploy the Discord Bot API to Cloud Run</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="deploy-btn" onclick="deployToCloudRun()" disabled>
+                                <i data-feather="upload-cloud"></i>
+                                Deploy Bot API
+                            </button>
+                        </div>
+                        <div id="deployment-status" class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-actions">
+                <button class="btn btn-secondary" id="load-deployment-config" onclick="loadDeploymentConfiguration()">
+                    <i data-feather="refresh-cw"></i>
+                    Load Saved Config
+                </button>
+                <button class="btn btn-primary" id="save-deployment-config" onclick="saveDeploymentConfiguration()">
+                    <i data-feather="save"></i>
+                    Save Config
+                </button>
+            </div>
+            <div id="deployment-config-status" class="status-message"></div>
+        </div>
+
         <!-- Member Form Configuration -->
         <div class="card">
             <h2 class="card-title">📝 Member Registration Form Config</h2>
@@ -1709,6 +1859,379 @@
             targetDiv.appendChild(toggleBtn);
         }
         
+        // ============ DISCORD BOT DEPLOYMENT FUNCTIONS ============
+
+        // Global deployment configuration
+        let deploymentConfig = {
+            projectId: '',
+            billingAccount: '',
+            region: 'us-central1',
+            serviceName: 'discord-bot-api',
+            githubOwner: 'modelearth',
+            githubRepo: 'feed',
+            appPath: 'membersense/backend'
+        };
+
+        // Handle project selection change
+        function handleProjectSelection() {
+            const selection = document.getElementById('project-selection').value;
+            const newProjectFields = document.getElementById('new-project-fields');
+            const setupBtn = document.getElementById('setup-project-btn');
+            
+            if (selection === 'new') {
+                newProjectFields.style.display = 'block';
+                setupBtn.disabled = false;
+            } else if (selection === 'reuse') {
+                newProjectFields.style.display = 'none';
+                // Use existing project ID
+                deploymentConfig.projectId = PROJECT_ID;
+                setupBtn.disabled = !PROJECT_ID;
+            } else {
+                newProjectFields.style.display = 'none';
+                setupBtn.disabled = true;
+            }
+        }
+
+        // Load user's Google Cloud projects
+        async function loadUserProjects() {
+            const refreshBtn = document.getElementById('refresh-projects');
+            const projectSelect = document.getElementById('project-selection');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span>';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/projects`);
+                if (response.ok) {
+                    const projects = await response.json();
+                    
+                    // Clear existing options except defaults
+                    while (projectSelect.children.length > 3) {
+                        projectSelect.removeChild(projectSelect.lastChild);
+                    }
+                    
+                    // Add user's projects
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.projectId;
+                        option.textContent = `${project.name} (${project.projectId})`;
+                        projectSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
+                feather.replace();
+            }
+        }
+
+        // Load billing accounts
+        async function loadBillingAccounts() {
+            const billingSelect = document.getElementById('billing-account');
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/billing-accounts`);
+                if (response.ok) {
+                    const accounts = await response.json();
+                    
+                    billingSelect.innerHTML = '<option value="">Select billing account...</option>';
+                    accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.name;
+                        option.textContent = `${account.displayName} (${account.name})`;
+                        billingSelect.appendChild(option);
+                    });
+                } else {
+                    billingSelect.innerHTML = '<option value="">No billing accounts found</option>';
+                }
+            } catch (error) {
+                billingSelect.innerHTML = '<option value="">Error loading accounts</option>';
+                console.error('Failed to load billing accounts:', error);
+            }
+        }
+
+        // Setup project and enable required APIs
+        async function setupProjectAndAPIs() {
+            const btn = document.getElementById('setup-project-btn');
+            const status = document.getElementById('project-setup-status');
+            const selection = document.getElementById('project-selection').value;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Setting up...';
+            
+            try {
+                let projectId;
+                
+                if (selection === 'new') {
+                    projectId = document.getElementById('discord-project-id').value.trim();
+                    const projectName = document.getElementById('discord-project-name').value.trim();
+                    
+                    if (!projectId) {
+                        throw new Error('Please enter a project ID');
+                    }
+                    
+                    // Create new project
+                    const createResponse = await fetch(`${GEMINI_API_BASE}/google/cloud/create-project`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: projectId,
+                            displayName: projectName || 'Discord Bot API',
+                            billingAccount: document.getElementById('billing-account').value
+                        })
+                    });
+                    
+                    if (!createResponse.ok) {
+                        throw new Error('Failed to create project');
+                    }
+                } else if (selection === 'reuse') {
+                    projectId = PROJECT_ID;
+                } else {
+                    projectId = selection; // Selected existing project
+                }
+                
+                deploymentConfig.projectId = projectId;
+                
+                // Enable required APIs
+                const apis = [
+                    'cloudbuild.googleapis.com',
+                    'run.googleapis.com',
+                    'artifactregistry.googleapis.com',
+                    'developerconnect.googleapis.com'
+                ];
+                
+                const enableResponse = await fetch(`${GEMINI_API_BASE}/google/cloud/enable-apis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: projectId,
+                        apis: apis
+                    })
+                });
+                
+                if (!enableResponse.ok) {
+                    throw new Error('Failed to enable APIs');
+                }
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>Project Setup Complete!</strong><br>
+                    Project: <strong>${projectId}</strong><br>
+                    APIs Enabled: Cloud Build, Cloud Run, Artifact Registry, Developer Connect
+                `;
+                
+                // Enable next step
+                document.getElementById('setup-github-btn').disabled = false;
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>Setup Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="settings"></i> Setup Project & APIs';
+                feather.replace();
+            }
+        }
+
+        // Setup Developer Connect for GitHub integration
+        async function setupDeveloperConnect() {
+            const btn = document.getElementById('setup-github-btn');
+            const status = document.getElementById('github-setup-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Connecting...';
+            
+            try {
+                const githubOwner = document.getElementById('github-owner').value.trim();
+                const githubRepo = document.getElementById('github-repo').value.trim();
+                const region = document.getElementById('deployment-region').value;
+                
+                if (!githubOwner || !githubRepo) {
+                    throw new Error('Please enter GitHub repository details');
+                }
+                
+                deploymentConfig.githubOwner = githubOwner;
+                deploymentConfig.githubRepo = githubRepo;
+                deploymentConfig.region = region;
+                
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/setup-developer-connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: deploymentConfig.projectId,
+                        region: region,
+                        connectionName: `${githubRepo}-connection`,
+                        githubOwner: githubOwner,
+                        githubRepo: githubRepo
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to setup Developer Connect');
+                }
+                
+                const result = await response.json();
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>GitHub Connected!</strong><br>
+                    Repository: <strong>${githubOwner}/${githubRepo}</strong><br>
+                    ${result.authUrl ? `<a href="${result.authUrl}" target="_blank" style="color: var(--accent-blue);">Complete GitHub Authorization</a>` : 'Connection established'}
+                `;
+                
+                // Enable next step
+                document.getElementById('deploy-btn').disabled = false;
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>GitHub Setup Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="github"></i> Connect GitHub Repository';
+                feather.replace();
+            }
+        }
+
+        // Deploy to Cloud Run
+        async function deployToCloudRun() {
+            const btn = document.getElementById('deploy-btn');
+            const status = document.getElementById('deployment-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Deploying...';
+            
+            try {
+                const serviceName = document.getElementById('service-name').value.trim();
+                const appPath = document.getElementById('app-path').value.trim();
+                
+                deploymentConfig.serviceName = serviceName;
+                deploymentConfig.appPath = appPath;
+                
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/deploy-cloud-run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: deploymentConfig.projectId,
+                        region: deploymentConfig.region,
+                        serviceName: serviceName,
+                        githubOwner: deploymentConfig.githubOwner,
+                        githubRepo: deploymentConfig.githubRepo,
+                        appPath: appPath
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to deploy');
+                }
+                
+                const result = await response.json();
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>Deployment Successful!</strong><br>
+                    Service URL: <a href="${result.serviceUrl}" target="_blank" style="color: var(--accent-blue);">${result.serviceUrl}</a><br>
+                    Build Details: <a href="${result.buildUrl}" target="_blank" style="color: var(--accent-blue);">View Build</a>
+                `;
+                
+                // Show deployment URL at top and save to cache
+                showDeploymentUrl(result.serviceUrl);
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>Deployment Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="upload-cloud"></i> Deploy Bot API';
+                feather.replace();
+            }
+        }
+
+        // Show deployment URL at top of page
+        function showDeploymentUrl(url) {
+            const display = document.getElementById('deployment-url-display');
+            const link = document.getElementById('deployed-url-link');
+            
+            link.href = url;
+            link.textContent = url;
+            display.style.display = 'block';
+            
+            // Save to localStorage
+            localStorage.setItem('discord-bot-deployment-url', url);
+        }
+
+        // Clear deployment URL
+        function clearDeploymentUrl() {
+            document.getElementById('deployment-url-display').style.display = 'none';
+            localStorage.removeItem('discord-bot-deployment-url');
+        }
+
+        // Load saved deployment configuration
+        function loadDeploymentConfiguration() {
+            const savedConfig = localStorage.getItem('discord-bot-deployment-config');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    
+                    // Populate form fields
+                    setIfExists('discord-project-id', config.projectId);
+                    setIfExists('github-owner', config.githubOwner);
+                    setIfExists('github-repo', config.githubRepo);
+                    setIfExists('app-path', config.appPath);
+                    setIfExists('deployment-region', config.region);
+                    setIfExists('service-name', config.serviceName);
+                    
+                    showDeploymentStatus('success', 'Configuration loaded from browser cache');
+                } catch (error) {
+                    showDeploymentStatus('error', 'Failed to load saved configuration');
+                }
+            }
+            
+            // Load deployment URL if available
+            const savedUrl = localStorage.getItem('discord-bot-deployment-url');
+            if (savedUrl) {
+                showDeploymentUrl(savedUrl);
+            }
+        }
+
+        // Save deployment configuration
+        function saveDeploymentConfiguration() {
+            const config = {
+                projectId: document.getElementById('discord-project-id').value,
+                githubOwner: document.getElementById('github-owner').value,
+                githubRepo: document.getElementById('github-repo').value,
+                appPath: document.getElementById('app-path').value,
+                region: document.getElementById('deployment-region').value,
+                serviceName: document.getElementById('service-name').value
+            };
+            
+            localStorage.setItem('discord-bot-deployment-config', JSON.stringify(config));
+            showDeploymentStatus('success', 'Configuration saved to browser cache');
+        }
+
+        // Show deployment status message
+        function showDeploymentStatus(type, message) {
+            const status = document.getElementById('deployment-config-status');
+            status.className = `status-message ${type}`;
+            status.style.display = 'block';
+            status.innerHTML = message;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 3000);
+            }
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize feather icons
@@ -1734,6 +2257,10 @@
             
             // Setup color picker synchronization
             setupColorPickers();
+            
+            // Load deployment configuration and billing accounts
+            loadDeploymentConfiguration();
+            loadBillingAccounts();
             
             displayFile("README.md", "readmeDiv", "_parent");
         });
