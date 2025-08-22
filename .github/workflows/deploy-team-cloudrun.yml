@@ -1,0 +1,112 @@
+name: Deploy Team API to Cloud Run
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  GCP_AR_REPO: ${{ vars.GCP_AR_REPO }}
+  CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+
+  # Non-secret app env (change to your needs)
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "8081"
+  COMMONS_HOST: ${{ vars.COMMONS_HOST }}
+  COMMONS_PORT: ${{ vars.COMMONS_PORT }}
+  COMMONS_NAME: ${{ vars.COMMONS_NAME }}
+  COMMONS_USER: ${{ vars.COMMONS_USER }}
+  COMMONS_SSL_MODE: ${{ vars.COMMONS_SSL_MODE }}
+  PROJECTS_FILE_PATH: ${{ vars.PROJECTS_FILE_PATH }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Auth to GCP (OIDC)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: 🧰 Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: ">= 474.0.0"
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: 🚀 Enable APIs (idempotent)
+        run: |
+          gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+
+      - name: 🏷️ Build & Push (Cloud Build)
+        env:
+          IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
+          TAG: ${{ github.sha }}
+        run: |
+          gcloud builds submit --tag "${IMAGE_URI}:${TAG}" .
+
+      - name: 🌩️ Deploy to Cloud Run
+        env:
+          IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
+          TAG: ${{ github.sha }}
+          RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA || format('{0}-compute@developer.gserviceaccount.com', steps.project_num.outputs.number) }}
+        run: |
+          # Resolve project number (used only if you want to override runtime SA)
+          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
+          RUNTIME_SA_EMAIL="${{ vars.GCP_RUNTIME_SA }}"
+          if [ -z "${RUNTIME_SA_EMAIL}" ] || [ "${RUNTIME_SA_EMAIL}" = "null" ]; then
+            RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+          fi
+
+          # Assemble envs (omit empties)
+          ENV_LIST="SERVER_HOST=${SERVER_HOST},SERVER_PORT=${SERVER_PORT}"
+          [ -n "${COMMONS_HOST}" ] && ENV_LIST="${ENV_LIST},COMMONS_HOST=${COMMONS_HOST}"
+          [ -n "${COMMONS_PORT}" ] && ENV_LIST="${ENV_LIST},COMMONS_PORT=${COMMONS_PORT}"
+          [ -n "${COMMONS_NAME}" ] && ENV_LIST="${ENV_LIST},COMMONS_NAME=${COMMONS_NAME}"
+          [ -n "${COMMONS_USER}" ] && ENV_LIST="${ENV_LIST},COMMONS_USER=${COMMONS_USER}"
+          [ -n "${COMMONS_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},COMMONS_SSL_MODE=${COMMONS_SSL_MODE}"
+          [ -n "${PROJECTS_FILE_PATH}" ] && ENV_LIST="${ENV_LIST},PROJECTS_FILE_PATH=${PROJECTS_FILE_PATH}"
+
+          # Secret mappings (must exist in Secret Manager in the project)
+          SECRET_LIST=""
+          for s in COMMONS_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
+            if gcloud secrets describe "$s" >/dev/null 2>&1; then
+              if [ -z "$SECRET_LIST" ]; then
+                SECRET_LIST="${s}=${s}:latest"
+              else
+                SECRET_LIST="${SECRET_LIST},${s}=${s}:latest"
+              fi
+            fi
+          done
+
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+            --image "${IMAGE_URI}:${TAG}" \
+            --region "${GCP_REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --service-account "${RUNTIME_SA_EMAIL}" \
+            --min-instances "0" \
+            --max-instances "3" \
+            --cpu "1" \
+            --memory "512Mi" \
+            --concurrency "80" \
+            --timeout "60" \
+            --set-env-vars "${ENV_LIST}" \
+            $( [ -n "${SECRET_LIST}" ] && printf -- "--set-secrets %s" "${SECRET_LIST}" )
+
+      - name: 🔗 Show URL
+        run: |
+          URL="$(gcloud run services describe "${CLOUD_RUN_SERVICE}" --region "${GCP_REGION}" --format='value(status.url)')"
+          echo "Service URL: ${URL}"
