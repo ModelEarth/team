@@ -44,7 +44,29 @@ jobs:
     steps:
       - name: 🛎️ Checkout
         uses: actions/checkout@v4
-      # ---- NEW: sanity check (remove later) we have the right OIDC provider format --------
+
+      # ---- NEW: sanity checks (remove later)  --------
+      - name: Resolve OIDC provider from Secret
+        id: resolve_wip
+        env:
+          WIP_SECRET: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          set -euo pipefail
+          w="${WIP_SECRET:-}"
+          w="$(printf "%s" "$w" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          echo "len_raw=${#w}" >> "$GITHUB_OUTPUT"
+          # Optional sanity check (no echo of the secret):
+          if ! echo "$w" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'; then
+            echo "GCP_WORKLOAD_IDENTITY_PROVIDER not in canonical format." >&2
+            exit 1
+          fi
+          echo "wip=$w" >> "$GITHUB_OUTPUT"
+
+      - name: Debug WIP length
+        run: echo "Resolved WIP length: ${{ steps.resolve_wip.outputs.len_raw }}"
+
+
+
       - name: Debug GCP secrets (length only)
         run: |
           echo "GCP_WORKLOAD_IDENTITY_PROVIDER length: ${#GCP_WORKLOAD_IDENTITY_PROVIDER}"
