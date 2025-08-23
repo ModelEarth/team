@@ -44,6 +44,14 @@ jobs:
     steps:
       - name: 🛎️ Checkout
         uses: actions/checkout@v4
+      # ---- NEW: sanity check (remove later) we have the right OIDC provider format --------
+      - name: Debug GCP secrets (length only)
+        run: |
+          echo "GCP_WORKLOAD_IDENTITY_PROVIDER length: ${#GCP_WORKLOAD_IDENTITY_PROVIDER}"
+          echo "Starts with: $(echo "${GCP_WORKLOAD_IDENTITY_PROVIDER}" | cut -c1-20)"
+          echo "Ends with: $(echo "${GCP_WORKLOAD_IDENTITY_PROVIDER}" | rev | cut -c1-20 | rev)"
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
       # ---- NEW: sanity check we have the right OIDC provider format --------
       - name: 🔎 Validate OIDC inputs (non-leaky)
@@ -72,6 +80,7 @@ jobs:
             echo "len(raw)=${#WIP}, len(trimmed)=${#WIP_TRIM}"  # non-leaky hint
             fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'. Please fix the secret value and re-run."
           fi
+      # ---- remove above this --------
 
       - name: 🔐 Auth to GCP (OIDC)
         uses: google-github-actions/auth@v2
