@@ -37,7 +37,7 @@
                            currentHost.includes('geo') ||
                            currentHost.includes('location');
         if (allowSignIn) {
-            document.getElementById('signInTeam').style.display = 'inline-block';
+            //document.getElementById('signInTeam').style.display = 'inline-block';
         }
     });
     </script>
@@ -394,716 +394,477 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
-        
 
-        <!-- Main Content Area -->
-        <main class="main-content">
+    <!-- Main Content Area -->
+    <main class="main-content">
 
-            <img src="img/banner.webp" class="geo" style="width:100%;display:none">
+        <img src="img/banner.webp" class="geo" style="width:100%;display:none">
 
-            <!--
-                <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
-                -->
-            <!--
-            Creates a blank space
-            <header class="top-bar geo-hide">
-                <div>
-                
-                </div>
-                <div class="user-menu">
-                    <div class="auth-container" id="auth-container">
-                        <button id="signInTeam" class="btn btn-secondary" onclick="showAuthModal()" style="display:none">Sign In</button>
-                        <button class="btn btn-primary" style="display:none" onclick="goProjects()">Search Projects</button>
-                    </div>
-                </div>
-            </header>
+        <!--
+            <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
             -->
+        <!--
+        Creates a blank space
+        <header class="top-bar geo-hide">
+            <div>
+            
+            </div>
+            <div class="user-menu">
+                <div class="auth-container" id="auth-container">
+                    <button id="signInTeam" class="btn btn-secondary" onclick="showAuthModal()" style="display:none">Sign In</button>
+                    <button class="btn btn-primary" style="display:none" onclick="goProjects()">Search Projects</button>
+                </div>
+            </div>
+        </header>
+        -->
 
-            <div class="content-area">
-                <!-- Home Section -->
-                <div class="section active" id="home-section">
+        <div class="content-area">
+            <!-- Home Section -->
+            <div class="section active" id="home-section">
 
-                    <!-- Welcome Tab -->
-                    <div class="tab-content" id="welcome-tab">
-                        <div class="welcome-hero geo-hide">
+                <!-- Welcome Tab -->
+                <div class="tab-content" id="welcome-tab">
+                    <div class="welcome-hero geo-hide">
 <!--                             
-                            <div style="float:right">
-                                <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/xxxx"></a>
-                            </div>
-                             -->
-                            <div style="overflow:auto">
-                                <h1 class="hero-title">Collaborative Parter Tools</h1>
-                                <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused&nbsp;team&nbsp;projects</p>
-
-                                <!--
-                                <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
-                                -->
-
-                                <!--
-                                <button class="btn btn-secondary" onclick="goPreferences()">Preferences</button>
-                                -->
-                            </div>
-
+                        <div style="float:right">
+                            <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/xxxx"></a>
                         </div>
+                         -->
+                        <div style="overflow:auto">
+                            <h1 class="hero-title">Collaborative Parter Tools</h1>
+                            <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused&nbsp;team&nbsp;projects</p>
 
-                        <div style="float:right; margin-right:20px">
-                            <!--<b><a href="admin">Admin Dashboard</a></b><br>-->
-                        </div>
-
-                        <div class="tabs">
-                            <button class="tab active" data-tab="welcome">Welcome</button>
-                            <button class="tab" data-tab="documentation">Getting Started</button>
-                            <button class="tab" data-tab="dashboard">Dashboard</button>
-                        </div>
-
-                        <div class="feature-grid">
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href='./projects/#list=all')">
-                                <div class="feature-icon">
-                                    <i data-feather="zap"></i>
-                                </div>
-                                <h3 class="feature-title">Data Insights</h3>
-                                <p class="feature-desc">Get smart recommendations and natural language search with customizations using AI to accelerate your project workflows.</p>
-                            </div>
-
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/')">
-                                <div class="feature-icon">
-                                    <i data-feather="users"></i>
-                                </div>
-                                <h3 class="feature-title">Team Collaboration</h3>
-                                <p class="feature-desc">Connect with local programming teams, join Innovation Bond projects, and collaborate on government AI insights implementation.</p>
-                            </div>
-
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.hash = '#projects/opportunities')">
-                                <div class="feature-icon">
-                                    <i data-feather="trending-up"></i>
-                                </div>
-                                <h3 class="feature-title">Project Tracking</h3>
-                                <p class="feature-desc">Manage opportunities, track progress, assign tasks, and monitor timelines with intuitive interfaces and data visualizatons.</p>
-                            </div>
-
-                            <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/google/meetup/')">
-                                <div class="feature-icon">
-                                    <i data-feather="target"></i>
-                                </div>
-
-                                <h3 class="feature-title">Meetup Integration</h3>
-                                <p class="feature-desc">Filters participants from a Google Sheet to share member details during meetups.</p>
-
-                                <!--
-                                <h3 class="feature-title">Local Impact</h3>
-                                <p class="feature-desc">Find and contribute to neighborhood projects that streamline local processes and provide real-time mentoring.</p>
-                                -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Documentation Tab -->
-                    <div class="tab-content" id="documentation-tab">
-                        <div class="card">
-                            
                             <!--
-                            <h3 style="margin-top: 24px; margin-bottom: 12px;">Quick Start Guide</h3>
-                            <ol style="margin-left: 20px; line-height: 1.8;">
-                                <li><strong>Sign In:</strong> Use Google, GitHub, LinkedIn, or email authentication</li>
-                                <li><strong>Complete Your Profile:</strong> Set preferences and interests to match with relevant projects</li>
-                                <li><strong>Join Teams:</strong> Connect with local organizations and development teams</li>
-                                <li><strong>Find Projects:</strong> Browse opportunities or use AI search to find perfect matches</li>
-                                <li><strong>Collaborate:</strong> Join activities, track progress, and contribute to local innovation</li>
-                            </ol>
+                            <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
                             -->
 
-                            <h2 class="card-title">Key Features</h2>
-                            <ul style="margin-left: 20px; line-height: 1.8;">
-                                <li><strong>Smart Search:</strong> Use natural language to find profiles, projects, and opportunities.</li>
-                                <li><strong>Project Management:</strong> Post team activities and track tasks using the Projects Hub.</li>
-                                <li><strong>Team Building:</strong> Create and manage teams and organizations using API integrations.</li>
-                                <li><strong>Preference Matching:</strong> AI-powered recommendations based on member interests.</li>
-                            </ul>
-
+                            <!--
+                            <button class="btn btn-secondary" onclick="goPreferences()">Preferences</button>
+                            -->
                         </div>
+
                     </div>
 
-                    <!-- Dashboard Tab -->
-                    <div class="tab-content" id="dashboard-tab">
-                        <div class="card">
-                            <h2 class="card-title">Dashboard</h2>
-                            <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
-                            
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-green);">10</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px;">Active Projects</div>
-                                </div>
-                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-blue);">28</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px;">Pending Tasks</div>
-                                </div>
-                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-orange);">89</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px;">Team Members</div>
-                                </div>
+                    <div style="float:right; margin-right:20px">
+                        <!--<b><a href="admin">Admin Dashboard</a></b><br>-->
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab active" data-tab="welcome">Welcome</button>
+                        <button class="tab" data-tab="documentation">Getting Started</button>
+                        <button class="tab" data-tab="dashboard">Dashboard</button>
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href='./projects/#list=all')">
+                            <div class="feature-icon">
+                                <i data-feather="zap"></i>
+                            </div>
+                            <h3 class="feature-title">Data Insights</h3>
+                            <p class="feature-desc">Get smart recommendations and natural language search with customizations using AI to accelerate your project workflows.</p>
+                        </div>
+
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/')">
+                            <div class="feature-icon">
+                                <i data-feather="users"></i>
+                            </div>
+                            <h3 class="feature-title">Team Collaboration</h3>
+                            <p class="feature-desc">Connect with local programming teams, join Innovation Bond projects, and collaborate on government AI insights implementation.</p>
+                        </div>
+
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.hash = '#projects/opportunities')">
+                            <div class="feature-icon">
+                                <i data-feather="trending-up"></i>
+                            </div>
+                            <h3 class="feature-title">Project Tracking</h3>
+                            <p class="feature-desc">Manage opportunities, track progress, assign tasks, and monitor timelines with intuitive interfaces and data visualizatons.</p>
+                        </div>
+
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/google/meetup/')">
+                            <div class="feature-icon">
+                                <i data-feather="target"></i>
                             </div>
 
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
-                                <h4 style="margin-bottom: 12px;">Recent Activity</h4>
-                                <div style="font-size: 14px; color: var(--text-secondary);">
-                                    <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local Logistics Summit Planning"</div>
-                                    <div style="margin-bottom: 8px;">• Team "Innovation Catalysts" completed milestone review</div>
-                                </div>
+                            <h3 class="feature-title">Meetup Integration</h3>
+                            <p class="feature-desc">Filters participants from a Google Sheet to share member details during meetups.</p>
+
+                            <!--
+                            <h3 class="feature-title">Local Impact</h3>
+                            <p class="feature-desc">Find and contribute to neighborhood projects that streamline local processes and provide real-time mentoring.</p>
+                            -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation Tab -->
+                <div class="tab-content" id="documentation-tab">
+                    <div class="card">
+                        
+                        <!--
+                        <h3 style="margin-top: 24px; margin-bottom: 12px;">Quick Start Guide</h3>
+                        <ol style="margin-left: 20px; line-height: 1.8;">
+                            <li><strong>Sign In:</strong> Use Google, GitHub, LinkedIn, or email authentication</li>
+                            <li><strong>Complete Your Profile:</strong> Set preferences and interests to match with relevant projects</li>
+                            <li><strong>Join Teams:</strong> Connect with local organizations and development teams</li>
+                            <li><strong>Find Projects:</strong> Browse opportunities or use AI search to find perfect matches</li>
+                            <li><strong>Collaborate:</strong> Join activities, track progress, and contribute to local innovation</li>
+                        </ol>
+                        -->
+
+                        <h2 class="card-title">Key Features</h2>
+                        <ul style="margin-left: 20px; line-height: 1.8;">
+                            <li><strong>Smart Search:</strong> Use natural language to find profiles, projects, and opportunities.</li>
+                            <li><strong>Project Management:</strong> Post team activities and track tasks using the Projects Hub.</li>
+                            <li><strong>Team Building:</strong> Create and manage teams and organizations using API integrations.</li>
+                            <li><strong>Preference Matching:</strong> AI-powered recommendations based on member interests.</li>
+                        </ul>
+
+                    </div>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div class="tab-content" id="dashboard-tab">
+                    <div class="card">
+                        <h2 class="card-title">Dashboard</h2>
+                        <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-green);">10</div>
+                                <div style="color: var(--text-secondary); font-size: 14px;">Active Projects</div>
                             </div>
-                            
-                            <div style="margin-top: 24px;">
-                                <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
-                                    <i data-feather="settings"></i>
-                                    Partner Tools
-                                </a>
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-blue);">28</div>
+                                <div style="color: var(--text-secondary); font-size: 14px;">Pending Tasks</div>
+                            </div>
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-orange);">89</div>
+                                <div style="color: var(--text-secondary); font-size: 14px;">Team Members</div>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <h4 style="margin-bottom: 12px;">Recent Activity</h4>
+                            <div style="font-size: 14px; color: var(--text-secondary);">
+                                <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local Logistics Summit Planning"</div>
+                                <div style="margin-bottom: 8px;">• Team "Innovation Catalysts" completed milestone review</div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 24px;">
+                            <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
+                                <i data-feather="settings"></i>
+                                Partner Tools
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Section -->
+            <div class="section" id="projects-section">
+                
+                <!-- Opportunities Tab -->
+                <div class="tab-content active" id="opportunities-tab">
+                    <div id="opportunities-content">
+                        <!-- Content will be dynamically loaded by projects.js -->
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="opportunities" title="Opportunities">Opportunities</button>
+                    <button class="tab" data-tab="assigned-tasks" title="Assigned Tasks">Assigned Tasks</button>
+                    <button class="tab" data-tab="timelines" title="Timelines">Timelines</button>
+                </div>
+
+                <!-- Assigned Tasks Tab -->
+                <div class="tab-content" id="assigned-tasks-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">My Assigned Tasks</h2>
+                            <button class="btn btn-secondary">
+                                <i data-feather="filter"></i>
+                                Filter
+                            </button>
+                        </div>
+                        
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div>
+                                    <h4 style="margin: 0 0 4px 0;">Database Schema install script for Azure</h4>
+                                    <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">AI-Powered Economic Development Dashboard using <a href="/profile/crm/">Standards Based SQL</a></p>
+                                </div>
+                                <span class="status-badge status-in_progress">In Progress</span>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Design PostgreSQL schema for flexible data management with proper relationships and indexing.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; gap: 8px;">
+                                    <span class="skill-tag small">PostgreSQL</span>
+                                    <span class="skill-tag small">Database Design</span>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted);">Due: Feb 28, 2025</span>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div>
+                                    <h4 style="margin: 0 0 4px 0;">Bolt AI updates to Team Project Interface for Review</h4>
+                                    <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">Community Resource Mapping Platform</p>
+                                </div>
+                                <span class="status-badge status-open">Pending</span>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Review and provide feedback on the mobile interface designs.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; gap: 8px;">
+                                    <span class="skill-tag small">UX Review</span>
+                                    <span class="skill-tag small">Mobile Design</span>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted);">Due: Mar 5, 2025</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Projects Section -->
-                <div class="section" id="projects-section">
-                    
-                    <!-- Opportunities Tab -->
-                    <div class="tab-content active" id="opportunities-tab">
-                        <div id="opportunities-content">
-                            <!-- Content will be dynamically loaded by projects.js -->
-                        </div>
-                    </div>
-
-                    <div class="tabs">
-                        <button class="tab active" data-tab="opportunities" title="Opportunities">Opportunities</button>
-                        <button class="tab" data-tab="assigned-tasks" title="Assigned Tasks">Assigned Tasks</button>
-                        <button class="tab" data-tab="timelines" title="Timelines">Timelines</button>
-                    </div>
-
-                    <!-- Assigned Tasks Tab -->
-                    <div class="tab-content" id="assigned-tasks-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">My Assigned Tasks</h2>
+                <!-- Timelines Tab -->
+                <div class="tab-content" id="timelines-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Project Timelines</h2>
+                            <div style="display: flex; gap: 12px;">
                                 <button class="btn btn-secondary">
-                                    <i data-feather="filter"></i>
-                                    Filter
+                                    <i data-feather="calendar"></i>
+                                    Month View
+                                </button>
+                                <button class="btn btn-secondary">
+                                    <i data-feather="list"></i>
+                                    List View
                                 </button>
                             </div>
-                            
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                                    <div>
-                                        <h4 style="margin: 0 0 4px 0;">Database Schema install script for Azure</h4>
-                                        <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">AI-Powered Economic Development Dashboard using <a href="/profile/crm/">Standards Based SQL</a></p>
-                                    </div>
-                                    <span class="status-badge status-in_progress">In Progress</span>
-                                </div>
-                                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Design PostgreSQL schema for flexible data management with proper relationships and indexing.</p>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; gap: 8px;">
-                                        <span class="skill-tag small">PostgreSQL</span>
-                                        <span class="skill-tag small">Database Design</span>
-                                    </div>
-                                    <span style="font-size: 12px; color: var(--text-muted);">Due: Feb 28, 2025</span>
-                                </div>
-                            </div>
-
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                                    <div>
-                                        <h4 style="margin: 0 0 4px 0;">Bolt AI updates to Team Project Interface for Review</h4>
-                                        <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">Community Resource Mapping Platform</p>
-                                    </div>
-                                    <span class="status-badge status-open">Pending</span>
-                                </div>
-                                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Review and provide feedback on the mobile interface designs.</p>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; gap: 8px;">
-                                        <span class="skill-tag small">UX Review</span>
-                                        <span class="skill-tag small">Mobile Design</span>
-                                    </div>
-                                    <span style="font-size: 12px; color: var(--text-muted);">Due: Mar 5, 2025</span>
-                                </div>
-                            </div>
                         </div>
-                    </div>
-
-                    <!-- Timelines Tab -->
-                    <div class="tab-content" id="timelines-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">Project Timelines</h2>
-                                <div style="display: flex; gap: 12px;">
-                                    <button class="btn btn-secondary">
-                                        <i data-feather="calendar"></i>
-                                        Month View
-                                    </button>
-                                    <button class="btn btn-secondary">
-                                        <i data-feather="list"></i>
-                                        List View
-                                    </button>
-                                </div>
+                        
+                        <div style="background: var(--bg-tertiary); padding: 24px; border-radius: var(--radius-md); text-align: center;">
+                            <div style="margin-bottom: 16px;">
+                                <i data-feather="calendar" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
                             </div>
-                            
-                            <div style="background: var(--bg-tertiary); padding: 24px; border-radius: var(--radius-md); text-align: center;">
-                                <div style="margin-bottom: 16px;">
-                                    <i data-feather="calendar" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
-                                </div>
-                                <h3 style="margin: 0 0 8px 0;">Timeline View Coming Soon</h3>
-                                <p style="color: var(--text-secondary); margin: 0;">Interactive project timelines with Gantt charts and milestone tracking</p>
-                            </div>
+                            <h3 style="margin: 0 0 8px 0;">Timeline View Coming Soon</h3>
+                            <p style="color: var(--text-secondary); margin: 0;">Interactive project timelines with Gantt charts and milestone tracking</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- People & Teams Section -->
-                <div class="section" id="people-section">
+            <!-- People & Teams Section -->
+            <div class="section" id="people-section">
 
-                    <div class="hero-section">
-                        <div class="hero-content">
-                            <h1 class="hero-title">Partner Tool Suite</h1>
-                            <p class="hero-subtitle">Team Collaboration Platform for Project Tracking with AI Insights</p>
-                            <div class="hero-actions">
-                                <button class="btn btn-primary" onclick="router.navigate('projects', 'opportunities')">
-                                    <i data-feather="target"></i>
-                                    Explore Projects
-                                </button>
-                                <button class="btn btn-secondary" onclick="router.navigate('people', 'teams'); setTimeout(() => scrollToSection('teams'), 100)">
-                                    <i data-feather="users"></i>
-                                    Join Teams
-                                </button>
-                            </div>
+                <div class="hero-section">
+                    <div class="hero-content">
+                        <h1 class="hero-title">Partner Tool Suite</h1>
+                        <p class="hero-subtitle">Team Collaboration Platform for Project Tracking with AI Insights</p>
+                        <div class="hero-actions">
+                            <button class="btn btn-primary" onclick="router.navigate('projects', 'opportunities')">
+                                <i data-feather="target"></i>
+                                Explore Projects
+                            </button>
+                            <button class="btn btn-secondary" onclick="router.navigate('people', 'teams'); setTimeout(() => scrollToSection('teams'), 100)">
+                                <i data-feather="users"></i>
+                                Join Teams
+                            </button>
                         </div>
                     </div>
-        
-                    <div class="tabs">
-                        <button class="tab active" data-tab="people">People</button>
-                        <button class="tab" data-tab="teams">Teams</button>
-                        <button class="tab" data-tab="organizations">Organizations</button>
-                    </div>
-                    
-                    <!-- People Tab -->
-                    <div class="tab-content" id="people-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">People Directory</h2>
-                                <button class="btn btn-primary">
-                                    <i data-feather="user-plus"></i>
-                                    Invite People
+                </div>
+    
+                <div class="tabs">
+                    <button class="tab active" data-tab="people">People</button>
+                    <button class="tab" data-tab="teams">Teams</button>
+                    <button class="tab" data-tab="organizations">Organizations</button>
+                </div>
+                
+                <!-- People Tab -->
+                <div class="tab-content" id="people-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">People Directory</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="user-plus"></i>
+                                Invite People
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with fellow developers and project collaborators in your area.</p>
+                        
+                        <div class="people-search-section">
+                            <div class="search-bar-advanced">
+                                <input type="text" class="search-input" placeholder="Search people using natural language... e.g., 'React developers in Atlanta working on AI projects'">
+                                <button class="btn btn-secondary">
+                                    <i data-feather="zap"></i>
+                                    AI Search
                                 </button>
                             </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with fellow developers and project collaborators in your area.</p>
                             
-                            <div class="people-search-section">
-                                <div class="search-bar-advanced">
-                                    <input type="text" class="search-input" placeholder="Search people using natural language... e.g., 'React developers in Atlanta working on AI projects'">
-                                    <button class="btn btn-secondary">
-                                        <i data-feather="zap"></i>
-                                        AI Search
-                                    </button>
+                            <div class="people-filters">
+                                <select class="filter-select">
+                                    <option value="">All Locations</option>
+                                    <option value="atlanta">Atlanta, GA</option>
+                                    <option value="portland">Portland, OR</option>
+                                    <option value="detroit">Detroit, MI</option>
+                                    <option value="remote">Remote</option>
+                                </select>
+                                
+                                <select class="filter-select">
+                                    <option value="">All Skills</option>
+                                    <option value="react">React</option>
+                                    <option value="python">Python</option>
+                                    <option value="ai-ml">AI/ML</option>
+                                    <option value="nodejs">Node.js</option>
+                                    <option value="postgresql">PostgreSQL</option>
+                                </select>
+                                
+                                <select class="filter-select">
+                                    <option value="">All Experience Levels</option>
+                                    <option value="junior">Junior (0-2 years)</option>
+                                    <option value="mid">Mid-level (3-5 years)</option>
+                                    <option value="senior">Senior (6+ years)</option>
+                                    <option value="lead">Tech Lead</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="people-grid">
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">SJ</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Sarah Johnson</h4>
+                                        <p class="person-title">Senior Full-stack Developer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="person-status">
+                                        <span class="availability-badge available">Available</span>
+                                    </div>
                                 </div>
                                 
-                                <div class="people-filters">
-                                    <select class="filter-select">
-                                        <option value="">All Locations</option>
-                                        <option value="atlanta">Atlanta, GA</option>
-                                        <option value="portland">Portland, OR</option>
-                                        <option value="detroit">Detroit, MI</option>
-                                        <option value="remote">Remote</option>
-                                    </select>
-                                    
-                                    <select class="filter-select">
-                                        <option value="">All Skills</option>
-                                        <option value="react">React</option>
-                                        <option value="python">Python</option>
-                                        <option value="ai-ml">AI/ML</option>
-                                        <option value="nodejs">Node.js</option>
-                                        <option value="postgresql">PostgreSQL</option>
-                                    </select>
-                                    
-                                    <select class="filter-select">
-                                        <option value="">All Experience Levels</option>
-                                        <option value="junior">Junior (0-2 years)</option>
-                                        <option value="mid">Mid-level (3-5 years)</option>
-                                        <option value="senior">Senior (6+ years)</option>
-                                        <option value="lead">Tech Lead</option>
-                                    </select>
+                                <div class="person-skills">
+                                    <span class="skill-tag">React</span>
+                                    <span class="skill-tag">Python</span>
+                                    <span class="skill-tag">AI/ML</span>
+                                    <span class="skill-tag">PostgreSQL</span>
+                                </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">AI-Powered Government Dashboard</p>
+                                    <p class="project-name">Community Resource Mapping</p>
+                                </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            5 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            4.9 rating
+                                        </span>
+                                    </div>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="people-grid">
-                                <div class="person-card">
-                                    <div class="person-header">
-                                        <div class="person-avatar">SJ</div>
-                                        <div class="person-info">
-                                            <h4 class="person-name">Sarah Johnson</h4>
-                                            <p class="person-title">Senior Full-stack Developer</p>
-                                            <p class="person-location">
-                                                <i data-feather="map-pin"></i>
-                                                Atlanta, GA
-                                            </p>
-                                        </div>
-                                        <div class="person-status">
-                                            <span class="availability-badge available">Available</span>
-                                        </div>
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">MC</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Marcus Chen</h4>
+                                        <p class="person-title">DevOps Engineer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Portland, OR
+                                        </p>
                                     </div>
-                                    
-                                    <div class="person-skills">
-                                        <span class="skill-tag">React</span>
-                                        <span class="skill-tag">Python</span>
-                                        <span class="skill-tag">AI/ML</span>
-                                        <span class="skill-tag">PostgreSQL</span>
-                                    </div>
-                                    
-                                    <div class="person-projects">
-                                        <p class="projects-label">Current Projects:</p>
-                                        <p class="project-name">AI-Powered Government Dashboard</p>
-                                        <p class="project-name">Community Resource Mapping</p>
-                                    </div>
-                                    
-                                    <div class="person-footer">
-                                        <div class="person-stats">
-                                            <span class="stat">
-                                                <i data-feather="briefcase"></i>
-                                                5 projects
-                                            </span>
-                                            <span class="stat">
-                                                <i data-feather="star"></i>
-                                                4.9 rating
-                                            </span>
-                                        </div>
-                                        <div class="person-actions">
-                                            <button class="btn btn-secondary small">View Profile</button>
-                                            <button class="btn btn-primary small">Connect</button>
-                                        </div>
+                                    <div class="person-status">
+                                        <span class="availability-badge busy">Busy</span>
                                     </div>
                                 </div>
-
-                                <div class="person-card">
-                                    <div class="person-header">
-                                        <div class="person-avatar">MC</div>
-                                        <div class="person-info">
-                                            <h4 class="person-name">Marcus Chen</h4>
-                                            <p class="person-title">DevOps Engineer</p>
-                                            <p class="person-location">
-                                                <i data-feather="map-pin"></i>
-                                                Portland, OR
-                                            </p>
-                                        </div>
-                                        <div class="person-status">
-                                            <span class="availability-badge busy">Busy</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="person-skills">
-                                        <span class="skill-tag">Kubernetes</span>
-                                        <span class="skill-tag">Docker</span>
-                                        <span class="skill-tag">AWS</span>
-                                        <span class="skill-tag">Terraform</span>
-                                    </div>
-                                    
-                                    <div class="person-projects">
-                                        <p class="projects-label">Current Projects:</p>
-                                        <p class="project-name">Digital Literacy Platform</p>
-                                    </div>
-                                    
-                                    <div class="person-footer">
-                                        <div class="person-stats">
-                                            <span class="stat">
-                                                <i data-feather="briefcase"></i>
-                                                3 projects
-                                            </span>
-                                            <span class="stat">
-                                                <i data-feather="star"></i>
-                                                4.8 rating
-                                            </span>
-                                        </div>
-                                        <div class="person-actions">
-                                            <button class="btn btn-secondary small">View Profile</button>
-                                            <button class="btn btn-primary small">Connect</button>
-                                        </div>
-                                    </div>
+                                
+                                <div class="person-skills">
+                                    <span class="skill-tag">Kubernetes</span>
+                                    <span class="skill-tag">Docker</span>
+                                    <span class="skill-tag">AWS</span>
+                                    <span class="skill-tag">Terraform</span>
                                 </div>
-
-                                <div class="person-card">
-                                    <div class="person-header">
-                                        <div class="person-avatar">AR</div>
-                                        <div class="person-info">
-                                            <h4 class="person-name">Alex Rivera</h4>
-                                            <p class="person-title">UX Designer</p>
-                                            <p class="person-location">
-                                                <i data-feather="map-pin"></i>
-                                                Detroit, MI
-                                            </p>
-                                        </div>
-                                        <div class="person-status">
-                                            <span class="availability-badge available">Available</span>
-                                        </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">Digital Literacy Platform</p>
+                                </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            3 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            4.8 rating
+                                        </span>
                                     </div>
-                                    
-                                    <div class="person-skills">
-                                        <span class="skill-tag">Figma</span>
-                                        <span class="skill-tag">User Research</span>
-                                        <span class="skill-tag">Prototyping</span>
-                                        <span class="skill-tag">Accessibility</span>
-                                    </div>
-                                    
-                                    <div class="person-projects">
-                                        <p class="projects-label">Current Projects:</p>
-                                        <p class="project-name">Digital Literacy Training</p>
-                                    </div>
-                                    
-                                    <div class="person-footer">
-                                        <div class="person-stats">
-                                            <span class="stat">
-                                                <i data-feather="briefcase"></i>
-                                                8 projects
-                                            </span>
-                                            <span class="stat">
-                                                <i data-feather="star"></i>
-                                                5.0 rating
-                                            </span>
-                                        </div>
-                                        <div class="person-actions">
-                                            <button class="btn btn-secondary small">View Profile</button>
-                                            <button class="btn btn-primary small">Connect</button>
-                                        </div>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Teams Tab -->
-                    <div class="tab-content" id="teams-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">Teams</h2>
-                                <button class="btn btn-primary">
-                                    <i data-feather="plus"></i>
-                                    Create Team
-                                </button>
-                            </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Collaborate with small, focused development teams working on open innovation projects.</p>
-                            
-                            <div class="teams-grid">
-                                <div class="team-card">
-                                    <div class="team-header">
-                                        <div class="team-avatar">IC</div>
-                                        <div class="team-info">
-                                            <h4 class="team-name">Innovation Catalysts</h4>
-                                            <p class="team-description">Specializing in AI-powered government modernization solutions</p>
-                                            <p class="team-location">
-                                                <i data-feather="map-pin"></i>
-                                                Atlanta, GA
-                                            </p>
-                                        </div>
-                                        <div class="team-status">
-                                            <span class="team-badge recruiting">Recruiting</span>
-                                        </div>
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">AR</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Alex Rivera</h4>
+                                        <p class="person-title">UX Designer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Detroit, MI
+                                        </p>
                                     </div>
-                                    
-                                    <div class="team-members">
-                                        <div class="members-avatars">
-                                            <div class="member-avatar">SJ</div>
-                                            <div class="member-avatar">MC</div>
-                                            <div class="member-avatar">AR</div>
-                                            <div class="member-count">+3</div>
-                                        </div>
-                                        <p class="members-text">6 members</p>
-                                    </div>
-                                    
-                                    <div class="team-skills">
-                                        <span class="skill-tag">React</span>
-                                        <span class="skill-tag">Node.js</span>
-                                        <span class="skill-tag">AI/ML</span>
-                                        <span class="skill-tag">DevOps</span>
-                                    </div>
-                                    
-                                    <div class="team-projects">
-                                        <p class="projects-label">Active Projects:</p>
-                                        <div class="project-list">
-                                            <div class="project-item">
-                                                <span class="project-name">AI Government Dashboard</span>
-                                                <span class="project-status active">Active</span>
-                                            </div>
-                                            <div class="project-item">
-                                                <span class="project-name">Smart City Analytics</span>
-                                                <span class="project-status planning">Planning</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="team-footer">
-                                        <button class="btn btn-secondary">View Team</button>
-                                        <button class="btn btn-primary">Join Team</button>
+                                    <div class="person-status">
+                                        <span class="availability-badge available">Available</span>
                                     </div>
                                 </div>
-
-                                <div class="team-card">
-                                    <div class="team-header">
-                                        <div class="team-avatar">CB</div>
-                                        <div class="team-info">
-                                            <h4 class="team-name">Community Builders</h4>
-                                            <p class="team-description">Building tools to strengthen local communities and neighborhoods</p>
-                                            <p class="team-location">
-                                                <i data-feather="map-pin"></i>
-                                                Portland, OR
-                                            </p>
-                                        </div>
-                                        <div class="team-status">
-                                            <span class="team-badge active">Active</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="team-members">
-                                        <div class="members-avatars">
-                                            <div class="member-avatar">TK</div>
-                                            <div class="member-avatar">LM</div>
-                                            <div class="member-avatar">JD</div>
-                                            <div class="member-count">+2</div>
-                                        </div>
-                                        <p class="members-text">5 members</p>
-                                    </div>
-                                    
-                                    <div class="team-skills">
-                                        <span class="skill-tag">Vue.js</span>
-                                        <span class="skill-tag">Python</span>
-                                        <span class="skill-tag">GIS</span>
-                                        <span class="skill-tag">Mobile</span>
-                                    </div>
-                                    
-                                    <div class="team-projects">
-                                        <p class="projects-label">Active Projects:</p>
-                                        <div class="project-list">
-                                            <div class="project-item">
-                                                <span class="project-name">Resource Mapping Platform</span>
-                                                <span class="project-status active">Active</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="team-footer">
-                                        <button class="btn btn-secondary">View Team</button>
-                                        <button class="btn btn-primary">Join Team</button>
-                                    </div>
+                                
+                                <div class="person-skills">
+                                    <span class="skill-tag">Figma</span>
+                                    <span class="skill-tag">User Research</span>
+                                    <span class="skill-tag">Prototyping</span>
+                                    <span class="skill-tag">Accessibility</span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Organizations Tab -->
-                    <div class="tab-content" id="organizations-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">Organizations</h2>
-                                <button class="btn btn-primary">
-                                    <i data-feather="home"></i>
-                                    Register Organization
-                                </button>
-                            </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with organizations funding and supporting local innovation projects.</p>
-                            
-                            <div class="organizations-grid">
-                                <div class="org-card">
-                                    <div class="org-header">
-                                        <div class="org-logo">CIO</div>
-                                        <div class="org-info">
-                                            <h4 class="org-name">City Innovation Office</h4>
-                                            <p class="org-type">Government Agency</p>
-                                            <p class="org-location">
-                                                <i data-feather="map-pin"></i>
-                                                Atlanta, GA
-                                            </p>
-                                        </div>
-                                        <div class="org-verification">
-                                            <span class="verification-badge verified">
-                                                <i data-feather="check-circle"></i>
-                                                Verified
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="org-description">
-                                        <p>Leading digital transformation initiatives to modernize local and state services and improve citizen engagement through technology innovation.</p>
-                                    </div>
-                                    
-                                    <div class="org-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-number">12</span>
-                                            <span class="stat-label">Active Projects</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-number">45</span>
-                                            <span class="stat-label">Collaborators</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-number">$2.5M</span>
-                                            <span class="stat-label">Innovation Fund</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="org-focus-areas">
-                                        <span class="focus-tag">Digital Government</span>
-                                        <span class="focus-tag">Smart City</span>
-                                        <span class="focus-tag">AI/ML</span>
-                                        <span class="focus-tag">Open Data</span>
-                                    </div>
-                                    
-                                    <div class="org-footer">
-                                        <button class="btn btn-secondary">View Profile</button>
-                                        <button class="btn btn-primary">Follow</button>
-                                    </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">Digital Literacy Training</p>
                                 </div>
-
-                                <div class="org-card">
-                                    <div class="org-header">
-                                        <div class="org-logo">DIC</div>
-                                        <div class="org-info">
-                                            <h4 class="org-name">Digital Inclusion Coalition</h4>
-                                            <p class="org-type">Non-Profit</p>
-                                            <p class="org-location">
-                                                <i data-feather="map-pin"></i>
-                                                Detroit, MI
-                                            </p>
-                                        </div>
-                                        <div class="org-verification">
-                                            <span class="verification-badge verified">
-                                                <i data-feather="check-circle"></i>
-                                                Verified
-                                            </span>
-                                        </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            8 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            5.0 rating
+                                        </span>
                                     </div>
-                                    
-                                    <div class="org-description">
-                                        <p>Bridging the digital divide by providing technology access, training, and support to underserved communities across Michigan.</p>
-                                    </div>
-                                    
-                                    <div class="org-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-number">8</span>
-                                            <span class="stat-label">Active Projects</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-number">28</span>
-                                            <span class="stat-label">Volunteers</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-number">500+</span>
-                                            <span class="stat-label">People Trained</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="org-focus-areas">
-                                        <span class="focus-tag">Digital Literacy</span>
-                                        <span class="focus-tag">Education</span>
-                                        <span class="focus-tag">Community Tech</span>
-                                        <span class="focus-tag">Accessibility</span>
-                                    </div>
-                                    
-                                    <div class="org-footer">
-                                        <button class="btn btn-secondary">View Profile</button>
-                                        <button class="btn btn-primary">Follow</button>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
                                     </div>
                                 </div>
                             </div>
@@ -1111,360 +872,597 @@
                     </div>
                 </div>
 
-                <!-- My Account Section -->
-                <div class="section" id="account-section">
-                    <div class="tabs">
-                        <button class="tab active" data-tab="preferences">Preferences</button>
-                        <button class="tab" data-tab="skills">Skills</button>
-                        <button class="tab" data-tab="interests">Interests</button>
-                    </div>
-                    
-                    <!-- Preferences Tab -->
-                    <div class="tab-content" id="preferences-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">My Policy Preferences</h2>
-                                <div class="survey-progress">
-                                    <span class="progress-text">0 of 20 completed</span>
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" style="width: 0%"></div>
+                <!-- Teams Tab -->
+                <div class="tab-content" id="teams-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Teams</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="plus"></i>
+                                Create Team
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Collaborate with small, focused development teams working on open innovation projects.</p>
+                        
+                        <div class="teams-grid">
+                            <div class="team-card">
+                                <div class="team-header">
+                                    <div class="team-avatar">IC</div>
+                                    <div class="team-info">
+                                        <h4 class="team-name">Innovation Catalysts</h4>
+                                        <p class="team-description">Specializing in AI-powered government modernization solutions</p>
+                                        <p class="team-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="team-status">
+                                        <span class="team-badge recruiting">Recruiting</span>
                                     </div>
                                 </div>
-                            </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your agreement with these policy positions to help us match you with aligned projects and collaborators.</p>
-                            
-                            <div class="survey-container" id="survey-container">
-                                <!-- All survey questions will be loaded here with 5-star ratings -->
-                            </div>
-
-                            <div class="survey-navigation">
-                                <button class="btn btn-primary" id="save-survey">Save Progress</button>
-                                <button class="btn btn-primary" id="finish-survey">Complete Survey</button>
-                            </div>
-
-                            <div class="survey-results" style="display: none;">
-                                <h3>Your Policy Profile</h3>
-                                <div class="sankey-chart-container">
-                                    <canvas id="sankey-chart" width="600" height="300"></canvas>
+                                
+                                <div class="team-members">
+                                    <div class="members-avatars">
+                                        <div class="member-avatar">SJ</div>
+                                        <div class="member-avatar">MC</div>
+                                        <div class="member-avatar">AR</div>
+                                        <div class="member-count">+3</div>
+                                    </div>
+                                    <p class="members-text">6 members</p>
                                 </div>
-                                <div class="profile-summary">
-                                    <div class="profile-category">
-                                        <h4>Technology & Innovation</h4>
-                                        <div class="category-score">Strong Support (4.2/5)</div>
-                                        <div class="category-description">You strongly support government investment in technology and innovation initiatives.</div>
+                                
+                                <div class="team-skills">
+                                    <span class="skill-tag">React</span>
+                                    <span class="skill-tag">Node.js</span>
+                                    <span class="skill-tag">AI/ML</span>
+                                    <span class="skill-tag">DevOps</span>
+                                </div>
+                                
+                                <div class="team-projects">
+                                    <p class="projects-label">Active Projects:</p>
+                                    <div class="project-list">
+                                        <div class="project-item">
+                                            <span class="project-name">AI Government Dashboard</span>
+                                            <span class="project-status active">Active</span>
+                                        </div>
+                                        <div class="project-item">
+                                            <span class="project-name">Smart City Analytics</span>
+                                            <span class="project-status planning">Planning</span>
+                                        </div>
                                     </div>
-                                    <div class="profile-category">
-                                        <h4>Environmental Policy</h4>
-                                        <div class="category-score">Strong Support (4.8/5)</div>
-                                        <div class="category-description">You are highly aligned with environmental protection and renewable energy policies.</div>
+                                </div>
+                                
+                                <div class="team-footer">
+                                    <button class="btn btn-secondary">View Team</button>
+                                    <button class="btn btn-primary">Join Team</button>
+                                </div>
+                            </div>
+
+                            <div class="team-card">
+                                <div class="team-header">
+                                    <div class="team-avatar">CB</div>
+                                    <div class="team-info">
+                                        <h4 class="team-name">Community Builders</h4>
+                                        <p class="team-description">Building tools to strengthen local communities and neighborhoods</p>
+                                        <p class="team-location">
+                                            <i data-feather="map-pin"></i>
+                                            Portland, OR
+                                        </p>
                                     </div>
+                                    <div class="team-status">
+                                        <span class="team-badge active">Active</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-members">
+                                    <div class="members-avatars">
+                                        <div class="member-avatar">TK</div>
+                                        <div class="member-avatar">LM</div>
+                                        <div class="member-avatar">JD</div>
+                                        <div class="member-count">+2</div>
+                                    </div>
+                                    <p class="members-text">5 members</p>
+                                </div>
+                                
+                                <div class="team-skills">
+                                    <span class="skill-tag">Vue.js</span>
+                                    <span class="skill-tag">Python</span>
+                                    <span class="skill-tag">GIS</span>
+                                    <span class="skill-tag">Mobile</span>
+                                </div>
+                                
+                                <div class="team-projects">
+                                    <p class="projects-label">Active Projects:</p>
+                                    <div class="project-list">
+                                        <div class="project-item">
+                                            <span class="project-name">Resource Mapping Platform</span>
+                                            <span class="project-status active">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-footer">
+                                    <button class="btn btn-secondary">View Team</button>
+                                    <button class="btn btn-primary">Join Team</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Skills Tab -->
-                    <div class="tab-content" id="skills-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">Technical Skills & Expertise</h2>
-                                <button class="btn btn-primary">
-                                    <i data-feather="plus"></i>
-                                    Add Skill
-                                </button>
-                            </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Showcase your technical skills to attract relevant project opportunities and collaborators.</p>
-                            
-                            <div class="skills-section">
-                                <div class="skill-category">
-                                    <h3 class="category-title">Programming Languages</h3>
-                                    <div class="skills-grid">
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">JavaScript</span>
-                                                <span class="skill-level expert">Expert</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 90%"></div>
-                                            </div>
-                                            <div class="skill-experience">5+ years • React, Node.js, TypeScript</div>
-                                        </div>
-
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">Python</span>
-                                                <span class="skill-level advanced">Advanced</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 80%"></div>
-                                            </div>
-                                            <div class="skill-experience">3+ years • Django, FastAPI, Data Science</div>
-                                        </div>
-
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">Rust</span>
-                                                <span class="skill-level intermediate">Intermediate</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 60%"></div>
-                                            </div>
-                                            <div class="skill-experience">1+ year • Actix-web, SQLx</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="skill-category">
-                                    <h3 class="category-title">Frameworks & Libraries</h3>
-                                    <div class="skills-grid">
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">React</span>
-                                                <span class="skill-level expert">Expert</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 95%"></div>
-                                            </div>
-                                            <div class="skill-experience">4+ years • Hooks, Context, Redux</div>
-                                        </div>
-
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">Node.js</span>
-                                                <span class="skill-level advanced">Advanced</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 85%"></div>
-                                            </div>
-                                            <div class="skill-experience">3+ years • Express, NestJS, APIs</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="skill-category">
-                                    <h3 class="category-title">Cloud & DevOps</h3>
-                                    <div class="skills-grid">
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">AWS</span>
-                                                <span class="skill-level advanced">Advanced</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 75%"></div>
-                                            </div>
-                                            <div class="skill-experience">2+ years • EC2, Lambda, RDS, S3</div>
-                                        </div>
-
-                                        <div class="skill-item">
-                                            <div class="skill-header">
-                                                <span class="skill-name">Docker</span>
-                                                <span class="skill-level advanced">Advanced</span>
-                                            </div>
-                                            <div class="skill-bar">
-                                                <div class="skill-progress" style="width: 80%"></div>
-                                            </div>
-                                            <div class="skill-experience">3+ years • Containerization, Compose</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="skill-category">
-                                    <h3 class="category-title">Certifications & Achievements</h3>
-                                    <div class="certifications-grid">
-                                        <div class="certification-item">
-                                            <div class="cert-icon">
-                                                <i data-feather="award"></i>
-                                            </div>
-                                            <div class="cert-info">
-                                                <h4 class="cert-name">AWS Certified Developer</h4>
-                                                <p class="cert-issuer">Amazon Web Services</p>
-                                                <p class="cert-date">Issued: Jan 2025</p>
-                                            </div>
-                                            <div class="cert-badge verified">
-                                                <i data-feather="check-circle"></i>
-                                                Verified
-                                            </div>
-                                        </div>
-
-                                        <div class="certification-item">
-                                            <div class="cert-icon">
-                                                <i data-feather="award"></i>
-                                            </div>
-                                            <div class="cert-info">
-                                                <h4 class="cert-name">Google AI/ML Certificate</h4>
-                                                <p class="cert-issuer">Google Cloud</p>
-                                                <p class="cert-date">Issued: Nov 2023</p>
-                                            </div>
-                                            <div class="cert-badge verified">
-                                                <i data-feather="check-circle"></i>
-                                                Verified
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <!-- Organizations Tab -->
+                <div class="tab-content" id="organizations-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Organizations</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="home"></i>
+                                Register Organization
+                            </button>
                         </div>
-                    </div>
-
-                    <!-- Interests Tab -->
-                    <div class="tab-content" id="interests-tab">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">Interest Areas</h2>
-                                <div class="interests-summary">
-                                    <span class="summary-text">8 of 20 interests rated</span>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with organizations funding and supporting local innovation projects.</p>
+                        
+                        <div class="organizations-grid">
+                            <div class="org-card">
+                                <div class="org-header">
+                                    <div class="org-logo">CIO</div>
+                                    <div class="org-info">
+                                        <h4 class="org-name">City Innovation Office</h4>
+                                        <p class="org-type">Government Agency</p>
+                                        <p class="org-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="org-verification">
+                                        <span class="verification-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your interest level in different project focus areas to receive personalized project recommendations.</p>
-                            
-                            <div class="interests-grid">
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="cpu"></i>
-                                        </div>
-                                        <h3 class="interest-name">Technology Innovation</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="technology">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn active" data-rating="4">★</button>
-                                        <button class="star-btn active" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">AI, machine learning, emerging technologies</p>
+                                
+                                <div class="org-description">
+                                    <p>Leading digital transformation initiatives to modernize local and state services and improve citizen engagement through technology innovation.</p>
                                 </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="globe"></i>
-                                        </div>
-                                        <h3 class="interest-name">Environmental Sustainability</h3>
+                                
+                                <div class="org-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-number">12</span>
+                                        <span class="stat-label">Active Projects</span>
                                     </div>
-                                    <div class="star-rating" data-interest="environment">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn active" data-rating="4">★</button>
-                                        <button class="star-btn" data-rating="5">★</button>
+                                    <div class="stat-item">
+                                        <span class="stat-number">45</span>
+                                        <span class="stat-label">Collaborators</span>
                                     </div>
-                                    <p class="interest-description">Climate solutions, renewable energy, green tech</p>
+                                    <div class="stat-item">
+                                        <span class="stat-number">$2.5M</span>
+                                        <span class="stat-label">Innovation Fund</span>
+                                    </div>
                                 </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="book"></i>
-                                        </div>
-                                        <h3 class="interest-name">Education</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="education">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn" data-rating="4">★</button>
-                                        <button class="star-btn" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Digital literacy, educational technology</p>
+                                
+                                <div class="org-focus-areas">
+                                    <span class="focus-tag">Digital Government</span>
+                                    <span class="focus-tag">Smart City</span>
+                                    <span class="focus-tag">AI/ML</span>
+                                    <span class="focus-tag">Open Data</span>
                                 </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="heart"></i>
-                                        </div>
-                                        <h3 class="interest-name">Healthcare Access</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="healthcare">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn active" data-rating="4">★</button>
-                                        <button class="star-btn active" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Health tech, medical access, public health</p>
-                                </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="trending-up"></i>
-                                        </div>
-                                        <h3 class="interest-name">Economic Growth</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="economic">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn" data-rating="4">★</button>
-                                        <button class="star-btn" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Small business, entrepreneurship, innovation</p>
-                                </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="shield"></i>
-                                        </div>
-                                        <h3 class="interest-name">Governance & Transparency</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="governance">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn active" data-rating="4">★</button>
-                                        <button class="star-btn" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Open government, accountability, civic tech</p>
-                                </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="droplet"></i>
-                                        </div>
-                                        <h3 class="interest-name">Water & Sanitation</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="water">
-                                        <button class="star-btn" data-rating="1">★</button>
-                                        <button class="star-btn" data-rating="2">★</button>
-                                        <button class="star-btn" data-rating="3">★</button>
-                                        <button class="star-btn" data-rating="4">★</button>
-                                        <button class="star-btn" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Clean water access, parks and infrastructure</p>
-                                </div>
-
-                                <div class="interest-card">
-                                    <div class="interest-header">
-                                        <div class="interest-icon">
-                                            <i data-feather="users"></i>
-                                        </div>
-                                        <h3 class="interest-name">Social Impact</h3>
-                                    </div>
-                                    <div class="star-rating" data-interest="social">
-                                        <button class="star-btn active" data-rating="1">★</button>
-                                        <button class="star-btn active" data-rating="2">★</button>
-                                        <button class="star-btn active" data-rating="3">★</button>
-                                        <button class="star-btn active" data-rating="4">★</button>
-                                        <button class="star-btn active" data-rating="5">★</button>
-                                    </div>
-                                    <p class="interest-description">Community development, social justice</p>
+                                
+                                <div class="org-footer">
+                                    <button class="btn btn-secondary">View Profile</button>
+                                    <button class="btn btn-primary">Follow</button>
                                 </div>
                             </div>
 
-                            <div class="interests-actions">
-                                <button class="btn btn-secondary">Load More Interests</button>
-                                <button class="btn btn-primary">Save Preferences</button>
+                            <div class="org-card">
+                                <div class="org-header">
+                                    <div class="org-logo">DIC</div>
+                                    <div class="org-info">
+                                        <h4 class="org-name">Digital Inclusion Coalition</h4>
+                                        <p class="org-type">Non-Profit</p>
+                                        <p class="org-location">
+                                            <i data-feather="map-pin"></i>
+                                            Detroit, MI
+                                        </p>
+                                    </div>
+                                    <div class="org-verification">
+                                        <span class="verification-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-description">
+                                    <p>Bridging the digital divide by providing technology access, training, and support to underserved communities across Michigan.</p>
+                                </div>
+                                
+                                <div class="org-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-number">8</span>
+                                        <span class="stat-label">Active Projects</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">28</span>
+                                        <span class="stat-label">Volunteers</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">500+</span>
+                                        <span class="stat-label">People Trained</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-focus-areas">
+                                    <span class="focus-tag">Digital Literacy</span>
+                                    <span class="focus-tag">Education</span>
+                                    <span class="focus-tag">Community Tech</span>
+                                    <span class="focus-tag">Accessibility</span>
+                                </div>
+                                
+                                <div class="org-footer">
+                                    <button class="btn btn-secondary">View Profile</button>
+                                    <button class="btn btn-primary">Follow</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
+
+            <!-- My Account Section -->
+            <div class="section" id="account-section">
+                <div class="tabs">
+                    <button class="tab active" data-tab="preferences">Preferences</button>
+                    <button class="tab" data-tab="skills">Skills</button>
+                    <button class="tab" data-tab="interests">Interests</button>
+                </div>
+                
+                <!-- Preferences Tab -->
+                <div class="tab-content" id="preferences-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">My Policy Preferences</h2>
+                            <div class="survey-progress">
+                                <span class="progress-text">0 of 20 completed</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your agreement with these policy positions to help us match you with aligned projects and collaborators.</p>
+                        
+                        <div class="survey-container" id="survey-container">
+                            <!-- All survey questions will be loaded here with 5-star ratings -->
+                        </div>
+
+                        <div class="survey-navigation">
+                            <button class="btn btn-primary" id="save-survey">Save Progress</button>
+                            <button class="btn btn-primary" id="finish-survey">Complete Survey</button>
+                        </div>
+
+                        <div class="survey-results" style="display: none;">
+                            <h3>Your Policy Profile</h3>
+                            <div class="sankey-chart-container">
+                                <canvas id="sankey-chart" width="600" height="300"></canvas>
+                            </div>
+                            <div class="profile-summary">
+                                <div class="profile-category">
+                                    <h4>Technology & Innovation</h4>
+                                    <div class="category-score">Strong Support (4.2/5)</div>
+                                    <div class="category-description">You strongly support government investment in technology and innovation initiatives.</div>
+                                </div>
+                                <div class="profile-category">
+                                    <h4>Environmental Policy</h4>
+                                    <div class="category-score">Strong Support (4.8/5)</div>
+                                    <div class="category-description">You are highly aligned with environmental protection and renewable energy policies.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skills Tab -->
+                <div class="tab-content" id="skills-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Technical Skills & Expertise</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="plus"></i>
+                                Add Skill
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Showcase your technical skills to attract relevant project opportunities and collaborators.</p>
+                        
+                        <div class="skills-section">
+                            <div class="skill-category">
+                                <h3 class="category-title">Programming Languages</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">JavaScript</span>
+                                            <span class="skill-level expert">Expert</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 90%"></div>
+                                        </div>
+                                        <div class="skill-experience">5+ years • React, Node.js, TypeScript</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Python</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 80%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Django, FastAPI, Data Science</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Rust</span>
+                                            <span class="skill-level intermediate">Intermediate</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 60%"></div>
+                                        </div>
+                                        <div class="skill-experience">1+ year • Actix-web, SQLx</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Frameworks & Libraries</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">React</span>
+                                            <span class="skill-level expert">Expert</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 95%"></div>
+                                        </div>
+                                        <div class="skill-experience">4+ years • Hooks, Context, Redux</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Node.js</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 85%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Express, NestJS, APIs</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Cloud & DevOps</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">AWS</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 75%"></div>
+                                        </div>
+                                        <div class="skill-experience">2+ years • EC2, Lambda, RDS, S3</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Docker</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 80%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Containerization, Compose</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Certifications & Achievements</h3>
+                                <div class="certifications-grid">
+                                    <div class="certification-item">
+                                        <div class="cert-icon">
+                                            <i data-feather="award"></i>
+                                        </div>
+                                        <div class="cert-info">
+                                            <h4 class="cert-name">AWS Certified Developer</h4>
+                                            <p class="cert-issuer">Amazon Web Services</p>
+                                            <p class="cert-date">Issued: Jan 2025</p>
+                                        </div>
+                                        <div class="cert-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </div>
+                                    </div>
+
+                                    <div class="certification-item">
+                                        <div class="cert-icon">
+                                            <i data-feather="award"></i>
+                                        </div>
+                                        <div class="cert-info">
+                                            <h4 class="cert-name">Google AI/ML Certificate</h4>
+                                            <p class="cert-issuer">Google Cloud</p>
+                                            <p class="cert-date">Issued: Nov 2023</p>
+                                        </div>
+                                        <div class="cert-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interests Tab -->
+                <div class="tab-content" id="interests-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Interest Areas</h2>
+                            <div class="interests-summary">
+                                <span class="summary-text">8 of 20 interests rated</span>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your interest level in different project focus areas to receive personalized project recommendations.</p>
+                        
+                        <div class="interests-grid">
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="cpu"></i>
+                                    </div>
+                                    <h3 class="interest-name">Technology Innovation</h3>
+                                </div>
+                                <div class="star-rating" data-interest="technology">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">AI, machine learning, emerging technologies</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="globe"></i>
+                                    </div>
+                                    <h3 class="interest-name">Environmental Sustainability</h3>
+                                </div>
+                                <div class="star-rating" data-interest="environment">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Climate solutions, renewable energy, green tech</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="book"></i>
+                                    </div>
+                                    <h3 class="interest-name">Education</h3>
+                                </div>
+                                <div class="star-rating" data-interest="education">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Digital literacy, educational technology</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="heart"></i>
+                                    </div>
+                                    <h3 class="interest-name">Healthcare Access</h3>
+                                </div>
+                                <div class="star-rating" data-interest="healthcare">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Health tech, medical access, public health</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="trending-up"></i>
+                                    </div>
+                                    <h3 class="interest-name">Economic Growth</h3>
+                                </div>
+                                <div class="star-rating" data-interest="economic">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Small business, entrepreneurship, innovation</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="shield"></i>
+                                    </div>
+                                    <h3 class="interest-name">Governance & Transparency</h3>
+                                </div>
+                                <div class="star-rating" data-interest="governance">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Open government, accountability, civic tech</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="droplet"></i>
+                                    </div>
+                                    <h3 class="interest-name">Water & Sanitation</h3>
+                                </div>
+                                <div class="star-rating" data-interest="water">
+                                    <button class="star-btn" data-rating="1">★</button>
+                                    <button class="star-btn" data-rating="2">★</button>
+                                    <button class="star-btn" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Clean water access, parks and infrastructure</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="users"></i>
+                                    </div>
+                                    <h3 class="interest-name">Social Impact</h3>
+                                </div>
+                                <div class="star-rating" data-interest="social">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Community development, social justice</p>
+                            </div>
+                        </div>
+
+                        <div class="interests-actions">
+                            <button class="btn btn-secondary">Load More Interests</button>
+                            <button class="btn btn-primary">Save Preferences</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
 
 
     <!-- Load Shared Auth Modal -->
@@ -1779,6 +1777,10 @@
 
         // Function to update sidebar toggle icon based on overlap state
         function updateSidebarToggleIcon() {
+
+            // DEACTIVATED
+            return;
+
             //alert("updateSidebarToggleIcon() called in index.html");
             const sidebarToggle = document.getElementById('sidebar-toggle');
             const sidebar = document.getElementById('sidebar');
