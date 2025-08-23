@@ -304,9 +304,12 @@ function createOSDetectionPanel(containerId) {
                 
 
                 <div id="githubCLIinstall">
+
+                <b>Run the GitHub CLI install outside your Code CLI.</b><br>
+                Check status in a new terminal:
                 <pre><code>gh auth status</code></pre>
 
-                <b>Install the Github CLI by running outside your Code CLI</b><br>
+                <b>Install the Github CLI</b><br>
 
                 <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br><br>
                 
@@ -1419,6 +1422,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                     </div>
                 </div>
             </div>
+            
+            <!-- Configuration Display (hidden by default, shown when info icon clicked) -->
+            <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                Loading configuration...
+            </div>
         </div>
     `;
 
@@ -1490,7 +1498,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 <span><strong>Demo Mode:</strong> Database connection inactive. ${configureServerText}</span>
             </div>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                <span style="color: #dc3545; margin-right: 8px;">⚠️</span>The Rust backend server needs to be started to access full configuration and testing capabilities.
+                <span style="color: #dc3545; margin-right: 8px;">🔴</span>The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
             <!-- Tab Navigation -->
             <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">
@@ -1597,18 +1605,35 @@ function switchRustTab(tabName) {
     });
 }
 
-// Function to toggle the tests info visibility
+// Function to toggle the tests info and config display visibility
 function toggleTestsInfo() {
     const testsInfoContent = document.getElementById('tests-info-content');
     const testsInfoIcon = document.getElementById('tests-info-icon');
+    const configDisplay = document.getElementById('config-display');
     
+    const isVisible = testsInfoContent && testsInfoContent.style.display === 'inline-block';
+    
+    // Toggle tests info content
     if (testsInfoContent && testsInfoIcon) {
-        if (testsInfoContent.style.display === 'none' || testsInfoContent.style.display === '') {
-            testsInfoContent.style.display = 'inline-block';
-            testsInfoIcon.style.color = 'var(--accent-blue)';
-        } else {
+        if (isVisible) {
             testsInfoContent.style.display = 'none';
             testsInfoIcon.style.color = 'var(--text-secondary)';
+        } else {
+            testsInfoContent.style.display = 'inline-block';
+            testsInfoIcon.style.color = 'var(--accent-blue)';
+        }
+    }
+    
+    // Toggle config display
+    if (configDisplay) {
+        if (isVisible) {
+            configDisplay.style.display = 'none';
+        } else {
+            configDisplay.style.display = 'block';
+            // Load configuration when showing for the first time
+            if (typeof loadConfiguration === 'function') {
+                loadConfiguration();
+            }
         }
     }
 }

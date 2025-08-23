@@ -65,9 +65,6 @@
             
             <div id="gemini-key-container" style="display: none;"></div>
             
-            <div class="config-info" id="config-display">
-                Loading configuration...
-            </div>
 
             <div id="test-instruction" style="margin-bottom: 10px;">
                 Start the Rust API first. Then you can test the Gemini API.
@@ -136,7 +133,7 @@
 
         // DOM elements
         const apiStatus = document.getElementById('api-status');
-        const configDisplay = document.getElementById('config-display');
+        // configDisplay is now created dynamically, so we'll find it when needed
         const testButton = document.getElementById('test-gemini');
         const testSpinner = document.getElementById('test-spinner');
         const testResult = document.getElementById('test-result');
@@ -287,7 +284,8 @@
                 
                 if (createResponse.ok) {
                     // Successfully created .env file
-                    configDisplay.innerHTML = `
+                    const configDisplay = document.getElementById('config-display');
+                    if (configDisplay) configDisplay.innerHTML = `
                         <div style="color: var(--accent-green); margin-bottom: 16px;">
                             ✅ Created .env file from .env.example template
                         </div>
@@ -355,7 +353,8 @@
             
             try {
                 apiStatus.className = 'status-indicator loading';
-                configDisplay.textContent = 'Loading configuration files (.env and settings.js)...';
+                const configDisplay = document.getElementById('config-display');
+                if (configDisplay) configDisplay.textContent = 'Loading configuration files (.env and settings.js)...';
                 
                 // Load .env file directly from frontend first
                 try {
@@ -484,7 +483,8 @@
                         Gemini API Key Needed
                     `;
                     
-                    configDisplay.innerHTML = `
+                    const configDisplay = document.getElementById('config-display');
+                    if (configDisplay) configDisplay.innerHTML = `
                         <strong>Configuration Source:</strong> .env file (backend unavailable)<br>
                         <strong>Gemini API Key:</strong> <span style="color: var(--accent-red);">Not configured or invalid</span><br>
                     `;
@@ -659,7 +659,8 @@
                         geminiKeyContainer.style.display = 'none';
                         
                         // Update the configuration display
-                        configDisplay.innerHTML = `
+                        const configDisplay = document.getElementById('config-display');
+                    if (configDisplay) configDisplay.innerHTML = `
                             <div style="color: var(--accent-green); margin-bottom: 16px; font-weight: bold;">
                                 ✅ Successfully created .env file from template and added your Gemini API key!
                             </div>
@@ -702,7 +703,8 @@
                         await loadConfiguration();
                         
                         // Show success message
-                        configDisplay.innerHTML += `
+                        const configDisplayUpdate = document.getElementById('config-display');
+                        if (configDisplayUpdate) configDisplayUpdate.innerHTML += `
                             <br><div style="color: var(--accent-green); margin-top: 16px; font-weight: bold;">
                                 ✅ Gemini API key ${isChange ? 'changed' : 'updated'} successfully!
                             </div>
