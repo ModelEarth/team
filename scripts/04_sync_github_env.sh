@@ -109,9 +109,8 @@ SECRET_KEYS=(
   GEMINI_API_KEY
   CLAUDE_API_KEY
 )
-# Optional OIDC secrets if present
-[[ -n "$(get_from_env_file GOOGLE_WORKLOAD_IDENTITY_PROVIDER)" ]] && SECRET_KEYS+=( GCP_WORKLOAD_IDENTITY_PROVIDER )
-[[ -n "$(get_from_env_file GOOGLE_SA_EMAIL)" ]] && SECRET_KEYS+=( GCP_SERVICE_ACCOUNT )
+# Optional OIDC secrets if present (we’ll compute values shortly)
+# We'll append GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT if non-empty.
 
 # Variables (GitHub Variables)
 VAR_KEYS=(
@@ -169,9 +168,29 @@ EXIOBASE_PASSWORD="$(get_from_env_file EXIOBASE_PASSWORD)"
 GEMINI_API_KEY="$(get_from_env_file GEMINI_API_KEY)"
 CLAUDE_API_KEY="$(get_from_env_file CLAUDE_API_KEY)"
 
-# Optional OIDC secrets (mapped names for GH)
-GCP_WORKLOAD_IDENTITY_PROVIDER="$(get_from_env_file GOOGLE_WORKLOAD_IDENTITY_PROVIDER)"
+# --- OIDC provider normalization (THE IMPORTANT CHANGE) --------------------
+# Normalize GOOGLE_WORKLOAD_IDENTITY_PROVIDER into canonical format if needed,
+# then expose it to GitHub as the secret GCP_WORKLOAD_IDENTITY_PROVIDER.
+GOOGLE_WORKLOAD_IDENTITY_PROVIDER="$(get_from_env_file GOOGLE_WORKLOAD_IDENTITY_PROVIDER)"
+if [[ -n "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" && ! "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" =~ ^projects/.*/locations/global/workloadIdentityPools/.*/providers/.*$ ]]; then
+  PN="$(get_from_env_file GOOGLE_PROJECT_NUMBER)"
+  WIF_POOL_ID="$(get_from_env_file GOOGLE_WIF_POOL_ID)"
+  WIF_PROVIDER_ID="$(get_from_env_file GOOGLE_WIF_PROVIDER_ID)"
+  if [[ -n "$PN" && -n "$WIF_POOL_ID" && -n "$WIF_PROVIDER_ID" ]]; then
+    GOOGLE_WORKLOAD_IDENTITY_PROVIDER="projects/${PN}/locations/global/workloadIdentityPools/${WIF_POOL_ID}/providers/${WIF_PROVIDER_ID}"
+    echo "   normalized GOOGLE_WORKLOAD_IDENTITY_PROVIDER → $GOOGLE_WORKLOAD_IDENTITY_PROVIDER"
+  else
+    die "GOOGLE_WORKLOAD_IDENTITY_PROVIDER is non-canonical and cannot be normalized (need GOOGLE_PROJECT_NUMBER, GOOGLE_WIF_POOL_ID, GOOGLE_WIF_PROVIDER_ID)."
+  fi
+fi
+GCP_WORKLOAD_IDENTITY_PROVIDER="$GOOGLE_WORKLOAD_IDENTITY_PROVIDER"
+
+# Also pass the deploy SA email as the secret GCP_SERVICE_ACCOUNT if present
 GCP_SERVICE_ACCOUNT="$(get_from_env_file GOOGLE_SA_EMAIL)"
+
+# Append optional OIDC secrets if non-empty
+[[ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]] && SECRET_KEYS+=( GCP_WORKLOAD_IDENTITY_PROVIDER )
+[[ -n "$GCP_SERVICE_ACCOUNT" ]] && SECRET_KEYS+=( GCP_SERVICE_ACCOUNT )
 
 [[ $VERBOSE -eq 1 ]] && echo "Parsed keys: ${#ENV_KEYS[@]}"
 

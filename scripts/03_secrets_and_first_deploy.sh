@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Creates/updates GCP secrets, pushes image, and deploys Cloud Run service.
+# Also normalizes GOOGLE_WORKLOAD_IDENTITY_PROVIDER into canonical form in .env.
 # Idempotent: safe to re-run.
 set -euo pipefail
 
@@ -17,6 +18,18 @@ have gcloud || die "gcloud not found. Install: https://cloud.google.com/sdk/docs
 ACTIVE_ACCT="$(gcloud config get-value account 2>/dev/null || true)"
 [[ -n "$ACTIVE_ACCT" ]] || die "You are not logged in. Run: gcloud auth login"
 
+# --- helper to upsert key=value in .env ------------------------------------
+set_env_var() {
+  local key="$1" value="$2"
+  [[ -z "$key" ]] && return 0
+  if grep -q "^${key}=" "$ENV_PATH"; then
+    # portable in-place sed (creates .bak)
+    sed -i.bak "s#^${key}=.*#${key}=${value}#" "$ENV_PATH"
+  else
+    echo "${key}=${value}" >> "$ENV_PATH"
+  fi
+}
+
 # ---- Required from .env ----------------------------------------------------
 PROJECT_ID="${GOOGLE_PROJECT_ID:?GOOGLE_PROJECT_ID missing in .env}"
 REGION="${GOOGLE_REGION:-us-central1}"
@@ -29,6 +42,19 @@ PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(project
 
 DEPLOY_SA_EMAIL="${GOOGLE_SA_EMAIL:-gha-deployer@${PROJECT_ID}.iam.gserviceaccount.com}"
 RUNTIME_SA_EMAIL="${GOOGLE_RUNTIME_SA_EMAIL:-${PROJECT_NUMBER}-compute@developer.gserviceaccount.com}"
+
+# --- Normalize OIDC provider into canonical resource -----------------------
+# If we have pool/provider IDs in .env, stamp the canonical string back into .env.
+POOL_ID="${GOOGLE_WIF_POOL_ID:-github-pool}"
+PROVIDER_ID="${GOOGLE_WIF_PROVIDER_ID:-github-oidc}"
+CANON_WIP="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
+
+GOOGLE_WORKLOAD_IDENTITY_PROVIDER="${GOOGLE_WORKLOAD_IDENTITY_PROVIDER:-}"
+if [[ ! "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" =~ ^projects/.*/locations/global/workloadIdentityPools/.*/providers/.*$ ]]; then
+  echo "==> Normalizing GOOGLE_WORKLOAD_IDENTITY_PROVIDER in .env → ${CANON_WIP}"
+  set_env_var "GOOGLE_WORKLOAD_IDENTITY_PROVIDER" "$CANON_WIP"
+  GOOGLE_WORKLOAD_IDENTITY_PROVIDER="$CANON_WIP"
+fi
 
 # App non-secret env (from .env)
 SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
@@ -59,6 +85,7 @@ echo "    AR_REPO=${AR_REPO}"
 echo "    SERVICE=${SERVICE}"
 echo "    DEPLOY_SA_EMAIL=${DEPLOY_SA_EMAIL}"
 echo "    RUNTIME_SA_EMAIL=${RUNTIME_SA_EMAIL}"
+echo "    OIDC_PROVIDER=${GOOGLE_WORKLOAD_IDENTITY_PROVIDER}"
 echo "    gcloud account=${ACTIVE_ACCT}"
 echo
 
@@ -145,7 +172,6 @@ ENV_KV=(
   "COMMONS_USER=${COMMONS_USER}"
   "COMMONS_SSL_MODE=${COMMONS_SSL_MODE}"
   "PROJECTS_FILE_PATH=${PROJECTS_FILE_PATH}"
-  # Exiobase non-secret values (only if set)
   "EXIOBASE_HOST=${EXIOBASE_HOST}"
   "EXIOBASE_PORT=${EXIOBASE_PORT}"
   "EXIOBASE_NAME=${EXIOBASE_NAME}"
@@ -170,7 +196,6 @@ maybe_add_secret() {
   if gcloud secrets describe "$var" >/dev/null 2>&1; then
     SET_SECRETS_LIST+=( "${var}=${var}:latest" )
   else
-    # fallback: include plaintext if present in .env
     local v="${!var:-}"
     if [[ -n "$v" ]]; then
       PLAINTEXT_FALLBACKS+=( "${var}=${v}" )
@@ -183,7 +208,6 @@ maybe_add_secret EXIOBASE_PASSWORD
 maybe_add_secret GEMINI_API_KEY
 maybe_add_secret CLAUDE_API_KEY
 
-# Append plaintext fallbacks to SET_ENV (only if needed)
 if [[ ${#PLAINTEXT_FALLBACKS[@]} -gt 0 ]]; then
   for kv in "${PLAINTEXT_FALLBACKS[@]}"; do
     [[ -n "$SET_ENV" ]] && SET_ENV+=","
@@ -208,7 +232,6 @@ if [[ ${#SET_SECRETS_LIST[@]} -gt 0 ]]; then
     --set-env-vars "$SET_ENV" \
     --set-secrets "$(IFS=, ; echo "${SET_SECRETS_LIST[*]}")"
 else
-  # (unlikely) nothing in Secret Manager yet
   gcloud run deploy "$SERVICE" \
     --image "$TAG" \
     --region "$REGION" \
