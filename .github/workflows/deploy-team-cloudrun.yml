@@ -45,18 +45,57 @@ jobs:
       - name: 🛎️ Checkout
         uses: actions/checkout@v4
 
+      # ---- NEW: sanity check we have the right OIDC provider format --------
+      - name: 🔎 Validate OIDC inputs (non-leaky)
+        shell: bash
+        env:
+          WIP: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SA:  ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+
+          if [[ -z "${WIP:-}" ]]; then
+            fail "Secret GCP_WORKLOAD_IDENTITY_PROVIDER is empty/missing."
+          fi
+          if [[ -z "${SA:-}" ]]; then
+            fail "Secret GCP_SERVICE_ACCOUNT is empty/missing."
+          fi
+
+          # Pattern check without printing secret contents
+          re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
+          if [[ "$WIP" =~ $re ]]; then
+            echo "✅ OIDC provider looks canonical (projects/.../providers/...)."
+          else
+            fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'. Fix the secret and re-run."
+          fi
+
+          # Quick domain sanity check on SA (also non-leaky)
+          if [[ "$SA" == *"@${GITHUB_REPOSITORY_OWNER,,}."* ]]; then
+            echo "ℹ️  SA domain pattern check passed (heuristic)."
+          else
+            echo "ℹ️  SA domain not checked (heuristic only). Proceeding."
+          fi
+
       - name: 🔐 Auth to GCP (OIDC)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           project_id: ${{ env.GCP_PROJECT_ID }}
+          token_format: 'access_token'
+          create_credentials_file: true
 
       - name: 🧰 Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: ">= 474.0.0"
           project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: 🌎 Set project env
+        run: |
+          echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}" >> "$GITHUB_ENV"
+          gcloud config set project "${GCP_PROJECT_ID}"
 
       - name: 🚀 Enable APIs (idempotent)
         run: |
@@ -70,7 +109,6 @@ jobs:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         run: |
           set -euo pipefail
-
           upsert_secret () {
             local name="$1" value="$2"
             if [ -z "${value}" ]; then
@@ -86,7 +124,6 @@ jobs:
             printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=-
             echo "  added new version for: $name"
           }
-
           echo "==> Upserting secrets (idempotent)..."
           upsert_secret COMMONS_PASSWORD "${COMMONS_PASSWORD:-}"
           upsert_secret EXIOBASE_PASSWORD "${EXIOBASE_PASSWORD:-}"
