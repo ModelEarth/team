@@ -70,7 +70,7 @@ jobs:
             echo "✅ OIDC provider looks canonical."
           else
             echo "len(raw)=${#WIP}, len(trimmed)=${#WIP_TRIM}"  # non-leaky hint
-            fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'. Fix the secret value and re-run."
+            fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'. Please fix the secret value and re-run."
           fi
 
       - name: 🔐 Auth to GCP (OIDC)
