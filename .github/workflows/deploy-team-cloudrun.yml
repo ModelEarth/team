@@ -5,25 +5,38 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-team-cloudrun
+  cancel-in-progress: true
+
 permissions:
   contents: read
   id-token: write
 
 env:
+  # --- GCP ---
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_REGION: ${{ vars.GCP_REGION }}
   GCP_AR_REPO: ${{ vars.GCP_AR_REPO }}
   CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
 
-  # Non-secret app env (change to your needs)
-  SERVER_HOST: "0.0.0.0"
-  SERVER_PORT: "8081"
+  # --- Non-secret app env (from GitHub Variables) ---
+  SERVER_HOST: ${{ vars.SERVER_HOST || '0.0.0.0' }}
+  SERVER_PORT: ${{ vars.SERVER_PORT || '8080' }}
+
   COMMONS_HOST: ${{ vars.COMMONS_HOST }}
   COMMONS_PORT: ${{ vars.COMMONS_PORT }}
   COMMONS_NAME: ${{ vars.COMMONS_NAME }}
   COMMONS_USER: ${{ vars.COMMONS_USER }}
-  COMMONS_SSL_MODE: ${{ vars.COMMONS_SSL_MODE }}
+  COMMONS_SSL_MODE: ${{ vars.COMMONS_SSL_MODE || 'require' }}
   PROJECTS_FILE_PATH: ${{ vars.PROJECTS_FILE_PATH }}
+
+  # Optional Exiobase non-secret vars
+  EXIOBASE_HOST: ${{ vars.EXIOBASE_HOST }}
+  EXIOBASE_PORT: ${{ vars.EXIOBASE_PORT }}
+  EXIOBASE_NAME: ${{ vars.EXIOBASE_NAME }}
+  EXIOBASE_USER: ${{ vars.EXIOBASE_USER }}
+  EXIOBASE_SSL_MODE: ${{ vars.EXIOBASE_SSL_MODE }}
 
 jobs:
   deploy:
@@ -33,7 +46,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 🔐 Auth to GCP (OIDC)
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -50,7 +62,38 @@ jobs:
         run: |
           gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
 
-      - name: 🏷️ Build & Push (Cloud Build)
+      - name: 🗝️ Upsert secrets into Secret Manager (from GitHub Secrets)
+        env:
+          COMMONS_PASSWORD: ${{ secrets.COMMONS_PASSWORD }}
+          EXIOBASE_PASSWORD: ${{ secrets.EXIOBASE_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          upsert_secret () {
+            local name="$1" value="$2"
+            if [ -z "${value}" ]; then
+              echo "  (skip) $name: empty (not set in GitHub Secrets)"
+              return 0
+            fi
+            if ! gcloud secrets describe "$name" >/dev/null 2>&1; then
+              gcloud secrets create "$name" --replication-policy="automatic"
+              echo "  created secret: $name"
+            else
+              echo "  secret exists: $name"
+            fi
+            printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=-
+            echo "  added new version for: $name"
+          }
+
+          echo "==> Upserting secrets (idempotent)..."
+          upsert_secret COMMONS_PASSWORD "${COMMONS_PASSWORD:-}"
+          upsert_secret EXIOBASE_PASSWORD "${EXIOBASE_PASSWORD:-}"
+          upsert_secret GEMINI_API_KEY "${GEMINI_API_KEY:-}"
+          upsert_secret CLAUDE_API_KEY "${CLAUDE_API_KEY:-}"
+
+      - name: 🏷️ Build & Push image (Cloud Build)
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
@@ -61,16 +104,13 @@ jobs:
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
-          RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA || format('{0}-compute@developer.gserviceaccount.com', steps.project_num.outputs.number) }}
         run: |
-          # Resolve project number (used only if you want to override runtime SA)
-          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
-          RUNTIME_SA_EMAIL="${{ vars.GCP_RUNTIME_SA }}"
-          if [ -z "${RUNTIME_SA_EMAIL}" ] || [ "${RUNTIME_SA_EMAIL}" = "null" ]; then
-            RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-          fi
+          set -euo pipefail
 
-          # Assemble envs (omit empties)
+          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
+          RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+          # Build env list (omit empties)
           ENV_LIST="SERVER_HOST=${SERVER_HOST},SERVER_PORT=${SERVER_PORT}"
           [ -n "${COMMONS_HOST}" ] && ENV_LIST="${ENV_LIST},COMMONS_HOST=${COMMONS_HOST}"
           [ -n "${COMMONS_PORT}" ] && ENV_LIST="${ENV_LIST},COMMONS_PORT=${COMMONS_PORT}"
@@ -79,9 +119,16 @@ jobs:
           [ -n "${COMMONS_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},COMMONS_SSL_MODE=${COMMONS_SSL_MODE}"
           [ -n "${PROJECTS_FILE_PATH}" ] && ENV_LIST="${ENV_LIST},PROJECTS_FILE_PATH=${PROJECTS_FILE_PATH}"
 
-          # Secret mappings (must exist in Secret Manager in the project)
+          # Optional Exiobase non-secrets
+          [ -n "${EXIOBASE_HOST}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_HOST=${EXIOBASE_HOST}"
+          [ -n "${EXIOBASE_PORT}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_PORT=${EXIOBASE_PORT}"
+          [ -n "${EXIOBASE_NAME}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_NAME=${EXIOBASE_NAME}"
+          [ -n "${EXIOBASE_USER}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_USER=${EXIOBASE_USER}"
+          [ -n "${EXIOBASE_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_SSL_MODE=${EXIOBASE_SSL_MODE}"
+
+          # Secret mappings
           SECRET_LIST=""
-          for s in COMMONS_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
+          for s in COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
             if gcloud secrets describe "$s" >/dev/null 2>&1; then
               if [ -z "$SECRET_LIST" ]; then
                 SECRET_LIST="${s}=${s}:latest"
