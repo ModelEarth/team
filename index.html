@@ -14,11 +14,15 @@
     <link rel="stylesheet" href="css/people-teams.css">
     <link rel="stylesheet" href="css/account.css">
 
+    <!-- Placed above nav.css or #headerbar spans top -->
+    <link type="text/css" rel="stylesheet" href="../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../localsite/js/localsite.js?showheader=true"></script>
+
     <!-- Newer version of css navs -->
     <link rel="stylesheet" href="../localsite/css/nav.css">
     <script src="../localsite/js/nav.js"></script>
 
-    <script src="../localsite/js/localsite.js?showheader=true"></script>
+
     <script src="../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
     <script src="../localsite/js/navigation.js" id="/localsite/js/navigation.js"></script>
 
@@ -38,11 +42,11 @@
     });
     </script>
     <style>
-        #sideIcons, #local-footer {
-            display:none !important;
+        #sideIcons, #main-footer {
+            displayX:none !important;
         }
         .top-bar {
-            display:none !important;
+            displayX:none !important;
         }
 
         /*
@@ -398,21 +402,23 @@
 
             <img src="img/banner.webp" class="geo" style="width:100%;display:none">
 
-            <header class="top-bar geo-hide">
-                <div>
-                <!--
+            <!--
                 <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
                 -->
+            <!--
+            Creates a blank space
+            <header class="top-bar geo-hide">
+                <div>
+                
                 </div>
                 <div class="user-menu">
                     <div class="auth-container" id="auth-container">
                         <button id="signInTeam" class="btn btn-secondary" onclick="showAuthModal()" style="display:none">Sign In</button>
-                        <!--
-                        <button class="btn btn-primary" onclick="goProjects()">Search Projects</button>
-                        -->
+                        <button class="btn btn-primary" style="display:none" onclick="goProjects()">Search Projects</button>
                     </div>
                 </div>
             </header>
+            -->
 
             <div class="content-area">
                 <!-- Home Section -->

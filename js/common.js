@@ -311,7 +311,18 @@ function createOSDetectionPanel(containerId) {
 
                 <b>Install the Github CLI</b><br>
 
-                <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br><br>
+                <div class="mac-instructions" style="display: block;">
+                    <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br>
+                    If needed, install <a href="https://brew.sh/" target="_blank">brew</a><br><br>
+                </div>
+                <div class="pc-instructions" style="display: none;">
+                    <code>winget install --id GitHub.cli</code><br><br>
+                    
+                    If your terminal is PowerShell and you don't have winget, download Microsoft's 
+                    <a href="https://apps.microsoft.com/detail/app-installer/9nblggh4nns1" target="_blank">App Installer</a><br>
+                    After installing "App Installer", restart PowerShell and check:<br>
+                    <code>winget --version</code><br><br>
+                </div>
                 
                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -547,6 +558,20 @@ function initializeOSDetectionPanel() {
             // Hide VS Code commands section
             if (vscodeCommands) {
                 vscodeCommands.style.display = 'none';
+            }
+        }
+        
+        // Update GitHub CLI instructions based on OS
+        const macInstructions = document.querySelector('.mac-instructions');
+        const pcInstructions = document.querySelector('.pc-instructions');
+        
+        if (macInstructions && pcInstructions) {
+            if (selectedOS === 'PC') {
+                macInstructions.style.display = 'none';
+                pcInstructions.style.display = 'block';
+            } else {
+                macInstructions.style.display = 'block';
+                pcInstructions.style.display = 'none';
             }
         }
     }

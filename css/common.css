@@ -33,8 +33,20 @@ h2 {
     margin-top: 20px;
 }
 .container {
-    max-width: 1200px;
+    max-width: 2200px;
     margin: 0 auto;
+}
+
+@media (min-width: 1201px) {
+    .container {
+        padding: 0 40px;
+    }
+}
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 20px;
+    width: 100%;
 }
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */

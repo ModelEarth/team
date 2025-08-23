@@ -35,6 +35,10 @@ pre code {
   width: 100%;
   box-sizing: border-box;
 }
+.dark pre code {
+    color: #ddd !important;
+    background-color: #111 !important;
+}
 
 /* Also ensure the readme content container doesn't overflow */
 .readme-content {
