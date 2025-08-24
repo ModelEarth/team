@@ -23,6 +23,7 @@ env:
   # --- Non-secret app env (from GitHub Variables) ---
   SERVER_HOST: ${{ vars.SERVER_HOST || '0.0.0.0' }}
   SERVER_PORT: ${{ vars.SERVER_PORT || '8080' }}
+
   COMMONS_HOST: ${{ vars.COMMONS_HOST }}
   COMMONS_PORT: ${{ vars.COMMONS_PORT }}
   COMMONS_NAME: ${{ vars.COMMONS_NAME }}
@@ -44,31 +45,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Resolve WIP from secret, trim/validate, and expose via outputs
-      - name: Resolve OIDC provider from Secret
-        id: resolve_wip
+      # Minimal: trim CR/LF + whitespace from the secret and output it
+      - name: Normalize OIDC provider
+        id: norm_wip
         env:
           WIP_SECRET: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           set -euo pipefail
           w="${WIP_SECRET:-}"
           w="$(printf '%s' "$w" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          # basic canonical format check
-          if ! echo "$w" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'; then
-            echo "GCP_WORKLOAD_IDENTITY_PROVIDER not in canonical format." >&2
-            echo "len_raw=${#WIP_SECRET}, len_trimmed=${#w}" >&2
-            exit 1
-          fi
           echo "wip=$w" >> "$GITHUB_OUTPUT"
-          echo "len_raw=${#WIP_SECRET}" >> "$GITHUB_OUTPUT"
 
-      - name: Debug WIP length (no secret content)
-        run: echo "Resolved WIP length: ${{ steps.resolve_wip.outputs.len_raw }}"
+      - name: Validate OIDC inputs (non-leaky)
+        shell: bash
+        env:
+          WIP_TRIM: ${{ steps.norm_wip.outputs.wip }}
+          SA:       ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          if [[ -z "${WIP_TRIM:-}" ]]; then
+            fail "Secret GCP_WORKLOAD_IDENTITY_PROVIDER is empty/missing."
+          fi
+          if [[ -z "${SA:-}" ]]; then
+            fail "Secret GCP_SERVICE_ACCOUNT is empty/missing."
+          fi
+          re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
+          [[ "$WIP_TRIM" =~ $re ]] || fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'."
 
       - name: Auth to GCP (OIDC)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ steps.resolve_wip.outputs.wip }}
+          workload_identity_provider: ${{ steps.norm_wip.outputs.wip }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           project_id: ${{ env.GCP_PROJECT_ID }}
           token_format: access_token
@@ -80,7 +88,7 @@ jobs:
           version: ">= 474.0.0"
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: Set gcloud project
+      - name: Set project env
         run: |
           echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}" >> "$GITHUB_ENV"
           gcloud config set project "${GCP_PROJECT_ID}"
@@ -134,7 +142,6 @@ jobs:
           PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
           RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-          # Build env list (omit empties)
           ENV_LIST="SERVER_HOST=${SERVER_HOST},SERVER_PORT=${SERVER_PORT}"
           [ -n "${COMMONS_HOST}" ] && ENV_LIST="${ENV_LIST},COMMONS_HOST=${COMMONS_HOST}"
           [ -n "${COMMONS_PORT}" ] && ENV_LIST="${ENV_LIST},COMMONS_PORT=${COMMONS_PORT}"
@@ -148,7 +155,6 @@ jobs:
           [ -n "${EXIOBASE_USER}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_USER=${EXIOBASE_USER}"
           [ -n "${EXIOBASE_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_SSL_MODE=${EXIOBASE_SSL_MODE}"
 
-          # Secret mappings
           SECRET_LIST=""
           for s in COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
             if gcloud secrets describe "$s" >/dev/null 2>&1; then
