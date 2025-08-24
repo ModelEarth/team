@@ -48,7 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Debugging secrets (Safe)
+      # Debugging secrets(Safe)
       - name: 🔍 Confirm secret plumbing with a dummy
         env:
           DUMMY_SECRET: ${{ secrets.DUMMY_SECRET }}
