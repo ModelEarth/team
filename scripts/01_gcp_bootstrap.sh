@@ -150,6 +150,20 @@ gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/iam.serviceAccountUser" >/dev/null || true
 
+# Allow gha-deployer to ACT AS the Cloud Build SA (required by gcloud builds submit)
+
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+
+gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/iam.serviceAccountUser" >/dev/null || true
+
+# (Optional but harmless) also allow token creation if your org policy expects it
+gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/iam.serviceAccountTokenCreator" >/dev/null || true
+
 msg "    Roles granted."
 
 # ---- Ensure Cloud Build SA has exec-time permissions (idempotent) ---------
