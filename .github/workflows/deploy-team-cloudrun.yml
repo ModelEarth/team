@@ -14,107 +14,130 @@ permissions:
   id-token: write
 
 env:
-  # ---- GCP repo Variables (populated by 04_sync_github_env.sh) ----
-  GCP_PROJECT_ID:        ${{ vars.GCP_PROJECT_ID }}
-  GCP_PROJECT_NUMBER:    ${{ vars.GCP_PROJECT_NUMBER }}
-  GCP_REGION:            ${{ vars.GCP_REGION }}
-  GCP_AR_REPO:           ${{ vars.GCP_AR_REPO }}
-  CLOUD_RUN_SERVICE:     ${{ vars.CLOUD_RUN_SERVICE }}
-  GOOGLE_WIF_POOL_ID:    ${{ vars.GOOGLE_WIF_POOL_ID }}
-  GOOGLE_WIF_PROVIDER_ID:${{ vars.GOOGLE_WIF_PROVIDER_ID }}
+  # ---- GCP repo Variables (set by 04_sync_github_env.sh) ----
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  GCP_AR_REPO: ${{ vars.GCP_AR_REPO }}
+  CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+  GOOGLE_WIF_POOL_ID: ${{ vars.GOOGLE_WIF_POOL_ID }}
+  GOOGLE_WIF_PROVIDER_ID: ${{ vars.GOOGLE_WIF_PROVIDER_ID }}
 
   # ---- Non-secret app env (repo Variables) ----
-  SERVER_HOST:           ${{ vars.SERVER_HOST || '0.0.0.0' }}
-  SERVER_PORT:           ${{ vars.SERVER_PORT || '8080' }}
+  SERVER_HOST: ${{ vars.SERVER_HOST || '0.0.0.0' }}
+  SERVER_PORT: ${{ vars.SERVER_PORT || '8080' }}
 
-  COMMONS_HOST:          ${{ vars.COMMONS_HOST }}
-  COMMONS_PORT:          ${{ vars.COMMONS_PORT }}
-  COMMONS_NAME:          ${{ vars.COMMONS_NAME }}
-  COMMONS_USER:          ${{ vars.COMMONS_USER }}
-  COMMONS_SSL_MODE:      ${{ vars.COMMONS_SSL_MODE || 'require' }}
-  PROJECTS_FILE_PATH:    ${{ vars.PROJECTS_FILE_PATH }}
+  COMMONS_HOST: ${{ vars.COMMONS_HOST }}
+  COMMONS_PORT: ${{ vars.COMMONS_PORT }}
+  COMMONS_NAME: ${{ vars.COMMONS_NAME }}
+  COMMONS_USER: ${{ vars.COMMONS_USER }}
+  COMMONS_SSL_MODE: ${{ vars.COMMONS_SSL_MODE || 'require' }}
+  PROJECTS_FILE_PATH: ${{ vars.PROJECTS_FILE_PATH }}
 
   # Optional Exiobase non-secrets
-  EXIOBASE_HOST:         ${{ vars.EXIOBASE_HOST }}
-  EXIOBASE_PORT:         ${{ vars.EXIOBASE_PORT }}
-  EXIOBASE_NAME:         ${{ vars.EXIOBASE_NAME }}
-  EXIOBASE_USER:         ${{ vars.EXIOBASE_USER }}
-  EXIOBASE_SSL_MODE:     ${{ vars.EXIOBASE_SSL_MODE }}
+  EXIOBASE_HOST: ${{ vars.EXIOBASE_HOST }}
+  EXIOBASE_PORT: ${{ vars.EXIOBASE_PORT }}
+  EXIOBASE_NAME: ${{ vars.EXIOBASE_NAME }}
+  EXIOBASE_USER: ${{ vars.EXIOBASE_USER }}
+  EXIOBASE_SSL_MODE: ${{ vars.EXIOBASE_SSL_MODE }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 🛎️ Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
+      # Debugging secrets (Safe)
+      - name: 🔍 Confirm secret plumbing with a dummy
+        env:
+          DUMMY_SECRET: ${{ secrets.DUMMY_SECRET }}
+        run: |
+          set -euo pipefail
+          v="$(printf '%s' "$DUMMY_SECRET" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ "$v" != "dummyvalue" ]; then
+            echo "::error::DUMMY_SECRET did not arrive as expected (got length=${#v})"
+            exit 1
+          fi
+          echo "Dummy secret  OK."
+
       # Build/validate the OIDC provider path WITHOUT calling gcloud
-      - name: 🔧 Make canonical OIDC provider path
+      - name: Make canonical OIDC provider path
         id: wip
         shell: bash
         env:
-          V_PROJNUM: ${{ vars.GCP_PROJECT_NUMBER }}
-          V_POOL:    ${{ vars.GOOGLE_WIF_POOL_ID }}
-          V_PROV:    ${{ vars.GOOGLE_WIF_PROVIDER_ID }}
+          V_PROJNUM:  ${{ vars.GCP_PROJECT_NUMBER }}
+          V_POOL:     ${{ vars.GOOGLE_WIF_POOL_ID }}
+          V_PROV:     ${{ vars.GOOGLE_WIF_PROVIDER_ID }}
           S_FALLBACK: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           set -euo pipefail
-          trim(){ printf '%s' "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
+          trim() { printf '%s' "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
           projnum="$(trim "${V_PROJNUM:-}")"
           pool="$(trim "${V_POOL:-}")"
           prov="$(trim "${V_PROV:-}")"
           fallback="$(trim "${S_FALLBACK:-}")"
+
+          # Prefer canonical build from variables; otherwise use secret fallback
           if [[ -n "$projnum" && -n "$pool" && -n "$prov" ]]; then
             wip="projects/${projnum}/locations/global/workloadIdentityPools/${pool}/providers/${prov}"
           else
             wip="$fallback"
           fi
+
+          # Validate (non-leaky)
           re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
-          [[ -n "$wip" && "$wip" =~ $re ]] || { echo "OIDC provider path not canonical"; exit 1; }
+          if [[ -z "$wip" || ! "$wip" =~ $re ]]; then
+            echo "len_wip=${#wip}"
+            echo "ERROR: OIDC provider path not canonical  (projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>)." >&2
+            exit 1
+          fi
+
           echo "wip=$wip" >> "$GITHUB_OUTPUT"
 
-      - name: 🔐 Auth to GCP (OIDC)
+      - name: Auth to GCP (OIDC)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ steps.wip.outputs.wip }}
-          service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          project_id:                 ${{ env.GCP_PROJECT_ID }}
-          create_credentials_file:    true
-          token_format:               'access_token'
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          token_format: 'access_token'
 
-      - name: 🧰 Setup gcloud
+      - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: ">= 474.0.0"
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: 🌎 Set gcloud project
+      - name: Set gcloud project
         run: |
           echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}" >> "$GITHUB_ENV"
           gcloud config set project "${GCP_PROJECT_ID}"
-          echo "Active account: $(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
 
-      # 🛑 No API enabling in CI – do this once via scripts/01 locally
+      # ⚠️ Removed: Enable APIs (do this once locally via scripts/01)
+      # ⚠️ Removed: Upsert secrets into Secret Manager (manage locally via scripts/03)
 
-      # 🛑 No Secret Manager upserts in CI – manage via scripts/03 locally
-
-      - name: 🏷️ Build & Push image (Cloud Build)
+      - name: Build & Push image (Cloud Build)
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
         run: |
-          set -euo pipefail
           gcloud builds submit --tag "${IMAGE_URI}:${TAG}" .
 
-      - name: 🌩️ Deploy to Cloud Run
+      - name: Deploy to Cloud Run
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
+
           PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
           RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
+          # Build env list (omit empties)
           ENV_LIST="SERVER_HOST=${SERVER_HOST},SERVER_PORT=${SERVER_PORT}"
           [ -n "${COMMONS_HOST}" ] && ENV_LIST="${ENV_LIST},COMMONS_HOST=${COMMONS_HOST}"
           [ -n "${COMMONS_PORT}" ] && ENV_LIST="${ENV_LIST},COMMONS_PORT=${COMMONS_PORT}"
@@ -123,18 +146,22 @@ jobs:
           [ -n "${COMMONS_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},COMMONS_SSL_MODE=${COMMONS_SSL_MODE}"
           [ -n "${PROJECTS_FILE_PATH}" ] && ENV_LIST="${ENV_LIST},PROJECTS_FILE_PATH=${PROJECTS_FILE_PATH}"
 
+          # Optional Exiobase non-secrets
           [ -n "${EXIOBASE_HOST}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_HOST=${EXIOBASE_HOST}"
           [ -n "${EXIOBASE_PORT}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_PORT=${EXIOBASE_PORT}"
           [ -n "${EXIOBASE_NAME}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_NAME=${EXIOBASE_NAME}"
           [ -n "${EXIOBASE_USER}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_USER=${EXIOBASE_USER}"
           [ -n "${EXIOBASE_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_SSL_MODE=${EXIOBASE_SSL_MODE}"
 
-          # If your secrets are already in Secret Manager (from script 03),
-          # Cloud Run will mount them by name below.
+          # Secret mappings (assumes secrets already exist in Secret Manager)
           SECRET_LIST=""
           for s in COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
             if gcloud secrets describe "$s" >/dev/null 2>&1; then
-              SECRET_LIST="${SECRET_LIST:+${SECRET_LIST},}${s}=${s}:latest"
+              if [ -z "$SECRET_LIST" ]; then
+                SECRET_LIST="${s}=${s}:latest"
+              else
+                SECRET_LIST="${SECRET_LIST},${s}=${s}:latest"
+              fi
             fi
           done
 
@@ -153,7 +180,7 @@ jobs:
             --set-env-vars "${ENV_LIST}" \
             $( [ -n "${SECRET_LIST}" ] && printf -- "--set-secrets %s" "${SECRET_LIST}" )
 
-      - name: 🔗 Show URL
+      - name: Show URL
         run: |
           URL="$(gcloud run services describe "${CLOUD_RUN_SERVICE}" --region "${GCP_REGION}" --format='value(status.url)')"
           echo "Service URL: ${URL}"
