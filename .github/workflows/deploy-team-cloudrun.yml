@@ -23,7 +23,6 @@ env:
   # --- Non-secret app env (from GitHub Variables) ---
   SERVER_HOST: ${{ vars.SERVER_HOST || '0.0.0.0' }}
   SERVER_PORT: ${{ vars.SERVER_PORT || '8080' }}
-
   COMMONS_HOST: ${{ vars.COMMONS_HOST }}
   COMMONS_PORT: ${{ vars.COMMONS_PORT }}
   COMMONS_NAME: ${{ vars.COMMONS_NAME }}
@@ -42,10 +41,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 🛎️ Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ---- NEW: sanity checks (remove later)  --------
+      # Resolve WIP from secret, trim/validate, and expose via outputs
       - name: Resolve OIDC provider from Secret
         id: resolve_wip
         env:
@@ -53,82 +52,44 @@ jobs:
         run: |
           set -euo pipefail
           w="${WIP_SECRET:-}"
-          w="$(printf "%s" "$w" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          echo "len_raw=${#w}" >> "$GITHUB_OUTPUT"
-          # Optional sanity check (no echo of the secret):
+          w="$(printf '%s' "$w" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          # basic canonical format check
           if ! echo "$w" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'; then
             echo "GCP_WORKLOAD_IDENTITY_PROVIDER not in canonical format." >&2
+            echo "len_raw=${#WIP_SECRET}, len_trimmed=${#w}" >&2
             exit 1
           fi
           echo "wip=$w" >> "$GITHUB_OUTPUT"
+          echo "len_raw=${#WIP_SECRET}" >> "$GITHUB_OUTPUT"
 
-      - name: Debug WIP length
+      - name: Debug WIP length (no secret content)
         run: echo "Resolved WIP length: ${{ steps.resolve_wip.outputs.len_raw }}"
 
-
-
-      - name: Debug GCP secrets (length only)
-        run: |
-          echo "GCP_WORKLOAD_IDENTITY_PROVIDER length: ${#GCP_WORKLOAD_IDENTITY_PROVIDER}"
-          echo "Starts with: $(echo "${GCP_WORKLOAD_IDENTITY_PROVIDER}" | cut -c1-20)"
-          echo "Ends with: $(echo "${GCP_WORKLOAD_IDENTITY_PROVIDER}" | rev | cut -c1-20 | rev)"
-        env:
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-
-      # ---- NEW: sanity check we have the right OIDC provider format --------
-      - name: 🔎 Validate OIDC inputs (non-leaky)
-        shell: bash
-        env:
-          WIP: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          SA:  ${{ secrets.GCP_SERVICE_ACCOUNT }}
-        run: |
-          set -euo pipefail
-          fail() { echo "::error::$*"; exit 1; }
-
-          if [[ -z "${WIP:-}" ]]; then
-            fail "Secret GCP_WORKLOAD_IDENTITY_PROVIDER is empty/missing."
-          fi
-          if [[ -z "${SA:-}" ]]; then
-            fail "Secret GCP_SERVICE_ACCOUNT is empty/missing."
-          fi
-
-          # Trim CRLF and surrounding whitespace before validation
-          WIP_TRIM="$(printf '%s' "$WIP" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-
-          re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
-          if [[ "$WIP_TRIM" =~ $re ]]; then
-            echo "✅ OIDC provider looks canonical."
-          else
-            echo "len(raw)=${#WIP}, len(trimmed)=${#WIP_TRIM}"  # non-leaky hint
-            fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'. Please fix the secret value and re-run."
-          fi
-      # ---- remove above this --------
-
-      - name: 🔐 Auth to GCP (OIDC)
+      - name: Auth to GCP (OIDC)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          workload_identity_provider: ${{ steps.resolve_wip.outputs.wip }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           project_id: ${{ env.GCP_PROJECT_ID }}
-          token_format: 'access_token'
+          token_format: access_token
           create_credentials_file: true
 
-      - name: 🧰 Setup gcloud
+      - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: ">= 474.0.0"
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: 🌎 Set project env
+      - name: Set gcloud project
         run: |
           echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}" >> "$GITHUB_ENV"
           gcloud config set project "${GCP_PROJECT_ID}"
 
-      - name: 🚀 Enable APIs (idempotent)
+      - name: Enable APIs (idempotent)
         run: |
           gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
 
-      - name: 🗝️ Upsert secrets into Secret Manager (from GitHub Secrets)
+      - name: Upsert secrets into Secret Manager (from GitHub Secrets)
         env:
           COMMONS_PASSWORD: ${{ secrets.COMMONS_PASSWORD }}
           EXIOBASE_PASSWORD: ${{ secrets.EXIOBASE_PASSWORD }}
@@ -157,20 +118,19 @@ jobs:
           upsert_secret GEMINI_API_KEY "${GEMINI_API_KEY:-}"
           upsert_secret CLAUDE_API_KEY "${CLAUDE_API_KEY:-}"
 
-      - name: 🏷️ Build & Push image (Cloud Build)
+      - name: Build & Push image (Cloud Build)
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
         run: |
           gcloud builds submit --tag "${IMAGE_URI}:${TAG}" .
 
-      - name: 🌩️ Deploy to Cloud Run
+      - name: Deploy to Cloud Run
         env:
           IMAGE_URI: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_AR_REPO }}/${{ env.CLOUD_RUN_SERVICE }}
           TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-
           PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
           RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
@@ -182,8 +142,6 @@ jobs:
           [ -n "${COMMONS_USER}" ] && ENV_LIST="${ENV_LIST},COMMONS_USER=${COMMONS_USER}"
           [ -n "${COMMONS_SSL_MODE}" ] && ENV_LIST="${ENV_LIST},COMMONS_SSL_MODE=${COMMONS_SSL_MODE}"
           [ -n "${PROJECTS_FILE_PATH}" ] && ENV_LIST="${ENV_LIST},PROJECTS_FILE_PATH=${PROJECTS_FILE_PATH}"
-
-          # Optional Exiobase non-secrets
           [ -n "${EXIOBASE_HOST}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_HOST=${EXIOBASE_HOST}"
           [ -n "${EXIOBASE_PORT}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_PORT=${EXIOBASE_PORT}"
           [ -n "${EXIOBASE_NAME}" ] && ENV_LIST="${ENV_LIST},EXIOBASE_NAME=${EXIOBASE_NAME}"
@@ -217,7 +175,7 @@ jobs:
             --set-env-vars "${ENV_LIST}" \
             $( [ -n "${SECRET_LIST}" ] && printf -- "--set-secrets %s" "${SECRET_LIST}" )
 
-      - name: 🔗 Show URL
+      - name: Show URL
         run: |
           URL="$(gcloud run services describe "${CLOUD_RUN_SERVICE}" --region "${GCP_REGION}" --format='value(status.url)')"
           echo "Service URL: ${URL}"
