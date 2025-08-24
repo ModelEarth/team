@@ -207,7 +207,6 @@ COMMONS_PASSWORD="$(get_from_env_file COMMONS_PASSWORD)"
 EXIOBASE_PASSWORD="$(get_from_env_file EXIOBASE_PASSWORD)"
 GEMINI_API_KEY="$(get_from_env_file GEMINI_API_KEY)"
 CLAUDE_API_KEY="$(get_from_env_file CLAUDE_API_KEY)"
-
 # Dummy secret: support either DUMMY_SECRET= or lowercase dummy_secret=
 DUMMY_SECRET="$(get_from_env_file DUMMY_SECRET)"
 [[ -z "$DUMMY_SECRET" ]] && DUMMY_SECRET="$(get_from_env_file dummy_secret)"
@@ -231,7 +230,11 @@ set_secret () {
     echo "  [sec] skip empty: $key"
     return 0
   fi
-  printf "%s" "$val" | gh secret set "$key" --repo "$GH_REPO" --body - >/dev/null
+  if [[ "${#val}" -eq 1 && "$val" == "-" ]]; then
+    echo "  [sec] WARN: refusing to set $key to single '-' (stdin sentinel). Check your .env parsing." >&2
+    return 1
+  fi
+  gh secret set "$key" --repo "$GH_REPO" --body "$val" >/dev/null
   echo "  [sec] set: $key"
 }
 
@@ -254,7 +257,6 @@ for key in "${SECRET_KEYS_BASE[@]}"; do
   val="$(get_val "$key")"
   set_secret "$key" "$val"
 done
-
 # OIDC provider and SA email as secrets (no variable mirrors)
 set_secret GCP_WORKLOAD_IDENTITY_PROVIDER "$GCP_WORKLOAD_IDENTITY_PROVIDER"
 set_secret GCP_SERVICE_ACCOUNT "$GCP_SERVICE_ACCOUNT"
