@@ -58,7 +58,7 @@ jobs:
             echo "::error::DUMMY_SECRET did not arrive as expected (got length=${#v})"
             exit 1
           fi
-          echo "Dummy secret OK."
+          echo "Dummy secret  OK."
       # Build/validate the OIDC provider path WITHOUT calling gcloud
       - name: Make canonical OIDC provider path
         id: wip
