@@ -78,7 +78,7 @@ jobs:
           re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
           if [[ -z "$wip" || ! "$wip" =~ $re ]]; then
             echo "len_wip=${#wip}"
-            echo "ERROR: OIDC provider path not canonical (projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>)." >&2
+            echo "ERROR: OIDC provider path not canonical  (projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>)." >&2
             exit 1
           fi
 
