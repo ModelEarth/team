@@ -110,23 +110,56 @@ fi
 
 # ---- Grant roles to the SA (idempotent) -----------------------------------
 msg "==> Granting roles to $SA_EMAIL (idempotent)..."
+# Build / submit
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/cloudbuild.builds.editor" >/dev/null || true
 
+# Push to Artifact Registry
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/artifactregistry.writer" >/dev/null || true
 
+# Deploy Cloud Run
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/run.admin" >/dev/null || true
 
+# Use enabled services (fixes 'forbidden to use service')
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/serviceusage.serviceUsageConsumer" >/dev/null || true
+
+# Write to Cloud Build staging bucket (_cloudbuild)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/storage.objectAdmin" >/dev/null || true
+
+# Manage Secret Manager (create/describe/add versions during CI)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/secretmanager.admin" >/dev/null || true
+
+# Impersonate other SAs if needed (keep)
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --member="serviceAccount:${SA_EMAIL}" \
-  --role="roles/iam.serviceAccountUser" >/devnull || true
+  --role="roles/iam.serviceAccountUser" >/dev/null || true
 
 msg "    Roles granted."
+
+# ---- Ensure Cloud Build SA has exec-time permissions (idempotent) ---------
+# During builds, Cloud Build uses its own SA for steps:
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+
+msg "==> Ensuring Cloud Build SA has required writer permissions (idempotent)..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${CB_SA}" \
+  --role="roles/artifactregistry.writer" >/dev/null || true
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${CB_SA}" \
+  --role="roles/storage.objectAdmin" >/dev/null || true
 
 # ---- Ensure current user can create AR repos ------------------------------
 msg "==> Ensuring current user can create Artifact Registry repos..."
@@ -164,11 +197,22 @@ cat <<EOF
    - PROJECT_ID=${PROJECT_ID}
    - REGION=${REGION}
    - AR_REPO=${AR_REPO}
+   - CLOUD_BUILD_SA=${CB_SA}
 
 Next:
   • Create a key for the deploy SA (for GitHub Actions) OR configure OIDC.
     Example (JSON key file — store in GitHub secret GCP_SA_KEY):
       gcloud iam service-accounts keys create sa-key.json --iam-account ${SA_EMAIL}
   • Or follow the OIDC path in your README to avoid JSON keys.
+
+Note:
+If your CI preflight still complains about missing roles for ${SA_EMAIL},
+re-run this script or grant them explicitly, e.g.:
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member=serviceAccount:${SA_EMAIL} --role=roles/serviceusage.serviceUsageConsumer
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member=serviceAccount:${SA_EMAIL} --role=roles/storage.objectAdmin
+  gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member=serviceAccount:${SA_EMAIL} --role=roles/secretmanager.admin
 
 EOF
