@@ -127,12 +127,14 @@ VAR_KEYS=(
   GOOGLE_WIF_PROVIDER_ID
 )
 
-# Secrets (GitHub Secrets) - secret
+# Secrets (GitHub Secrets)
+# NOTE: We keep OIDC items ONLY as secrets (no variable mirrors).
 SECRET_KEYS_BASE=(
   COMMONS_PASSWORD
   EXIOBASE_PASSWORD
   GEMINI_API_KEY
   CLAUDE_API_KEY
+  DUMMY_SECRET
 )
 
 # --- Build values for Variables --------------------------------------------
@@ -183,13 +185,13 @@ fi
 if [[ $VERIFY_GCP -eq 1 && -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
   if command -v gcloud >/dev/null 2>&1; then
     PROJ_NUM="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^projects/\([0-9]\+\)/.*#\1#p')"
-    POOL_ID="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/workloadIdentityPools/\([^/]\+\)/providers/[^/]\+$#\1#p')"
-    PROV_ID="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/providers/\([^/]\+\)$#\1#p')"
-    if [[ -n "$PROJ_NUM" && -n "$POOL_ID" && -n "$PROV_ID" ]]; then
-      echo "Verifying provider exists in GCP: project=$PROJ_NUM pool=$POOL_ID provider=$PROV_ID"
-      gcloud iam workload-identity-pools providers describe "$PROV_ID" \
+    POOL_ID_VAL="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/workloadIdentityPools/\([^/]\+\)/providers/[^/]\+$#\1#p')"
+    PROV_ID_VAL="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/providers/\([^/]\+\)$#\1#p')"
+    if [[ -n "$PROJ_NUM" && -n "$POOL_ID_VAL" && -n "$PROV_ID_VAL" ]]; then
+      echo "Verifying provider exists in GCP: project=$PROJ_NUM pool=$POOL_ID_VAL provider=$PROV_ID_VAL"
+      gcloud iam workload-identity-pools providers describe "$PROV_ID_VAL" \
         --location=global \
-        --workload-identity-pool="$POOL_ID" \
+        --workload-identity-pool="$POOL_ID_VAL" \
         --project="$PROJ_NUM" >/dev/null
       echo "  ✓ Verified."
     else
@@ -205,6 +207,10 @@ COMMONS_PASSWORD="$(get_from_env_file COMMONS_PASSWORD)"
 EXIOBASE_PASSWORD="$(get_from_env_file EXIOBASE_PASSWORD)"
 GEMINI_API_KEY="$(get_from_env_file GEMINI_API_KEY)"
 CLAUDE_API_KEY="$(get_from_env_file CLAUDE_API_KEY)"
+
+# Dummy secret: support either DUMMY_SECRET= or lowercase dummy_secret=
+DUMMY_SECRET="$(get_from_env_file DUMMY_SECRET)"
+[[ -z "$DUMMY_SECRET" ]] && DUMMY_SECRET="$(get_from_env_file dummy_secret)"
 
 # --- Helpers to set GH vars/secrets ----------------------------------------
 set_var () {
@@ -248,6 +254,7 @@ for key in "${SECRET_KEYS_BASE[@]}"; do
   val="$(get_val "$key")"
   set_secret "$key" "$val"
 done
+
 # OIDC provider and SA email as secrets (no variable mirrors)
 set_secret GCP_WORKLOAD_IDENTITY_PROVIDER "$GCP_WORKLOAD_IDENTITY_PROVIDER"
 set_secret GCP_SERVICE_ACCOUNT "$GCP_SERVICE_ACCOUNT"
