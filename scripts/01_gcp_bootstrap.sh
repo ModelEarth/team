@@ -135,6 +135,11 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/storage.objectAdmin" >/dev/null || true
 
+# Allow bucket creation (needed first time Cloud Build runs)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/storage.admin" >/dev/null || true
+
 # Manage Secret Manager (create/describe/add versions during CI)
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
