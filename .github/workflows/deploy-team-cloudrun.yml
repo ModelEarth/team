@@ -90,7 +90,6 @@ jobs:
           workload_identity_provider: ${{ steps.wip.outputs.wip }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           project_id: ${{ env.GCP_PROJECT_ID }}
-          audience: https://github.com/actions/gateway
           create_credentials_file: true
           token_format: 'access_token'
 
