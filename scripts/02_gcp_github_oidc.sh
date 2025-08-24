@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Sets up Workload Identity Federation for GitHub Actions → GCP (OIDC)
+# - Enables APIs
 # - Ensures a Workload Identity Pool + GitHub OIDC Provider
-# - Provider has NO allowed-audiences restriction
-# - Adds attribute mapping + repo-scoped attribute condition
-# - Grants roles/iam.workloadIdentityUser to your deploy SA (repo-scoped)
-# Idempotent; resilient to eventual consistency on delete/create.
+# - Creates provider WITHOUT --allowed-audiences (lets Actions set audience dynamically)
+# - Grants roles/iam.workloadIdentityUser to your deploy SA, restricted to repo
 #
 # Usage:
 #   ./scripts/02_gcp_github_oidc.sh
-#   RECREATE_PROVIDER=1 ./scripts/02_gcp_github_oidc.sh
+#   (If a provider name was previously deleted/soft-deleted, set a NEW provider ID in .env:
+#      GOOGLE_WIF_PROVIDER_ID=github-oidc2
+#    and re-run.)
 set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -35,23 +36,26 @@ GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPO_OWNER:-AbhinavSivanandhan}}"
 GITHUB_REPO="${GITHUB_REPO:-team}"
 
 POOL_ID="${GOOGLE_WIF_POOL_ID:-github-pool}"
-PROVIDER_ID="${GOOGLE_WIF_PROVIDER_ID:-github-oidc}"
+# IMPORTANT: choose a provider id that is not soft-deleted. If you previously deleted "github-oidc",
+# set GOOGLE_WIF_PROVIDER_ID=github-oidc2 in .env and re-run.
+PROVIDER_ID="${GOOGLE_WIF_PROVIDER_ID:-github-oidc2}"
+
 ISSUER_URI="https://token.actions.githubusercontent.com"
 
-[[ -n "$PROJECT_ID" ]] || die "GOOGLE_PROJECT_ID must be set in .env"
+[[ -n "$PROJECT_ID" ]]   || die "GOOGLE_PROJECT_ID must be set in .env"
 [[ -n "$GITHUB_OWNER" ]] || die "GITHUB_OWNER must be set in .env"
 [[ -n "$GITHUB_REPO"  ]] || die "GITHUB_REPO must be set in .env"
 
-echo "==> Using:
-    PROJECT_ID=${PROJECT_ID}
-    REGION=${REGION}
-    SA_EMAIL=${SA_EMAIL}
-    POOL_ID=${POOL_ID}
-    PROVIDER_ID=${PROVIDER_ID}
-    GITHUB_OWNER=${GITHUB_OWNER}
-    GITHUB_REPO=${GITHUB_REPO}
-    gcloud account=${ACTIVE_ACCT}
-"
+echo "==> Using:"
+echo "    PROJECT_ID=${PROJECT_ID}"
+echo "    REGION=${REGION}"
+echo "    SA_EMAIL=${SA_EMAIL}"
+echo "    POOL_ID=${POOL_ID}"
+echo "    PROVIDER_ID=${PROVIDER_ID}"
+echo "    GITHUB_OWNER=${GITHUB_OWNER}"
+echo "    GITHUB_REPO=${GITHUB_REPO}"
+echo "    gcloud account=${ACTIVE_ACCT}"
+echo
 
 echo "==> Setting active project..."
 gcloud config set project "$PROJECT_ID" >/dev/null
@@ -72,107 +76,49 @@ else
     --display-name="GitHub Actions Pool"
 fi
 
-PROVIDER_PATH="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
+# Inspect provider state (if any)
+PROVIDER_STATE="$( gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+  --location="global" --workload-identity-pool="$POOL_ID" \
+  --format='value(state)' 2>/dev/null || true )"
 
-ATTR_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner,attribute.ref=assertion.ref,attribute.actor=assertion.actor,attribute.aud=assertion.aud"
-ATTR_CONDITION="attribute.repository=='${GITHUB_OWNER}/${GITHUB_REPO}'"
+if [[ -n "$PROVIDER_STATE" ]]; then
+  echo "    Provider '${PROVIDER_ID}' found (state=${PROVIDER_STATE})."
+  if [[ "$PROVIDER_STATE" == "DELETED" ]]; then
+    cat >&2 <<EOF
+ERROR: Provider '${PROVIDER_ID}' is in DELETED (soft-deleted) state.
+       You cannot recreate a provider with the same ID for ~30 days.
+       Choose a NEW provider id (e.g., 'github-oidc2'):
 
-provider_exists() {
-  gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
-    --location="global" \
-    --workload-identity-pool="$POOL_ID" >/dev/null 2>&1
-}
+         1) Edit your .env:
+              GOOGLE_WIF_PROVIDER_ID=github-oidc2
+            (and optionally clear GOOGLE_WORKLOAD_IDENTITY_PROVIDER)
+         2) Re-run this script.
 
-wait_until_deleted() {
-  local tries=30  # ~150s total
-  local i=0
-  while (( i < tries )); do
-    if provider_exists; then
-      sleep 5
-      ((i++))
-    else
-      return 0
-    fi
-  done
-  return 1
-}
-
-create_provider() {
-  # Create without allowed-audiences; apply mapping & condition.
+EOF
+    exit 1
+  fi
+else
+  echo "==> Creating GitHub OIDC Provider (no allowed-audiences)..."
+  # NOTE: No --allowed-audiences. This avoids audience mismatch; Actions sets it per request.
   gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
     --location="global" \
     --workload-identity-pool="$POOL_ID" \
     --display-name="GitHub OIDC" \
     --issuer-uri="$ISSUER_URI" \
-    --attribute-mapping="$ATTR_MAPPING" \
-    --attribute-condition="$ATTR_CONDITION" >/dev/null
-}
+    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner,attribute.ref=assertion.ref,attribute.actor=assertion.actor,attribute.aud=assertion.aud" \
+    --attribute-condition="attribute.repository=='${GITHUB_OWNER}/${GITHUB_REPO}'"
 
-recreate_provider() {
-  echo "==> Recreating provider without allowed-audiences..."
-  # Best-effort delete; ignore not found
-  gcloud iam workload-identity-pools providers delete "$PROVIDER_ID" \
-    --location="global" \
-    --workload-identity-pool="$POOL_ID" \
-    --quiet >/dev/null 2>&1 || true
-
-  echo "    Waiting for provider to disappear..."
-  if ! wait_until_deleted; then
-    echo "    Timed out waiting for deletion to finalize; will still attempt create."
-  fi
-
-  # Create with retries to tolerate eventual consistency
-  local tries=10
-  local i=0
-  while (( i < tries )); do
-    if create_provider 2>/tmp/create_err.$$; then
-      echo "    Provider created."
-      rm -f /tmp/create_err.$$
-      return 0
-    fi
-    if grep -q "ALREADY_EXISTS" /tmp/create_err.$$ 2>/dev/null; then
-      echo "    Provider still reported as existing; retrying in 5s..."
-      sleep 5
-      ((i++))
-      continue
-    fi
-    echo "    Create failed:"
-    cat /tmp/create_err.$$ >&2 || true
-    rm -f /tmp/create_err.$$
-    die "Failed to create provider."
-  done
-  rm -f /tmp/create_err.$$ || true
-  echo "    Gave up retrying create; provider likely exists."
-}
-
-echo "==> Ensuring provider exists and has no allowed-audiences..."
-if provider_exists; then
-  echo "    Provider exists."
-  if [[ "${RECREATE_PROVIDER:-0}" == "1" ]]; then
-    recreate_provider
-  else
-    # Try update path (newer gclouds). If unsupported, fall back to recreate.
-    set +e
-    gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" \
-      --location="global" \
-      --workload-identity-pool="$POOL_ID" \
-      --clear-allowed-audiences \
-      --attribute-mapping="$ATTR_MAPPING" \
-      --attribute-condition="$ATTR_CONDITION" >/dev/null 2>&1
-    rc=$?
-    set -e
-    if [[ $rc -eq 0 ]]; then
-      echo "    Cleared allowed-audiences (if any) and ensured mapping/condition."
-    else
-      echo "    update-oidc not supported; recreating provider..."
-      recreate_provider
-    fi
-  fi
-else
-  recreate_provider
+  echo "    Provider created."
 fi
 
-echo "==> Granting the SA 'workloadIdentityUser' for this repo only (idempotent)..."
+# Re-fetch state to confirm ACTIVE
+PROVIDER_STATE="$( gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+  --location="global" --workload-identity-pool="$POOL_ID" \
+  --format='value(state)' 2>/dev/null || true )"
+
+[[ "$PROVIDER_STATE" == "ACTIVE" ]] || die "Provider '${PROVIDER_ID}' not ACTIVE (state=${PROVIDER_STATE:-unknown}). Try a new provider id."
+
+echo "==> Granting the SA 'workloadIdentityUser' for this repo only..."
 PRINCIPAL_SET="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --project="$PROJECT_ID" \
@@ -180,14 +126,25 @@ gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --member="$PRINCIPAL_SET" >/dev/null || true
 echo "    Binding ensured."
 
-# Persist results into .env
-ENV_PATH="${REPO_ROOT}/.env"
-WORKLOAD_IDENTITY_PROVIDER="${PROVIDER_PATH}"
+# Compose canonical provider resource name
+WORKLOAD_IDENTITY_PROVIDER="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
 
+echo
+echo "✅ OIDC setup complete."
+echo "   Use these in your GitHub Actions workflow:"
+echo "     - workload_identity_provider: ${WORKLOAD_IDENTITY_PROVIDER}"
+echo "     - service_account:            ${SA_EMAIL}"
+echo "   Principal member bound:"
+echo "     ${PRINCIPAL_SET}"
+echo
+
+# --- Persist results into .env so downstream scripts can read ----------------
 echo "==> Updating $ENV_PATH with OIDC values..."
+
 set_env_var() {
   local key="$1" value="$2"
   if grep -q "^${key}=" "$ENV_PATH"; then
+    # macOS/BSD sed needs -i '' while GNU sed uses -i; use a backup for portability
     sed -i.bak "s#^${key}=.*#${key}=${value}#" "$ENV_PATH"
   else
     echo "${key}=${value}" >> "$ENV_PATH"
@@ -202,8 +159,4 @@ set_env_var "GOOGLE_WIF_POOL_ID" "$POOL_ID"
 set_env_var "GOOGLE_WIF_PROVIDER_ID" "$PROVIDER_ID"
 set_env_var "GOOGLE_WORKLOAD_IDENTITY_PROVIDER" "$WORKLOAD_IDENTITY_PROVIDER"
 
-echo
-echo "✅ OIDC setup complete."
-echo "   Provider: ${WORKLOAD_IDENTITY_PROVIDER}"
-echo "   Principal member:"
-echo "     ${PRINCIPAL_SET}"
+echo "✅ Updated .env with OIDC values."

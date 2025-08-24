@@ -46,7 +46,7 @@ RUNTIME_SA_EMAIL="${GOOGLE_RUNTIME_SA_EMAIL:-${PROJECT_NUMBER}-compute@developer
 # --- Normalize OIDC provider into canonical resource -----------------------
 # If we have pool/provider IDs in .env, stamp the canonical string back into .env.
 POOL_ID="${GOOGLE_WIF_POOL_ID:-github-pool}"
-PROVIDER_ID="${GOOGLE_WIF_PROVIDER_ID:-github-oidc}"
+PROVIDER_ID="${GOOGLE_WIF_PROVIDER_ID:-github-oidc2}"
 CANON_WIP="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
 
 GOOGLE_WORKLOAD_IDENTITY_PROVIDER="${GOOGLE_WORKLOAD_IDENTITY_PROVIDER:-}"
