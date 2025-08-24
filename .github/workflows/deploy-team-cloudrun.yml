@@ -38,6 +38,10 @@ env:
   EXIOBASE_USER: ${{ vars.EXIOBASE_USER }}
   EXIOBASE_SSL_MODE: ${{ vars.EXIOBASE_SSL_MODE }}
 
+  # NEW: pool/provider ids as variables (non-secret)
+  GOOGLE_WIF_POOL_ID: ${{ vars.GOOGLE_WIF_POOL_ID }}
+  GOOGLE_WIF_PROVIDER_ID: ${{ vars.GOOGLE_WIF_PROVIDER_ID }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -45,48 +49,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Minimal: trim CR/LF + whitespace from the secret and output it
-      - name: Normalize OIDC provider
-        id: norm_wip
-        env:
-          WIP_SECRET: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-        run: |
-          set -euo pipefail
-          w="${WIP_SECRET:-}"
-          w="$(printf '%s' "$w" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          echo "wip=$w" >> "$GITHUB_OUTPUT"
-
-      - name: Validate OIDC inputs (non-leaky)
-        shell: bash
-        env:
-          WIP_TRIM: ${{ steps.norm_wip.outputs.wip }}
-          SA:       ${{ secrets.GCP_SERVICE_ACCOUNT }}
-        run: |
-          set -euo pipefail
-          fail() { echo "::error::$*"; exit 1; }
-          if [[ -z "${WIP_TRIM:-}" ]]; then
-            fail "Secret GCP_WORKLOAD_IDENTITY_PROVIDER is empty/missing."
-          fi
-          if [[ -z "${SA:-}" ]]; then
-            fail "Secret GCP_SERVICE_ACCOUNT is empty/missing."
-          fi
-          re='^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+$'
-          [[ "$WIP_TRIM" =~ $re ]] || fail "GCP_WORKLOAD_IDENTITY_PROVIDER is NOT in canonical format 'projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>'."
-
-      - name: Auth to GCP (OIDC)
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ steps.norm_wip.outputs.wip }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          project_id: ${{ env.GCP_PROJECT_ID }}
-          token_format: access_token
-          create_credentials_file: true
-
-      - name: Setup gcloud
+      - name: Setup gcloud (for projectNumber lookup)
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: ">= 474.0.0"
           project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # 🔧 Build canonical provider path instead of reading a secret
+      - name: Make canonical OIDC provider path
+        id: make_wip
+        run: |
+          set -euo pipefail
+          PN="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
+          POOL="${GOOGLE_WIF_POOL_ID}"
+          PROV="${GOOGLE_WIF_PROVIDER_ID}"
+          WIP="projects/${PN}/locations/global/workloadIdentityPools/${POOL}/providers/${PROV}"
+          # basic sanity
+          echo "wip=${WIP}" >> "$GITHUB_OUTPUT"
+
+      - name: Auth to GCP (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.make_wip.outputs.wip }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          token_format: access_token
+          create_credentials_file: true
 
       - name: Set project env
         run: |

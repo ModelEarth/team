@@ -9,9 +9,12 @@
 #   ./scripts/04_sync_github_env.sh --repo owner/name
 #   ./scripts/04_sync_github_env.sh --env path/to/.env --prune
 #   ./scripts/04_sync_github_env.sh --show-wip --verify-gcp
+#   ./scripts/04_sync_github_env.sh --dry-run
 set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+note() { echo "ℹ️  $*"; }
+ok() { echo "✅ $*"; }
 
 REPO_OVERRIDE=""
 ENV_PATH_OVERRIDE=""
@@ -19,6 +22,8 @@ PRUNE=0
 VERBOSE=0
 SHOW_WIP=0
 VERIFY_GCP=0
+DRY_RUN=0
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) REPO_OVERRIDE="${2:-}"; shift 2;;
@@ -27,6 +32,7 @@ while [[ $# -gt 0 ]]; do
     --verbose|-v) VERBOSE=1; shift;;
     --show-wip) SHOW_WIP=1; shift;;
     --verify-gcp) VERIFY_GCP=1; shift;;
+    --dry-run) DRY_RUN=1; shift;;
     *) die "Unknown arg: $1";;
   esac
 done
@@ -34,6 +40,12 @@ done
 # --- Preconditions ----------------------------------------------------------
 command -v gh >/dev/null 2>&1 || die "Install GitHub CLI: https://cli.github.com/"
 gh auth status >/dev/null 2>&1 || die "Run 'gh auth login' first"
+# Optional: gently check gh version (not strict)
+if gh --version >/dev/null 2>&1; then
+  :
+else
+  note "Could not read gh version; continuing."
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -58,6 +70,46 @@ fi
 echo "==> Syncing .env → GitHub for repo: $GH_REPO"
 echo "    .env: $ENV_PATH"
 [[ $PRUNE -eq 1 ]] && echo "    prune: enabled"
+[[ $DRY_RUN -eq 1 ]] && echo "    dry-run: enabled (no writes)"
+
+# --- Helpers ----------------------------------------------------------------
+normalize() {
+  # Trim CRLF and outer whitespace
+  printf "%s" "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+set_var () {
+  local key="$1" val; val="$(normalize "$2")"
+  if [[ -z "$val" ]]; then
+    echo "  [var] skip empty: $key"
+    return 0
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  [var] (dry-run) set: $key='$val'"
+    return 0
+  fi
+  gh variable set "$key" --repo "$GH_REPO" --body "$val" >/dev/null
+  echo "  [var] set: $key"
+}
+
+set_secret () {
+  local key="$1" val; val="$(normalize "$2")"
+  if [[ -z "$val" ]]; then
+    echo "  [sec] skip empty: $key"
+    return 0
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  [sec] (dry-run) set: $key='********'"
+    return 0
+  fi
+  printf "%s" "$val" | gh secret set "$key" --repo "$GH_REPO" --body - >/dev/null
+  echo "  [sec] set: $key"
+}
+
+# Access by indirection (simple: echo value of a named var above)
+get_val () {
+  eval "printf '%s' \"\${$1:-}\""
+}
 
 # --- Parse .env into arrays -------------------------------------------------
 ENV_KEYS=()
@@ -79,8 +131,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   if [[ "$value" =~ ^\".*\"$ || "$value" =~ ^\'.*\'$ ]]; then
     value="${value:1:-1}"
   fi
-  # normalize CRLF and outer whitespace again
-  value="$(printf "%s" "$value" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  value="$(normalize "$value")"
   [[ -z "$key" ]] && continue
   ENV_KEYS+=("$key")
   ENV_VALS+=("$value")
@@ -100,15 +151,11 @@ get_from_env_file () {
   printf ''
 }
 
+[[ $VERBOSE -eq 1 ]] && echo "Parsed keys: ${#ENV_KEYS[@]}"
+
 # --- Managed keys -----------------------------------------------------------
 # Secrets (GitHub Secrets)
-SECRET_KEYS=(
-  COMMONS_PASSWORD
-  EXIOBASE_PASSWORD
-  GEMINI_API_KEY
-  CLAUDE_API_KEY
-  # Note: we add GCP_WORKLOAD_IDENTITY_PROVIDER explicitly below after normalization
-)
+SECRET_KEYS_BASE=( COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY )
 
 # Variables (GitHub Variables)
 VAR_KEYS=(
@@ -129,9 +176,13 @@ VAR_KEYS=(
   EXIOBASE_NAME
   EXIOBASE_USER
   EXIOBASE_SSL_MODE
+  # NEW: keep pool/provider ids as variables (non-secret)
+  GOOGLE_WIF_POOL_ID
+  GOOGLE_WIF_PROVIDER_ID
 )
 
-# Build values (map GOOGLE_* → GCP_* where appropriate)
+# --- Build values from .env -------------------------------------------------
+# Map GOOGLE_* -> GCP_* where appropriate
 GCP_PROJECT_ID="$(get_from_env_file GOOGLE_PROJECT_ID)"
 GCP_REGION="$(get_from_env_file GOOGLE_REGION)"
 GCP_AR_REPO="$(get_from_env_file GOOGLE_AR_REPO)"
@@ -157,13 +208,15 @@ EXIOBASE_SSL_MODE="$(get_from_env_file EXIOBASE_SSL_MODE)"
 GCP_RUNTIME_SA="$(get_from_env_file GCP_RUNTIME_SA)"
 [[ -n "$GCP_RUNTIME_SA" ]] && VAR_KEYS+=( GCP_RUNTIME_SA )
 
-# --- OIDC provider + SA email from .env (GOOGLE_* names) -------------------
+# OIDC pool/provider IDs as **variables** (non-secret)
+GOOGLE_WIF_POOL_ID="$(get_from_env_file GOOGLE_WIF_POOL_ID)"
+GOOGLE_WIF_PROVIDER_ID="$(get_from_env_file GOOGLE_WIF_PROVIDER_ID)"
+
+# OIDC provider + SA email from .env (GOOGLE_* names) — still stored as **secrets** for now
 RAW_WIP="$(get_from_env_file GOOGLE_WORKLOAD_IDENTITY_PROVIDER)"
 RAW_SA="$(get_from_env_file GOOGLE_SA_EMAIL)"
-
-# Normalize/trim both
-GCP_WORKLOAD_IDENTITY_PROVIDER="$(printf "%s" "$RAW_WIP" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-GCP_SERVICE_ACCOUNT="$(printf "%s" "$RAW_SA" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+GCP_WORKLOAD_IDENTITY_PROVIDER="$(normalize "$RAW_WIP")"
+GCP_SERVICE_ACCOUNT="$(normalize "$RAW_SA")"
 
 # Optional: show the WIP locally for human sanity check (never printed in CI)
 if [[ $SHOW_WIP -eq 1 && -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
@@ -173,7 +226,6 @@ fi
 # Optional: verify against GCP that provider exists
 if [[ $VERIFY_GCP -eq 1 && -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
   if command -v gcloud >/dev/null 2>&1; then
-    # Parse "projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>"
     PROJ_NUM="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^projects/\([0-9]\+\)/.*#\1#p')"
     POOL_ID="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/workloadIdentityPools/\([^/]\+\)/providers/[^/]\+$#\1#p')"
     PROV_ID="$(echo "$GCP_WORKLOAD_IDENTITY_PROVIDER" | sed -n 's#^.*/providers/\([^/]\+\)$#\1#p')"
@@ -198,35 +250,6 @@ EXIOBASE_PASSWORD="$(get_from_env_file EXIOBASE_PASSWORD)"
 GEMINI_API_KEY="$(get_from_env_file GEMINI_API_KEY)"
 CLAUDE_API_KEY="$(get_from_env_file CLAUDE_API_KEY)"
 
-# --- Helpers to set GH vars/secrets ----------------------------------------
-set_var () {
-  local key="$1" val="$2"
-  val="$(printf "%s" "$val" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-  if [[ -z "$val" ]]; then
-    echo "  [var] skip empty: $key"
-    return 0
-  fi
-  gh variable set "$key" --repo "$GH_REPO" --body "$val" >/dev/null
-  echo "  [var] set: $key"
-}
-
-set_secret () {
-  local key="$1" val="$2"
-  val="$(printf "%s" "$val" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-  if [[ -z "$val" ]]; then
-    echo "  [sec] skip empty: $key"
-    return 0
-  fi
-  printf "%s" "$val" | gh secret set "$key" --repo "$GH_REPO" --body - >/dev/null
-  echo "  [sec] set: $key"
-}
-
-get_val () {
-  eval "printf '%s' \"\${$1:-}\""
-}
-
-[[ $VERBOSE -eq 1 ]] && echo "Parsed keys: ${#ENV_KEYS[@]}"
-
 # --- Apply Variables --------------------------------------------------------
 echo "==> Setting GitHub Variables..."
 for key in "${VAR_KEYS[@]}"; do
@@ -236,11 +259,11 @@ done
 
 # --- Apply Secrets ----------------------------------------------------------
 echo "==> Setting GitHub Secrets..."
-for key in COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY; do
+for key in "${SECRET_KEYS_BASE[@]}"; do
   val="$(get_val "$key")"
   set_secret "$key" "$val"
 done
-# OIDC provider and SA email as secrets (no variable mirrors)
+# OIDC provider and SA email as secrets (kept for compatibility with other tools; workflow now uses variables to build WIP)
 set_secret GCP_WORKLOAD_IDENTITY_PROVIDER "$GCP_WORKLOAD_IDENTITY_PROVIDER"
 set_secret GCP_SERVICE_ACCOUNT "$GCP_SERVICE_ACCOUNT"
 
@@ -251,20 +274,28 @@ if [[ $PRUNE -eq 1 ]]; then
   for key in "${VAR_KEYS[@]}"; do
     val="$(get_val "$key")"
     if [[ -z "$val" ]] && echo "$existing_vars" | grep -qx "$key"; then
-      gh variable delete "$key" --repo "$GH_REPO" -y >/dev/null || true
-      echo "  [var] deleted: $key"
+      if [[ $DRY_RUN -eq 1 ]]; then
+        echo "  [var] (dry-run) delete: $key"
+      else
+        gh variable delete "$key" --repo "$GH_REPO" -y >/dev/null || true
+        echo "  [var] deleted: $key"
+      fi
     fi
   done
 
   echo "==> Pruning managed GitHub Secrets not present in .env (only our known keys)..."
   existing_secs="$(gh secret list --repo "$GH_REPO" --json name -q '.[].name' || true)"
-  for key in COMMONS_PASSWORD EXIOBASE_PASSWORD GEMINI_API_KEY CLAUDE_API_KEY GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT; do
+  for key in "${SECRET_KEYS_BASE[@]}" GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT; do
     val="$(get_val "$key")"
     if [[ -z "$val" ]] && echo "$existing_secs" | grep -qx "$key"; then
-      gh secret delete "$key" --repo "$GH_REPO" -y >/dev/null || true
-      echo "  [sec] deleted: $key"
+      if [[ $DRY_RUN -eq 1 ]]; then
+        echo "  [sec] (dry-run) delete: $key"
+      else
+        gh secret delete "$key" --repo "$GH_REPO" -y >/dev/null || true
+        echo "  [sec] deleted: $key"
+      fi
     fi
   done
 fi
 
-echo "✅ Sync complete."
+ok "Sync complete."
