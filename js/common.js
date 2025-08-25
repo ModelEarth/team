@@ -1432,23 +1432,18 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0; width: 100%;" id="reload-status-btn">
                                 Reload Status
                         </button>
-                        <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
+                        <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0 0 2px 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
                                 Stop Rust
                         </button>
-                    </div>
-                    <!-- Info Icon with Tests Link -->
-                    <div style="display: flex; align-items: center; gap: 8px; align-self: flex-end;">
-                        <i data-feather="info" style="width: 16px; height: 16px; color: var(--text-secondary); cursor: pointer;" onclick="toggleTestsInfo()" id="tests-info-icon"></i>
-                        <div id="tests-info-content" style="display: none;">
-                            <a href="https://colab.research.google.com/drive/1TgA9FJzhhue74Bgf-MJoOAKSBrzpiyss?usp=sharing" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 14px;">
-                                Run tests
-                            </a>
-                        </div>
+                        <!-- Admin Detail Button -->
+                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-secondary" style="margin: 0; width: 100%;">
+                            Admin Details
+                        </button>
                     </div>
                 </div>
             </div>
             
-            <!-- Configuration Display (hidden by default, shown when info icon clicked) -->
+            <!-- Admin Detail Content (hidden by default, shown when admin detail button clicked) -->
             <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                 Loading configuration...
             </div>
@@ -1630,34 +1625,34 @@ function switchRustTab(tabName) {
     });
 }
 
-// Function to toggle the tests info and config display visibility
-function toggleTestsInfo() {
-    const testsInfoContent = document.getElementById('tests-info-content');
-    const testsInfoIcon = document.getElementById('tests-info-icon');
-    const configDisplay = document.getElementById('config-display');
+// Function to toggle the admin detail panel and README visibility
+function toggleAdminDetail() {
+    const readmeDiv = document.getElementById('readmeDiv');
+    const adminDetailBtn = document.getElementById('admin-detail-btn');
     
-    const isVisible = testsInfoContent && testsInfoContent.style.display === 'inline-block';
+    if (!readmeDiv || !adminDetailBtn) return;
     
-    // Toggle tests info content
-    if (testsInfoContent && testsInfoIcon) {
-        if (isVisible) {
-            testsInfoContent.style.display = 'none';
-            testsInfoIcon.style.color = 'var(--text-secondary)';
-        } else {
-            testsInfoContent.style.display = 'inline-block';
-            testsInfoIcon.style.color = 'var(--accent-blue)';
-        }
-    }
+    const isVisible = readmeDiv.style.display !== 'none';
     
-    // Toggle config display
-    if (configDisplay) {
-        if (isVisible) {
-            configDisplay.style.display = 'none';
-        } else {
-            configDisplay.style.display = 'block';
-            // Load configuration when showing for the first time
-            if (typeof loadConfiguration === 'function') {
-                loadConfiguration();
+    // Toggle admin detail content
+    if (isVisible) {
+        readmeDiv.style.display = 'none';
+        adminDetailBtn.textContent = 'Admin Details';
+        adminDetailBtn.style.background = '';  // Reset to default
+        adminDetailBtn.style.color = '';  // Reset to default
+        adminDetailBtn.style.borderColor = '';  // Reset to default
+    } else {
+        readmeDiv.style.display = 'block';
+        adminDetailBtn.textContent = 'Hide Details';
+        adminDetailBtn.style.background = '#1A1A1A';  // Black background
+        adminDetailBtn.style.color = 'white !important';  // Force white text even in dark mode
+        adminDetailBtn.style.borderColor = '#1A1A1A';
+        
+        // Load README content only if not already loaded (check for the loading message)
+        const loadingMessage = readmeDiv.querySelector('p');
+        if (loadingMessage && loadingMessage.textContent.includes('Loading README.md')) {
+            if (typeof displayFile === 'function') {
+                displayFile("README.md", "readmeDiv", "_parent", null, false);
             }
         }
     }
@@ -1807,7 +1802,7 @@ window.checkDatabaseConnection = checkDatabaseConnection;
 window.updateStatusIndicator = updateStatusIndicator;
 window.checkIndividualDatabaseStatus = checkIndividualDatabaseStatus;
 window.switchRustTab = switchRustTab;
-window.toggleTestsInfo = toggleTestsInfo;
+window.toggleAdminDetail = toggleAdminDetail;
 window.checkDatabaseStatus = checkDatabaseStatus;
 window.stopRustServer = stopRustServer;
 window.apiCall = apiCall;

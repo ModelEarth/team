@@ -1,3 +1,4 @@
+<a href="https://colab.research.google.com/drive/1TgA9FJzhhue74Bgf-MJoOAKSBrzpiyss?usp=sharing" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 14px; float:right">Run tests</a>
 # 📖 Database Admin
 
 A web-based interface to test PostgreSQL database connections and explore the SuiteCRM schema.
@@ -52,20 +53,12 @@ The server will start on `http://127.0.0.1:8081` by default.
 ### 3. Access Admin Panel
 
 1. Open `admin/sql/panel` in your web browser
-2. Or serve it via HTTP server. We recommend a [model.earth port 8887](https://model.earth/localsite/start/steps/) webroot setup:
+2. Or serve it via HTTP server using the following command for port 8887:
 
 ```bash
 # From the webroot
 python -m http.server 8887
 # Then visit: http://localhost:8887/team/admin/sql/panel/
-```
-
-Or start with your local repo as the project root:
-
-```bash
-# From the project root
-python -m http.server 3000
-# Then visit: http://localhost:3000/admin/sql/panel/
 ```
 
 ## Features

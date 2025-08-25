@@ -1,9 +1,7 @@
-Always use a virtualenv to protect your OS.
-We use one virtualenv for an http server on port 8887, and another for Claude Code CLL.
+To protect your OS, start a virtual environment for your webroot, and another for Claude Code CLL.
 
-Fork and clone the [modelearth webroot repo](https://github.com/modelearth/webroot/).  
 
-In your webroot folder, run a web server within a virtual environment. 
+Run a web server within a virtual environment on port 8887:
 
 On Macs:
 
@@ -11,8 +9,12 @@ On Macs:
 	source env/bin/activate
 	python -m http.server 8887
 
-<br>On Windows:
+On Windows:
 
 	python -m venv env
 	env\Scripts\activate
 	python -m http.server 8887
+
+Fork and clone the webroot repo from [Github.com/ModelEarth](https://github.com/ModelEarth/webroot/) (for developers) or [Github.com/PartnerTools](https://github.com/PartnerTools/webroot/) (for stable hosting).
+
+Then start your local <a href="server/">Rust API and database connections</a>

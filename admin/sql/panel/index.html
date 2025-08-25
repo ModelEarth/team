@@ -354,9 +354,9 @@
         <div class="header">
             <a href="../../">Admin Dashboard</a>
             <h1>Database Admin</h1>
-            <p><strong>Azure PostgreSQL Database Connection</strong> - Test live connection and explore actual database tables.<br>
+            <p><strong>Azure PostgreSQL Database Connection</strong> - Test live connection and explore database tables.<br>
                 You can create your Azure database from our <a href="https://github.com/modelearth/team/blob/main/admin/sql/suitecrm-postgres.sql">SQL create script</a> and <a href="https://github.com/modelearth/team/blob/main/admin/sql/add_foreign_keys.sql">foreign keys script</a>.<br>
-                Here's a page where you can <a href="../../../projects/edit.html">experiment with posting a row</a> in the Azure projects table.<br>
+                <a href="../../../projects/edit.html">Experiment with posting a row</a> in the Azure projects table.<br>
                 <a href="../../import-data.html">Import data</a> into the projects and accounts tables.
             </p>
         </div>
@@ -422,9 +422,7 @@
 
         <div id="combined-rust-api-container"></div>
 
-        <div id="connection-troubleshooting-container"></div>
-
-        <div id="readmeDiv" class="card readme-content">
+        <div id="readmeDiv" class="card readme-content" style="display: none;">
             <p style="color: var(--text-secondary); font-style: italic;">
                 Loading README.md documentation...
             </p>
@@ -437,11 +435,9 @@
         // Use shared combined Rust API Status panel from team/js/common.js
         createRustApiStatusPanel('combined-rust-api-container', false);
         
-        // Use shared Connection Troubleshooting panel from team/js/common.js
-        createConnectionTroubleshootingPanel('connection-troubleshooting-container', true);
+        // Connection troubleshooting is handled by the Rust API status panel
         
-        // Load README without logging to keep the interface clean
-        displayFile("README.md", "readmeDiv", "_parent", null, false);
+        // README will be loaded on demand when Admin Detail button is clicked
     </script>
     
     <!-- Feather Icons -->

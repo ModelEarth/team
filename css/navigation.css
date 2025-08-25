@@ -539,7 +539,7 @@
 }
 
 /* Tooltips */
-.nav-tooltip {
+.nav-tooltipXX {
     position: fixed;
     background: var(--text-primary);
     color: var(--bg-secondary);
