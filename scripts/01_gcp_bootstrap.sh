@@ -150,6 +150,16 @@ gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/iam.serviceAccountUser" >/dev/null || true
 
+# Allow gha-deployer to ACT AS any service account in the project (covers numeric SA IDs)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/iam.serviceAccountUser" >/dev/null || true
+
+# And allow token creation across the project (some orgs/pipelines require this)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/iam.serviceAccountTokenCreator" >/dev/null || true
+
 # Allow gha-deployer to ACT AS the Cloud Build SA (required by gcloud builds submit)
 
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
@@ -163,6 +173,20 @@ gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
 gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/iam.serviceAccountTokenCreator" >/dev/null || true
+
+# Allow gha-deployer to ACT AS Cloud Build SA (only if it already exists)
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+if gcloud iam service-accounts describe "$CB_SA" >/dev/null 2>&1; then
+  gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/iam.serviceAccountUser" >/dev/null || true
+  gcloud iam service-accounts add-iam-policy-binding "$CB_SA" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/iam.serviceAccountTokenCreator" >/dev/null || true
+else
+  echo "    (info) Cloud Build SA not provisioned yet; it will be created on first build."
+fi
 
 msg "    Roles granted."
 
