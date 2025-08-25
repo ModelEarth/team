@@ -221,6 +221,11 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role="roles/artifactregistry.admin" >/dev/null || true
 # (Owner usually suffices, but this makes it explicit and idempotent.)
 
+# Project read-only (lets gcloud stream build logs without GCS quirks)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/viewer" >/dev/null || true
+
 # ---- Create Artifact Registry repo (idempotent) ---------------------------
 msg "==> Ensuring Artifact Registry repo '${AR_REPO}' exists in ${REGION}..."
 if ! gcloud artifacts repositories describe "$AR_REPO" --location "${REGION}" >/dev/null 2>&1; then
