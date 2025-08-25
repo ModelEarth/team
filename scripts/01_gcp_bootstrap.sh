@@ -92,7 +92,9 @@ gcloud services enable \
   run.googleapis.com \
   cloudbuild.googleapis.com \
   secretmanager.googleapis.com \
-  artifactregistry.googleapis.com
+  artifactregistry.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  serviceusage.googleapis.com
 
 # Give the services a moment to propagate (AR can be slow)
 sleep 5

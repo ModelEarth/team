@@ -134,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
+          PROJECT_NUMBER="${GCP_PROJECT_NUMBER}"
           RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
           # Build env list (omit empties)
