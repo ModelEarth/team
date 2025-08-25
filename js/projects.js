@@ -639,7 +639,7 @@ class ProjectsManager {
             ` : ''}
 
             <div class="projects-grid-title" style="margin: 20px 0 16px 0;">
-                <h3>${this.isUsingPlaceholderData ? 'Placeholder (List not loaded)' : 'DemocracyLab Projects'}</h3>
+                <h3>${this.isUsingPlaceholderData ? 'Placeholder (List not loaded)' : 'Democracy Lab Projects'}</h3>
                 ${!this.isUsingPlaceholderData ? `
                     <p style="margin: 8px 0; color: var(--text-secondary); font-size: 14px;">
                         View current frontend at <a href="https://democracylab.org/projects" target="_blank" rel="noopener noreferrer" style="color: var(--accent-blue); text-decoration: none;">DemocracyLab.org/projects</a>
