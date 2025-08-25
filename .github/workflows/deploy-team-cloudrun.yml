@@ -117,8 +117,8 @@ jobs:
           echo "GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}" >> "$GITHUB_ENV"
           gcloud config set project "${GCP_PROJECT_ID}"
 
-      # ⚠️ Removed: Enable APIs (do this once locally via scripts/01)
-      # ⚠️ Removed: Upsert secrets into Secret Manager (manage locally via scripts/03)
+      #  Removed: Enable APIs (do this once locally via scripts/01)
+      #  Removed: Upsert secrets into Secret Manager (manage locally via scripts/03)
 
       - name: Build & Push image (Cloud Build)
         env:
