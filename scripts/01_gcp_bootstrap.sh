@@ -145,6 +145,16 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/secretmanager.admin" >/dev/null || true
 
+# View Cloud Build jobs (required for gcloud to stream/poll logs)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/cloudbuild.builds.viewer" >/dev/null || true
+
+# Read objects in the default Cloud Build logs bucket
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/storage.objectViewer" >/dev/null || true
+
 # Impersonate other SAs if needed (keep)
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --member="serviceAccount:${SA_EMAIL}" \
