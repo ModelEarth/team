@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  # ---- GCP repo Variables (set by 04_sync_github_env.sh)  ----
+  # ---- GCP repo Variables (set by 04_sync_github_env.sh) ----
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
   GCP_REGION: ${{ vars.GCP_REGION }}
@@ -138,7 +138,7 @@ jobs:
           RUNTIME_SA_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
           # Build env list (omit empties)
-          ENV_LIST="SERVER_HOST=0.0.0.0,SERVER_PORT=8080"
+          ENV_LIST="SERVER_HOST=${SERVER_HOST},SERVER_PORT=${SERVER_PORT}"
           [ -n "${COMMONS_HOST}" ] && ENV_LIST="${ENV_LIST},COMMONS_HOST=${COMMONS_HOST}"
           [ -n "${COMMONS_PORT}" ] && ENV_LIST="${ENV_LIST},COMMONS_PORT=${COMMONS_PORT}"
           [ -n "${COMMONS_NAME}" ] && ENV_LIST="${ENV_LIST},COMMONS_NAME=${COMMONS_NAME}"
