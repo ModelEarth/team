@@ -176,7 +176,7 @@ jobs:
             --cpu "1" \
             --memory "512Mi" \
             --concurrency "80" \
-            --timeout "60" \
+            --timeout "180" \
             --set-env-vars "${ENV_LIST}" \
             $( [ -n "${SECRET_LIST}" ] && printf -- "--set-secrets %s" "${SECRET_LIST}" )
 
