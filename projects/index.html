@@ -5077,6 +5077,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Hash parameter utility functions are now available from list.js
         // getURLHashParam, setURLHashParam, updateListHashParam
         
+        
         async function initializeFileSelection() {
             // Use shared function for Google Sheet loading and initialization
             const selectedOption = await initializeFileSelectionWithGoogleSheet(fileSelect, 'list', STORAGE_KEY);
@@ -5164,7 +5165,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const signInBtn = document.getElementById('sign-in-btn');
             
             if (listParam === 'geo') {
-                listSelectDiv.style.display = 'none';
+                listSelectDiv.style.display = 'flex';
                 if (breadcrumb) {
                     breadcrumb.style.display = 'none';
                 }
@@ -5350,6 +5351,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     const headers = rows[0];
                     const feedsData = [];
                     
+                    // Check if this is a geo site for filtering
+                    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+                    const isGeoSite = window.location.hostname.includes('geo') || 
+                                     window.location.hostname.includes('location') ||
+                                     (modelsite === 'model.georgia');
+                    const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
+                    
                     // Parse data rows
                     for (let i = 1; i < rows.length; i++) {
                         const values = rows[i];
@@ -5358,6 +5366,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             headers.forEach((header, index) => {
                                 feedEntry[header] = values[index] || '';
                             });
+                            
+                            // Filter entries for geo sites (check the 'feed' field)
+                            if (isGeoSite) {
+                                const feedValue = feedEntry['feed'] || feedEntry['Feed'];
+                                if (!allowedGeoOptions.includes(feedValue)) {
+                                    continue; // Skip this entry for geo sites
+                                }
+                            }
+                            
                             feedsData.push(feedEntry);
                         }
                     }

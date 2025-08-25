@@ -788,6 +788,13 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
         
         console.log('Column indices - Title:', titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex);
         
+        // Check if this is a geo site for filtering
+        const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+        const isGeoSite = window.location.hostname.includes('geo') || 
+                         window.location.hostname.includes('location') ||
+                         (modelsite === 'model.georgia');
+        const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
+        
         // Process data rows and add to dropdown
         const customOption = fileSelect.querySelector('option[value="custom"]');
         
@@ -801,6 +808,11 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
             const cors = corsIndex !== -1 ? row[corsIndex] : '';
             
             if (title && url && feed) {
+                // Filter options for geo sites
+                if (isGeoSite && !allowedGeoOptions.includes(feed)) {
+                    continue; // Skip this option for geo sites
+                }
+                
                 const option = document.createElement('option');
                 option.value = feed;
                 option.textContent = title;
