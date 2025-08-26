@@ -836,14 +836,23 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
         
     } catch (error) {
         console.error('Failed to load Google Sheet configuration:', error);
-        showMessage('Failed to load dynamic options from Google Sheet, using fallback option', 'warning');
+        showMessage('Failed to load dynamic options from Google Sheet, using fallback options', 'warning');
         
-        // Add fallback option when Google Sheet loading fails
+        // Add fallback options when Google Sheet loading fails
         const customOption = fileSelect.querySelector('option[value="custom"]');
         if (customOption) {
+            // Add Cities option as primary fallback
+            const citiesOption = document.createElement('option');
+            citiesOption.value = 'cities';
+            citiesOption.textContent = 'Cities';
+            citiesOption.setAttribute('data-url', 'map/cities.csv');
+            citiesOption.setAttribute('data-cors', 'false');
+            fileSelect.insertBefore(citiesOption, customOption);
+            
+            // Add Model Team option as secondary fallback
             const fallbackOption = document.createElement('option');
             fallbackOption.value = 'modelteam';
-            fallbackOption.textContent = 'Model Team (Default)';
+            fallbackOption.textContent = 'Model Team';
             fallbackOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv');
             fallbackOption.setAttribute('data-cors', 'false');
             fileSelect.insertBefore(fallbackOption, customOption);
