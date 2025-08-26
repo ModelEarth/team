@@ -691,8 +691,10 @@
             const data = await response.json();
             
             if (response.ok) {
-                displayProjects(data.projects || []);
-                totalProjects = data.total || 0;
+                // Handle different response formats from the API
+                const projects = data.data || data.projects || [];
+                displayProjects(projects);
+                totalProjects = data.total || projects.length;
                 displayPagination(page, totalProjects);
                 currentPage = page;
             } else {
@@ -726,6 +728,7 @@
                         ${project.estimated_start_date ? `<span><i data-feather="calendar" style="width: 14px; height: 14px;"></i> Start: ${formatDate(project.estimated_start_date)}</span>` : ''}
                         ${project.estimated_end_date ? `<span><i data-feather="calendar" style="width: 14px; height: 14px;"></i> End: ${formatDate(project.estimated_end_date)}</span>` : ''}
                         ${project.total_participants ? `<span><i data-feather="users" style="width: 14px; height: 14px;"></i> ${project.total_participants} participants</span>` : ''}
+                        ${project.created_date ? `<span><i data-feather="clock" style="width: 14px; height: 14px;"></i> ${formatDate(project.created_date)}</span>` : ''}
                         <span class="status-badge ${getStatusClass(project.status)}">
                             ${project.status || 'No Status'}
                         </span>
@@ -802,42 +805,74 @@
         container.innerHTML = paginationHtml;
     }
     
+    // Store projects data for editing
+    let projectsData = [];
+    
     // Edit project functionality
     async function editProject(projectId) {
         editingProjectId = projectId;
-        try {
-            const response = await fetch(`${API_BASE}/projects/${projectId}`);
-            const data = await response.json();
+        
+        // Find project in current data
+        const project = projectsData.find(p => p.id === projectId);
+        
+        if (project) {
+            // Populate form fields with available data
+            document.querySelector('input[name="name"]').value = project.name || '';
+            document.querySelector('input[name="location"]').value = project.location || '';
+            document.querySelector('textarea[name="description"]').value = project.description || '';
+            document.querySelector('textarea[name="participant_handles"]').value = project.participant_handles || '';
+            document.querySelector('input[name="total_participants"]').value = project.total_participants || 1;
+            document.querySelector('select[name="status"]').value = project.status || 'Active';
+            document.querySelector('input[name="estimated_start_date"]').value = project.estimated_start_date || '';
+            document.querySelector('input[name="estimated_end_date"]').value = project.estimated_end_date || '';
             
-            if (response.ok && data.project) {
-                const project = data.project;
+            // Update form title and button
+            document.querySelector('h1').textContent = 'Edit Project';
+            document.querySelector('.add-visit-btn').textContent = 'Update Project';
+            
+            // Scroll to form
+            scrollToForm();
+            
+            // Show success message
+            document.getElementById('form-result').innerHTML = 
+                '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
+            feather.replace();
+        } else {
+            // Fallback - try to fetch individual project
+            try {
+                const response = await fetch(`${API_BASE}/projects/${projectId}`);
+                const data = await response.json();
                 
-                // Populate form fields
-                document.querySelector('input[name="name"]').value = project.name || '';
-                document.querySelector('input[name="location"]').value = project.location || '';
-                document.querySelector('textarea[name="description"]').value = project.description || '';
-                document.querySelector('textarea[name="participant_handles"]').value = project.participant_handles || '';
-                document.querySelector('input[name="total_participants"]').value = project.total_participants || 1;
-                document.querySelector('select[name="status"]').value = project.status || 'Included';
-                document.querySelector('input[name="estimated_start_date"]').value = project.estimated_start_date || '';
-                document.querySelector('input[name="estimated_end_date"]').value = project.estimated_end_date || '';
-                
-                // Update form title and button
-                document.querySelector('h1').textContent = 'Edit Project';
-                document.querySelector('.add-visit-btn').textContent = 'Update Project';
-                
-                // Scroll to form
-                scrollToForm();
-                
-                // Show success message
-                document.getElementById('form-result').innerHTML = 
-                    '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
-                feather.replace();
-            } else {
-                alert('Unable to load project for editing');
+                if (response.ok && (data.project || data)) {
+                    const projectData = data.project || data;
+                    
+                    // Populate form fields
+                    document.querySelector('input[name="name"]').value = projectData.name || '';
+                    document.querySelector('input[name="location"]').value = projectData.location || '';
+                    document.querySelector('textarea[name="description"]').value = projectData.description || '';
+                    document.querySelector('textarea[name="participant_handles"]').value = projectData.participant_handles || '';
+                    document.querySelector('input[name="total_participants"]').value = projectData.total_participants || 1;
+                    document.querySelector('select[name="status"]').value = projectData.status || 'Active';
+                    document.querySelector('input[name="estimated_start_date"]').value = projectData.estimated_start_date || '';
+                    document.querySelector('input[name="estimated_end_date"]').value = projectData.estimated_end_date || '';
+                    
+                    // Update form title and button
+                    document.querySelector('h1').textContent = 'Edit Project';
+                    document.querySelector('.add-visit-btn').textContent = 'Update Project';
+                    
+                    // Scroll to form
+                    scrollToForm();
+                    
+                    // Show success message
+                    document.getElementById('form-result').innerHTML = 
+                        '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
+                    feather.replace();
+                } else {
+                    alert('Unable to load project for editing');
+                }
+            } catch (error) {
+                alert('Demo Mode: Edit functionality requires individual project API endpoint. You can still add new projects above.');
             }
-        } catch (error) {
-            alert('Error loading project: ' + error.message);
         }
     }
     
