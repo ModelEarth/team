@@ -584,7 +584,8 @@
                 `<span style="color: ${statusColor};">Configured and ready</span>` : 
                 `<span style="color: ${statusColor};">${status}</span>`;
                 
-            configDisplay.innerHTML = `
+            const configDisplay = document.getElementById('config-display');
+            if (configDisplay) configDisplay.innerHTML = `
 <strong>Configuration Source:</strong> ${configSource}
 <strong>Gemini API Key:</strong> ${keyDisplay}
 <strong>Database:</strong> ${config.database ? config.database.database + ' @ ' + config.database.server : 'Not configured'}

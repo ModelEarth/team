@@ -450,8 +450,10 @@
             <div class="form-label">Status</div>
             <div class="form-value">
                 <select name="status">
+                    <option value="Active">Active</option>
                     <option value="Included">Include on Map</option>
-                    <option value="In Review">In Review</option>        
+                    <option value="In Review">In Review</option>
+                    <option value="Inactive">Inactive</option>        
                 </select>
             </div>
         </div>
@@ -463,7 +465,7 @@
             <div class="form-label">End Date</div>
             <div class="form-value"><input type="date" name="estimated_end_date"></div>
         </div>
-        <button type="submit" class="btnX btn-primary add-visit-btn">Submit</button>
+        <button type="submit" class="btnX btn-primary add-visit-btn">Save Project</button>
     </form>
     
     <div id="form-result"></div>
@@ -471,8 +473,8 @@
     <!-- Projects List Section -->
     <div class="projects-section">
         <h2>All Projects</h2>
-        <a href="#" class="add-project-link" onclick="scrollToForm()">
-            <i data-feather="plus"></i> Add New Project
+        <a href="#" class="add-project-link" onclick="addNewProject()">
+            <i data-feather="plus"></i> <span id="add-project-text">Add New Project</span>
         </a>
         <div id="projects-container">
             <div class="loading">Loading projects...</div>
@@ -609,8 +611,14 @@
             
             if (response.ok) {
                 const actionText = editingProjectId ? 'updated' : 'added';
+                
+                // Check if we're in visit mode for success message
+                const urlParams = new URLSearchParams(window.location.search);
+                const isVisitMode = urlParams.get('add') === 'visit';
+                const itemType = isVisitMode ? 'Visit' : 'Project';
+                
                 document.getElementById('form-result').innerHTML = 
-                    `<p style="color: green;"><i data-feather="check-circle" style="width: 16px; height: 16px;"></i> Project ${actionText} successfully!</p>`;
+                    `<p style="color: green;"><i data-feather="check-circle" style="width: 16px; height: 16px;"></i> ${itemType} ${actionText} successfully!</p>`;
                 feather.replace(); // Update icons
                 
                 if (!editingProjectId) {
@@ -675,6 +683,9 @@
     if (urlParams.get('add') === 'visit') {
         document.getElementById('page-title').textContent = 'Add City Visit';
         document.querySelector('h1').textContent = 'Add City Visit';
+        document.querySelector('.add-visit-btn').textContent = 'Save Visit';
+        document.getElementById('add-project-text').textContent = 'Add New Visit';
+        document.querySelector('h2').textContent = 'All Visits';
     }
     
     // Projects list functionality
@@ -710,6 +721,9 @@
     // Display projects list
     function displayProjects(projects) {
         const container = document.getElementById('projects-container');
+        
+        // Store projects data for editing
+        projectsData = projects;
         
         if (projects.length === 0) {
             container.innerHTML = '<div class="no-projects">No projects found. Add your first project above!</div>';
@@ -826,9 +840,17 @@
             document.querySelector('input[name="estimated_start_date"]').value = project.estimated_start_date || '';
             document.querySelector('input[name="estimated_end_date"]').value = project.estimated_end_date || '';
             
-            // Update form title and button
-            document.querySelector('h1').textContent = 'Edit Project';
-            document.querySelector('.add-visit-btn').textContent = 'Update Project';
+            // Update form title and button based on visit mode
+            const urlParams = new URLSearchParams(window.location.search);
+            const isVisitMode = urlParams.get('add') === 'visit';
+            
+            if (isVisitMode) {
+                document.querySelector('h1').textContent = 'Edit City Visit';
+                document.querySelector('.add-visit-btn').textContent = 'Update Visit';
+            } else {
+                document.querySelector('h1').textContent = 'Edit Project';
+                document.querySelector('.add-visit-btn').textContent = 'Update Project';
+            }
             
             // Scroll to form
             scrollToForm();
@@ -856,9 +878,17 @@
                     document.querySelector('input[name="estimated_start_date"]').value = projectData.estimated_start_date || '';
                     document.querySelector('input[name="estimated_end_date"]').value = projectData.estimated_end_date || '';
                     
-                    // Update form title and button
-                    document.querySelector('h1').textContent = 'Edit Project';
-                    document.querySelector('.add-visit-btn').textContent = 'Update Project';
+                    // Update form title and button based on visit mode
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const isVisitMode = urlParams.get('add') === 'visit';
+                    
+                    if (isVisitMode) {
+                        document.querySelector('h1').textContent = 'Edit City Visit';
+                        document.querySelector('.add-visit-btn').textContent = 'Update Visit';
+                    } else {
+                        document.querySelector('h1').textContent = 'Edit Project';
+                        document.querySelector('.add-visit-btn').textContent = 'Update Project';
+                    }
                     
                     // Scroll to form
                     scrollToForm();
@@ -891,10 +921,12 @@
     
     function getStatusClass(status) {
         switch (status) {
+            case 'Active':
             case 'Included':
             case 'Include on Map':
                 return 'status-included';
             case 'In Review':
+            case 'Inactive':
                 return 'status-review';
             default:
                 return 'status-review';
@@ -907,9 +939,42 @@
     
     function resetForm() {
         editingProjectId = null;
-        document.querySelector('h1').textContent = 'Project';
-        document.querySelector('.add-visit-btn').textContent = 'Submit';
+        
+        // Check if we're in visit mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isVisitMode = urlParams.get('add') === 'visit';
+        
+        if (isVisitMode) {
+            document.querySelector('h1').textContent = 'Add City Visit';
+            document.querySelector('.add-visit-btn').textContent = 'Save Visit';
+        } else {
+            document.querySelector('h1').textContent = 'Project';
+            document.querySelector('.add-visit-btn').textContent = 'Save Project';
+        }
+        
         document.getElementById('form-result').innerHTML = '';
+    }
+    
+    // Add new project function - clears form and resets to add mode
+    function addNewProject() {
+        // Clear all form fields
+        document.getElementById('project-form').reset();
+        
+        // Reset form state
+        resetForm();
+        
+        // Scroll to form
+        scrollToForm();
+        
+        // Check if we're in visit mode for message
+        const urlParams = new URLSearchParams(window.location.search);
+        const isVisitMode = urlParams.get('add') === 'visit';
+        const itemType = isVisitMode ? 'visit' : 'project';
+        
+        // Show message
+        document.getElementById('form-result').innerHTML = 
+            `<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Ready to add a new ${itemType}</p>`;
+        feather.replace();
     }
     
     // Dark mode functionality
