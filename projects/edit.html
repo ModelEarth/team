@@ -94,7 +94,6 @@
         .form-field {
             margin-bottom: 15px;
             overflow: auto;
-            border: 1px solid #fff;
         }
         .form-label {
             min-width: 155px;
@@ -128,6 +127,279 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+        
+        /* Projects List Styles */
+        .projects-section {
+            margin-top: 40px;
+            border-top: 1px solid #e5e5e5;
+            padding-top: 30px;
+        }
+        
+        .add-project-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+        
+        .add-project-link:hover {
+            background: #218838;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .projects-list {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .project-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        
+        .project-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .project-item:last-child {
+            border-bottom: none;
+        }
+        
+        .project-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .project-details {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+        
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .project-info {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-included {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-review {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .edit-btn {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .edit-btn:hover {
+            background: #0056b3;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px 0;
+        }
+        
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            color: #333;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .pagination-btn:hover:not(.disabled) {
+            background: #f8f9fa;
+            border-color: #007bff;
+            color: #007bff;
+            text-decoration: none;
+        }
+        
+        .pagination-btn.active {
+            background: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .no-projects {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        /* Dark Mode Styles */
+        .dark body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .dark .content {
+            background-color: #1a1a1a;
+        }
+        
+        .dark .form-field {
+            color: #e0e0e0;
+        }
+        
+        .dark input, .dark textarea, .dark select {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #404040;
+        }
+        
+        .dark input:focus, .dark textarea:focus, .dark select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        
+        .dark .projects-list {
+            background: #2d2d2d;
+            border-color: #404040;
+        }
+        
+        .dark .project-item {
+            border-bottom-color: #404040;
+        }
+        
+        .dark .project-item:hover {
+            background: #333;
+        }
+        
+        .dark .project-title {
+            color: #e0e0e0;
+        }
+        
+        .dark .project-details {
+            color: #b0b0b0;
+        }
+        
+        .dark .project-info {
+            color: #888;
+        }
+        
+        .dark .pagination-btn {
+            background: #2d2d2d;
+            border-color: #404040;
+            color: #e0e0e0;
+        }
+        
+        .dark .pagination-btn:hover:not(.disabled) {
+            background: #333;
+        }
+        
+        .dark .pagination-btn.active {
+            background: #007bff;
+            border-color: #007bff;
+        }
+        
+        .dark .no-projects {
+            background: #2d2d2d;
+            color: #b0b0b0;
+        }
+        
+        .dark .tip-text {
+            color: #888;
+        }
+        
+        .dark h1, .dark h2 {
+            color: #e0e0e0;
+        }
+        
+        .dark-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            z-index: 1000;
+            transition: background-color 0.2s;
+        }
+        
+        .dark-toggle:hover {
+            background: #555;
+        }
+        
+        @media (max-width: 768px) {
+            .project-meta {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .project-info {
+                flex-direction: column;
+                gap: 5px;
+            }
+        }
     </style>
     <link type="text/css" href="../../localsite/css/base.css" rel="stylesheet" />
     <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
@@ -137,6 +409,8 @@
     <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
+
+<button class="dark-toggle" onclick="toggleDarkMode()">🌙 Dark</button>
 
 <div id="formHolder" class="content contentpadding">
 
@@ -193,6 +467,18 @@
     </form>
     
     <div id="form-result"></div>
+    
+    <!-- Projects List Section -->
+    <div class="projects-section">
+        <h2>All Projects</h2>
+        <a href="#" class="add-project-link" onclick="scrollToForm()">
+            <i data-feather="plus"></i> Add New Project
+        </a>
+        <div id="projects-container">
+            <div class="loading">Loading projects...</div>
+        </div>
+        <div id="pagination-container"></div>
+    </div>
 </div>
 
 <script>
@@ -287,34 +573,62 @@
         const formData = new FormData(e.target);
         const project = {
             name: formData.get('name'),
+            location: formData.get('location'),
             description: formData.get('description'),
+            participant_handles: formData.get('participant_handles'),
+            total_participants: parseInt(formData.get('total_participants')) || 1,
             status: formData.get('status'),
             estimated_start_date: formData.get('estimated_start_date') || null,
             estimated_end_date: formData.get('estimated_end_date') || null
         };
         
         try {
-            const response = await fetch(`${API_BASE}/projects`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(project)
-            });
+            let response, result;
             
-            const result = await response.json();
+            if (editingProjectId) {
+                // Update existing project
+                response = await fetch(`${API_BASE}/projects/${editingProjectId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(project)
+                });
+            } else {
+                // Create new project
+                response = await fetch(`${API_BASE}/projects`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(project)
+                });
+            }
+            
+            result = await response.json();
             
             if (response.ok) {
+                const actionText = editingProjectId ? 'updated' : 'added';
                 document.getElementById('form-result').innerHTML = 
-                    '<p style="color: green;"><i data-feather="check-circle" style="width: 16px; height: 16px;"></i> Project added successfully!</p>';
+                    `<p style="color: green;"><i data-feather="check-circle" style="width: 16px; height: 16px;"></i> Project ${actionText} successfully!</p>`;
                 feather.replace(); // Update icons
-                e.target.reset();
-                loadTables(); // Refresh table counts
                 
-                // Redirect to map folder after successful submission
+                if (!editingProjectId) {
+                    e.target.reset();
+                }
+                
+                // Reset form state
+                resetForm();
+                
+                // Refresh projects list and table counts
+                loadProjects(currentPage);
+                loadTables();
+                
+                // Scroll to projects list to show the updated project
                 setTimeout(() => {
-                    window.location.href = '../map/';
-                }, 1500);
+                    document.querySelector('.projects-section h2').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+                
             } else {
                 document.getElementById('form-result').innerHTML = 
                     `<p style="color: #856404; background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin-top: 10px;">
@@ -363,8 +677,232 @@
         document.querySelector('h1').textContent = 'Add City Visit';
     }
     
+    // Projects list functionality
+    let currentPage = 1;
+    const projectsPerPage = 100;
+    let totalProjects = 0;
+    let editingProjectId = null;
+    
+    // Load projects list with pagination
+    async function loadProjects(page = 1) {
+        try {
+            const offset = (page - 1) * projectsPerPage;
+            const response = await fetch(`${API_BASE}/projects?limit=${projectsPerPage}&offset=${offset}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                displayProjects(data.projects || []);
+                totalProjects = data.total || 0;
+                displayPagination(page, totalProjects);
+                currentPage = page;
+            } else {
+                document.getElementById('projects-container').innerHTML = 
+                    '<div class="no-projects">Unable to load projects. Check database connection.</div>';
+            }
+        } catch (error) {
+            document.getElementById('projects-container').innerHTML = 
+                '<div class="no-projects">Demo Mode: Database connection inactive. Projects will appear here when connected.</div>';
+        }
+    }
+    
+    // Display projects list
+    function displayProjects(projects) {
+        const container = document.getElementById('projects-container');
+        
+        if (projects.length === 0) {
+            container.innerHTML = '<div class="no-projects">No projects found. Add your first project above!</div>';
+            return;
+        }
+        
+        const projectsHtml = projects.map(project => `
+            <div class="project-item">
+                <div class="project-title">${escapeHtml(project.name || 'Untitled Project')}</div>
+                <div class="project-details">
+                    ${project.description ? escapeHtml(project.description) : 'No description available'}
+                </div>
+                <div class="project-meta">
+                    <div class="project-info">
+                        ${project.location ? `<span><i data-feather="map-pin" style="width: 14px; height: 14px;"></i> ${escapeHtml(project.location)}</span>` : ''}
+                        ${project.estimated_start_date ? `<span><i data-feather="calendar" style="width: 14px; height: 14px;"></i> Start: ${formatDate(project.estimated_start_date)}</span>` : ''}
+                        ${project.estimated_end_date ? `<span><i data-feather="calendar" style="width: 14px; height: 14px;"></i> End: ${formatDate(project.estimated_end_date)}</span>` : ''}
+                        ${project.total_participants ? `<span><i data-feather="users" style="width: 14px; height: 14px;"></i> ${project.total_participants} participants</span>` : ''}
+                        <span class="status-badge ${getStatusClass(project.status)}">
+                            ${project.status || 'No Status'}
+                        </span>
+                    </div>
+                    <button class="edit-btn" onclick="editProject('${project.id}')">
+                        <i data-feather="edit" style="width: 14px; height: 14px;"></i> Edit
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = `<div class="projects-list">${projectsHtml}</div>`;
+        feather.replace(); // Re-initialize icons
+    }
+    
+    // Display pagination controls
+    function displayPagination(currentPage, totalProjects) {
+        const totalPages = Math.ceil(totalProjects / projectsPerPage);
+        const container = document.getElementById('pagination-container');
+        
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        let paginationHtml = '<div class="pagination">';
+        
+        // Previous button
+        if (currentPage > 1) {
+            paginationHtml += `<a href="#" class="pagination-btn" onclick="loadProjects(${currentPage - 1}); return false;">Previous</a>`;
+        } else {
+            paginationHtml += '<span class="pagination-btn disabled">Previous</span>';
+        }
+        
+        // Page numbers
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        
+        if (startPage > 1) {
+            paginationHtml += `<a href="#" class="pagination-btn" onclick="loadProjects(1); return false;">1</a>`;
+            if (startPage > 2) {
+                paginationHtml += '<span class="pagination-btn disabled">...</span>';
+            }
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            if (i === currentPage) {
+                paginationHtml += `<span class="pagination-btn active">${i}</span>`;
+            } else {
+                paginationHtml += `<a href="#" class="pagination-btn" onclick="loadProjects(${i}); return false;">${i}</a>`;
+            }
+        }
+        
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                paginationHtml += '<span class="pagination-btn disabled">...</span>';
+            }
+            paginationHtml += `<a href="#" class="pagination-btn" onclick="loadProjects(${totalPages}); return false;">${totalPages}</a>`;
+        }
+        
+        // Next button
+        if (currentPage < totalPages) {
+            paginationHtml += `<a href="#" class="pagination-btn" onclick="loadProjects(${currentPage + 1}); return false;">Next</a>`;
+        } else {
+            paginationHtml += '<span class="pagination-btn disabled">Next</span>';
+        }
+        
+        // Info
+        const startItem = (currentPage - 1) * projectsPerPage + 1;
+        const endItem = Math.min(currentPage * projectsPerPage, totalProjects);
+        paginationHtml += `<div class="pagination-info">Showing ${startItem}-${endItem} of ${totalProjects} projects</div>`;
+        
+        paginationHtml += '</div>';
+        container.innerHTML = paginationHtml;
+    }
+    
+    // Edit project functionality
+    async function editProject(projectId) {
+        editingProjectId = projectId;
+        try {
+            const response = await fetch(`${API_BASE}/projects/${projectId}`);
+            const data = await response.json();
+            
+            if (response.ok && data.project) {
+                const project = data.project;
+                
+                // Populate form fields
+                document.querySelector('input[name="name"]').value = project.name || '';
+                document.querySelector('input[name="location"]').value = project.location || '';
+                document.querySelector('textarea[name="description"]').value = project.description || '';
+                document.querySelector('textarea[name="participant_handles"]').value = project.participant_handles || '';
+                document.querySelector('input[name="total_participants"]').value = project.total_participants || 1;
+                document.querySelector('select[name="status"]').value = project.status || 'Included';
+                document.querySelector('input[name="estimated_start_date"]').value = project.estimated_start_date || '';
+                document.querySelector('input[name="estimated_end_date"]').value = project.estimated_end_date || '';
+                
+                // Update form title and button
+                document.querySelector('h1').textContent = 'Edit Project';
+                document.querySelector('.add-visit-btn').textContent = 'Update Project';
+                
+                // Scroll to form
+                scrollToForm();
+                
+                // Show success message
+                document.getElementById('form-result').innerHTML = 
+                    '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
+                feather.replace();
+            } else {
+                alert('Unable to load project for editing');
+            }
+        } catch (error) {
+            alert('Error loading project: ' + error.message);
+        }
+    }
+    
+    // Helper functions
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+    }
+    
+    function getStatusClass(status) {
+        switch (status) {
+            case 'Included':
+            case 'Include on Map':
+                return 'status-included';
+            case 'In Review':
+                return 'status-review';
+            default:
+                return 'status-review';
+        }
+    }
+    
+    function scrollToForm() {
+        document.querySelector('h1').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    function resetForm() {
+        editingProjectId = null;
+        document.querySelector('h1').textContent = 'Project';
+        document.querySelector('.add-visit-btn').textContent = 'Submit';
+        document.getElementById('form-result').innerHTML = '';
+    }
+    
+    // Dark mode functionality
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        
+        // Update toggle button text
+        const toggleBtn = document.querySelector('.dark-toggle');
+        toggleBtn.innerHTML = isDark ? '☀️ Light' : '🌙 Dark';
+        
+        // Save preference
+        localStorage.setItem('darkMode', isDark);
+    }
+    
+    // Load dark mode preference
+    function loadDarkModePreference() {
+        const isDark = localStorage.getItem('darkMode') === 'true';
+        if (isDark) {
+            document.body.classList.add('dark');
+            document.querySelector('.dark-toggle').innerHTML = '☀️ Light';
+        }
+    }
+    
     // Initialize
     checkConnection();
+    loadProjects(); // Load projects on page load
+    loadDarkModePreference();
     
     // Initialize feather icons
     feather.replace();
