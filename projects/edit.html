@@ -115,6 +115,18 @@
         #connection-status.localhost {
             display: block;
         }
+        
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        
+        .header-controls #connection-status {
+            flex: 1;
+        }
         .add-visit-btn {
             padding: 10px 20px;
             background: #007bff;
@@ -126,31 +138,139 @@
             font-weight: 500;
             cursor: pointer;
             transition: background-color 0.2s;
+            margin-bottom: 20px;
         }
         
+        /* Header Toggle Buttons */
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .view-toggle-btn {
+            padding: 8px 16px;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        
+        .view-toggle-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+            text-decoration: none;
+            color: #333;
+        }
+        
+        .view-toggle-btn.active {
+            background: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        
+        .view-toggle-btn.active:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+            color: white;
+        }
+        
+        /* Content Sections */
+        .content-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+
         /* Projects List Styles */
         .projects-section {
-            margin-top: 40px;
-            border-top: 1px solid #e5e5e5;
-            padding-top: 30px;
+            margin-top: 20px;
+            padding-top: 20px;
         }
         
-        .add-project-link {
-            display: inline-block;
-            padding: 12px 24px;
+        .projects-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .projects-header h2 {
+            margin: 0;
+        }
+        
+        .section-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .section-action-btn {
+            padding: 8px 16px;
             background: #28a745;
             color: white;
             text-decoration: none;
-            border-radius: 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
             font-weight: 500;
-            margin-bottom: 20px;
-            transition: all 0.2s;
+            transition: background-color 0.2s;
+            border: none;
+            cursor: pointer;
         }
         
-        .add-project-link:hover {
+        .section-action-btn:hover {
             background: #218838;
             color: white;
             text-decoration: none;
+        }
+        
+        .section-action-btn.insights {
+            background: #6f42c1;
+            color: white;
+        }
+        
+        .section-action-btn.insights:hover {
+            background: #5a359e;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .header-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .header-buttons {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .view-toggle-btn {
+                padding: 6px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .projects-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .section-actions {
+                gap: 5px;
+            }
+            
+            .section-action-btn {
+                padding: 6px 12px;
+                font-size: 0.85rem;
+            }
         }
         
         .projects-list {
@@ -370,6 +490,42 @@
             color: #e0e0e0;
         }
         
+        .dark .view-toggle-btn {
+            background: #2d2d2d;
+            border-color: #404040;
+            color: #e0e0e0;
+        }
+        
+        .dark .view-toggle-btn:hover {
+            background: #333;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        
+        .dark .view-toggle-btn.active {
+            background: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        
+        .dark .view-toggle-btn.active:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+            color: white;
+        }
+        
+        .dark .header-controls {
+            border-bottom-color: #404040;
+        }
+        
+        .dark .section-action-btn {
+            /* Keep same colors in dark mode for good contrast */
+        }
+        
+        .dark .section-action-btn:hover {
+            /* Keep same hover colors in dark mode */
+        }
+        
         .dark-toggle {
             position: fixed;
             top: 20px;
@@ -383,10 +539,18 @@
             font-size: 0.85rem;
             z-index: 1000;
             transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
         .dark-toggle:hover {
             background: #555;
+        }
+        
+        .dark-toggle i {
+            width: 16px;
+            height: 16px;
         }
         
         @media (max-width: 768px) {
@@ -410,17 +574,53 @@
 </head>
 <body>
 
-<button class="dark-toggle" onclick="toggleDarkMode()">🌙 Dark</button>
+<button class="dark-toggle" onclick="toggleDarkMode()">
+    <i data-feather="toggle-left" id="toggle-icon"></i>
+    <span id="toggle-text">Dark</span>
+</button>
 
 <div id="formHolder" class="content contentpadding">
 
-    <div id="connection-status">
-        <p>Checking database connection...</p>
+    <div class="header-controls">
+        <div id="connection-status">
+            <p>Checking database connection...</p>
+        </div>
+        <div class="header-buttons">
+            <button class="view-toggle-btn active" id="add-new-btn" onclick="addNewProject()">
+                <span id="add-new-text">Add Project</span>
+            </button>
+            <button class="view-toggle-btn" id="view-projects-btn" onclick="showProjectsView()">
+                <span id="view-projects-text">View Projects</span>
+            </button>
+            <button class="view-toggle-btn" id="view-tables-btn" onclick="toggleTablesView()">
+                <span id="tables-btn-text">View Tables</span>
+            </button>
+        </div>
     </div>
 
     <h1>Project</h1>
     
-    <div id="tables-list"></div>
+    <!-- Tables Section -->
+    <div id="tables-section" class="content-section">
+        <div id="tables-list"></div>
+    </div>
+    
+    <!-- Projects Section -->
+    <div id="projects-view-section" class="content-section">
+        <div class="projects-section">
+            <div class="projects-header">
+                <h2 id="projects-header">All Projects</h2>
+                <div class="section-actions">
+                    <a href="map/#list=cities" class="section-action-btn">Show Map</a>
+                    <a href="./" class="section-action-btn insights">Insights</a>
+                </div>
+            </div>
+            <div id="projects-container">
+                <div class="no-projects" id="projects-empty-state">Click "View Projects" above to load the projects list.</div>
+            </div>
+            <div id="pagination-container"></div>
+        </div>
+    </div>
     
     <form id="project-form">
         <div class="form-field project-name-field">
@@ -469,18 +669,6 @@
     </form>
     
     <div id="form-result"></div>
-    
-    <!-- Projects List Section -->
-    <div class="projects-section">
-        <h2>All Projects</h2>
-        <a href="#" class="add-project-link" onclick="addNewProject()">
-            <i data-feather="plus"></i> <span id="add-project-text">Add New Project</span>
-        </a>
-        <div id="projects-container">
-            <div class="loading">Loading projects...</div>
-        </div>
-        <div id="pagination-container"></div>
-    </div>
 </div>
 
 <script>
@@ -628,14 +816,21 @@
                 // Reset form state
                 resetForm();
                 
-                // Refresh projects list and table counts
-                loadProjects(currentPage);
-                loadTables();
+                // Refresh current view
+                if (currentView === 'projects' && projectsLoaded) {
+                    loadProjects(currentPage);
+                }
+                if (currentView === 'tables' && tablesLoaded) {
+                    loadTables();
+                }
                 
-                // Scroll to projects list to show the updated project
-                setTimeout(() => {
-                    document.querySelector('.projects-section h2').scrollIntoView({ behavior: 'smooth' });
-                }, 500);
+                // Show projects list again if we were editing and current view is projects
+                if (currentView === 'projects' && editingProjectId) {
+                    document.getElementById('projects-view-section').classList.add('active');
+                    setTimeout(() => {
+                        document.querySelector('.projects-section h2').scrollIntoView({ behavior: 'smooth' });
+                    }, 500);
+                }
                 
             } else {
                 document.getElementById('form-result').innerHTML = 
@@ -684,8 +879,10 @@
         document.getElementById('page-title').textContent = 'Add City Visit';
         document.querySelector('h1').textContent = 'Add City Visit';
         document.querySelector('.add-visit-btn').textContent = 'Save Visit';
-        document.getElementById('add-project-text').textContent = 'Add New Visit';
-        document.querySelector('h2').textContent = 'All Visits';
+        document.getElementById('add-new-text').textContent = 'Add Visit';
+        document.getElementById('projects-header').textContent = 'All Visits';
+        document.getElementById('view-projects-text').textContent = 'View Visits';
+        document.getElementById('projects-empty-state').textContent = 'Click "View Visits" above to load the visits list.';
     }
     
     // Projects list functionality
@@ -852,6 +1049,9 @@
                 document.querySelector('.add-visit-btn').textContent = 'Update Project';
             }
             
+            // Hide the projects list and show form
+            document.getElementById('projects-view-section').classList.remove('active');
+            
             // Scroll to form
             scrollToForm();
             
@@ -889,6 +1089,9 @@
                         document.querySelector('h1').textContent = 'Edit Project';
                         document.querySelector('.add-visit-btn').textContent = 'Update Project';
                     }
+                    
+                    // Hide the projects list and show form
+                    document.getElementById('projects-view-section').classList.remove('active');
                     
                     // Scroll to form
                     scrollToForm();
@@ -963,6 +1166,21 @@
         // Reset form state
         resetForm();
         
+        // Hide all sections (projects and tables)
+        document.getElementById('projects-view-section').classList.remove('active');
+        document.getElementById('tables-section').classList.remove('active');
+        
+        // Update button states - make Add Project/Visit active, others inactive
+        document.getElementById('add-new-btn').classList.add('active');
+        document.getElementById('view-projects-btn').classList.remove('active');
+        document.getElementById('view-tables-btn').classList.remove('active');
+        
+        // Update tables button text to default state
+        document.getElementById('tables-btn-text').textContent = 'View Tables';
+        
+        // Clear current view
+        currentView = null;
+        
         // Scroll to form
         scrollToForm();
         
@@ -982,9 +1200,20 @@
         document.body.classList.toggle('dark');
         const isDark = document.body.classList.contains('dark');
         
-        // Update toggle button text
-        const toggleBtn = document.querySelector('.dark-toggle');
-        toggleBtn.innerHTML = isDark ? '☀️ Light' : '🌙 Dark';
+        // Update toggle button icon and text
+        const toggleIcon = document.getElementById('toggle-icon');
+        const toggleText = document.getElementById('toggle-text');
+        
+        if (isDark) {
+            toggleIcon.setAttribute('data-feather', 'toggle-right');
+            toggleText.textContent = 'Light';
+        } else {
+            toggleIcon.setAttribute('data-feather', 'toggle-left');
+            toggleText.textContent = 'Dark';
+        }
+        
+        // Re-initialize feather icons to update the changed icon
+        feather.replace();
         
         // Save preference
         localStorage.setItem('darkMode', isDark);
@@ -995,13 +1224,100 @@
         const isDark = localStorage.getItem('darkMode') === 'true';
         if (isDark) {
             document.body.classList.add('dark');
-            document.querySelector('.dark-toggle').innerHTML = '☀️ Light';
+            const toggleIcon = document.getElementById('toggle-icon');
+            const toggleText = document.getElementById('toggle-text');
+            toggleIcon.setAttribute('data-feather', 'toggle-right');
+            toggleText.textContent = 'Light';
+            // Re-initialize feather icons
+            setTimeout(() => feather.replace(), 100);
         }
+    }
+    
+    // View state management
+    let currentView = null;
+    let tablesLoaded = false;
+    let projectsLoaded = false;
+    
+    // Toggle view functions
+    function showTablesView() {
+        // Update button states
+        document.getElementById('view-tables-btn').classList.add('active');
+        document.getElementById('view-projects-btn').classList.remove('active');
+        
+        // Show tables section, hide projects section
+        document.getElementById('tables-section').classList.add('active');
+        document.getElementById('projects-view-section').classList.remove('active');
+        
+        // Load tables if not already loaded
+        if (!tablesLoaded) {
+            loadTables();
+            tablesLoaded = true;
+        }
+        
+        currentView = 'tables';
+        
+        // Update button text
+        document.getElementById('tables-btn-text').textContent = 'Hide Tables';
+    }
+    
+    function toggleTablesView() {
+        const tablesSection = document.getElementById('tables-section');
+        const tablesBtn = document.getElementById('view-tables-btn');
+        const tablesBtnText = document.getElementById('tables-btn-text');
+        const isCurrentlyVisible = tablesSection.classList.contains('active');
+        
+        if (isCurrentlyVisible) {
+            // Hide tables
+            tablesSection.classList.remove('active');
+            tablesBtn.classList.remove('active');
+            tablesBtnText.textContent = 'View Tables';
+            
+            // If we were in tables view, clear current view
+            if (currentView === 'tables') {
+                currentView = null;
+            }
+        } else {
+            // Show tables
+            tablesSection.classList.add('active');
+            tablesBtn.classList.add('active');
+            tablesBtnText.textContent = 'Hide Tables';
+            
+            // Don't hide other sections - allow tables to be shown alongside them
+            
+            // Load tables if not already loaded
+            if (!tablesLoaded) {
+                loadTables();
+                tablesLoaded = true;
+            }
+            
+            currentView = 'tables';
+        }
+    }
+    
+    function showProjectsView() {
+        // Update button states - make View Projects active, others inactive
+        document.getElementById('view-projects-btn').classList.add('active');
+        document.getElementById('view-tables-btn').classList.remove('active');
+        document.getElementById('add-new-btn').classList.remove('active');
+        
+        // Show projects section, hide tables section
+        document.getElementById('projects-view-section').classList.add('active');
+        document.getElementById('tables-section').classList.remove('active');
+        
+        // Reset tables button text
+        document.getElementById('tables-btn-text').textContent = 'View Tables';
+        
+        // Load projects if not already loaded
+        if (!projectsLoaded) {
+            loadProjects();
+            projectsLoaded = true;
+        }
+        
+        currentView = 'projects';
     }
     
     // Initialize
     checkConnection();
-    loadProjects(); // Load projects on page load
     loadDarkModePreference();
     
     // Initialize feather icons

@@ -822,12 +822,47 @@
             color: white !important;
             border-color: #22c55e !important;
             opacity: 0.8;
+            padding: 8px 16px !important;
         }
         
         #add-visit-btn:hover {
             opacity: 1;
             background: #16a34a !important;
             border-color: #16a34a !important;
+        }
+        
+        #map-btn {
+            text-decoration: none !important;
+            background: #3b82f6 !important;
+            color: white !important;
+            border-color: #3b82f6 !important;
+            opacity: 0.8;
+            padding: 8px 16px !important;
+        }
+        
+        #map-btn:hover {
+            opacity: 1;
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+        
+        #sign-in-btn {
+            padding: 8px 16px !important;
+        }
+        
+        #insights-btn {
+            padding: 8px 16px !important;
+        }
+        
+        #list-title {
+            border: none !important;
+        }
+        
+        #aiInsights {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 12px !important;
+            display: none !important; /* Hidden by default */
         }
         
         /* Column View (Default) - Using table-list style */
@@ -1654,8 +1689,8 @@
                         Get List
                     </button>
                 </div>
-                <div class="menu-container" style="display: flex; align-items: center; gap: 8px;">
-                    <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; border: 1px solid var(--border-light); color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
+                <div class="menu-container" style="display: flex; align-items: flex-start; gap: 8px;">
+                    <button class="menu-button" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
                         <i data-feather="settings"></i>
                     </button>
                     <button class="menu-button" id="menu-toggle">
@@ -1726,7 +1761,7 @@
                         </button>
                     </div>
                 </div>
-                <textarea id="pageCacheYaml" style="width: 100%; height: 200px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid var(--border-light); border-radius: 4px; background: #f8f9fa;" placeholder="Browser cache will appear here..."></textarea>
+                <textarea id="pageCacheYaml" style="width: 100%; height: 250px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid var(--border-light); border-radius: 4px; background: #f8f9fa;" placeholder="Browser cache will appear here..."></textarea>
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">
                     Edit the YAML above and click Save to update your browser cache. Click Refresh to reload current cache values.
                 </div>
@@ -1738,10 +1773,50 @@
         </div>
 
         <div class="card" id="participants-table-card" style="display: none;">
-            <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <!-- AI Insights -->
+            <div id="aiInsights" class="ai-insights" style="display: none;">
+                <div class="insights-header">
+                    <div class="ai-icon">🤖</div>
+                    <h3>AI-Powered Dataset Insights</h3>
+                    <div class="insights-status" id="insightsStatus">
+                        <div class="insight-button-group">
+                            <button id="claudeInsightsBtn" class="btn btn-secondary" onclick="handleClaudeInsightsClick()">
+                                <span id="claudeInsightsText">Claude Insights</span>
+                            </button>
+                            <button id="claudeRefreshBtn" class="btn btn-secondary refresh-btn" onclick="showRefreshPrompt('claude')" title="Refresh with custom prompt" style="display: none;">
+                                <span>↻</span>
+                            </button>
+                        </div>
+                        <div class="insight-button-group">
+                            <button id="geminiInsightsBtn" class="btn btn-primary" onclick="handleGeminiInsightsClick()">
+                                <span id="geminiInsightsText">Gemini Insights</span>
+                            </button>
+                            <button id="geminiRefreshBtn" class="btn btn-primary refresh-btn" onclick="showRefreshPrompt('gemini')" title="Refresh with custom prompt" style="display: none;">
+                                <span>↻</span>
+                            </button>
+                            <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12px;">
+                                <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
+                                <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to Gemini API">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="loadingStatus" class="loading-status" style="display: block; padding: 12px; margin-bottom: 16px; background: linear-gradient(135deg, #6B7280, #E5E7EB); border-radius: var(--radius-md); text-align: left; font-style: italic; color: white; font-weight: bold;">
+                    Ready for AI analysis
+                </div>
+                <div id="insightsContent" class="insights-content">
+                    <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
+                        Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
+                    <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
                 </div>
             </div>
@@ -1888,43 +1963,6 @@
             <div class="view-container" id="gallery-view" style="display: none;">
                 <div class="participants-gallery" id="participants-gallery-grid"></div>
             </div>
-            <!-- AI Insights -->
-            <div id="aiInsights" class="ai-insights" style="display: none;">
-                <div class="insights-header">
-                    <div class="ai-icon">🤖</div>
-                    <h3>AI-Powered Dataset Insights</h3>
-                    <div class="insights-status" id="insightsStatus">
-                        <div class="insight-button-group">
-                            <button id="claudeInsightsBtn" class="btn btn-secondary" onclick="handleClaudeInsightsClick()">
-                                <span id="claudeInsightsText">Claude Insights</span>
-                            </button>
-                            <button id="claudeRefreshBtn" class="btn btn-secondary refresh-btn" onclick="showRefreshPrompt('claude')" title="Refresh with custom prompt" style="display: none;">
-                                <span>↻</span>
-                            </button>
-                        </div>
-                        <div class="insight-button-group">
-                            <button id="geminiInsightsBtn" class="btn btn-primary" onclick="handleGeminiInsightsClick()">
-                                <span id="geminiInsightsText">Gemini Insights</span>
-                            </button>
-                            <button id="geminiRefreshBtn" class="btn btn-primary refresh-btn" onclick="showRefreshPrompt('gemini')" title="Refresh with custom prompt" style="display: none;">
-                                <span>↻</span>
-                            </button>
-                            <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12px;">
-                                <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
-                                <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to Gemini API">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div id="loadingStatus" class="loading-status" style="display: block; padding: 12px; margin-bottom: 16px; background: linear-gradient(135deg, #6B7280, #E5E7EB); border-radius: var(--radius-md); text-align: left; font-style: italic; color: white; font-weight: bold;">
-                    Ready for AI analysis
-                </div>
-                <div id="insightsContent" class="insights-content">
-                    <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
-                        Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
-                    </div>
-                </div>
-            </div>
         </div>
         
         <!-- Prompt Modal for custom AI prompts -->
@@ -1969,7 +2007,11 @@
         function showAIInsightsSection() {
             const aiInsights = document.getElementById('aiInsights');
             if (aiInsights && window.participantsData && window.participantsData.length > 0) {
-                aiInsights.style.display = 'block';
+                // Only show if insights=all is in URL, otherwise respect the hidden state
+                const insightsParam = getURLHashParam('insights');
+                if (insightsParam === 'all') {
+                    aiInsights.style.setProperty('display', 'block', 'important');
+                }
                 showAIInsightsButtons();
             }
         }
@@ -5174,6 +5216,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const listSelectDiv = document.getElementById('listSelectDiv');
             const breadcrumb = document.querySelector('.breadcrumb');
             const addVisitBtn = document.getElementById('add-visit-btn');
+            const mapBtn = document.getElementById('map-btn');
+            const insightsBtn = document.getElementById('insights-btn');
             const signInBtn = document.getElementById('sign-in-btn');
             
             if (listParam === 'geo') {
@@ -5183,6 +5227,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 if (addVisitBtn) {
                     addVisitBtn.style.display = 'inline-block';
+                }
+                if (mapBtn) {
+                    mapBtn.style.display = 'inline-block';
                 }
                 if (signInBtn) {
                     signInBtn.style.display = 'inline-block';
@@ -5195,11 +5242,77 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (addVisitBtn) {
                     addVisitBtn.style.display = 'none';
                 }
+                if (mapBtn) {
+                    mapBtn.style.display = 'none';
+                }
                 if (signInBtn) {
                     signInBtn.style.display = 'none';
                 }
             }
+            
+            // Always show insights button for all lists
+            if (insightsBtn) {
+                insightsBtn.style.display = 'inline-block';
+            }
         }
+        
+        // Insights toggle functionality
+        function toggleInsights() {
+            const aiInsights = document.getElementById('aiInsights');
+            const insightsBtn = document.getElementById('insights-btn');
+            // Use getComputedStyle to check actual visibility since we use CSS !important
+            const computedStyle = window.getComputedStyle(aiInsights);
+            const isCurrentlyVisible = computedStyle.display === 'block';
+            
+            if (isCurrentlyVisible) {
+                // Hide insights
+                aiInsights.style.setProperty('display', 'none', 'important');
+                insightsBtn.textContent = 'Insights';
+                removeURLHashParam('insights');
+            } else {
+                // Show insights
+                aiInsights.style.setProperty('display', 'block', 'important');
+                insightsBtn.textContent = 'Hide Insights';
+                setURLHashParam('insights', 'all');
+            }
+        }
+        
+        // Remove URL hash parameter (uses existing setURLHashParam)
+        function removeURLHashParam(key) {
+            setURLHashParam(key, null);
+        }
+        
+        // Check for insights parameter in URL and show/hide accordingly
+        function checkInsightsFromURL() {
+            const insightsParam = getURLHashParam('insights');
+            const aiInsights = document.getElementById('aiInsights');
+            const insightsBtn = document.getElementById('insights-btn');
+            
+            // Ensure elements exist before trying to manipulate them
+            if (!aiInsights) {
+                console.warn('aiInsights element not found');
+                return;
+            }
+            
+            if (insightsParam === 'all') {
+                aiInsights.style.setProperty('display', 'block', 'important');
+                if (insightsBtn) {
+                    insightsBtn.textContent = 'Hide Insights';
+                }
+                console.log('Insights panel shown from URL parameter');
+            } else {
+                aiInsights.style.setProperty('display', 'none', 'important');
+                if (insightsBtn) {
+                    insightsBtn.textContent = 'Insights';
+                }
+                console.log('Insights panel hidden (no URL parameter)');
+            }
+        }
+        
+        // Listen for hash changes (manual editing)
+        window.addEventListener('hashchange', function() {
+            checkInsightsFromURL();
+        });
         
         // Restore saved view state
         function restoreViewState() {
@@ -5510,6 +5623,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Set initial header visibility based on current hash
             updateHeaderVisibility();
+            
+            // Initialize insights visibility from URL (with delay to ensure DOM is ready)
+            setTimeout(checkInsightsFromURL, 100);
             
             // Listen for URL changes to update visibility
             window.addEventListener('hashchange', updateGroupParticipantsVisibility);
