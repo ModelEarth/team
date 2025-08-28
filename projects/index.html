@@ -123,6 +123,10 @@
             background-size: 16px 16px;
             padding-right: 40px;
         }
+
+        .dark #fileSelect {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        }
         
         .message-log {
             background: var(--bg-tertiary);
@@ -1679,7 +1683,7 @@
         </div>
 
         <div style="margin-bottom: 20px;">
-            <div class="input-button-group" id="listSelectDiv" style="display: flex; align-items: center; justify-content: space-between;">
+            <div id="pageControls" class="input-button-group" style="display:flex; flex:1; align-items: center; justify-content: space-between;">
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
                         <option value="custom">Choose File...</option>
@@ -5213,7 +5217,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function updateListSelectVisibility() {
             const listParam = getURLHashParam('list');
-            const listSelectDiv = document.getElementById('listSelectDiv');
+            const pageControls = document.getElementById('pageControls');
             const breadcrumb = document.querySelector('.breadcrumb');
             const addVisitBtn = document.getElementById('add-visit-btn');
             const mapBtn = document.getElementById('map-btn');
@@ -5221,7 +5225,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const signInBtn = document.getElementById('sign-in-btn');
             
             if (listParam === 'geo') {
-                listSelectDiv.style.display = 'flex';
+                pageControls.style.display = 'flex';
                 if (breadcrumb) {
                     breadcrumb.style.display = 'none';
                 }
@@ -5235,7 +5239,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     signInBtn.style.display = 'inline-block';
                 }
             } else {
-                listSelectDiv.style.display = 'flex';
+                pageControls.style.display = 'flex';
                 if (breadcrumb) {
                     breadcrumb.style.display = 'block';
                 }
@@ -6260,10 +6264,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 menuToggle.classList.remove('active');
             }
             
-            // Scroll to the listSelectDiv instead of the documentation section
-            const listSelectDiv = document.getElementById('listSelectDiv');
-            if (listSelectDiv) {
-                listSelectDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Scroll to the pageControls instead of the documentation section
+            const pageControls = document.getElementById('pageControls');
+            if (pageControls) {
+                pageControls.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
         
@@ -6276,10 +6280,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 readmeSection.style.display = 'block';
                 toggleBtn.textContent = 'Hide Documentation';
                 
-                // Scroll to the listSelectDiv
-                const listSelectDiv = document.getElementById('listSelectDiv');
-                if (listSelectDiv) {
-                    listSelectDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Scroll to the pageControls
+                const pageControls = document.getElementById('pageControls');
+                if (pageControls) {
+                    pageControls.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             } else {
                 // Hide the section

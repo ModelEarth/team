@@ -1,0 +1,3110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="img/logo/neighborhood/favicon.png">
+    <title>MemberCommons - Project Collaboration Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
+
+    <link rel="stylesheet" href="css/projects.css">
+    <link rel="stylesheet" href="css/people-teams.css">
+    <link rel="stylesheet" href="css/account.css">
+    <style>
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F3F4F6;
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --accent-green: #10B981;
+            --accent-blue: #3B82F6;
+            --accent-orange: #F59E0B;
+            --border-light: #E5E7EB;
+            --border-medium: #D1D5DB;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --sidebar-width: 280px;
+            --sidebar-collapsed: 64px;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: var(--transition-smooth);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed);
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .logo-text {
+            font-size: 16px;
+            font-weight: 200;
+            color: var(--text-primary);
+            opacity: .5;
+            transition: var(--transition-smooth);
+        }
+
+        .sidebar.collapsed .logo-text {
+            opacity: 0; /* hidden when collapsed */
+            pointer-events: none;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: var(--radius-md);
+            transition: var(--transition-smooth);
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-toggle:hover {
+            background: none;
+            color: var(--text-primary);
+        }
+
+        .sidebar.collapsed .sidebar-toggle {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sidebar.collapsed .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+
+        .nav-menu {
+            flex: 1;
+            padding: 16px 0;
+            overflow-y: auto;
+        }
+
+        /* Custom tooltip system for narrow navigation */
+        .nav-tooltip-custom {
+            position: fixed;
+            background: var(--accent-blue);
+            color: white;
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 2000;
+            box-shadow: var(--shadow-md);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .nav-tooltip-custom.show {
+            opacity: 1;
+        }
+
+        .nav-section {
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 16px;
+        }
+
+        .nav-section:last-child {
+            border-bottom: none;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-link.active {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .nav-text {
+            flex: 1;
+            opacity: 1;
+            transition: var(--transition-smooth);
+        }
+
+        .sidebar.collapsed:not(.hovered) .nav-link:hover {
+               background: var(--accent-blue) !important;
+               color: white !important;
+               transition: var(--transition-smooth);
+        }
+        .sidebar.collapsed:not(.hovered) .subnav-link:hover {
+            background: var(--accent-blue) !important;
+            color: white !important;
+            transition: var(--transition-smooth);
+        }
+
+        .sidebar.collapsed .nav-text {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .nav-arrow {
+            width: 16px;
+            height: 16px;
+            margin-left: auto;
+            transition: var(--transition-smooth);
+            opacity: 1;
+        }
+
+        .sidebar.collapsed .nav-arrow {
+            opacity: 0;
+        }
+
+        .nav-arrow.expanded {
+            transform: rotate(90deg);
+        }
+
+        .subnav {
+            background: transparent;
+            max-height: 0;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .subnav.expanded {
+            max-height: 300px;
+        }
+
+        .subnav-link {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px 10px 52px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            transition: var(--transition-smooth);
+        }
+
+        .subnav-link.active {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .subnav-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 12px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.collapsed + .main-content {
+            margin-left: var(--sidebar-collapsed);
+        }
+
+        .top-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .auth-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 32px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: var(--radius-lg);
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border-radius: var(--radius-md);
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-size: 14px;
+        }
+
+        .tab.active {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text-primary);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .welcome-hero {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            color: white;
+            text-align: center;
+            padding: 48px 32px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 32px;
+        }
+
+        .hero-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 32px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+            margin-bottom: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            transition: var(--transition-smooth);
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .clickable-card {
+            cursor: pointer;
+        }
+
+        .clickable-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+
+        .clickable-card:hover .feature-icon {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        .feature-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: white;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .feature-desc {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Auth Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 0;
+            flex: 1;
+            text-align: center;
+        }
+
+        .modal-close {
+            background: var(--bg-tertiary);
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            border-radius: 50%;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+
+        .modal-close:hover {
+            background: var(--border-medium);
+            color: var(--text-primary);
+        }
+
+        .modal-close i {
+            width: 36px;
+            height: 36px;
+        }
+
+        .demo-notice {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .demo-notice i {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .auth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .auth-btn {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .auth-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .auth-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        .auth-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border-light);
+        }
+
+        .auth-divider span {
+            background: var(--bg-secondary);
+            padding: 0 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            transition: var(--transition-smooth);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 500px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content-area {
+                padding: 16px;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Hide Search Projects button on narrow screens */
+            .auth-container .btn[onclick="goProjects()"],
+            .auth-container .btn:last-child {
+                display: none;
+            }
+        }
+
+        /* Subnav icons in collapsed state */
+        .sidebar.collapsed .subnav.expanded {
+            display: flex;
+            flex-direction: column;
+            max-height: none;
+            background: transparent;
+            padding: 0;
+            margin-left: 0;
+        }
+
+        .sidebar.collapsed .subnav.expanded .subnav-link {
+            padding: 8px 20px;
+            background: transparent;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .subnav.expanded .subnav-link span {
+            display: none;
+        }
+
+        .sidebar.collapsed .subnav.expanded .subnav-icon {
+            margin-right: 0;
+        }
+
+        /* Expanded state - restore normal layout */
+        .sidebar:not(.collapsed) .subnav.expanded .subnav-link,
+        .sidebar.collapsed.hovered .subnav.expanded .subnav-link {
+            justify-content: flex-start !important;
+            padding: 10px 20px 10px 52px !important;
+            background: transparent !important;
+            margin-bottom: 0 !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+
+        .sidebar:not(.collapsed) .subnav.expanded .subnav-link span,
+        .sidebar.collapsed.hovered .subnav.expanded .subnav-link span {
+            display: inline !important;
+        }
+
+        .sidebar:not(.collapsed) .subnav.expanded .subnav-icon,
+        .sidebar.collapsed.hovered .subnav.expanded .subnav-icon {
+            margin-right: 12px !important;
+        }
+
+        /* Fix subnav container for hovered state */
+        .sidebar.collapsed.hovered .subnav.expanded {
+            display: block !important;
+            flex-direction: column !important;
+            max-height: 300px !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin-left: 0 !important;
+        }
+
+        /* Show nav text on hover when collapsed */
+        .sidebar.collapsed.hovered .nav-text {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sidebar.collapsed.hovered .nav-arrow {
+            opacity: 1;
+        }
+
+        /* Show logo text when collapsed and hovered */
+        .sidebar.collapsed.hovered .logo-text {
+            opacity: .4;
+            pointer-events: auto;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-light);
+            border-radius: 50%;
+            border-top-color: var(--accent-green);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="nl-search" class="searchbar" style="margin-bottom: 1rem;">
+        <input id="q" placeholder="Search projects in plain English…" />
+        <label><input type="checkbox" id="fuzzy" checked /> Fuzzy</label>
+        <input type="range" id="th" min="0" max="60" value="35" />
+        <button id="ai-refine">Ask AI to refine</button>
+    </div>
+    
+    <!-- Add this for search results -->
+    <div id="search-results"></div>
+
+    
+      <!-- Script should be last -->
+      <script src="fuse.min.js"></script>
+      <script src="app.js"></script>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <!--
+                    Among the new features we create:
+                    A process that displays README text directly in website page.
+
+                    A page for testing connections using the Rust API with Azure PostgreSQL
+                    
+                -->
+                <div class="logoX"><img onclick="goWelcome()" style="margin-left:-7px;width:40px;cursor:pointer" src="img/logo/neighborhood/favicon.png"></div>
+                <span class="logo-text">MemberCommons</span>
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i data-feather="chevrons-left"></i>
+                </button>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-section">
+                    <div class="nav-item">
+                        <button class="nav-link" data-section="home">
+                            <i class="nav-icon" data-feather="home"></i>
+                            <span class="nav-text">Home</span>
+                            <i class="nav-arrow" data-feather="chevron-right"></i>
+                        </button>
+                        <div class="subnav">
+                            <a href="#welcome" class="subnav-link active" data-tab="welcome">
+                                <i class="subnav-icon" data-feather="smile"></i>
+                                <span>Welcome</span>
+                            </a>
+                            <a href="#documentation" class="subnav-link" data-tab="documentation">
+                                <i class="subnav-icon" data-feather="book"></i>
+                                <span>Getting Started</span>
+                            </a>
+                            <a href="#dashboard" class="subnav-link" data-tab="dashboard">
+                                <i class="subnav-icon" data-feather="bar-chart-2"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-item">
+                        <button class="nav-link" data-section="projects">
+                            <i class="nav-icon" data-feather="folder"></i>
+                            <span class="nav-text">Projects</span>
+                            <i class="nav-arrow" data-feather="chevron-right"></i>
+                        </button>
+                        <div class="subnav">
+                            <a href="#opportunities" class="subnav-link" data-tab="opportunities">
+                                <i class="subnav-icon" data-feather="target"></i>
+                                <span>Opportunities</span>
+                            </a>
+                            <a href="#assigned-tasks" class="subnav-link" data-tab="assigned-tasks">
+                                <i class="subnav-icon" data-feather="check-square"></i>
+                                <span>Assigned Tasks</span>
+                            </a>
+                            <a href="#timelines" class="subnav-link" data-tab="timelines">
+                                <i class="subnav-icon" data-feather="calendar"></i>
+                                <span>Timelines</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-item">
+                        <button class="nav-link" data-section="people">
+                            <i class="nav-icon" data-feather="users"></i>
+                            <span class="nav-text">People & Teams</span>
+                            <i class="nav-arrow" data-feather="chevron-right"></i>
+                        </button>
+                        <div class="subnav">
+                            <a href="#people" class="subnav-link" data-tab="people" title="people">
+                                <i class="subnav-icon" data-feather="user"></i>
+                                <span>People</span>
+                            </a>
+                            <a href="#teams" class="subnav-link" data-tab="teams">
+                                <i class="subnav-icon" data-feather="users"></i>
+                                <span>Teams</span>
+                            </a>
+                            <a href="#organizations" class="subnav-link" data-tab="organizations">
+                                <i class="subnav-icon" data-feather="grid"></i>
+                                <span>Organizations</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-item">
+                        <button class="nav-link" data-section="account">
+                            <i class="nav-icon" data-feather="settings"></i>
+                            <span class="nav-text">My Account</span>
+                            <i class="nav-arrow" data-feather="chevron-right"></i>
+                        </button>
+                        <div class="subnav">
+                            <a href="#preferences" class="subnav-link" data-tab="preferences">
+                                <i class="subnav-icon" data-feather="sliders"></i>
+                                <span>Preferences</span>
+                            </a>
+                            <a href="#skills" class="subnav-link" data-tab="skills">
+                                <i class="subnav-icon" data-feather="award"></i>
+                                <span>Skills</span>
+                            </a>
+                            <a href="#interests" class="subnav-link" data-tab="interests">
+                                <i class="subnav-icon" data-feather="heart"></i>
+                                <span>Interests</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <img onclick="goWelcome()" src="https://neighborhood.org/community/img/logo/orgs/democracy-lab-2.png" style="cursor:pointer;width:200px;margin-top:10px">
+                <div class="user-menu">
+                    <div class="auth-container" id="auth-container">
+                        <button class="btn btn-secondary" onclick="showAuthModal()">Sign In</button>
+                        <button class="btn btn-primary" onclick="goProjects()">Search Projects</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Home Section -->
+                <div class="section active" id="home-section">
+
+                    <!-- Welcome Tab -->
+                    <div class="tab-content" id="welcome-tab">
+                        <div class="welcome-hero">
+                            <div style="float:right">
+                                <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/logo/bolt/bolt-built.png"></a>
+                            </div>
+                            <div style="overflow:auto">
+                                <h1 class="hero-title">Welcome to DemocracyLab 2.0!</h1>
+                                <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--technical teams working on --> open innovation projects</p>
+                                <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
+                                <button class="btn btn-secondary" onclick="goPreferences()">Policy Preferences</button>
+                            </div>
+
+                        </div>
+
+                        <div style="float:right; margin-right:20px">
+                            <b><a href="https://bolt.new" style="color: var(--accent-blue);">Bolt.New</a> - Partner Tool Development</b><br>
+                            Our site is not yet active, return soon!
+                        </div>
+
+                        <div class="tabs">
+                            <button class="tab active" data-tab="welcome">Welcome</button>
+                            <button class="tab" data-tab="documentation">Getting Started</button>
+                            <button class="tab" data-tab="dashboard">Dashboard</button>
+                        </div>
+
+                        <div class="feature-grid">
+                            <div class="feature-card clickable-card" onclick="window.location.href='./admin/index.html'">
+                                <div class="feature-icon">
+                                    <i data-feather="zap"></i>
+                                </div>
+                                <h3 class="feature-title">AI-Powered Insights</h3>
+                                <p class="feature-desc">Get smart recommendations and natural language search with customizations using AI to accelerate your project workflows.</p>
+                            </div>
+
+                            <div class="feature-card clickable-card" onclick="window.location.hash = '#people/teams'">
+                                <div class="feature-icon">
+                                    <i data-feather="users"></i>
+                                </div>
+                                <h3 class="feature-title">Team Collaboration</h3>
+                                <p class="feature-desc">Connect with local programming teams, join Innovation Bond projects, and collaborate on government AI initiatives.</p>
+                            </div>
+
+                            <div class="feature-card clickable-card" onclick="window.location.hash = '#projects/opportunities'">
+                                <div class="feature-icon">
+                                    <i data-feather="trending-up"></i>
+                                </div>
+                                <h3 class="feature-title">Project Tracking</h3>
+                                <p class="feature-desc">Manage opportunities, track progress, assign tasks, and monitor timelines with beautiful, intuitive interfaces.</p>
+                            </div>
+
+                            <div class="feature-card clickable-card" onclick="window.location.hash = '#projects/opportunities'">
+                                <div class="feature-icon">
+                                    <i data-feather="target"></i>
+                                </div>
+                                <h3 class="feature-title">Local Impact</h3>
+                                <p class="feature-desc">Find and contribute to neighborhood projects that streamline local processes and provide real-time mentoring.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Documentation Tab -->
+                    <div class="tab-content" id="documentation-tab">
+                        <div class="card">
+                            <h2 class="card-title">Getting Started</h2>
+                            <p>MemberCommons is designed for technical collaborators working on Innovation Bond projects. Here's how to get the most out of the platform:</p>
+                            
+                            <h3 style="margin-top: 24px; margin-bottom: 12px;">Quick Start Guide</h3>
+                            <ol style="margin-left: 20px; line-height: 1.8;">
+                                <li><strong>Sign In:</strong> Use Google, GitHub, LinkedIn, or email authentication</li>
+                                <li><strong>Complete Your Profile:</strong> Set preferences and interests to match with relevant projects</li>
+                                <li><strong>Join Teams:</strong> Connect with local organizations and development teams</li>
+                                <li><strong>Find Projects:</strong> Browse opportunities or use AI search to find perfect matches</li>
+                                <li><strong>Collaborate:</strong> Join activities, track progress, and contribute to local innovation</li>
+                            </ol>
+
+                            <h3 style="margin-top: 24px; margin-bottom: 12px;">Key Features</h3>
+                            <ul style="margin-left: 20px; line-height: 1.8;">
+                                <li><strong>Smart Search:</strong> Use natural language to find contacts, projects, and opportunities</li>
+                                <li><strong>Project Management:</strong> Post activities, track tasks, manage timelines</li>
+                                <li><strong>Team Building:</strong> Create and manage teams and organizations</li>
+                                <li><strong>Preference Matching:</strong> AI-powered recommendations based on your interests and policy preferences</li>
+                            </ul>
+                            <br>
+
+                            View <a href="admin/">Rust and PostgreSQL setup</a>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Tab -->
+                    <div class="tab-content" id="dashboard-tab">
+                        <div class="card">
+                            <h2 class="card-title">Dashboard</h2>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-green);">12</div>
+                                    <div style="color: var(--text-secondary); font-size: 14px;">Active Projects</div>
+                                </div>
+                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-blue);">8</div>
+                                    <div style="color: var(--text-secondary); font-size: 14px;">Pending Tasks</div>
+                                </div>
+                                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 600; color: var(--accent-orange);">24</div>
+                                    <div style="color: var(--text-secondary); font-size: 14px;">Team Members</div>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                                <h4 style="margin-bottom: 12px;">Recent Activity</h4>
+                                <div style="font-size: 14px; color: var(--text-secondary);">
+                                    <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local AI Government Initiative"</div>
+                                    <div style="margin-bottom: 8px;">• New opportunity posted: "Database Optimization for Government Services"</div>
+                                    <div style="margin-bottom: 8px;">• Team "Innovation Catalysts" completed milestone review</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Projects Section -->
+                <div class="section" id="projects-section">
+                    
+                    <!-- Opportunities Tab -->
+                    <div class="tab-content active" id="opportunities-tab">
+                        <div id="opportunities-content">
+                            <!-- Content will be dynamically loaded by projects.js -->
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab active" data-tab="opportunities" title="Opportunities">Opportunities</button>
+                        <button class="tab" data-tab="assigned-tasks" title="Assigned Tasks">Assigned Tasks</button>
+                        <button class="tab" data-tab="timelines" title="Timelines">Timelines</button>
+                    </div>
+
+                    <!-- Assigned Tasks Tab -->
+                    <div class="tab-content" id="assigned-tasks-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">My Assigned Tasks</h2>
+                                <button class="btn btn-secondary">
+                                    <i data-feather="filter"></i>
+                                    Filter
+                                </button>
+                            </div>
+                            
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                    <div>
+                                        <h4 style="margin: 0 0 4px 0;">Database Schema install script for Azure</h4>
+                                        <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">AI-Powered Economic Development Dashboard using <a href="/profile/crm/">Standards Based SQL</a></p>
+                                    </div>
+                                    <span class="status-badge status-in_progress">In Progress</span>
+                                </div>
+                                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Design PostgreSQL schema for flexible data management with proper relationships and indexing.</p>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <span class="skill-tag small">PostgreSQL</span>
+                                        <span class="skill-tag small">Database Design</span>
+                                    </div>
+                                    <span style="font-size: 12px; color: var(--text-muted);">Due: Feb 28, 2025</span>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                    <div>
+                                        <h4 style="margin: 0 0 4px 0;">Bolt AI updates to Team Project Interface for Review</h4>
+                                        <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">Community Resource Mapping Platform</p>
+                                    </div>
+                                    <span class="status-badge status-open">Pending</span>
+                                </div>
+                                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Review and provide feedback on the mobile interface designs.</p>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <span class="skill-tag small">UX Review</span>
+                                        <span class="skill-tag small">Mobile Design</span>
+                                    </div>
+                                    <span style="font-size: 12px; color: var(--text-muted);">Due: Mar 5, 2025</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timelines Tab -->
+                    <div class="tab-content" id="timelines-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Project Timelines</h2>
+                                <div style="display: flex; gap: 12px;">
+                                    <button class="btn btn-secondary">
+                                        <i data-feather="calendar"></i>
+                                        Month View
+                                    </button>
+                                    <button class="btn btn-secondary">
+                                        <i data-feather="list"></i>
+                                        List View
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div style="background: var(--bg-tertiary); padding: 24px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="margin-bottom: 16px;">
+                                    <i data-feather="calendar" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
+                                </div>
+                                <h3 style="margin: 0 0 8px 0;">Timeline View Coming Soon</h3>
+                                <p style="color: var(--text-secondary); margin: 0;">Interactive project timelines with Gantt charts and milestone tracking</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- People & Teams Section -->
+                <div class="section" id="people-section">
+
+                    <div class="hero-section">
+                        <div class="hero-content">
+                            <h1 class="hero-title">MemberCommons</h1>
+                            <p class="hero-subtitle">Team Collaboration Platform for Project Tracking with AI Insights</p>
+                            <div class="hero-actions">
+                                <button class="btn btn-primary" onclick="router.navigate('projects', 'opportunities')">
+                                    <i data-feather="target"></i>
+                                    Explore Projects
+                                </button>
+                                <button class="btn btn-secondary" onclick="router.navigate('people', 'teams'); setTimeout(() => scrollToSection('teams'), 100)">
+                                    <i data-feather="users"></i>
+                                    Join Teams
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+        
+                    <div class="tabs">
+                        <button class="tab active" data-tab="people">People</button>
+                        <button class="tab" data-tab="teams">Teams</button>
+                        <button class="tab" data-tab="organizations">Organizations</button>
+                    </div>
+                    
+                    <!-- People Tab -->
+                    <div class="tab-content" id="people-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">People Directory</h2>
+                                <button class="btn btn-primary">
+                                    <i data-feather="user-plus"></i>
+                                    Invite People
+                                </button>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with fellow developers and project collaborators in your area.</p>
+                            
+                            <div class="people-search-section">
+                                <div class="search-bar-advanced">
+                                    <input type="text" class="search-input" placeholder="Search people using natural language... e.g., 'React developers in Atlanta working on AI projects'">
+                                    <button class="btn btn-secondary">
+                                        <i data-feather="zap"></i>
+                                        AI Search
+                                    </button>
+                                </div>
+                                
+                                <div class="people-filters">
+                                    <select class="filter-select">
+                                        <option value="">All Locations</option>
+                                        <option value="atlanta">Atlanta, GA</option>
+                                        <option value="portland">Portland, OR</option>
+                                        <option value="detroit">Detroit, MI</option>
+                                        <option value="remote">Remote</option>
+                                    </select>
+                                    
+                                    <select class="filter-select">
+                                        <option value="">All Skills</option>
+                                        <option value="react">React</option>
+                                        <option value="python">Python</option>
+                                        <option value="ai-ml">AI/ML</option>
+                                        <option value="nodejs">Node.js</option>
+                                        <option value="postgresql">PostgreSQL</option>
+                                    </select>
+                                    
+                                    <select class="filter-select">
+                                        <option value="">All Experience Levels</option>
+                                        <option value="junior">Junior (0-2 years)</option>
+                                        <option value="mid">Mid-level (3-5 years)</option>
+                                        <option value="senior">Senior (6+ years)</option>
+                                        <option value="lead">Tech Lead</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="people-grid">
+                                <div class="person-card">
+                                    <div class="person-header">
+                                        <div class="person-avatar">SJ</div>
+                                        <div class="person-info">
+                                            <h4 class="person-name">Sarah Johnson</h4>
+                                            <p class="person-title">Senior Full-stack Developer</p>
+                                            <p class="person-location">
+                                                <i data-feather="map-pin"></i>
+                                                Atlanta, GA
+                                            </p>
+                                        </div>
+                                        <div class="person-status">
+                                            <span class="availability-badge available">Available</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="person-skills">
+                                        <span class="skill-tag">React</span>
+                                        <span class="skill-tag">Python</span>
+                                        <span class="skill-tag">AI/ML</span>
+                                        <span class="skill-tag">PostgreSQL</span>
+                                    </div>
+                                    
+                                    <div class="person-projects">
+                                        <p class="projects-label">Current Projects:</p>
+                                        <p class="project-name">AI-Powered Government Dashboard</p>
+                                        <p class="project-name">Community Resource Mapping</p>
+                                    </div>
+                                    
+                                    <div class="person-footer">
+                                        <div class="person-stats">
+                                            <span class="stat">
+                                                <i data-feather="briefcase"></i>
+                                                5 projects
+                                            </span>
+                                            <span class="stat">
+                                                <i data-feather="star"></i>
+                                                4.9 rating
+                                            </span>
+                                        </div>
+                                        <div class="person-actions">
+                                            <button class="btn btn-secondary small">View Profile</button>
+                                            <button class="btn btn-primary small">Connect</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="person-card">
+                                    <div class="person-header">
+                                        <div class="person-avatar">MC</div>
+                                        <div class="person-info">
+                                            <h4 class="person-name">Marcus Chen</h4>
+                                            <p class="person-title">DevOps Engineer</p>
+                                            <p class="person-location">
+                                                <i data-feather="map-pin"></i>
+                                                Portland, OR
+                                            </p>
+                                        </div>
+                                        <div class="person-status">
+                                            <span class="availability-badge busy">Busy</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="person-skills">
+                                        <span class="skill-tag">Kubernetes</span>
+                                        <span class="skill-tag">Docker</span>
+                                        <span class="skill-tag">AWS</span>
+                                        <span class="skill-tag">Terraform</span>
+                                    </div>
+                                    
+                                    <div class="person-projects">
+                                        <p class="projects-label">Current Projects:</p>
+                                        <p class="project-name">Digital Literacy Platform</p>
+                                    </div>
+                                    
+                                    <div class="person-footer">
+                                        <div class="person-stats">
+                                            <span class="stat">
+                                                <i data-feather="briefcase"></i>
+                                                3 projects
+                                            </span>
+                                            <span class="stat">
+                                                <i data-feather="star"></i>
+                                                4.8 rating
+                                            </span>
+                                        </div>
+                                        <div class="person-actions">
+                                            <button class="btn btn-secondary small">View Profile</button>
+                                            <button class="btn btn-primary small">Connect</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="person-card">
+                                    <div class="person-header">
+                                        <div class="person-avatar">AR</div>
+                                        <div class="person-info">
+                                            <h4 class="person-name">Alex Rivera</h4>
+                                            <p class="person-title">UX Designer</p>
+                                            <p class="person-location">
+                                                <i data-feather="map-pin"></i>
+                                                Detroit, MI
+                                            </p>
+                                        </div>
+                                        <div class="person-status">
+                                            <span class="availability-badge available">Available</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="person-skills">
+                                        <span class="skill-tag">Figma</span>
+                                        <span class="skill-tag">User Research</span>
+                                        <span class="skill-tag">Prototyping</span>
+                                        <span class="skill-tag">Accessibility</span>
+                                    </div>
+                                    
+                                    <div class="person-projects">
+                                        <p class="projects-label">Current Projects:</p>
+                                        <p class="project-name">Digital Literacy Training</p>
+                                    </div>
+                                    
+                                    <div class="person-footer">
+                                        <div class="person-stats">
+                                            <span class="stat">
+                                                <i data-feather="briefcase"></i>
+                                                8 projects
+                                            </span>
+                                            <span class="stat">
+                                                <i data-feather="star"></i>
+                                                5.0 rating
+                                            </span>
+                                        </div>
+                                        <div class="person-actions">
+                                            <button class="btn btn-secondary small">View Profile</button>
+                                            <button class="btn btn-primary small">Connect</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Teams Tab -->
+                    <div class="tab-content" id="teams-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Teams</h2>
+                                <button class="btn btn-primary">
+                                    <i data-feather="plus"></i>
+                                    Create Team
+                                </button>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Collaborate with small, focused development teams working on open innovation projects.</p>
+                            
+                            <div class="teams-grid">
+                                <div class="team-card">
+                                    <div class="team-header">
+                                        <div class="team-avatar">IC</div>
+                                        <div class="team-info">
+                                            <h4 class="team-name">Innovation Catalysts</h4>
+                                            <p class="team-description">Specializing in AI-powered government modernization solutions</p>
+                                            <p class="team-location">
+                                                <i data-feather="map-pin"></i>
+                                                Atlanta, GA
+                                            </p>
+                                        </div>
+                                        <div class="team-status">
+                                            <span class="team-badge recruiting">Recruiting</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="team-members">
+                                        <div class="members-avatars">
+                                            <div class="member-avatar">SJ</div>
+                                            <div class="member-avatar">MC</div>
+                                            <div class="member-avatar">AR</div>
+                                            <div class="member-count">+3</div>
+                                        </div>
+                                        <p class="members-text">6 members</p>
+                                    </div>
+                                    
+                                    <div class="team-skills">
+                                        <span class="skill-tag">React</span>
+                                        <span class="skill-tag">Node.js</span>
+                                        <span class="skill-tag">AI/ML</span>
+                                        <span class="skill-tag">DevOps</span>
+                                    </div>
+                                    
+                                    <div class="team-projects">
+                                        <p class="projects-label">Active Projects:</p>
+                                        <div class="project-list">
+                                            <div class="project-item">
+                                                <span class="project-name">AI Government Dashboard</span>
+                                                <span class="project-status active">Active</span>
+                                            </div>
+                                            <div class="project-item">
+                                                <span class="project-name">Smart City Analytics</span>
+                                                <span class="project-status planning">Planning</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="team-footer">
+                                        <button class="btn btn-secondary">View Team</button>
+                                        <button class="btn btn-primary">Join Team</button>
+                                    </div>
+                                </div>
+
+                                <div class="team-card">
+                                    <div class="team-header">
+                                        <div class="team-avatar">CB</div>
+                                        <div class="team-info">
+                                            <h4 class="team-name">Community Builders</h4>
+                                            <p class="team-description">Building tools to strengthen local communities and neighborhoods</p>
+                                            <p class="team-location">
+                                                <i data-feather="map-pin"></i>
+                                                Portland, OR
+                                            </p>
+                                        </div>
+                                        <div class="team-status">
+                                            <span class="team-badge active">Active</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="team-members">
+                                        <div class="members-avatars">
+                                            <div class="member-avatar">TK</div>
+                                            <div class="member-avatar">LM</div>
+                                            <div class="member-avatar">JD</div>
+                                            <div class="member-count">+2</div>
+                                        </div>
+                                        <p class="members-text">5 members</p>
+                                    </div>
+                                    
+                                    <div class="team-skills">
+                                        <span class="skill-tag">Vue.js</span>
+                                        <span class="skill-tag">Python</span>
+                                        <span class="skill-tag">GIS</span>
+                                        <span class="skill-tag">Mobile</span>
+                                    </div>
+                                    
+                                    <div class="team-projects">
+                                        <p class="projects-label">Active Projects:</p>
+                                        <div class="project-list">
+                                            <div class="project-item">
+                                                <span class="project-name">Resource Mapping Platform</span>
+                                                <span class="project-status active">Active</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="team-footer">
+                                        <button class="btn btn-secondary">View Team</button>
+                                        <button class="btn btn-primary">Join Team</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Organizations Tab -->
+                    <div class="tab-content" id="organizations-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Organizations</h2>
+                                <button class="btn btn-primary">
+                                    <i data-feather="building"></i>
+                                    Register Organization
+                                </button>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with organizations funding and supporting local innovation projects.</p>
+                            
+                            <div class="organizations-grid">
+                                <div class="org-card">
+                                    <div class="org-header">
+                                        <div class="org-logo">CIO</div>
+                                        <div class="org-info">
+                                            <h4 class="org-name">City Innovation Office</h4>
+                                            <p class="org-type">Government Agency</p>
+                                            <p class="org-location">
+                                                <i data-feather="map-pin"></i>
+                                                Atlanta, GA
+                                            </p>
+                                        </div>
+                                        <div class="org-verification">
+                                            <span class="verification-badge verified">
+                                                <i data-feather="check-circle"></i>
+                                                Verified
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="org-description">
+                                        <p>Leading digital transformation initiatives to modernize local and state services and improve citizen engagement through technology innovation.</p>
+                                    </div>
+                                    
+                                    <div class="org-stats">
+                                        <div class="stat-item">
+                                            <span class="stat-number">12</span>
+                                            <span class="stat-label">Active Projects</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-number">45</span>
+                                            <span class="stat-label">Collaborators</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-number">$2.5M</span>
+                                            <span class="stat-label">Innovation Fund</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="org-focus-areas">
+                                        <span class="focus-tag">Digital Government</span>
+                                        <span class="focus-tag">Smart City</span>
+                                        <span class="focus-tag">AI/ML</span>
+                                        <span class="focus-tag">Open Data</span>
+                                    </div>
+                                    
+                                    <div class="org-footer">
+                                        <button class="btn btn-secondary">View Profile</button>
+                                        <button class="btn btn-primary">Follow</button>
+                                    </div>
+                                </div>
+
+                                <div class="org-card">
+                                    <div class="org-header">
+                                        <div class="org-logo">DIC</div>
+                                        <div class="org-info">
+                                            <h4 class="org-name">Digital Inclusion Coalition</h4>
+                                            <p class="org-type">Non-Profit</p>
+                                            <p class="org-location">
+                                                <i data-feather="map-pin"></i>
+                                                Detroit, MI
+                                            </p>
+                                        </div>
+                                        <div class="org-verification">
+                                            <span class="verification-badge verified">
+                                                <i data-feather="check-circle"></i>
+                                                Verified
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="org-description">
+                                        <p>Bridging the digital divide by providing technology access, training, and support to underserved communities across Michigan.</p>
+                                    </div>
+                                    
+                                    <div class="org-stats">
+                                        <div class="stat-item">
+                                            <span class="stat-number">8</span>
+                                            <span class="stat-label">Active Projects</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-number">28</span>
+                                            <span class="stat-label">Volunteers</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-number">500+</span>
+                                            <span class="stat-label">People Trained</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="org-focus-areas">
+                                        <span class="focus-tag">Digital Literacy</span>
+                                        <span class="focus-tag">Education</span>
+                                        <span class="focus-tag">Community Tech</span>
+                                        <span class="focus-tag">Accessibility</span>
+                                    </div>
+                                    
+                                    <div class="org-footer">
+                                        <button class="btn btn-secondary">View Profile</button>
+                                        <button class="btn btn-primary">Follow</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Account Section -->
+                <div class="section" id="account-section">
+                    <div class="tabs">
+                        <button class="tab active" data-tab="preferences">Preferences</button>
+                        <button class="tab" data-tab="skills">Skills</button>
+                        <button class="tab" data-tab="interests">Interests</button>
+                    </div>
+                    
+                    <!-- Preferences Tab -->
+                    <div class="tab-content" id="preferences-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">My Policy Preferences</h2>
+                                <div class="survey-progress">
+                                    <span class="progress-text">0 of 20 completed</span>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your agreement with these policy positions to help us match you with aligned projects and collaborators.</p>
+                            
+                            <div class="survey-container" id="survey-container">
+                                <!-- All survey questions will be loaded here with 5-star ratings -->
+                            </div>
+
+                            <div class="survey-navigation">
+                                <button class="btn btn-primary" id="save-survey">Save Progress</button>
+                                <button class="btn btn-primary" id="finish-survey">Complete Survey</button>
+                            </div>
+
+                            <div class="survey-results" style="display: none;">
+                                <h3>Your Policy Profile</h3>
+                                <div class="sankey-chart-container">
+                                    <canvas id="sankey-chart" width="600" height="300"></canvas>
+                                </div>
+                                <div class="profile-summary">
+                                    <div class="profile-category">
+                                        <h4>Technology & Innovation</h4>
+                                        <div class="category-score">Strong Support (4.2/5)</div>
+                                        <div class="category-description">You strongly support government investment in technology and innovation initiatives.</div>
+                                    </div>
+                                    <div class="profile-category">
+                                        <h4>Environmental Policy</h4>
+                                        <div class="category-score">Strong Support (4.8/5)</div>
+                                        <div class="category-description">You are highly aligned with environmental protection and renewable energy policies.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skills Tab -->
+                    <div class="tab-content" id="skills-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Technical Skills & Expertise</h2>
+                                <button class="btn btn-primary">
+                                    <i data-feather="plus"></i>
+                                    Add Skill
+                                </button>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Showcase your technical skills to attract relevant project opportunities and collaborators.</p>
+                            
+                            <div class="skills-section">
+                                <div class="skill-category">
+                                    <h3 class="category-title">Programming Languages</h3>
+                                    <div class="skills-grid">
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">JavaScript</span>
+                                                <span class="skill-level expert">Expert</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 90%"></div>
+                                            </div>
+                                            <div class="skill-experience">5+ years • React, Node.js, TypeScript</div>
+                                        </div>
+
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">Python</span>
+                                                <span class="skill-level advanced">Advanced</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 80%"></div>
+                                            </div>
+                                            <div class="skill-experience">3+ years • Django, FastAPI, Data Science</div>
+                                        </div>
+
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">Rust</span>
+                                                <span class="skill-level intermediate">Intermediate</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 60%"></div>
+                                            </div>
+                                            <div class="skill-experience">1+ year • Actix-web, SQLx</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="skill-category">
+                                    <h3 class="category-title">Frameworks & Libraries</h3>
+                                    <div class="skills-grid">
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">React</span>
+                                                <span class="skill-level expert">Expert</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 95%"></div>
+                                            </div>
+                                            <div class="skill-experience">4+ years • Hooks, Context, Redux</div>
+                                        </div>
+
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">Node.js</span>
+                                                <span class="skill-level advanced">Advanced</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 85%"></div>
+                                            </div>
+                                            <div class="skill-experience">3+ years • Express, NestJS, APIs</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="skill-category">
+                                    <h3 class="category-title">Cloud & DevOps</h3>
+                                    <div class="skills-grid">
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">AWS</span>
+                                                <span class="skill-level advanced">Advanced</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 75%"></div>
+                                            </div>
+                                            <div class="skill-experience">2+ years • EC2, Lambda, RDS, S3</div>
+                                        </div>
+
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">Docker</span>
+                                                <span class="skill-level advanced">Advanced</span>
+                                            </div>
+                                            <div class="skill-bar">
+                                                <div class="skill-progress" style="width: 80%"></div>
+                                            </div>
+                                            <div class="skill-experience">3+ years • Containerization, Compose</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="skill-category">
+                                    <h3 class="category-title">Certifications & Achievements</h3>
+                                    <div class="certifications-grid">
+                                        <div class="certification-item">
+                                            <div class="cert-icon">
+                                                <i data-feather="award"></i>
+                                            </div>
+                                            <div class="cert-info">
+                                                <h4 class="cert-name">AWS Certified Developer</h4>
+                                                <p class="cert-issuer">Amazon Web Services</p>
+                                                <p class="cert-date">Issued: Jan 2025</p>
+                                            </div>
+                                            <div class="cert-badge verified">
+                                                <i data-feather="check-circle"></i>
+                                                Verified
+                                            </div>
+                                        </div>
+
+                                        <div class="certification-item">
+                                            <div class="cert-icon">
+                                                <i data-feather="award"></i>
+                                            </div>
+                                            <div class="cert-info">
+                                                <h4 class="cert-name">Google AI/ML Certificate</h4>
+                                                <p class="cert-issuer">Google Cloud</p>
+                                                <p class="cert-date">Issued: Nov 2023</p>
+                                            </div>
+                                            <div class="cert-badge verified">
+                                                <i data-feather="check-circle"></i>
+                                                Verified
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interests Tab -->
+                    <div class="tab-content" id="interests-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Interest Areas</h2>
+                                <div class="interests-summary">
+                                    <span class="summary-text">8 of 20 interests rated</span>
+                                </div>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your interest level in different project focus areas to receive personalized project recommendations.</p>
+                            
+                            <div class="interests-grid">
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="cpu"></i>
+                                        </div>
+                                        <h3 class="interest-name">Technology Innovation</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="technology">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn active" data-rating="4">★</button>
+                                        <button class="star-btn active" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">AI, machine learning, emerging technologies</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="globe"></i>
+                                        </div>
+                                        <h3 class="interest-name">Environmental Sustainability</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="environment">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn active" data-rating="4">★</button>
+                                        <button class="star-btn" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Climate solutions, renewable energy, green tech</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="book"></i>
+                                        </div>
+                                        <h3 class="interest-name">Education</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="education">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn" data-rating="4">★</button>
+                                        <button class="star-btn" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Digital literacy, educational technology</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="heart"></i>
+                                        </div>
+                                        <h3 class="interest-name">Healthcare Access</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="healthcare">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn active" data-rating="4">★</button>
+                                        <button class="star-btn active" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Health tech, medical access, public health</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="trending-up"></i>
+                                        </div>
+                                        <h3 class="interest-name">Economic Growth</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="economic">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn" data-rating="4">★</button>
+                                        <button class="star-btn" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Small business, entrepreneurship, innovation</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="shield"></i>
+                                        </div>
+                                        <h3 class="interest-name">Governance & Transparency</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="governance">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn active" data-rating="4">★</button>
+                                        <button class="star-btn" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Open government, accountability, civic tech</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="droplet"></i>
+                                        </div>
+                                        <h3 class="interest-name">Water & Sanitation</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="water">
+                                        <button class="star-btn" data-rating="1">★</button>
+                                        <button class="star-btn" data-rating="2">★</button>
+                                        <button class="star-btn" data-rating="3">★</button>
+                                        <button class="star-btn" data-rating="4">★</button>
+                                        <button class="star-btn" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Clean water access, parks and infrastructure</p>
+                                </div>
+
+                                <div class="interest-card">
+                                    <div class="interest-header">
+                                        <div class="interest-icon">
+                                            <i data-feather="users"></i>
+                                        </div>
+                                        <h3 class="interest-name">Social Impact</h3>
+                                    </div>
+                                    <div class="star-rating" data-interest="social">
+                                        <button class="star-btn active" data-rating="1">★</button>
+                                        <button class="star-btn active" data-rating="2">★</button>
+                                        <button class="star-btn active" data-rating="3">★</button>
+                                        <button class="star-btn active" data-rating="4">★</button>
+                                        <button class="star-btn active" data-rating="5">★</button>
+                                    </div>
+                                    <p class="interest-description">Community development, social justice</p>
+                                </div>
+                            </div>
+
+                            <div class="interests-actions">
+                                <button class="btn btn-secondary">Load More Interests</button>
+                                <button class="btn btn-primary">Save Preferences</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Sign In or<br>Create an Account</h4>
+                <button class="modal-close" onclick="hideAuthModal()" aria-label="Close">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+            
+            <div class="demo-notice">
+                <i data-feather="info"></i>
+                <span>Demo Only - Login is not yet activated</span>
+            </div>
+            
+            <div class="auth-buttons">
+                <button class="auth-btn" onclick="signInWith('google')">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Continue with Google
+                </button>
+                
+                <button class="auth-btn" onclick="signInWith('github')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Continue with GitHub
+                </button>
+                
+                <button class="auth-btn" onclick="signInWith('linkedin')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#0077b5"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                    Continue with LinkedIn
+                </button>
+            </div>
+            
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <form onsubmit="signInWithEmail(event)">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="hideAuthModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <!-- Load Projects Module -->
+    <script src="js/projects.js"></script>
+    
+    <!-- Load Survey Module -->
+    <script src="js/survey.js"></script>
+    
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+
+        // API Configuration
+        const API_BASE = 'http://localhost:8081/api';
+        
+        // Application State
+        const AppState = {
+            currentUser: null,
+            currentSection: 'home',
+            currentTab: 'welcome',
+            isAuthenticated: false,
+            sidebarCollapsed: localStorage.getItem('sideNavCollapseStatus') === 'true',
+            urlParams: new URLSearchParams()
+        };
+
+        // HashRouter Implementation
+        class HashRouter {
+            constructor() {
+                this.routes = {
+                    'home': { section: 'home', tabs: ['welcome', 'documentation', 'dashboard'] },
+                    'projects': { section: 'projects', tabs: ['opportunities', 'assigned-tasks', 'timelines'] },
+                    'people': { section: 'people', tabs: ['people', 'teams', 'organizations'] },
+                    'account': { section: 'account', tabs: ['preferences', 'skills', 'interests'] }
+                };
+                
+                this.init();
+            }
+
+            init() {
+                window.addEventListener('hashchange', () => this.handleHashChange());
+                window.addEventListener('load', () => this.handleHashChange());
+            }
+
+            // Parse hash and return route information
+            parseHash() {
+                const hash = window.location.hash.slice(1); // Remove #
+                if (!hash) return { section: 'home', tab: 'welcome', params: new URLSearchParams() };
+
+                let [path, queryString] = hash.split('?');
+                const params = new URLSearchParams(queryString || '');
+                
+                let [section, tab] = path.split('/');
+                
+                // Validate section
+                if (!this.routes[section]) {
+                    section = 'home';
+                }
+                
+                // Validate tab for section
+                const validTabs = this.routes[section].tabs;
+                if (!tab || !validTabs.includes(tab)) {
+                    tab = validTabs[0];
+                }
+
+                return { section, tab, params };
+            }
+
+            // Handle hash changes
+            handleHashChange() {
+                const route = this.parseHash();
+                
+                // Update application state
+                AppState.currentSection = route.section;
+                AppState.currentTab = route.tab;
+                AppState.urlParams = route.params;
+                
+                // Update UI
+                this.updateUI(route);
+                
+                // Handle special parameters
+                this.handleSpecialParams(route.params);
+            }
+
+            // Update UI based on route
+            updateUI(route) {
+                // Switch section
+                switchSection(route.section);
+                
+                // Switch tab
+                switchTab(route.tab);
+                
+                // Update navigation active states
+                this.updateNavigationState(route.section, route.tab);
+            }
+
+            // Update navigation active states
+            updateNavigationState(section, tab) {
+                // Update main navigation - always highlight current section
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.section === section) {
+                        link.classList.add('active');
+                        // Expand subnav for active section
+                        const subnav = link.nextElementSibling;
+                        const arrow = link.querySelector('.nav-arrow');
+                        if (subnav && subnav.classList.contains('subnav')) {
+                            subnav.classList.add('expanded');
+                            arrow?.classList.add('expanded');
+                        }
+                    } else {
+                        // Update arrow direction for non-active sections based on subnav state
+                        const subnav = link.nextElementSibling;
+                        const arrow = link.querySelector('.nav-arrow');
+                        if (subnav && subnav.classList.contains('subnav')) {
+                            if (subnav.classList.contains('expanded')) {
+                                arrow?.classList.add('expanded');
+                            } else {
+                                arrow?.classList.remove('expanded');
+                            }
+                        }
+                    }
+                });
+
+                // Update subnav
+                document.querySelectorAll('.subnav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.tab === tab) {
+                        link.classList.add('active');
+                    }
+                });
+
+                // Update tabs
+                const currentSection = document.querySelector('.section.active');
+                if (currentSection) {
+                    currentSection.querySelectorAll('.tab').forEach(tabEl => {
+                        tabEl.classList.remove('active');
+                        if (tabEl.dataset.tab === tab) {
+                            tabEl.classList.add('active');
+                        }
+                    });
+                }
+            }
+
+            // Handle special URL parameters
+            handleSpecialParams(params) {
+                // Handle city parameter
+                const city = params.get('city');
+                if (city) {
+                    this.applyCityFilter(city);
+                }
+
+                // Handle search parameter
+                const search = params.get('search');
+                if (search) {
+                    this.applySearchFilter(search);
+                }
+
+                // Handle project filter
+                const projectFilter = params.get('filter');
+                if (projectFilter) {
+                    this.applyProjectFilter(projectFilter);
+                }
+            }
+
+            // Apply city filter
+            applyCityFilter(city) {
+                const cityFilters = document.querySelectorAll('select option[value*="' + city.toLowerCase() + '"]');
+                cityFilters.forEach(option => {
+                    option.selected = true;
+                    option.parentElement.dispatchEvent(new Event('change'));
+                });
+            }
+
+            // Apply search filter
+            applySearchFilter(search) {
+                const searchInputs = document.querySelectorAll('input[type="text"][placeholder*="search" i]');
+                searchInputs.forEach(input => {
+                    input.value = search;
+                    input.dispatchEvent(new Event('input'));
+                });
+            }
+
+            // Apply project filter
+            applyProjectFilter(filter) {
+                const filterSelects = document.querySelectorAll('select[name="project-filter"]');
+                filterSelects.forEach(select => {
+                    const option = select.querySelector(`option[value="${filter}"]`);
+                    if (option) {
+                        option.selected = true;
+                        select.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            // Navigate to a specific route
+            navigate(section, tab = null, params = {}) {
+                if (!this.routes[section]) return;
+                
+                const validTabs = this.routes[section].tabs;
+                if (!tab || !validTabs.includes(tab)) {
+                    tab = validTabs[0];
+                }
+
+                // Preserve existing params and merge with new ones
+                const currentParams = new URLSearchParams(AppState.urlParams);
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value) {
+                        currentParams.set(key, value);
+                    } else {
+                        currentParams.delete(key);
+                    }
+                });
+
+                const queryString = currentParams.toString();
+                const hash = `#${section}/${tab}${queryString ? '?' + queryString : ''}`;
+                
+                window.location.hash = hash;
+            }
+
+            // Get current URL parameters
+            getParams() {
+                return Object.fromEntries(AppState.urlParams.entries());
+            }
+
+            // Set URL parameter
+            setParam(key, value) {
+                const params = this.getParams();
+                params[key] = value;
+                this.navigate(AppState.currentSection, AppState.currentTab, params);
+            }
+
+            // Remove URL parameter
+            removeParam(key) {
+                const params = this.getParams();
+                delete params[key];
+                this.navigate(AppState.currentSection, AppState.currentTab, params);
+            }
+        }
+
+        // Scroll to section utility function
+        function scrollToSection(sectionId) {
+            // List of possible section selectors to try
+            const selectors = [
+                `#${sectionId}-tab`,           // Tab content (e.g., skills-tab)
+                `#${sectionId}-section`,       // Section content (e.g., assigned-tasks-section)
+                `#${sectionId}`,              // Direct ID match
+                `.${sectionId}-section`,       // Class-based section
+                `[data-section="${sectionId}"]` // Data attribute match
+            ];
+            
+            // Try each selector until we find a matching element
+            for (const selector of selectors) {
+                const targetElement = document.querySelector(selector);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    return; // Exit once we've found and scrolled to an element
+                }
+            }
+            
+            // If no direct match, try to find any element containing the section name
+            const fallbackElement = document.querySelector(`[id*="${sectionId}"], [class*="${sectionId}"]`);
+            if (fallbackElement) {
+                fallbackElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
+
+        // Function to update sidebar toggle icon based on overlap state
+        function updateSidebarToggleIcon() {
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebarToggle || !sidebar) return;
+            
+            const icon = sidebarToggle.querySelector('i');
+            if (!icon) return;
+            
+            // Check app container width
+            const appContainer = document.querySelector('.app-container');
+            const containerWidth = appContainer ? appContainer.offsetWidth : window.innerWidth;
+            
+            // Check if sidebar is overlapping entire container
+            const isFullOverlap = containerWidth <= 500;
+            const isHoverExpanded = sidebar.classList.contains('hovered');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            const isPartialOverlap = isCollapsed && isHoverExpanded && containerWidth > 500;
+            
+            if (isFullOverlap) {
+                icon.setAttribute('data-feather', 'x');
+            } else if (isPartialOverlap) {
+                icon.setAttribute('data-feather', 'chevrons-right');
+            } else {
+                icon.setAttribute('data-feather', 'chevrons-left');
+            }
+            
+            if (window.feather) {
+                feather.replace();
+            }
+        }
+
+        // Navigation Functions
+        function initializeNavigation() {
+            // Handle sidebar toggle
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const logo = document.querySelector('.logo');
+            
+            // Sidebar hover state variables
+            let hoverTimeout;
+            let isHoverExpanded = false;
+            let slideRightEnabled = true; // Toggle for slide-right functionality
+            
+            // Apply saved sidebar state from localStorage
+            if (AppState.sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+            
+            // Auto-collapse sidebar on narrow screens at page load (overrides saved state if needed)
+            const appContainer = document.querySelector('.app-container');
+            const containerWidth = appContainer ? appContainer.offsetWidth : window.innerWidth;
+            if (containerWidth <= 1000 && !sidebar.classList.contains('collapsed')) {
+                sidebar.classList.add('collapsed');
+                AppState.sidebarCollapsed = true;
+                localStorage.setItem('sideNavCollapseStatus', true);
+            }
+            
+            // Reusable function to toggle sidebar state
+            function toggleSidebar(forceState = null) {
+                const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                
+                // Determine target state
+                let shouldCollapse;
+                if (forceState === 'expand') {
+                    shouldCollapse = false;
+                } else if (forceState === 'collapse') {
+                    shouldCollapse = true;
+                } else {
+                    shouldCollapse = !isCurrentlyCollapsed; // Toggle
+                }
+                
+                // Apply the state change
+                if (shouldCollapse && !isCurrentlyCollapsed) {
+                    // Collapse sidebar
+                    sidebar.classList.add('collapsed');
+                    AppState.sidebarCollapsed = true;
+                } else if (!shouldCollapse && isCurrentlyCollapsed) {
+                    // Expand sidebar
+                    sidebar.classList.remove('collapsed');
+                    AppState.sidebarCollapsed = false;
+                }
+                
+                // Clear hover state when toggling
+                clearTimeout(hoverTimeout);
+                sidebar.classList.remove('hovered');
+                isHoverExpanded = false;
+                sidebar.style.width = '';
+                
+                // Update toggle icon based on overlap state
+                if (sidebarToggle) {
+                    updateSidebarToggleIcon();
+                }
+                
+                return !sidebar.classList.contains('collapsed'); // Return true if expanded
+            }
+            
+            // Setup sidebar toggle button click handler
+            if (sidebarToggle && sidebar) {
+                sidebarToggle.addEventListener('click', function() {
+                    toggleSidebar(); // Use reusable function
+                    // Save the new sidebar state to localStorage
+                    localStorage.setItem('sideNavCollapseStatus', AppState.sidebarCollapsed);
+                });
+            }
+
+            // Setup logo click handler to expand when collapsed
+            if (logo && sidebar) {
+                logo.addEventListener('click', function() {
+                    // Only expand if currently collapsed
+                    if (sidebar.classList.contains('collapsed')) {
+                        toggleSidebar('expand'); // Use reusable function
+                        // Save the new sidebar state to localStorage
+                        localStorage.setItem('sideNavCollapseStatus', AppState.sidebarCollapsed);
+                    }
+                });
+            }
+
+            // Setup custom tooltips for narrow navigation
+            function setupCustomTooltips() {
+                let currentTooltip = null;
+
+                // Add tooltips to nav links
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    const navText = link.querySelector('.nav-text');
+                    if (!navText) return;
+
+                    link.addEventListener('mouseenter', function(e) {
+                        // Only show tooltip when sidebar is collapsed and not hovered
+                        if (sidebar.classList.contains('collapsed') && !sidebar.classList.contains('hovered')) {
+                            const rect = this.getBoundingClientRect();
+                            const tooltip = document.createElement('div');
+                            tooltip.className = 'nav-tooltip-custom';
+                            tooltip.textContent = navText.textContent;
+                            
+                            // Position to the right of the nav item
+                            tooltip.style.left = (rect.right + 10) + 'px';
+                            tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                            tooltip.style.transform = 'translateY(-50%)';
+                            
+                            document.body.appendChild(tooltip);
+                            currentTooltip = tooltip;
+                            
+                            // Show with slight delay for smooth appearance
+                            setTimeout(() => {
+                                if (tooltip.parentNode) {
+                                    tooltip.classList.add('show');
+                                }
+                            }, 50);
+                        }
+                    });
+
+                    link.addEventListener('mouseleave', function() {
+                        if (currentTooltip) {
+                            currentTooltip.remove();
+                            currentTooltip = null;
+                        }
+                    });
+                });
+
+                // Add tooltips to subnav links
+                document.querySelectorAll('.subnav-link').forEach(link => {
+                    const span = link.querySelector('span');
+                    if (!span) return;
+
+                    link.addEventListener('mouseenter', function(e) {
+                        // Only show tooltip when sidebar is collapsed and not hovered
+                        if (sidebar.classList.contains('collapsed') && !sidebar.classList.contains('hovered')) {
+                            const rect = this.getBoundingClientRect();
+                            const tooltip = document.createElement('div');
+                            tooltip.className = 'nav-tooltip-custom';
+                            tooltip.textContent = span.textContent;
+                            
+                            // Position to the right of the subnav item
+                            tooltip.style.left = (rect.right + 10) + 'px';
+                            tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                            tooltip.style.transform = 'translateY(-50%)';
+                            
+                            document.body.appendChild(tooltip);
+                            currentTooltip = tooltip;
+                            
+                            // Show with slight delay for smooth appearance
+                            setTimeout(() => {
+                                if (tooltip.parentNode) {
+                                    tooltip.classList.add('show');
+                                }
+                            }, 50);
+                        }
+                    });
+
+                    link.addEventListener('mouseleave', function() {
+                        if (currentTooltip) {
+                            currentTooltip.remove();
+                            currentTooltip = null;
+                        }
+                    });
+                });
+            }
+
+            // Initialize custom tooltips
+            setupCustomTooltips();
+
+            // Handle main navigation clicks
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const section = this.getAttribute('data-section');
+                    if (section) {
+                        // Check if page is scrolled to top
+                        const isAtTop = window.scrollY <= 10; // Allow small tolerance
+                        
+                        // Toggle subnav for clicked section (don't close others)
+                        const subnav = this.nextElementSibling;
+                        const arrow = this.querySelector('.nav-arrow');
+                        
+                        if (subnav && subnav.classList.contains('subnav')) {
+                            const isCurrentlyExpanded = subnav.classList.contains('expanded');
+                            
+                            // If clicking on arrow specifically, just toggle subnav without navigation
+                            if (e.target === arrow || arrow?.contains(e.target)) {
+                                if (isCurrentlyExpanded) {
+                                    subnav.classList.remove('expanded');
+                                    arrow?.classList.remove('expanded');
+                                } else {
+                                    subnav.classList.add('expanded');
+                                    arrow?.classList.add('expanded');
+                                }
+                                return; // Don't navigate when clicking arrow
+                            }
+                            
+                            // If not at top, scroll to top instead of toggling subnav
+                            if (!isAtTop) {
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                return; // Don't toggle subnav or navigate
+                            }
+                            
+                            // At top: handle subnav toggling
+                            if (isCurrentlyExpanded) {
+                                // If subnav is expanded, close it (regardless of active state)
+                                subnav.classList.remove('expanded');
+                                arrow?.classList.remove('expanded');
+                                return; // Don't navigate if we're just closing
+                            } else {
+                                // Expand this subnav
+                                subnav.classList.add('expanded');
+                                arrow?.classList.add('expanded');
+                            }
+                        } else if (!isAtTop) {
+                            // No subnav but not at top, scroll to top
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                            return;
+                        }
+                        
+                        // Navigate to section (only if at top)
+                        if (isAtTop) {
+                            router.navigate(section);
+                        }
+                    }
+                });
+            });
+
+            // Handle subnav clicks
+            document.querySelectorAll('.subnav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tab = this.getAttribute('data-tab');
+                    if (tab) {
+                        // Find the parent section of this subnav
+                        const parentNavItem = this.closest('.nav-item');
+                        const parentNavLink = parentNavItem?.querySelector('.nav-link[data-section]');
+                        const targetSection = parentNavLink?.getAttribute('data-section');
+                        
+                        if (targetSection) {
+                            // If we're clicking a subnav in a different section, switch to that section first
+                            if (targetSection !== AppState.currentSection) {
+                                // First expand the target section's subnav if it's not already expanded
+                                const targetSubnav = parentNavLink.nextElementSibling;
+                                const targetArrow = parentNavLink.querySelector('.nav-arrow');
+                                if (targetSubnav && !targetSubnav.classList.contains('expanded')) {
+                                    targetSubnav.classList.add('expanded');
+                                    targetArrow?.classList.add('expanded');
+                                }
+                                
+                                // Navigate to the target section and tab
+                                router.navigate(targetSection, tab);
+                            } else {
+                                // Already in the correct section, just switch tab
+                                router.navigate(AppState.currentSection, tab);
+                            }
+                        } else {
+                            // Fallback: use current section
+                            router.navigate(AppState.currentSection, tab);
+                        }
+                        
+                        // Auto-scroll to section if it exists
+                        setTimeout(() => {
+                            scrollToSection(tab);
+                        }, 100); // Small delay to ensure tab is shown first
+                    }
+                });
+            });
+
+            // Handle tab clicks
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    if (tabName) {
+                        switchTab(tabName);
+                    }
+                });
+            });
+
+            // Add invisible toggle for slide-right functionality
+            const navMenu = document.querySelector('.nav-menu');
+            if (navMenu) {
+                navMenu.addEventListener('click', function(e) {
+                    // Only toggle if clicking on the nav-menu itself (blank area), not on nav items
+                    if (e.target === this) {
+                        slideRightEnabled = !slideRightEnabled;
+                        
+                        // Update sidebar classes and behavior based on new state
+                        if (!slideRightEnabled) {
+                            // Disable slide-right: sidebar stays narrow, show hover buttons
+                            sidebar.classList.add('slide-right-disabled');
+                            sidebar.classList.remove('hovered');
+                            sidebar.style.width = '';
+                            clearTimeout(hoverTimeout);
+                            isHoverExpanded = false;
+                            
+                            // Toggle button visibility handled by CSS
+                        } else {
+                            // Enable slide-right: remove disabled class and immediately expand
+                            sidebar.classList.remove('slide-right-disabled');
+                            
+                            // If sidebar is collapsed, immediately expand it
+                            if (sidebar.classList.contains('collapsed')) {
+                                clearTimeout(hoverTimeout);
+                                sidebar.classList.add('hovered');
+                                sidebar.style.width = 'var(--sidebar-width)';
+                                isHoverExpanded = true;
+                                
+                                // Toggle button visibility handled by CSS
+                            }
+                        }
+                        
+                        // Visual feedback (optional)
+                        console.log('Slide-right ' + (slideRightEnabled ? 'enabled' : 'disabled'));
+                    }
+                });
+            }
+
+            // Sidebar hover functionality for collapsed state
+            
+            sidebar.addEventListener('mouseenter', function() {
+                if (this.classList.contains('collapsed') && slideRightEnabled) {
+                    clearTimeout(hoverTimeout);
+                    this.classList.add('hovered');
+                    this.style.width = 'var(--sidebar-width)';
+                    isHoverExpanded = true;
+                    
+                    // Toggle button visibility handled by CSS
+                    
+                    // Update toggle icon
+                    updateSidebarToggleIcon();
+                }
+            });
+            
+            sidebar.addEventListener('mouseleave', function() {
+                if (this.classList.contains('collapsed') && isHoverExpanded && slideRightEnabled) {
+                    hoverTimeout = setTimeout(() => {
+                        this.classList.remove('hovered');
+                        this.style.width = 'var(--sidebar-collapsed)';
+                        isHoverExpanded = false;
+                        
+                        // Toggle button visibility handled by CSS
+                        
+                        // Update toggle icon
+                        updateSidebarToggleIcon();
+                    }, 500);
+                }
+            });
+            
+            // Add window resize listener to update icon
+            window.addEventListener('resize', function() {
+                updateSidebarToggleIcon();
+            });
+            
+            // Set initial icon state
+            updateSidebarToggleIcon();
+        }
+
+        function switchSection(sectionName) {
+            AppState.currentSection = sectionName;
+            
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show target section
+            const targetSection = document.getElementById(sectionName + '-section');
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+            
+            // Update page title
+            const titles = {
+                'home': 'Welcome',
+                'projects': 'Projects',
+                'people': 'People & Teams',
+                'account': 'My Account'
+            };
+            
+            document.getElementById('page-title').textContent = titles[sectionName] || 'MemberCommons';
+        }
+
+        function switchTab(tabName) {
+            AppState.currentTab = tabName;
+            
+            // Update tab button active states
+            const currentSection = document.querySelector('.section.active');
+            if (currentSection) {
+                currentSection.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    if (tab.getAttribute('data-tab') === tabName) {
+                        tab.classList.add('active');
+                    }
+                });
+                
+                // Scroll to the target section
+                const targetContent = currentSection.querySelector(`#${tabName}-tab`);
+                if (targetContent) {
+                    targetContent.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                }
+            }
+        }
+
+        // Authentication Functions
+        function showAuthModal() {
+            document.getElementById('auth-modal').classList.add('show');
+        }
+
+        function hideAuthModal() {
+            document.getElementById('auth-modal').classList.remove('show');
+        }
+
+        // Navigation Functions
+        function goWelcome() {
+            router.navigate('home', 'welcome');
+        }
+        function goPreferences() {
+            router.navigate('account', 'preferences');
+        }
+        function goProjects() {
+            router.navigate('projects', 'opportunities');
+        }
+
+        function signInWith(provider) {
+            console.log(`Signing in with ${provider}`);
+            // Implement OAuth flows here
+            switch(provider) {
+                case 'google':
+                    // Google OAuth implementation
+                    break;
+                case 'github':
+                    // GitHub OAuth implementation
+                    break;
+                case 'linkedin':
+                    // LinkedIn OAuth implementation
+                    break;
+            }
+            
+            // For demo purposes, simulate successful login
+            setTimeout(() => {
+                simulateLogin(`${provider}-user@example.com`);
+                hideAuthModal();
+            }, 1000);
+        }
+
+        function signInWithEmail(event) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            
+            // Implement email authentication here
+            console.log(`Signing in with email: ${email}`);
+            
+            // For demo purposes, simulate successful login
+            setTimeout(() => {
+                simulateLogin(email);
+                hideAuthModal();
+            }, 1000);
+        }
+
+        function adminDemo() {
+            simulateLogin('admin@membercommons.local', 'Admin User');
+        }
+
+        function simulateLogin(email, name = null) {
+            AppState.isAuthenticated = true;
+            AppState.currentUser = {
+                email: email,
+                name: name || email.split('@')[0],
+                role: email.includes('admin') ? 'admin' : 'user'
+            };
+            
+            updateAuthUI();
+        }
+
+        function signOut() {
+            AppState.isAuthenticated = false;
+            AppState.currentUser = null;
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
+            const authContainer = document.getElementById('auth-container');
+            
+            if (AppState.isAuthenticated) {
+                authContainer.innerHTML = `
+                    <span style="color: var(--text-secondary); margin-right: 12px;">
+                        Welcome, ${AppState.currentUser.name}
+                    </span>
+                    <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
+                `;
+            } else {
+                authContainer.innerHTML = `
+                    <button class="btn btn-secondary" onclick="showAuthModal()">Sign In</button>
+                    <button class="btn btn-primary" onclick="adminDemo()">Search Projects</button>
+                `;
+            }
+        }
+
+        // API Functions
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                // Return placeholder data for development
+                return {
+                    error: true,
+                    message: 'Connection failed - showing placeholder data',
+                    data: null
+                };
+            }
+        }
+
+        // Load initial data
+        async function loadInitialData() {
+            try {
+                // Test backend connection
+                const healthCheck = await apiCall('/health');
+                console.log('Backend health check:', healthCheck);
+                
+                // Load user data if authenticated
+                if (AppState.isAuthenticated) {
+                    // Load user-specific data
+                }
+                
+            } catch (error) {
+                console.log('Backend not available, using demo data');
+            }
+        }
+
+        // Initialize HashRouter
+        const router = new HashRouter();
+
+    // Initialize projects manager
+    if (typeof projectsManager !== 'undefined') {
+        projectsManager.init();
+    }
+    
+    // Initialize survey and skills managers
+    if (typeof surveyManager !== 'undefined') {
+        surveyManager.init();
+        surveyManager.loadSavedResponses();
+    }
+    
+    if (typeof skillsManager !== 'undefined') {
+        skillsManager.init();
+    }
+    
+    // Setup filter change handlers to update URL
+    setupFilterHandlers();
+    
+    // Initialize the NL search bar
+    initNLSearch();
+
+    // Close modal when clicking outside
+    document.getElementById('auth-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideAuthModal();
+        }
+    });
+});
+
+let hoverTimeout;
+let isHoverExpanded = false;
+let slideRightEnabled = true; // ensure default state
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeNavigation();
+    loadInitialData();
+    
+    // Initialize projects manager
+    if (typeof projectsManager !== 'undefined') {
+        projectsManager.init();
+    }
+    
+    // Initialize survey and skills managers
+    if (typeof surveyManager !== 'undefined') {
+        surveyManager.init();
+        surveyManager.loadSavedResponses();
+    }
+    
+    if (typeof skillsManager !== 'undefined') {
+        skillsManager.init();
+    }
+    
+    // Setup filter change handlers to update URL
+    setupFilterHandlers();
+    
+    // Initialize the NL search bar
+    initNLSearch();
+
+    // Close modal when clicking outside
+    document.getElementById('auth-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideAuthModal();
+        }
+    });
+});
+
+// NL Search Bar logic
+function initNLSearch() {
+    const searchInput = document.getElementById('q');
+const searchResultsDiv = document.getElementById('search-results');
+const fuzzyCheckbox = document.getElementById('fuzzy');
+const thresholdSlider = document.getElementById('th');
+
+
+
+    // Initialize Fuse.js
+    const projects = projectsManager?.projects || []; 
+    let fuse = new Fuse(projects, {
+    keys: ['name', 'description'],
+    threshold: thresholdSlider.value / 100,
+    includeScore: true
+});
+
+    const getFuse = () => new Fuse(projects, {
+    keys: ['name', 'description'],
+    threshold: thresholdSlider.value / 100,
+    includeScore: true
+});
+
+    // --- Step 1: Search input listener ---
+    if (!searchResultsDiv || !searchInput || !projects || projects.length === 0) {
+    console.warn('Search cannot be initialized. Missing element or no projects.');
+} else {
+    let fuse = new Fuse(projects, {
+        keys: ['name', 'description'],
+        threshold: thresholdSlider.value / 100,
+        includeScore: true
+    });
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim();
+        if (!query) {
+            searchResultsDiv.innerHTML = '';
+            return;
+        }
+
+        const results = fuzzyCheckbox.checked
+            ? fuse.search(query)
+            : projects.filter(p =>
+                p.name.toLowerCase().includes(query.toLowerCase()) ||
+                p.description.toLowerCase().includes(query.toLowerCase())
+            );
+
+            searchInput.addEventListener('input', () => {
+    const query = searchInput.value.trim();
+    console.log('Search query:', query);
+    console.log('Projects:', projects);
+    });
+
+    thresholdSlider.addEventListener('input', () => {
+        fuse = new Fuse(projects, {
+            keys: ['name', 'description'],
+            threshold: thresholdSlider.value / 100,
+            includeScore: true
+        });
+        searchInput.dispatchEvent(new Event('input')); // refresh results
+    });
+}
+
+
+        // Display results
+        searchResultsDiv.innerHTML = results.map(r => {
+            const item = r.item || r; // Fuse returns {item, score}
+            return `<div class="card"><h3>${item.name}</h3><p>${item.description}</p></div>`;
+        }).join('');
+    });
+
+    // --- Step 2: Threshold slider listener ---
+    thresholdSlider.addEventListener('input', () => {
+    // Trigger search input listener to refresh results
+    searchInput.dispatchEvent(new Event('input'));
+});
+
+
+    // --- Step 3: Optional: AI refine button logic ---
+    aiRefineBtn.addEventListener('click', () => {
+    const query = searchInput.value.trim();
+    if (!query) return;
+
+    const results = fuzzyCheckbox.checked 
+        ? getFuse().search(query).map(r => r.item)
+        : projects.filter(p => 
+            p.name.toLowerCase().includes(query.toLowerCase()) ||
+            p.description.toLowerCase().includes(query.toLowerCase())
+        );
+
+    console.log("Ask AI to refine:", query, results);
+    // Here you can send `results` to your LLM API (Gemini/Claude) 
+});
+
+}
+
+
+    function exactSearch(data, query) {
+        return data.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+    }
+
+    function displaySearchResults(results) {
+        console.log('Search results:', results);
+        // Update your UI with results
+    }
+}
+
+
+        // Setup handlers for filters to update URL parameters
+        function setupFilterHandlers() {
+            // Project filters
+            document.addEventListener('change', function(e) {
+                if (e.target.matches('select[name="project-filter"]')) {
+                    const filterValue = e.target.value;
+                    if (filterValue) {
+                        router.setParam('filter', filterValue);
+                    } else {
+                        router.removeParam('filter');
+                    }
+                }
+            });
+
+            // Location filters
+            document.addEventListener('change', function(e) {
+                if (e.target.matches('select') && e.target.querySelector('option[value*="atlanta"], option[value*="portland"], option[value*="detroit"]')) {
+                    const cityValue = e.target.value;
+                    if (cityValue) {
+                        router.setParam('city', cityValue);
+                    } else {
+                        router.removeParam('city');
+                    }
+                }
+            });
+
+            // Search inputs
+            let searchTimeout;
+            document.addEventListener('input', function(e) {
+                if (e.target.matches('input[type="text"][placeholder*="search" i]')) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        const searchValue = e.target.value.trim();
+                        if (searchValue) {
+                            router.setParam('search', searchValue);
+                        } else {
+                            router.removeParam('search');
+                        }
+                    }, 500); // Debounce search updates
+                }
+            });
+        }
+
+        // Handle window resize for responsive design
+        window.addEventListener('resize', function() {
+            if (window.innerWidth <= 500) {
+                document.getElementById('sidebar').classList.add('collapsed');
+            }
+        });
+    </script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+
+<script src="project.js"></script>
+</body>
+</html>
