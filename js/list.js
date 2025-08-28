@@ -101,6 +101,46 @@ function getCurrentCacheKey(fileSelect, selectedFile, selectedSheet) {
 }
 
 // =============================================================================
+// FALLBACK CSV STORAGE
+// =============================================================================
+
+async function storeFallbackCSV(csvText) {
+    // Store CSV data to local fallback file using Rust API endpoint or local storage
+    try {
+        // Try to use the Rust API endpoint to save the file (if available)
+        const saveResponse = await fetch('http://localhost:8081/api/files/csv', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: 'lists.csv',
+                content: csvText
+            })
+        });
+        
+        if (saveResponse.ok) {
+            console.log('Successfully saved CSV to server file system via Rust API');
+            return;
+        }
+        
+        console.warn('Rust API save endpoint not available, using localStorage fallback');
+    } catch (error) {
+        console.warn('Rust API save failed, using localStorage fallback:', error);
+    }
+    
+    // Fallback to localStorage if server save isn't available
+    try {
+        localStorage.setItem('fallbackCSV', csvText);
+        localStorage.setItem('fallbackCSVTimestamp', Date.now().toString());
+        console.log('Stored CSV in localStorage as fallback');
+    } catch (storageError) {
+        console.error('Failed to store CSV in localStorage:', storageError);
+        throw storageError;
+    }
+}
+
+// =============================================================================
 // DATA PROCESSING UTILITIES
 // =============================================================================
 
@@ -764,17 +804,68 @@ function loadFileSelectionFromStorage(storageKey = 'PartnerTools_selected_file')
 // Load Google Sheet configuration for dynamic dropdown population
 async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
+    const FALLBACK_URL = './lists.csv'; // Local fallback file
+    
+    let csvText;
+    let dataSource = 'Google Sheets';
     
     try {
         console.log('Loading Google Sheet configuration...');
         const response = await fetch(SHEET_URL);
-        const csvText = await response.text();
         
+        if (!response.ok) {
+            throw new Error(`Google Sheets fetch failed: ${response.status} ${response.statusText}`);
+        }
+        
+        csvText = await response.text();
+        
+        // Note: CSV fallback storage is now handled manually via "Refresh lists.csv" menu option on localhost
+        
+    } catch (error) {
+        console.warn('Google Sheets fetch failed, attempting fallback:', error);
+        
+        try {
+            console.log('Attempting to load from local fallback file...');
+            const fallbackResponse = await fetch(FALLBACK_URL);
+            
+            if (fallbackResponse.ok) {
+                csvText = await fallbackResponse.text();
+                dataSource = 'Local file fallback';
+                console.log('Successfully loaded from local fallback file');
+            } else {
+                throw new Error(`Fallback file not available: ${fallbackResponse.status} ${fallbackResponse.statusText}`);
+            }
+            
+        } catch (fallbackError) {
+            console.warn('Local file fallback failed, trying localStorage:', fallbackError);
+            
+            try {
+                const storedCSV = localStorage.getItem('fallbackCSV');
+                const storedTimestamp = localStorage.getItem('fallbackCSVTimestamp');
+                
+                if (storedCSV) {
+                    csvText = storedCSV;
+                    dataSource = 'localStorage fallback';
+                    
+                    const timestamp = storedTimestamp ? new Date(parseInt(storedTimestamp)) : 'unknown';
+                    console.log(`Successfully loaded from localStorage fallback (stored: ${timestamp})`);
+                } else {
+                    throw new Error('No fallback data available in localStorage');
+                }
+                
+            } catch (localStorageError) {
+                console.error('All fallback methods failed:', localStorageError);
+                throw new Error('Failed to load from Google Sheets, local file, and localStorage fallbacks');
+            }
+        }
+    }
+    
+    try {
         // Parse CSV using robust parser that handles quoted fields
         const rows = parseCSV(csvText);
         const headers = rows[0];
         
-        console.log('CSV headers:', headers);
+        console.log(`CSV headers from ${dataSource}:`, headers);
         
         // Find column indices
         const titleIndex = headers.findIndex(h => h.toLowerCase() === 'title');
@@ -786,7 +877,7 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
             throw new Error('Required columns (Title, URL, Feed) not found in sheet');
         }
         
-        console.log('Column indices - Title:', titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex);
+        console.log(`Column indices from ${dataSource} - Title:`, titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex);
         
         // Check if this is a geo site for filtering
         const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;

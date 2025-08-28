@@ -1393,14 +1393,6 @@
         }
 
         /* AI Insights Styles */
-        .ai-insights {
-            margin-top: 20px;
-            padding: 20px;
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius-lg);
-            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-        }
-
         .insights-header {
             display: flex;
             align-items: center;
@@ -1683,7 +1675,7 @@
         </div>
 
         <div style="margin-bottom: 20px;">
-            <div id="pageControls" class="input-button-group" style="display:flex; flex:1; align-items: center; justify-content: space-between;">
+            <div id="pageControls" class="input-button-group" style="display:flex; width: 100%; align-items: center;">
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
                         <option value="custom">Choose File...</option>
@@ -1693,8 +1685,8 @@
                         Get List
                     </button>
                 </div>
-                <div class="menu-container" style="display: flex; align-items: flex-start; gap: 8px;">
-                    <button class="menu-button" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
+                <div class="menu-container" style="display: flex; align-items: flex-start; gap: 8px; margin-left: auto;">
+                    <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; border: 1px solid var(--border-light); color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
                         <i data-feather="settings"></i>
                     </button>
                     <button class="menu-button" id="menu-toggle">
@@ -1721,6 +1713,9 @@
                         </div>
                         <div class="menu-item" id="list-feeds-toggle">
                             <span>All Lists</span>
+                        </div>
+                        <div class="menu-item" id="refresh-csv-toggle" style="display: none;">
+                            <span>Refresh lists.csv</span>
                         </div>
                     </div>
                 </div>
@@ -1777,8 +1772,19 @@
         </div>
 
         <div class="card" id="participants-table-card" style="display: none;">
+
+            <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
+                <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
+                    <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
+                    <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
+                    <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
+                </div>
+            </div>
+
             <!-- AI Insights -->
-            <div id="aiInsights" class="ai-insights" style="display: none;">
+            <div id="aiInsights" style="display: none;">
                 <div class="insights-header">
                     <div class="ai-icon">🤖</div>
                     <h3>AI-Powered Dataset Insights</h3>
@@ -1812,16 +1818,6 @@
                     <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
                         Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
                     </div>
-                </div>
-            </div>
-            
-            <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
-                <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
-                <div style="display: flex; gap: 10px;">
-                    <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
-                    <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
-                    <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
-                    <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
                 </div>
             </div>
             
@@ -5538,6 +5534,89 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 });
         }
 
+        async function refreshListsCSV() {
+            const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
+            const refreshItem = document.getElementById('refresh-csv-toggle');
+            const refreshText = refreshItem.querySelector('span');
+            const originalText = refreshText.textContent;
+            
+            try {
+                // Show loading state
+                refreshText.textContent = 'Refreshing...';
+                refreshItem.style.opacity = '0.6';
+                
+                console.log('Manually refreshing lists.csv from Google Sheets...');
+                const response = await fetch(SHEET_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`Google Sheets fetch failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const csvText = await response.text();
+                
+                // Save to local file using Rust API endpoint
+                try {
+                    const saveResponse = await fetch('http://localhost:8081/api/files/csv', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            filename: 'lists.csv',
+                            content: csvText
+                        })
+                    });
+                    
+                    if (saveResponse.ok) {
+                        const result = await saveResponse.json();
+                        console.log('Successfully saved CSV to ./lists.csv:', result);
+                        refreshText.textContent = 'Refreshed ✓';
+                        
+                        // Show success feedback briefly
+                        setTimeout(() => {
+                            refreshText.textContent = originalText;
+                        }, 2000);
+                        
+                        // Close menu
+                        document.getElementById('menu-dropdown').style.display = 'none';
+                        document.getElementById('menu-toggle').classList.remove('active');
+                        
+                    } else {
+                        const error = await saveResponse.json();
+                        throw new Error(error.error || 'Server save failed');
+                    }
+                    
+                } catch (saveError) {
+                    console.error('Failed to save CSV file:', saveError);
+                    
+                    // Fallback to localStorage
+                    localStorage.setItem('fallbackCSV', csvText);
+                    localStorage.setItem('fallbackCSVTimestamp', Date.now().toString());
+                    
+                    console.log('Stored CSV in localStorage as fallback');
+                    refreshText.textContent = 'Cached ✓';
+                    
+                    setTimeout(() => {
+                        refreshText.textContent = originalText;
+                    }, 2000);
+                    
+                    // Close menu
+                    document.getElementById('menu-dropdown').style.display = 'none';
+                    document.getElementById('menu-toggle').classList.remove('active');
+                }
+                
+            } catch (error) {
+                console.error('Failed to refresh lists.csv:', error);
+                refreshText.textContent = 'Failed ✗';
+                
+                setTimeout(() => {
+                    refreshText.textContent = originalText;
+                }, 2000);
+            } finally {
+                refreshItem.style.opacity = '1';
+            }
+        }
+
         function toggleSelectList() {
             const fileSelectContainer = document.querySelector('#fileSelect').parentElement.parentElement;
             const selectListText = document.getElementById('select-list-text');
@@ -5860,10 +5939,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Set initial menu visibility state
             updateMenuVisibility();
             
+            // Show "Refresh lists.csv" option only on localhost
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                document.getElementById('refresh-csv-toggle').style.display = 'block';
+            }
+            
             // Add event listeners for 3-dot menu
             document.getElementById('menu-toggle').addEventListener('click', toggleMenu);
             
             document.getElementById('list-feeds-toggle').addEventListener('click', showAllFeeds);
+            document.getElementById('refresh-csv-toggle').addEventListener('click', refreshListsCSV);
             
             document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
             document.getElementById('condensed-toggle').addEventListener('click', toggleCondensed);

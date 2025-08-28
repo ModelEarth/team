@@ -39,7 +39,6 @@
         </div>
 
         <div class="card" id="textInPage">
-          <div id="gitAccountFieldsContainer"></div>
           <div id="webrootSetup"></div>
         </div>
 
@@ -838,14 +837,11 @@ Ready: AI features are available`;
         // Use shared combined Rust API Status panel from team/js/common.js
         createRustApiStatusPanel('combined-rust-api-container', false);
 
-        // Setup webroot setup content and Git account fields
+        // Setup webroot setup content
         if (typeof setupWebrootSetup === 'function') {
             setupWebrootSetup('webrootSetup');
-        }
-        if (typeof setupGitAccountFields === 'function') {
-            setupGitAccountFields('gitAccountFieldsContainer');
         } else {
-            console.error('setup functions not available');
+            console.error('setupWebrootSetup function not available');
         }
         
         // Initialize page

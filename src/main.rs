@@ -414,6 +414,12 @@ struct FetchCsvRequest {
     url: String,
 }
 
+#[derive(Deserialize)]
+struct SaveCsvRequest {
+    filename: String,
+    content: String,
+}
+
 // Health check endpoint
 async fn health_check(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     match &data.db {
@@ -735,6 +741,54 @@ async fn create_env_config(req: web::Json<CreateEnvConfigRequest>) -> Result<Htt
             Ok(HttpResponse::InternalServerError().json(json!({
                 "success": false,
                 "error": format!("Failed to create .env file: {e}")
+            })))
+        }
+    }
+}
+
+// Save CSV file to projects directory
+async fn save_csv_file(req: web::Json<SaveCsvRequest>) -> Result<HttpResponse> {
+    use std::fs;
+    use std::path::Path;
+    
+    // Validate filename - only allow lists.csv for security
+    if req.filename != "lists.csv" {
+        return Ok(HttpResponse::BadRequest().json(json!({
+            "success": false,
+            "error": "Invalid filename: only lists.csv is allowed"
+        })));
+    }
+    
+    // Ensure projects directory exists
+    let projects_dir = Path::new("projects");
+    if !projects_dir.exists() {
+        if let Err(e) = fs::create_dir_all(projects_dir) {
+            return Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": format!("Failed to create projects directory: {e}")
+            })));
+        }
+    }
+    
+    // Write CSV content to file
+    let file_path = projects_dir.join(&req.filename);
+    match fs::write(&file_path, &req.content) {
+        Ok(_) => {
+            println!("Successfully saved CSV to: {}", file_path.display());
+            Ok(HttpResponse::Ok().json(json!({
+                "success": true,
+                "message": "CSV file saved successfully",
+                "filename": req.filename,
+                "path": format!("projects/{}", req.filename),
+                "size": req.content.len(),
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })))
+        }
+        Err(e) => {
+            eprintln!("Failed to save CSV file: {}", e);
+            Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": format!("Failed to save CSV file: {e}")
             })))
         }
     }
@@ -2777,6 +2831,10 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/env/create", web::post().to(create_env_config))
                             .route("/gemini", web::get().to(gemini_insights::test_gemini_api))
                             .route("/restart", web::post().to(restart_server))
+                    )
+                    .service(
+                        web::scope("/files")
+                            .route("/csv", web::post().to(save_csv_file))
                     )
                     .service(
                         web::scope("/proxy")
