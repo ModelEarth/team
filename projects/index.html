@@ -128,6 +128,15 @@
             background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
         }
         
+        /* Dark mode button backgrounds */
+        .dark #status-toggle,
+        .dark #sort-toggle,
+        .dark #group-toggle,
+        .dark #insights-btn,
+        .dark .btn {
+            background: var(--bg-tertiary);
+        }
+        
         .message-log {
             background: var(--bg-tertiary);
             border: 1px solid var(--border-light);
@@ -719,6 +728,13 @@
             min-width: 100px;
         }
         
+        /* Button backgrounds for consistent styling */
+        #status-toggle,
+        #sort-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+        }
+        
         #group-toggle.active {
             background: var(--accent-green);
             color: white;
@@ -883,6 +899,7 @@
             border-radius: var(--radius-md);
             border: 1px solid var(--border-light);
             transition: all 0.2s;
+            position: relative;
         }
         
         .participant-card:hover {
@@ -895,6 +912,25 @@
             color: var(--text-primary);
             margin-bottom: 4px;
             font-size: 16px;
+        }
+        
+        .participant-checkbox {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        /* Table-specific checkbox styling */
+        table .participant-checkbox {
+            position: relative;
+            top: auto;
+            right: auto;
+            margin: 0;
+            display: inline-block;
         }
         
         .participant-info {
@@ -2656,6 +2692,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Flag to prevent group parameter processing during status updates
         let isUpdatingStatus = false;
         
+        // Track previous group parameter state to avoid false alerts
+        let previousGroupParam = null;
+        
         // File selection state
         const STORAGE_KEY = 'listObject';
         let allParticipantsData = [];
@@ -2836,6 +2875,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const imageContainer = imagePaths.length > 0 ? createImageContainer(imagePaths, false) : '';
                 
                 card.innerHTML = `
+                    <input type="checkbox" class="participant-checkbox" data-name="${name}">
                     ${imageContainer}
                     <div class="participant-name">${name}</div>
                     <div class="participant-info"><strong>Team:</strong> ${team}</div>
@@ -2845,6 +2885,94 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 `;
                 
                 container.appendChild(card);
+                
+                // Add checkbox event listener
+                const checkbox = card.querySelector('.participant-checkbox');
+                if (checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        handleCheckboxChange(this.dataset.name, this.checked);
+                    });
+                }
+            });
+            
+            // Sync checkboxes after rendering cards
+            setTimeout(syncCheckboxesWithGroup, 10);
+        }
+        
+        // Handle checkbox changes
+        function handleCheckboxChange(participantName, isChecked) {
+            const groupField = document.getElementById('group');
+            if (!groupField) return;
+            
+            let groupList = groupField.value.split(',').map(name => name.trim()).filter(name => name);
+            
+            if (isChecked) {
+                // Add name if not already in the list
+                if (!groupList.includes(participantName)) {
+                    groupList.push(participantName);
+                    groupParticipants.add(participantName);
+                }
+            } else {
+                // Remove name from the list
+                groupList = groupList.filter(name => name !== participantName);
+                groupParticipants.delete(participantName);
+            }
+            
+            groupField.value = groupList.join(', ');
+            
+            // Update the group count in the toggle button (same as processGroupInput)
+            updateGroupCount();
+            updateGroupHighlighting();
+            
+            // Save to storage and update URL hash (same as processGroupInput)
+            saveGroupParticipants();
+            updateGroupHashParam();
+            
+            // Auto-save to browser cache with date-based snapshot
+            if (groupList.length > 0) {
+                saveGroupToDateSnapshot(groupList);
+            }
+            
+            // Apply filters if group filter is active (same as processGroupInput)
+            if (showOnlyGroup) {
+                applyAllFilters();
+            }
+            
+            // Trigger change event to update any other listeners
+            groupField.dispatchEvent(new Event('change'));
+        }
+        
+        // Save group to date-based snapshot for caching
+        function saveGroupToDateSnapshot(groupList) {
+            if (groupList.length === 0) return;
+            
+            // Create snapshot name with today's date
+            const today = new Date();
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            const snapshotName = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+            
+            // Save as a snapshot
+            const snapshots = loadSnapshots();
+            const filterState = getCurrentFilterState();
+            filterState.groupParticipants = groupList;
+            snapshots[snapshotName] = filterState;
+            saveSnapshots(snapshots);
+            
+            console.log(`💾 Auto-saved group selection to snapshot: ${snapshotName}`);
+        }
+        
+        // Sync checkboxes based on group field
+        function syncCheckboxesWithGroup() {
+            const groupField = document.getElementById('group');
+            if (!groupField) return;
+            
+            const groupList = groupField.value.split(',').map(name => name.trim()).filter(name => name);
+            const checkboxes = document.querySelectorAll('.participant-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                const participantName = checkbox.dataset.name;
+                checkbox.checked = groupList.includes(participantName);
             });
         }
         
@@ -2865,6 +2993,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Create table header
             tableHeader.innerHTML = '';
             const headerRow = document.createElement('tr');
+            
             headers.forEach(header => {
                 const th = document.createElement('th');
                 th.style.cursor = 'pointer';
@@ -2890,6 +3019,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 headerRow.appendChild(th);
             });
+            
+            // Add checkbox column header at the end
+            const checkboxTh = document.createElement('th');
+            checkboxTh.style.width = '40px';
+            checkboxTh.style.textAlign = 'center';
+            headerRow.appendChild(checkboxTh);
+            
             tableHeader.appendChild(headerRow);
             
             // Create table body
@@ -2979,8 +3115,52 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     td.textContent = row[header] || '';
                     tr.appendChild(td);
                 });
+                
+                // Add checkbox column last
+                const checkboxTd = document.createElement('td');
+                checkboxTd.style.textAlign = 'center';
+                checkboxTd.style.verticalAlign = 'middle';
+                checkboxTd.style.padding = '8px';
+                checkboxTd.style.position = 'relative';
+                
+                const name = getParticipantName(row);
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'participant-checkbox';
+                checkbox.dataset.name = name;
+                checkbox.style.width = '18px';
+                checkbox.style.height = '18px';
+                checkbox.style.cursor = 'pointer';
+                checkbox.style.margin = '0';
+                checkbox.style.display = 'inline-block';
+                checkbox.style.position = 'relative';
+                checkbox.style.zIndex = '10';
+                
+                // Add event listener with capture phase to occur before row click
+                checkbox.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent row click
+                    e.stopImmediatePropagation(); // Stop all other event handlers
+                }, true);
+                
+                checkbox.addEventListener('change', function(e) {
+                    e.stopPropagation(); // Prevent row click
+                    handleCheckboxChange(this.dataset.name, this.checked);
+                });
+                
+                // Prevent row click when clicking anywhere in the checkbox cell
+                checkboxTd.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent row click
+                    e.stopImmediatePropagation(); // Stop all other event handlers
+                });
+                
+                checkboxTd.appendChild(checkbox);
+                tr.appendChild(checkboxTd);
+                
                 tableBody.appendChild(tr);
             });
+            
+            // Sync checkboxes after rendering table
+            setTimeout(syncCheckboxesWithGroup, 10);
         }
         
         // Get team class based on team value (checks all teams in comma-separated list)
@@ -3257,6 +3437,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 card.innerHTML = `
+                    <input type="checkbox" class="participant-checkbox" data-name="${name}" style="position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; cursor: pointer; z-index: 10;">
                     <div class="gallery-content">
                         <div class="gallery-name">${name}</div>
                         <div class="gallery-info">${location}</div>
@@ -3270,7 +3451,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 `;
                 
                 container.appendChild(card);
+                
+                // Add checkbox event listener
+                const checkbox = card.querySelector('.participant-checkbox');
+                if (checkbox) {
+                    checkbox.addEventListener('change', function(e) {
+                        e.stopPropagation(); // Prevent card click
+                        handleCheckboxChange(this.dataset.name, this.checked);
+                    });
+                }
             });
+            
+            // Sync checkboxes after rendering gallery
+            setTimeout(syncCheckboxesWithGroup, 10);
             
             // Initialize feather icons for the newly created gallery cards
             setTimeout(() => feather.replace(), 100);
@@ -3765,6 +3958,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 hideGroupValidationMessage();
             }
             updateGroupCount();
+            
+            // Initialize previousGroupParam state
+            previousGroupParam = getURLHashParam('group');
         }
         
         function scrollGroupInputToRight() {
@@ -4370,6 +4566,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Apply all filters
             applyAllFilters();
+            
+            // Sync checkboxes after all filters are applied
+            setTimeout(syncCheckboxesWithGroup, 50);
         }
         
         function saveSnapshot(name) {
@@ -5704,6 +5903,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Check and update group participants panel visibility on page load
             updateGroupParticipantsVisibility();
             
+            // Initialize group field event listeners for checkbox synchronization
+            const groupField = document.getElementById('group');
+            if (groupField) {
+                // Sync checkboxes when group field changes
+                groupField.addEventListener('input', syncCheckboxesWithGroup);
+                groupField.addEventListener('change', syncCheckboxesWithGroup);
+                
+                // Initial sync when page loads
+                setTimeout(syncCheckboxesWithGroup, 100);
+            }
+            
             // Set initial header visibility based on current hash
             updateHeaderVisibility();
             
@@ -5801,9 +6011,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         } else {
                             console.log('🔄 Group parameter from hash change, but filter inactive per user preference');
                         }
-                    } else if (currentValue !== '' && !groupParam) {
-                        // Only clear the field if it currently has a value AND the hash parameter was explicitly removed
-                        // (not just missing due to a status change)
+                        
+                        // Update previous state
+                        previousGroupParam = groupParam;
+                    } else if (currentValue !== '' && !groupParam && previousGroupParam) {
+                        // Only show alert if there was actually a group parameter before AND it was explicitly removed
                         console.log('🔗 Group hash parameter removed, asking user about clearing cached names');
                         
                         const shouldClearCached = confirm('Group hash parameter was removed.\nAlso clear the cached names?');
@@ -5836,8 +6048,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                                 updateGroupToggleUI();
                             }
                         }
+                        
+                        // Update previous state
+                        previousGroupParam = null;
                     } else {
                         console.log('🔗 No group hash parameter and field is empty, no action needed');
+                        
+                        // Update previous state
+                        previousGroupParam = groupParam;
                     }
                     updateGroupCount();
                     updateGroupHighlighting();

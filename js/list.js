@@ -804,40 +804,41 @@ function loadFileSelectionFromStorage(storageKey = 'PartnerTools_selected_file')
 // Load Google Sheet configuration for dynamic dropdown population
 async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
-    const FALLBACK_URL = './lists.csv'; // Local fallback file
+    const LOCAL_CSV_URL = './lists.csv'; // Local CSV file (now primary source)
     
     let csvText;
-    let dataSource = 'Google Sheets';
+    let dataSource = 'Local file';
     
+    // Try local file first (new primary source)
     try {
-        console.log('Loading Google Sheet configuration...');
-        const response = await fetch(SHEET_URL);
+        console.log('Loading from local lists.csv file...');
+        const localResponse = await fetch(LOCAL_CSV_URL);
         
-        if (!response.ok) {
-            throw new Error(`Google Sheets fetch failed: ${response.status} ${response.statusText}`);
+        if (localResponse.ok) {
+            csvText = await localResponse.text();
+            dataSource = 'Local file';
+            console.log('Successfully loaded from local lists.csv');
+        } else {
+            throw new Error(`Local file not available: ${localResponse.status} ${localResponse.statusText}`);
         }
         
-        csvText = await response.text();
-        
-        // Note: CSV fallback storage is now handled manually via "Refresh lists.csv" menu option on localhost
-        
-    } catch (error) {
-        console.warn('Google Sheets fetch failed, attempting fallback:', error);
+    } catch (localError) {
+        console.warn('Local file failed, attempting Google Sheets fallback:', localError);
         
         try {
-            console.log('Attempting to load from local fallback file...');
-            const fallbackResponse = await fetch(FALLBACK_URL);
+            console.log('Attempting to load from Google Sheets fallback...');
+            const response = await fetch(SHEET_URL);
             
-            if (fallbackResponse.ok) {
-                csvText = await fallbackResponse.text();
-                dataSource = 'Local file fallback';
-                console.log('Successfully loaded from local fallback file');
+            if (response.ok) {
+                csvText = await response.text();
+                dataSource = 'Google Sheets fallback';
+                console.log('Successfully loaded from Google Sheets fallback');
             } else {
-                throw new Error(`Fallback file not available: ${fallbackResponse.status} ${fallbackResponse.statusText}`);
+                throw new Error(`Google Sheets fetch failed: ${response.status} ${response.statusText}`);
             }
             
-        } catch (fallbackError) {
-            console.warn('Local file fallback failed, trying localStorage:', fallbackError);
+        } catch (googleError) {
+            console.warn('Google Sheets fallback failed, trying localStorage:', googleError);
             
             try {
                 const storedCSV = localStorage.getItem('fallbackCSV');
@@ -854,8 +855,8 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
                 }
                 
             } catch (localStorageError) {
-                console.error('All fallback methods failed:', localStorageError);
-                throw new Error('Failed to load from Google Sheets, local file, and localStorage fallbacks');
+                console.error('All data sources failed:', localStorageError);
+                throw new Error('Failed to load from local file, Google Sheets, and localStorage');
             }
         }
     }
