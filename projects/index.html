@@ -667,7 +667,7 @@
         }
         
         .snapshot-save-btn {
-            width: 24px;
+            min-width: 50px;
             height: 24px;
             display: flex;
             align-items: center;
@@ -678,6 +678,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+            padding: 0 8px;
         }
         
         .snapshot-save-btn:hover {
@@ -1864,12 +1865,12 @@
                     <button class="btn btn-sm" id="close-snapshots">×</button>
                 </div>
                 <div class="snapshots-content">
-                    <div class="snapshots-list" id="snapshots-list">
-                        <!-- Snapshots will be populated here -->
-                    </div>
                     <div class="add-snapshot">
                         <input type="text" id="new-snapshot-name" class="form-control" placeholder="Enter snapshot name...">
                         <button class="btn btn-primary" id="add-snapshot-btn">Add Snapshot</button>
+                    </div>
+                    <div class="snapshots-list" id="snapshots-list">
+                        <!-- Snapshots will be populated here -->
                     </div>
                 </div>
             </div>
@@ -4611,7 +4612,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 snapshotItem.innerHTML = `
                     <input type="text" class="snapshot-name" value="${name}" readonly>
-                    <button class="snapshot-save-btn" title="Save current filters">■</button>
+                    <button class="snapshot-save-btn" title="Save current filters">Save</button>
                 `;
                 
                 const nameInput = snapshotItem.querySelector('.snapshot-name');
