@@ -305,38 +305,42 @@ function createOSDetectionPanel(containerId) {
 
                 <div id="githubCLIinstall">
 
-                <b>Run the GitHub CLI install outside your Code CLI.</b><br>
-                Check status in a new terminal:
+                In a terminal separate from your Code CLI, check the status:
                 <pre><code>gh auth status</code></pre>
 
-                <b>Install the Github CLI</b><br>
+                <div class="mac-instructions">
 
-                <div class="mac-instructions" style="display: block;">
-                    <code>brew reinstall gh</code>, choose HTTPS, then run <code>gh auth login</code>. Hit return.<br>
-                    If needed, install <a href="https://brew.sh/" target="_blank">brew</a><br><br>
+                    If needed, install <a href="https://brew.sh/" target="_blank">brew</a>
+
+                    <pre><code>brew reinstall gh</code></pre> 
+
+                    choose HTTPS, then run and hit return.
+
+                    <pre><code>gh auth login</code></pre>
                 </div>
                 <div class="pc-instructions" style="display: none;">
-                    <code>winget install --id GitHub.cli</code><br><br>
+                    Install the Github CLI<br>
+                    <pre><code>winget install --id GitHub.cli</code></pre>
                     
                     If your terminal is PowerShell and you don't have winget, download Microsoft's 
                     <a href="https://apps.microsoft.com/detail/app-installer/9nblggh4nns1" target="_blank">App Installer</a><br>
                     After installing "App Installer", restart PowerShell and check:<br>
-                    <code>winget --version</code><br><br>
-                </div>
-                
-               
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span><b>Resolving Github CLI Install Error</b><br>
-                    If you see an error updating the .config fire, run the following to check ownership of the .config directory. 
-                    Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
-                    </span>
-                    <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
+                    <pre><code>winget --version</code></pre>
                 </div>
 
-                <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
+                <div class="mac-instructions">
 
-                Add yourself as owner instead of root.
-                <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        If you have an error updating the .config fire, run the following to check ownership of the .config directory. 
+                        Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
+                        <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
+                    </div>
+
+                    <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
+
+                    Add yourself as owner instead of root.
+                    <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
+                </div>
 
                 <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br><hr><br>
 
@@ -562,16 +566,16 @@ function initializeOSDetectionPanel() {
         }
         
         // Update GitHub CLI instructions based on OS
-        const macInstructions = document.querySelector('.mac-instructions');
-        const pcInstructions = document.querySelector('.pc-instructions');
+        const macInstructions = document.querySelectorAll('.mac-instructions');
+        const pcInstructions = document.querySelectorAll('.pc-instructions');
         
-        if (macInstructions && pcInstructions) {
+        if (macInstructions.length > 0 && pcInstructions.length > 0) {
             if (selectedOS === 'PC') {
-                macInstructions.style.display = 'none';
-                pcInstructions.style.display = 'block';
+                macInstructions.forEach(element => element.style.display = 'none');
+                pcInstructions.forEach(element => element.style.display = 'block');
             } else {
-                macInstructions.style.display = 'block';
-                pcInstructions.style.display = 'none';
+                macInstructions.forEach(element => element.style.display = 'block');
+                pcInstructions.forEach(element => element.style.display = 'none');
             }
         }
     }
