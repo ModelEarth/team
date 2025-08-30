@@ -701,6 +701,118 @@
             background: var(--accent-green-dark);
         }
         
+        .snapshot-view-btn {
+            min-width: 50px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 8px;
+        }
+        
+        .snapshot-view-btn:hover {
+            background: var(--accent-blue-dark);
+        }
+        
+        .snapshot-menu {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .snapshot-menu-btn {
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+        }
+        
+        .snapshot-menu-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .snapshot-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            min-width: 80px;
+        }
+        
+        .snapshot-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .snapshot-menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .snapshot-menu-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .snapshot-menu-item:hover:last-child {
+            color: var(--danger-color);
+            background: #fee2e2;
+        }
+        
+        /* Dark theme support for snapshot menu */
+        .dark .snapshot-menu-dropdown {
+            background: #1f2937 !important;
+            border-color: #374151 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .dark .snapshot-menu-btn {
+            background: #374151 !important;
+            color: #9ca3af !important;
+            border-color: #4b5563 !important;
+        }
+        
+        .dark .snapshot-menu-btn:hover {
+            background: #4b5563 !important;
+            color: #f9fafb !important;
+        }
+        
+        .dark .snapshot-menu-item {
+            color: #f9fafb !important;
+            border-bottom-color: #374151 !important;
+            background: transparent !important;
+        }
+        
+        .dark .snapshot-menu-item:hover {
+            background: #374151 !important;
+            color: #f9fafb !important;
+        }
+        
+        .dark .snapshot-menu-item:hover:last-child {
+            color: #ef4444 !important;
+            background: #422a2a !important;
+        }
+        
         .add-snapshot {
             display: flex;
             gap: 8px;
@@ -717,6 +829,27 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
             border: 1px solid var(--border-light);
+        }
+        
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .group-snapshot-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .group-snapshot-info a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        
+        .group-snapshot-info a:hover {
+            text-decoration: underline;
         }
         
         .group-input-group {
@@ -1071,6 +1204,19 @@
             padding: 4px 8px;
             font-size: 12px;
             border-radius: 4px;
+        }
+        
+        /* Larger X for dropdown close buttons */
+        #close-sort, #close-status {
+            font-size: 24px;
+            line-height: 1;
+            padding: 0;
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
         }
         
         .legend-items {
@@ -1893,7 +2039,10 @@
             
             <!-- Group Participants Control -->
             <div class="group-control" id="group-control">
-                <label class="form-label">Group Participants</label>
+                <div class="group-header">
+                    <label class="form-label" id="group-participants-label">Group Participants</label>
+                    <span id="group-snapshot-info" class="group-snapshot-info"></span>
+                </div>
                 <div class="group-input-group">
                     <input type="text" id="group" class="form-control" placeholder="Enter names separated by commas (e.g., Loren, Ivy, Gary)...">
                     <button class="btn btn-secondary" id="group-toggle">
@@ -2660,6 +2809,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 // Show AI Insights section after successful data load
                 showAIInsightsSection();
+                
+                // Load most recent snapshot for this list after data is loaded
+                loadSnapshotOnPageLoad();
 
             } catch (error) {
                 console.error('Full error details:', error);
@@ -2967,14 +3119,27 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const today = new Date();
             const months = ['January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December'];
-            const snapshotName = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+            let snapshotName = `${months[today.getMonth()]} ${String(today.getDate()).padStart(2, '0')}, ${today.getFullYear()}`;
+            
+            // Check for duplicates and append incremental number if needed
+            const snapshots = loadSnapshots();
+            const originalName = snapshotName;
+            let counter = 1;
+            
+            while (snapshots[snapshotName]) {
+                counter++;
+                snapshotName = `${originalName} (${counter})`;
+            }
             
             // Save as a snapshot
-            const snapshots = loadSnapshots();
             const filterState = getCurrentFilterState();
             filterState.groupParticipants = groupList;
             snapshots[snapshotName] = filterState;
             saveSnapshots(snapshots);
+            
+            // Set this snapshot as active
+            currentActiveSnapshot = snapshotName;
+            updateListTitle();
             
             console.log(`💾 Auto-saved group selection to snapshot: ${snapshotName}`);
         }
@@ -3591,7 +3756,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function toggleSortDropdown() {
             const dropdown = document.getElementById('sort-dropdown');
+            const statusDropdown = document.getElementById('status-dropdown');
             const isVisible = dropdown.style.display === 'block';
+            
+            // Close status dropdown first
+            statusDropdown.style.display = 'none';
             
             if (isVisible) {
                 dropdown.style.display = 'none';
@@ -3724,7 +3893,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function toggleStatusDropdown() {
             const dropdown = document.getElementById('status-dropdown');
+            const sortDropdown = document.getElementById('sort-dropdown');
             const isVisible = dropdown.style.display === 'block';
+            
+            // Close sort dropdown first
+            sortDropdown.style.display = 'none';
             
             if (isVisible) {
                 dropdown.style.display = 'none';
@@ -4025,26 +4198,100 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             });
         }
         
+        function cleanHTMLFromNames(htmlString) {
+            // Create a temporary DOM element to parse HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlString;
+            
+            // Extract all text content and collect names
+            const extractedNames = [];
+            
+            // Try to find names in various HTML structures
+            // Check for common patterns like lists, spans, divs, etc.
+            const possibleNameElements = tempDiv.querySelectorAll('li, span, div, p, td, th');
+            
+            if (possibleNameElements.length > 0) {
+                // Extract text from structured elements
+                possibleNameElements.forEach(element => {
+                    const text = element.textContent.trim();
+                    if (text && text.length > 0) {
+                        // Split by common separators and filter out empty entries
+                        const names = text.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
+                        extractedNames.push(...names);
+                    }
+                });
+            } else {
+                // Fallback: just strip all HTML tags and extract text
+                const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                const names = textContent.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
+                extractedNames.push(...names);
+            }
+            
+            // Remove duplicates and join with commas
+            const uniqueNames = [...new Set(extractedNames)];
+            const result = uniqueNames.join(', ');
+            
+            console.log('🧹 Cleaned HTML from names:', htmlString.substring(0, 100) + '...', '→', result);
+            return result;
+        }
+        
         function processGroupInput() {
             const input = document.getElementById('group');
-            const value = input.value;
+            let value = input.value;
             
             // Clear active snapshot since group participants changed manually
             clearActiveSnapshot();
             
-            // Parse names from input
+            // Check if value contains HTML and clean it if necessary
+            if (value.includes('<') && value.includes('>')) {
+                value = cleanHTMLFromNames(value);
+                // Update the input field with cleaned value
+                input.value = value;
+            }
+            
+            // Parse names from input and expand full names
             groupParticipants = new Set();
             const inputNames = [];
+            const expandedNames = [];
+            
             value.split(',').forEach(name => {
                 const trimmed = name.trim();
                 if (trimmed) {
                     inputNames.push(trimmed);
-                    groupParticipants.add(trimmed);
+                    
+                    // Check if name contains a space (full name)
+                    if (trimmed.includes(' ')) {
+                        const nameParts = trimmed.split(' ').filter(part => part.trim().length > 0);
+                        if (nameParts.length >= 2) {
+                            const firstName = nameParts[0];
+                            const lastName = nameParts[nameParts.length - 1]; // Use last part in case of middle names
+                            const lastInitial = lastName.charAt(0).toUpperCase();
+                            
+                            // Add both first name only and first name + last initial
+                            expandedNames.push(firstName);
+                            expandedNames.push(firstName + lastInitial);
+                            groupParticipants.add(firstName);
+                            groupParticipants.add(firstName + lastInitial);
+                        } else {
+                            // Single word with space somehow, treat as regular name
+                            expandedNames.push(trimmed);
+                            groupParticipants.add(trimmed);
+                        }
+                    } else {
+                        // No space, regular name
+                        expandedNames.push(trimmed);
+                        groupParticipants.add(trimmed);
+                    }
                 }
             });
             
-            // Validate names against dataset
-            validateGroupNames(inputNames);
+            // Update the input field to show the expanded names
+            if (expandedNames.length > 0) {
+                input.value = expandedNames.join(', ');
+            }
+            
+            // Validate names against dataset (using all expanded names)
+            validateGroupNames(Array.from(groupParticipants));
             
             // Save to storage and update URL hash
             saveGroupParticipants();
@@ -4060,6 +4307,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
         }
         
+        // Store not found names globally so button can access them
+        let currentNotFoundNames = [];
+        
         function validateGroupNames(inputNames) {
             if (!allParticipantsData || allParticipantsData.length === 0) {
                 console.log('⏭️ Skipping group name validation - data not yet available');
@@ -4069,6 +4319,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (inputNames.length === 0) {
                 // Hide message if no names to validate
                 hideGroupValidationMessage();
+                currentNotFoundNames = [];
                 return;
             }
             
@@ -4082,20 +4333,23 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 return !datasetNamesLower.includes(inputNameLower);
             });
             
+            // Store not found names for button access
+            currentNotFoundNames = notFoundNames;
+            
             // Show message if there are names not found
             if (notFoundNames.length > 0) {
                 const message = `Not found in dataset: ${notFoundNames.join(', ')}`;
                 console.warn('⚠️ ' + message);
                 
-                // Show a message to the user
-                showGroupValidationMessage(message);
+                // Show a message to the user with remove button
+                showGroupValidationMessage(message, true);
             } else {
                 // Hide message if all names are valid
                 hideGroupValidationMessage();
             }
         }
         
-        function showGroupValidationMessage(message) {
+        function showGroupValidationMessage(message, showButton = false) {
             // Create or update validation message element
             let messageEl = document.getElementById('group-validation-message');
             if (!messageEl) {
@@ -4119,7 +4373,38 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
             }
             
-            messageEl.textContent = message;
+            // Clear existing content and add message
+            messageEl.innerHTML = '';
+            
+            // Add message text
+            const messageSpan = document.createElement('span');
+            messageSpan.textContent = message;
+            messageEl.appendChild(messageSpan);
+            
+            // Add remove button if requested
+            if (showButton && currentNotFoundNames.length > 0) {
+                const buttonSpan = document.createElement('span');
+                buttonSpan.style.cssText = `
+                    margin-left: 8px;
+                `;
+                
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove Unfound';
+                removeButton.style.cssText = `
+                    background: #dc2626;
+                    color: white;
+                    border: none;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                    cursor: pointer;
+                `;
+                removeButton.onclick = removeUnfoundNames;
+                
+                buttonSpan.appendChild(removeButton);
+                messageEl.appendChild(buttonSpan);
+            }
+            
             messageEl.style.display = 'block';
         }
         
@@ -4128,6 +4413,49 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (messageEl) {
                 messageEl.style.display = 'none';
             }
+        }
+        
+        function removeUnfoundNames() {
+            if (currentNotFoundNames.length === 0) {
+                return;
+            }
+            
+            const input = document.getElementById('group');
+            
+            // Get current names from the groupParticipants set
+            const validNames = Array.from(groupParticipants).filter(name => 
+                !currentNotFoundNames.some(notFound => 
+                    notFound.toLowerCase() === name.toLowerCase()
+                )
+            );
+            
+            // Update the input field and groupParticipants set
+            input.value = validNames.join(', ');
+            groupParticipants = new Set(validNames);
+            
+            // Clear the not found names array
+            currentNotFoundNames = [];
+            
+            // Save to storage and update URL hash
+            saveGroupParticipants();
+            updateGroupCount();
+            updateGroupHighlighting();
+            updateGroupHashParam();
+            
+            // Auto-save to browser cache with date-based snapshot
+            if (validNames.length > 0) {
+                saveGroupToDateSnapshot(validNames);
+            }
+            
+            // Hide the validation message since we've removed the unfound names
+            hideGroupValidationMessage();
+            
+            // Apply filters if group filter is active
+            if (showOnlyGroup) {
+                applyAllFilters();
+            }
+            
+            console.log('✅ Removed unfound names and updated cache snapshot');
         }
         
         function toggleGroupFilter() {
@@ -4598,10 +4926,18 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function loadSnapshot(name) {
             const snapshots = loadSnapshots();
+            console.log(`🔄 Loading snapshot "${name}" for list:`, getURLHashParam('list'));
+            console.log('📸 Available snapshots:', Object.keys(snapshots));
+            
             if (snapshots[name]) {
+                isLoadingSnapshot = true;
                 currentActiveSnapshot = name;
+                console.log('✅ Set currentActiveSnapshot to:', currentActiveSnapshot);
                 applyFilterState(snapshots[name]);
                 updateListTitle();
+                isLoadingSnapshot = false;
+            } else {
+                console.log('❌ Snapshot not found:', name);
             }
         }
         
@@ -4629,20 +4965,29 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 snapshotItem.innerHTML = `
                     <input type="text" class="snapshot-name" value="${name}" readonly>
                     <button class="snapshot-save-btn" title="Save current filters">Save</button>
+                    <button class="snapshot-view-btn" title="Load this snapshot">View</button>
+                    <div class="snapshot-menu">
+                        <button class="snapshot-menu-btn" title="More options">⋯</button>
+                        <div class="snapshot-menu-dropdown">
+                            <div class="snapshot-menu-item" onclick="deleteSnapshot('${name}')">Delete</div>
+                        </div>
+                    </div>
                 `;
                 
                 const nameInput = snapshotItem.querySelector('.snapshot-name');
                 const saveBtn = snapshotItem.querySelector('.snapshot-save-btn');
+                const viewBtn = snapshotItem.querySelector('.snapshot-view-btn');
                 
-                // Click snapshot name to load it
+                // Click snapshot name to edit it
                 nameInput.addEventListener('click', () => {
                     if (!nameInput.classList.contains('editing')) {
-                        loadSnapshot(name);
-                        toggleSnapshots();
+                        nameInput.classList.add('editing');
+                        nameInput.readOnly = false;
+                        nameInput.select();
                     }
                 });
                 
-                // Double-click to edit name
+                // Double-click to edit name (keep for backward compatibility)
                 nameInput.addEventListener('dblclick', () => {
                     nameInput.classList.add('editing');
                     nameInput.readOnly = false;
@@ -4664,6 +5009,33 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     currentActiveSnapshot = name;
                     updateListTitle();
                     alert(`Snapshot "${name}" updated with current filters and activated!`);
+                });
+                
+                // View button - load this snapshot
+                viewBtn.addEventListener('click', () => {
+                    loadSnapshot(name);
+                    toggleSnapshots();
+                });
+                
+                // Menu dropdown functionality
+                const menuBtn = snapshotItem.querySelector('.snapshot-menu-btn');
+                const menuDropdown = snapshotItem.querySelector('.snapshot-menu-dropdown');
+                
+                menuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Close all other dropdowns first
+                    document.querySelectorAll('.snapshot-menu-dropdown').forEach(dropdown => {
+                        if (dropdown !== menuDropdown) {
+                            dropdown.style.display = 'none';
+                        }
+                    });
+                    // Toggle current dropdown
+                    menuDropdown.style.display = menuDropdown.style.display === 'block' ? 'none' : 'block';
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', () => {
+                    menuDropdown.style.display = 'none';
                 });
                 
                 snapshotsList.appendChild(snapshotItem);
@@ -4700,6 +5072,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             } else {
                 snapshotsControl.style.display = 'block';
                 renderSnapshotsList();
+                
+                // Auto-populate new snapshot name with today's date
+                const nameInput = document.getElementById('new-snapshot-name');
+                if (nameInput) {
+                    const today = new Date();
+                    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                                  'July', 'August', 'September', 'October', 'November', 'December'];
+                    const defaultName = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+                    nameInput.value = defaultName;
+                }
             }
             
             // Close menu
@@ -4735,24 +5117,101 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const listTitle = document.getElementById('list-title');
             const baseTitle = listTitle.textContent.split(' - ')[0]; // Remove existing snapshot name
             
+            // Keep list title clean - no snapshot name in main title
+            listTitle.textContent = baseTitle;
+            
+            // Update group snapshot info
+            updateGroupSnapshotInfo();
+        }
+        
+        function updateGroupSnapshotInfo() {
+            const snapshotInfo = document.getElementById('group-snapshot-info');
+            const participantsLabel = document.getElementById('group-participants-label');
+            console.log('🔄 updateGroupSnapshotInfo called, element found:', !!snapshotInfo);
+            console.log('📸 currentActiveSnapshot:', currentActiveSnapshot);
+            
+            if (!snapshotInfo) {
+                console.error('❌ group-snapshot-info element not found');
+                return;
+            }
+            
             if (currentActiveSnapshot) {
-                listTitle.textContent = `${baseTitle} - ${currentActiveSnapshot}`;
+                // Update label to include snapshot name
+                if (participantsLabel) {
+                    participantsLabel.textContent = `Group Participants - ${currentActiveSnapshot}`;
+                }
+                // Show "Edit Snapshots" link
+                snapshotInfo.innerHTML = `<a href="#" onclick="toggleSnapshots(); return false;">Edit Snapshots</a>`;
+                console.log('✅ Displayed active snapshot in title:', currentActiveSnapshot);
             } else {
-                listTitle.textContent = baseTitle;
+                // Reset label to original text
+                if (participantsLabel) {
+                    participantsLabel.textContent = 'Group Participants';
+                }
+                // Show save snapshot link
+                snapshotInfo.innerHTML = `<a href="#" onclick="promptSaveSnapshot(); return false;">Save Snapshot</a>`;
+                console.log('✅ Displayed save snapshot link');
             }
         }
         
+        function promptSaveSnapshot() {
+            // Generate today's date in format "Month D, YYYY"
+            const today = new Date();
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            const defaultName = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+            
+            const name = prompt('Enter snapshot name:', defaultName);
+            if (name && name.trim()) {
+                const snapshots = loadSnapshots();
+                if (snapshots[name.trim()]) {
+                    if (!confirm(`Snapshot "${name.trim()}" already exists. Overwrite?`)) {
+                        return;
+                    }
+                }
+                
+                saveSnapshot(name.trim());
+                currentActiveSnapshot = name.trim();
+                updateListTitle();
+                alert(`Snapshot "${name.trim()}" saved and activated!`);
+            }
+        }
+        
+        let isLoadingSnapshot = false;
+        
         function clearActiveSnapshot() {
-            if (currentActiveSnapshot) {
+            if (currentActiveSnapshot && !isLoadingSnapshot) {
                 currentActiveSnapshot = null;
                 updateListTitle();
                 console.log('🔄 Cleared active snapshot due to manual filter change');
+            } else if (isLoadingSnapshot) {
+                console.log('⏭️ Skipped clearing active snapshot - snapshot loading in progress');
             }
         }
         
         function loadSnapshotOnPageLoad() {
             const snapshots = loadSnapshots();
-            if (snapshots['1']) {
+            
+            // Find the most recent date-based snapshot
+            const dateSnapshots = Object.keys(snapshots).filter(name => {
+                // Check if snapshot name matches date format (Month DD, YYYY)
+                return /^[A-Za-z]+ \d{2}, \d{4}$/.test(name);
+            });
+            
+            if (dateSnapshots.length > 0) {
+                // Sort by date (most recent first)
+                dateSnapshots.sort((a, b) => {
+                    const dateA = new Date(a);
+                    const dateB = new Date(b);
+                    return dateB - dateA; // Descending order (newest first)
+                });
+                
+                const mostRecentSnapshot = dateSnapshots[0];
+                console.log(`🔄 Loading most recent snapshot on page load: ${mostRecentSnapshot}`);
+                loadSnapshot(mostRecentSnapshot);
+            } else if (snapshots['1']) {
+                // Fallback to snapshot '1' if no date-based snapshots exist
+                console.log('🔄 Loading fallback snapshot "1" on page load');
                 loadSnapshot('1');
             }
         }
@@ -5117,6 +5576,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             // Team legend will be shown by generateTeamLegend if there's a Team column
+            
+            // Ensure group control is visible and update snapshot info
+            const groupControl = document.getElementById('group-control');
+            if (groupControl) {
+                groupControl.style.display = 'block';
+            }
+            
+            // Update group snapshot info after elements are shown
+            waitForElm('#group-snapshot-info').then(() => {
+                updateGroupSnapshotInfo();
+            });
             
             console.log('List display elements shown');
         }
@@ -5920,6 +6390,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Check and update group participants panel visibility on page load
             updateGroupParticipantsVisibility();
             
+            // Initialize group snapshot info display
+            updateGroupSnapshotInfo();
+            
             // Initialize group field event listeners for checkbox synchronization
             const groupField = document.getElementById('group');
             if (groupField) {
@@ -6136,9 +6609,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             setTimeout(() => {
                 console.log('🕐 Loading group participants after DOM is ready');
                 loadGroupParticipants();
-                
-                // Load snapshot 1 if it exists
-                loadSnapshotOnPageLoad();
             }, 100);
             
             // Check for list=all in URL hash to auto-load meta list
@@ -6174,10 +6644,21 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Set initial menu visibility state
             updateMenuVisibility();
             
+            // Initialize group snapshot info display
+            updateGroupSnapshotInfo();
+            
             // Show "Refresh lists.csv" option only on localhost
             if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
                 document.getElementById('refresh-csv-toggle').style.display = 'block';
             }
+            
+            // Load snapshot if no auto-data loading occurred
+            setTimeout(() => {
+                // Only load snapshot if no data was auto-loaded
+                if (!window.participantsData || window.participantsData.length === 0) {
+                    loadSnapshotOnPageLoad();
+                }
+            }, 500);
             
             // Add event listeners for 3-dot menu
             document.getElementById('menu-toggle').addEventListener('click', toggleMenu);
