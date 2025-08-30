@@ -137,6 +137,22 @@
             background: var(--bg-tertiary);
         }
         
+        /* Settings toggle styling */
+        #settings-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-medium);
+            transition: all 0.2s;
+        }
+        
+        #settings-toggle:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        #settings-toggle svg {
+            stroke-width: 1;
+        }
+        
         .message-log {
             background: var(--bg-tertiary);
             border: 1px solid var(--border-light);
@@ -1723,7 +1739,7 @@
                     </button>
                 </div>
                 <div class="menu-container" style="display: flex; align-items: flex-start; gap: 8px; margin-left: auto;">
-                    <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; border: 1px solid var(--border-light); color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
+                    <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
                         <i data-feather="settings"></i>
                     </button>
                     <button class="menu-button" id="menu-toggle">
