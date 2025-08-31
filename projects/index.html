@@ -4207,25 +4207,44 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Extract all text content and collect names
             const extractedNames = [];
             
-            // Try to find names in various HTML structures
-            // Check for common patterns like lists, spans, divs, etc.
+            // First, check if there are HTML elements with names
             const possibleNameElements = tempDiv.querySelectorAll('li, span, div, p, td, th');
             
             if (possibleNameElements.length > 0) {
-                // Extract text from structured elements
-                possibleNameElements.forEach(element => {
+                // Extract text from structured HTML elements in order
+                possibleNameElements.forEach((element, index) => {
                     const text = element.textContent.trim();
                     if (text && text.length > 0) {
-                        // Split by common separators and filter out empty entries
-                        const names = text.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
-                        extractedNames.push(...names);
+                        // Check if this element contains separators
+                        if (text.includes(',') || text.includes(';') || text.includes('\n') || text.includes('\t')) {
+                            // Split by separators if they exist within the element
+                            const names = text.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
+                            extractedNames.push(...names);
+                        } else {
+                            // Single name in this element
+                            extractedNames.push(text);
+                        }
                     }
                 });
-            } else {
-                // Fallback: just strip all HTML tags and extract text
-                const textContent = tempDiv.textContent || tempDiv.innerText || '';
-                const names = textContent.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
-                extractedNames.push(...names);
+            }
+            
+            // Also check for any plain text content outside of HTML elements
+            // Walk through all nodes to catch plain text between elements
+            const walker = document.createTreeWalker(
+                tempDiv,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let textNode;
+            while (textNode = walker.nextNode()) {
+                const text = textNode.textContent.trim();
+                if (text && text.length > 0) {
+                    // Split by separators and add to extracted names
+                    const names = text.split(/[,;\n\t]/).map(name => name.trim()).filter(name => name.length > 0);
+                    extractedNames.push(...names);
+                }
             }
             
             // Remove duplicates and join with commas
