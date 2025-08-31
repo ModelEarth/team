@@ -829,6 +829,7 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
             border: 1px solid var(--border-light);
+            display: none; /* Hidden by default, shown only for modelteam list */
         }
         
         .group-header {
@@ -5577,16 +5578,23 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Team legend will be shown by generateTeamLegend if there's a Team column
             
-            // Ensure group control is visible and update snapshot info
+            // Show group control only for modelteam list
             const groupControl = document.getElementById('group-control');
+            const currentList = getURLHashParam('list');
             if (groupControl) {
-                groupControl.style.display = 'block';
+                if (currentList === 'modelteam') {
+                    groupControl.style.display = 'block';
+                } else {
+                    groupControl.style.display = 'none';
+                }
             }
             
-            // Update group snapshot info after elements are shown
-            waitForElm('#group-snapshot-info').then(() => {
-                updateGroupSnapshotInfo();
-            });
+            // Update group snapshot info after elements are shown (only for modelteam)
+            if (currentList === 'modelteam') {
+                waitForElm('#group-snapshot-info').then(() => {
+                    updateGroupSnapshotInfo();
+                });
+            }
             
             console.log('List display elements shown');
         }
