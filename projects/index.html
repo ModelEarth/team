@@ -3094,9 +3094,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             updateGroupCount();
             updateGroupHighlighting();
             
-            // Save to storage and update URL hash (same as processGroupInput)
+            // Save to storage (same as processGroupInput)
             saveGroupParticipants();
-            updateGroupHashParam();
+            // Note: URL hash parameters for groups have been discontinued
             
             // Auto-save to browser cache with date-based snapshot
             if (groupList.length > 0) {
@@ -4082,63 +4082,37 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Group participants functionality
         function loadGroupParticipants() {
             // Check URL hash parameter first, then fallback to localStorage
-            const hashGroup = getURLHashParam('group');
             const stored = localStorage.getItem(getListStorageKey('groupParticipants'));
             const groupInput = document.getElementById('group');
             
             let groupString = '';
-            if (hashGroup) {
-                // URL hash parameter takes priority
-                groupString = hashGroup;
-                console.log('🔗 Loading group participants from URL hash:', hashGroup);
-            } else if (stored && stored.trim()) {
-                // Fallback to localStorage
+            if (stored && stored.trim()) {
+                // Load from localStorage only (no hash loading)
                 groupString = stored;
                 console.log('💾 Loading group participants from localStorage:', stored);
             } else {
-                console.log('ℹ️ No group participants found in hash or localStorage');
+                console.log('ℹ️ No group participants found in localStorage');
             }
             
             if (groupString && groupInput) {
                 // Format the group string with proper spacing (replace commas with ", ")
                 const formattedGroupString = groupString.replace(/,/g, ', ');
                 
-                // Always populate the field with the determined group string (hash takes priority over localStorage)
+                // Populate the field with the group string from localStorage or snapshot
                 groupInput.value = formattedGroupString;
-                console.log('✅ Populated group input field with:', formattedGroupString, hashGroup ? '(from hash)' : '(from localStorage)');
+                console.log('✅ Populated group input field with:', formattedGroupString, '(from localStorage/snapshot)');
                 // Scroll to the right to show the end of the text
                 setTimeout(() => scrollGroupInputToRight(), 100);
                 const parsedNames = groupString.split(',').map(name => name.trim()).filter(name => name);
                 groupParticipants = new Set(parsedNames);
                 
-                // Validate names from any source (hash or localStorage)
+                // Validate names from localStorage or snapshot
                 validateGroupNames(parsedNames);
                 
-                // When loading from hash parameter, respect the user's cached toggle preference
-                if (hashGroup) {
-                    // Only auto-activate if the user's last choice was to show the group filter
-                    // Otherwise, populate the field but respect their preference to show all
-                    if (showOnlyGroup) {
-                        // User's cached preference is to show group filter, so update hash
-                        updateGroupHashParam();
-                        console.log('🔄 Hash parameter loaded, group filter active per user preference');
-                    } else {
-                        console.log('🔄 Hash parameter loaded, but group filter inactive per user preference');
-                    }
-                    updateGroupToggleUI();
-                } else if (stored) {
-                    // When loading from localStorage, check if the group filter was previously active
-                    // and restore that state (showOnlyGroup is already loaded from localStorage at startup)
-                    updateGroupToggleUI();
-                    
-                    // If group filter is active and we have participants, update hash parameter
-                    if (showOnlyGroup && parsedNames.length > 0) {
-                        updateGroupHashParam();
-                        console.log('🔄 Updated hash parameter from localStorage and restored active filter state');
-                    } else {
-                        console.log('🔄 Restored group participants from localStorage');
-                    }
-                }
+                // When loading from localStorage/snapshot, check if the group filter was previously active
+                // and restore that state (showOnlyGroup is already loaded from localStorage at startup)
+                updateGroupToggleUI();
+                console.log('🔄 Restored group participants from localStorage/snapshot');
             } else if (groupString && !groupInput) {
                 console.log('⚠️ Group string found but input element not available:', groupString);
             } else if (!groupString && groupInput) {
@@ -4168,14 +4142,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             updateGroupParticipantsVisibility();
         }
         
-        function updateGroupHashParam() {
-            const groupList = Array.from(groupParticipants).join(',');
-            if (groupList.trim()) {
-                setURLHashParam('group', groupList);
-            } else {
-                setURLHashParam('group', null); // Remove parameter if empty
-            }
-        }
+        // Removed updateGroupHashParam - no longer updating URL with group data
         
         function updateGroupCount() {
             const count = groupParticipants.size;
@@ -4247,20 +4214,33 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
             }
             
-            // Remove duplicates and join with commas
-            const uniqueNames = [...new Set(extractedNames)];
+            // Remove duplicates (case-insensitive) and join with commas
+            const uniqueNames = removeDuplicatesIgnoreCase(extractedNames);
             const result = uniqueNames.join(', ');
             
             console.log('🧹 Cleaned HTML from names:', htmlString.substring(0, 100) + '...', '→', result);
             return result;
         }
         
+        // Helper function to remove duplicates ignoring case
+        function removeDuplicatesIgnoreCase(names) {
+            const seen = new Map();
+            const result = [];
+            
+            names.forEach(name => {
+                const lowerName = name.toLowerCase();
+                if (!seen.has(lowerName)) {
+                    seen.set(lowerName, name);
+                    result.push(name);
+                }
+            });
+            
+            return result;
+        }
+        
         function processGroupInput() {
             const input = document.getElementById('group');
             let value = input.value;
-            
-            // Clear active snapshot since group participants changed manually
-            clearActiveSnapshot();
             
             // Check if value contains HTML and clean it if necessary
             if (value.includes('<') && value.includes('>')) {
@@ -4305,9 +4285,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
             });
             
-            // Update the input field to show the expanded names
-            if (expandedNames.length > 0) {
-                input.value = expandedNames.join(', ');
+            // Remove duplicates (case-insensitive) from expanded names
+            const uniqueExpandedNames = removeDuplicatesIgnoreCase(expandedNames);
+            
+            // Update groupParticipants with deduplicated names
+            groupParticipants = new Set(uniqueExpandedNames);
+            
+            // Update the input field to show the deduplicated expanded names
+            if (uniqueExpandedNames.length > 0) {
+                input.value = uniqueExpandedNames.join(', ');
             }
             
             // Validate names against dataset (using all expanded names)
@@ -4318,8 +4304,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             updateGroupCount();
             updateGroupHighlighting();
             
-            // Update URL hash parameter
-            updateGroupHashParam();
+            // Note: URL hash parameters for groups have been discontinued
+            
+            // Update active snapshot with current changes instead of clearing it
+            if (currentActiveSnapshot) {
+                saveSnapshot(currentActiveSnapshot);
+                // Update the UI to reflect the snapshot is still active
+                updateGroupSnapshotInfo();
+            } else {
+                // Auto-save to browser cache with date-based snapshot if no active snapshot
+                if (uniqueExpandedNames.length > 0) {
+                    saveGroupToDateSnapshot(uniqueExpandedNames);
+                }
+            }
             
             // If group filter is active, refresh the list to show/hide participants
             if (showOnlyGroup) {
@@ -4456,15 +4453,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Clear the not found names array
             currentNotFoundNames = [];
             
-            // Save to storage and update URL hash
+            // Save to storage
             saveGroupParticipants();
             updateGroupCount();
             updateGroupHighlighting();
-            updateGroupHashParam();
             
-            // Auto-save to browser cache with date-based snapshot
-            if (validNames.length > 0) {
-                saveGroupToDateSnapshot(validNames);
+            // Update active snapshot with the changes
+            if (currentActiveSnapshot) {
+                console.log('🔄 Updating active snapshot after removing unfound names:', currentActiveSnapshot);
+                saveSnapshot(currentActiveSnapshot);
+                // Update the UI to reflect the snapshot is still active
+                updateGroupSnapshotInfo();
+            } else {
+                // Auto-save to browser cache with date-based snapshot if no active snapshot
+                if (validNames.length > 0) {
+                    saveGroupToDateSnapshot(validNames);
+                }
             }
             
             // Hide the validation message since we've removed the unfound names
@@ -4924,7 +4928,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             const groupInput = document.getElementById('group');
             if (groupInput) {
-                groupInput.value = Array.from(groupParticipants).join(', ');
+                const groupValue = Array.from(groupParticipants).join(', ');
+                groupInput.value = groupValue;
+                // Also update localStorage to match the snapshot
+                localStorage.setItem(getListStorageKey('groupParticipants'), groupValue);
             }
             updateGroupCount();
             updateGroupToggleUI();
@@ -5461,8 +5468,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     updateGroupCount();
                     updateGroupHighlighting();
                     
-                    // Update URL hash parameter
-                    updateGroupHashParam();
+                    // Note: URL hash parameters for groups have been discontinued
                 }
             }
         });
@@ -5657,8 +5663,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Hide validation message
             hideGroupValidationMessage();
             
-            // Clear URL hash parameters (sortby/sortorder are not in hash anymore)
-            setURLHashParam('group', null);
+            // Clear URL hash parameters (sortby/sortorder/group are not in hash anymore)
             setURLHashParam('status', null);
             
             // Reset team legend flag to allow regeneration
@@ -6502,85 +6507,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     return;
                 }
                 
-                const groupParam = getURLHashParam('group');
-                const groupInput = document.getElementById('group');
-                const currentValue = groupInput.value.split(',').map(n => n.trim()).filter(n => n).join(',');
-                const newValue = groupParam ? groupParam.split(',').map(n => n.trim()).filter(n => n).join(',') : '';
-                
-                // Only update if the value has actually changed to avoid infinite loops
-                if (currentValue !== newValue) {
-                    console.log('🔗 Group parameter changed in URL hash:', groupParam);
-                    if (groupParam) {
-                        // Format the group string with proper spacing (replace commas with ", ")
-                        const formattedGroupParam = groupParam.replace(/,/g, ', ');
-                        groupInput.value = formattedGroupParam;
-                        const hashNames = groupParam.split(',').map(name => name.trim()).filter(name => name);
-                        groupParticipants = new Set(hashNames);
-                        
-                        // Validate names from hash parameter
-                        validateGroupNames(hashNames);
-                        
-                        // Only activate group filter if user's cached preference allows it
-                        // Don't override the user's last choice about showing all vs group only
-                        updateGroupToggleUI();
-                        if (showOnlyGroup) {
-                            console.log('🔄 Group parameter from hash change, filter active per user preference');
-                        } else {
-                            console.log('🔄 Group parameter from hash change, but filter inactive per user preference');
-                        }
-                        
-                        // Update previous state
-                        previousGroupParam = groupParam;
-                    } else if (currentValue !== '' && !groupParam && previousGroupParam) {
-                        // Only show alert if there was actually a group parameter before AND it was explicitly removed
-                        console.log('🔗 Group hash parameter removed, asking user about clearing cached names');
-                        
-                        const shouldClearCached = confirm('Group hash parameter was removed.\nAlso clear the cached names?');
-                        
-                        if (shouldClearCached) {
-                            // Clear everything including localStorage
-                            groupInput.value = '';
-                            groupParticipants = new Set();
-                            localStorage.removeItem(getListStorageKey('groupParticipants'));
-                            
-                            // Deactivate group filter
-                            showOnlyGroup = false;
-                            localStorage.setItem(getListStorageKey('showOnlyGroup'), 'false');
-                            updateGroupToggleUI();
-                            hideGroupValidationMessage();
-                            console.log('🔄 Cleared field and cached names - hash parameter removed');
-                        } else {
-                            // Keep cached names, restore from localStorage
-                            const stored = localStorage.getItem(getListStorageKey('groupParticipants'));
-                            if (stored && stored.trim()) {
-                                const formattedStored = stored.replace(/,/g, ', ');
-                                groupInput.value = formattedStored;
-                                groupParticipants = new Set(stored.split(',').map(name => name.trim()).filter(name => name));
-                                console.log('🔄 Restored cached names from localStorage');
-                            } else {
-                                groupInput.value = '';
-                                groupParticipants = new Set();
-                                showOnlyGroup = false;
-                                localStorage.setItem(getListStorageKey('showOnlyGroup'), 'false');
-                                updateGroupToggleUI();
-                            }
-                        }
-                        
-                        // Update previous state
-                        previousGroupParam = null;
-                    } else {
-                        console.log('🔗 No group hash parameter and field is empty, no action needed');
-                        
-                        // Update previous state
-                        previousGroupParam = groupParam;
-                    }
-                    updateGroupCount();
-                    updateGroupHighlighting();
-                    saveGroupParticipants();
-                    
-                    // Apply filters since group filter state changed
-                    applyAllFilters();
-                }
+                // Group hash parameters are no longer processed
+                console.log('🔄 Group hash parameters disabled - using localStorage/snapshots only');
             });
             
             // Note: Sort parameters are no longer in URL hash, only in localStorage
