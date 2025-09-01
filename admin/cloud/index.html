@@ -1,0 +1,2688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="../../img/logo/neighborhood/favicon.png">
+    <title>Meetup Integration & Member Form Config</title>
+
+    <link rel="stylesheet" href="../../css/common.css">
+    <link rel="stylesheet" href="../../css/shared-styles.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
+    
+    <!-- Before activating add a way to toggle from Claude CSS style -->
+    
+    <link type="text/css" rel="stylesheet" href="../../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script type="text/javascript" src="../../../localsite/js/localsite.js?showheader=true"></script>
+    
+
+    <!-- Side Nav -->
+    <link rel="stylesheet" href="../../../localsite/css/nav.css">
+    <script src="../../../localsite/js/nav.js"></script>
+    <script src="../../js/common.js"></script>
+    
+    <!--
+    <link rel="stylesheet" href="../../css/claude.css">
+    -->
+
+    <style>
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F3F4F6;
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --accent-green: #10B981;
+            --accent-blue: #3B82F6;
+            --accent-orange: #F59E0B;
+            --accent-purple: #8B5CF6;
+            --border-light: #E5E7EB;
+            --border-medium: #D1D5DB;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-light);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-form {
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-size: 0.875rem;
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-help {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease-in-out;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #2563EB;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-medium);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: var(--border-light);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .setup-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-blue);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-size: 0.875rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .status-message {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: #D1FAE5;
+            border: 1px solid #A7F3D0;
+            color: #065F46;
+        }
+
+        .status-message.error {
+            background-color: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #991B1B;
+        }
+
+        .status-message.info {
+            background-color: #DBEAFE;
+            border: 1px solid #BFDBFE;
+            color: #1E40AF;
+        }
+
+        .loading-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        
+        /* Large screens (desktops) */
+        @media (min-width: 1201px) {
+            .container {
+                padding: 0 40px;
+            }
+        }
+        
+        /* Medium screens (tablets) */
+        @media (max-width: 1024px) {
+            .container {
+                max-width: 100%;
+                margin: 15px auto;
+                padding: 0 15px;
+            }
+            
+            .card {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            
+            .card-title {
+                font-size: 1.375rem;
+            }
+        }
+        
+        /* Small screens (mobile) */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px auto;
+                padding: 0 10px;
+            }
+            
+            .card {
+                padding: 16px;
+                margin-bottom: 16px;
+                border-radius: 8px;
+            }
+            
+            .card-title {
+                font-size: 1.25rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .config-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .config-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .setup-steps {
+                gap: 12px;
+            }
+            
+            .step-item {
+                flex-direction: column;
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .step-number {
+                align-self: flex-start;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .button-group .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .breadcrumb {
+                font-size: 0.875rem;
+                margin-bottom: 8px;
+            }
+            
+            .breadcrumb[style*="float:right"] {
+                float: none !important;
+                text-align: left;
+                margin-top: 4px;
+            }
+        }
+        
+        /* Toggle button states */
+        .btn.toggle-active {
+            background-color: var(--accent-orange) !important;
+            color: white !important;
+            border-color: var(--accent-orange) !important;
+        }
+        
+        .btn.toggle-active:hover:not(:disabled) {
+            background-color: #E68900 !important;
+        }
+        
+        /* Inactive toggle buttons should have no special color */
+        .btn.toggle-inactive {
+            background-color: transparent !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-medium) !important;
+        }
+        
+        .btn.toggle-inactive:hover:not(:disabled) {
+            background-color: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        /* Collapsible panel styles */
+        .config-panel {
+            display: block;
+            margin-top: 16px;
+        }
+        
+        .config-panel.hidden {
+            display: none;
+        }
+        
+        /* Done/Show toggle button */
+        .collapse-toggle-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 6px 12px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 8px;
+                margin: 8px auto;
+            }
+            
+            .card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .card-title {
+                font-size: 1.125rem;
+            }
+            
+            .form-control {
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.875rem;
+            }
+            
+            .step-item {
+                padding: 8px;
+            }
+            
+            .setup-steps {
+                gap: 8px;
+            }
+        }
+
+        /* Google OAuth Integration Styles */
+        .status-message {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .status-message.success {
+            background-color: #d1edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #connect-google-btn {
+            transition: all 0.2s ease;
+        }
+
+        #connect-google-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        #google-connection-status {
+            border: 1px solid var(--accent-green);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../admin/">Partner Tools</a> - <a href="../../projects/#list=modelteam">Coding Meetup Team</a>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">🚀 Cloud Integration</h2>
+
+            <!-- Integration Selection -->
+            <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">Integrate my site with:</h4>
+                <div class="checkbox-group" style="grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="integration-membership" name="integrations" value="membership" style="margin-right: 8px; transform: scale(1.5);">
+                        <label for="integration-membership">Membership Google Sheet</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="integration-meetups" name="integrations" value="meetups" style="margin-right: 8px; transform: scale(1.5);">
+                        <label for="integration-meetups">Google Meetups</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="integration-discord" name="integrations" value="discord" style="margin-right: 8px; transform: scale(1.5);">
+                        <label for="integration-discord">Discord Group Members</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="integration-reports" name="integrations" value="reports" style="margin-right: 8px; transform: scale(1.5);">
+                        <label for="integration-reports">Python Reports on Google Cloud</label>
+                    </div>
+                </div>
+                <small style="color: var(--text-secondary); margin-top: 8px; display: block;">
+                    Select which services to integrate with your Discord Bot API deployment. These will be configured during the setup process.
+                </small>
+            </div>
+
+            <!-- Step 1 moved up -->
+            <div class="setup-steps">
+                <div class="step-item" style="position: relative;" id="google-cloud-setup">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Create Google Cloud Project</h4>
+                        <p>Create the "[project name]" project in <a href="https://console.cloud.google.com/" target="google_cloud">Google Cloud Console</a> or via API</p>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" id="create-project-manual" onclick="createGoogleProjectManual()">
+                                <i data-feather="external-link"></i>
+                                Via Google Page
+                            </button>
+                            <button class="btn btn-primary toggle-active" id="create-project-api" onclick="toggleAPICreation()">
+                                <i data-feather="zap"></i>
+                                Create via API
+                            </button>
+                        </div>
+                        <div id="project-status" class="status-message"></div>
+                    
+                        <div id="config-status" class="status-message"></div>
+                        
+                        <div class="config-panel" id="api-config-panel">
+                            <br>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                                Configure your Google Cloud project for Meetup Integration and <a href="../form">Member Form authentication</a>.
+                            </p>
+
+                            <div class="config-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Project ID</label>
+                                        <input type="text" id="project-id" class="form-control" placeholder="e.g., my-meetup-project">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Google Account Email</label>
+                                        <input type="email" id="user-email" class="form-control" placeholder="your.email@gmail.com">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Organization ID (Optional)</label>
+                                        <input type="text" id="org-id" class="form-control" placeholder="e.g., 123456789012">
+                                        <small class="form-help">Leave blank for personal projects</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Billing Account ID (Optional)</label>
+                                        <input type="text" id="billing-id" class="form-control" placeholder="e.g., 01234A-567890-BCDEF1">
+                                        <small class="form-help">Required for API-enabled projects</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Service Account Key (JSON)</label>
+                                    <textarea id="service-key" class="form-control" rows="4" placeholder="Paste your service account JSON key here for automated project creation">
+                                    </textarea>
+                                    <small class="form-help">Required for creating projects via API. Should have Cloud Resource Manager Admin role.</small>
+                                </div>
+                                <div class="config-actions">
+                                    <button class="btn btn-secondary" id="load-config" onclick="loadConfiguration()">
+                                        <i data-feather="refresh-cw"></i>
+                                        Load from .env
+                                    </button>
+                                    <button class="btn btn-primary" id="save-config" onclick="saveConfiguration()">
+                                        <i data-feather="save"></i>
+                                        Save to .env
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+           
+            
+            <div class="setup-steps">
+                
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Enable Required APIs</h4>
+                        <p>Enable Google Sheets API and Google Meet API for the project</p>
+                        <button class="btn btn-secondary" id="enable-apis" onclick="enableAPIs()" disabled>
+                            <i data-feather="settings"></i>
+                            Enable APIs
+                        </button>
+                        <div id="apis-status" class="status-message"></div>
+                    </div>
+                </div>
+                
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Create Service Account</h4>
+                        <p>Create service account for automated access to Google services</p>
+                        <button class="btn btn-secondary" id="create-service" onclick="createServiceAccount()" disabled>
+                            <i data-feather="key"></i>
+                            Create Service Account
+                        </button>
+                        <div id="service-status" class="status-message"></div>
+                    </div>
+                </div>
+                
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Download Credentials</h4>
+                        <p>Download JSON credentials file for authentication</p>
+                        <button class="btn btn-secondary" id="download-creds" onclick="downloadCredentials()" disabled>
+                            <i data-feather="download"></i>
+                            Download Credentials
+                        </button>
+                        <div id="creds-status" class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discord Bot API Deployment -->
+        <div class="card">
+            <h2 class="card-title">🤖 Discord Bot API Deployment</h2>
+            <div id="deployment-url-display" style="display: none; background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong>🚀 Deployed Service:</strong> <a id="deployed-url-link" href="" target="_blank" style="color: var(--accent-blue);"></a>
+                <button class="btn btn-secondary" onclick="clearDeploymentUrl()" style="float: right; padding: 4px 8px; font-size: 12px;">Clear</button>
+            </div>
+            
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                Deploy the Discord Bot API from <code>feed/membersense/backend</code> to Google Cloud Run with automated setup.
+            </p>
+
+            <!-- Google Account Connection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <div id="google-connection-status" style="display: none; background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="google-status-icon">🔗</span>
+                        <span id="google-status-text">Connected to Google Cloud</span>
+                        <button class="btn btn-secondary" onclick="disconnectGoogle()" style="margin-left: auto; padding: 4px 8px; font-size: 12px;">Disconnect</button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" id="connect-google-btn" onclick="connectGoogle()" style="display: flex; align-items: center; gap: 8px;">
+                    <span>🔗</span>
+                    Connect My Google Account
+                </button>
+            </div>
+
+            <!-- Project Selection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Google Cloud Project</label>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <select id="project-selection" class="form-control" style="flex: 1;" onchange="handleProjectSelection()">
+                        <option value="">Connect Google account first...</option>
+                        <option value="reuse" disabled>Reuse existing project from above</option>
+                        <option value="new" disabled>Create new project for Discord Bot</option>
+                    </select>
+                    <button class="btn btn-secondary" id="refresh-projects" onclick="loadUserProjects()" style="padding: 8px 12px;" disabled>
+                        <i data-feather="refresh-cw"></i>
+                    </button>
+                </div>
+                <div id="new-project-fields" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">New Project ID</label>
+                            <input type="text" id="discord-project-id" class="form-control" placeholder="my-discord-bot-project">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Display Name</label>
+                            <input type="text" id="discord-project-name" class="form-control" placeholder="Discord Bot API">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Billing Account Selection -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Billing Account</label>
+                <select id="billing-account" class="form-control">
+                    <option value="">Loading billing accounts...</option>
+                </select>
+                <small class="form-help">Required for Cloud Run deployment. Will auto-load your available billing accounts.</small>
+            </div>
+
+            <!-- GitHub Repository Configuration -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">GitHub Repository</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Repository Owner</label>
+                        <input type="text" id="github-owner" class="form-control" placeholder="modelearth" value="modelearth">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repository Name</label>
+                        <input type="text" id="github-repo" class="form-control" placeholder="feed" value="feed">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Application Path</label>
+                    <input type="text" id="app-path" class="form-control" placeholder="membersense/backend" value="membersense/backend">
+                    <small class="form-help">Path within the repository to the Bun backend application</small>
+                </div>
+            </div>
+
+            <!-- Deployment Configuration -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Deployment Configuration</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Region</label>
+                        <select id="deployment-region" class="form-control">
+                            <option value="us-central1">us-central1 (Iowa)</option>
+                            <option value="us-east1">us-east1 (South Carolina)</option>
+                            <option value="us-west1">us-west1 (Oregon)</option>
+                            <option value="europe-west1">europe-west1 (Belgium)</option>
+                            <option value="asia-east1">asia-east1 (Taiwan)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Service Name</label>
+                        <input type="text" id="service-name" class="form-control" placeholder="discord-bot-api" value="discord-bot-api">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deployment Steps -->
+            <div class="setup-steps">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Setup Project & Enable APIs</h4>
+                        <p>Create/select project and enable required APIs: Cloud Build, Cloud Run, Artifact Registry, Developer Connect</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="setup-project-btn" onclick="setupProjectAndAPIs()" disabled>
+                                <i data-feather="settings"></i>
+                                Setup Project & APIs
+                            </button>
+                        </div>
+                        <div id="project-setup-status" class="status-message"></div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Configure Developer Connect</h4>
+                        <p>Setup GitHub integration for automated deployments</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="setup-github-btn" onclick="setupDeveloperConnect()" disabled>
+                                <i data-feather="github"></i>
+                                Connect GitHub Repository
+                            </button>
+                        </div>
+                        <div id="github-setup-status" class="status-message"></div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Deploy to Cloud Run</h4>
+                        <p>Build and deploy the Discord Bot API to Cloud Run</p>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="deploy-btn" onclick="deployToCloudRun()" disabled>
+                                <i data-feather="upload-cloud"></i>
+                                Deploy Bot API
+                            </button>
+                        </div>
+                        <div id="deployment-status" class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-actions">
+                <button class="btn btn-secondary" id="load-deployment-config" onclick="loadDeploymentConfiguration()">
+                    <i data-feather="refresh-cw"></i>
+                    Load Saved Config
+                </button>
+                <button class="btn btn-primary" id="save-deployment-config" onclick="saveDeploymentConfiguration()">
+                    <i data-feather="save"></i>
+                    Save Config
+                </button>
+            </div>
+            <div id="deployment-config-status" class="status-message"></div>
+        </div>
+
+        <!-- Member Form Configuration -->
+        <div class="card">
+            <h2 class="card-title">📝 Member Registration Form Config</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                Configure the public member registration form settings and appearance. These settings are stored in the public config file and control how the form appears to users.
+            </p>
+            
+            <div class="config-form">
+                <!-- Google Sheets Integration -->
+                <div class="form-group">
+                    <label class="form-label">Google Sheets ID</label>
+                    <input type="text" id="sheets-id" class="form-control" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
+                    <small class="form-help">The spreadsheet ID from your Google Sheets URL where member data will be stored</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Worksheet Name</label>
+                        <input type="text" id="worksheet-name" class="form-control" placeholder="Members" value="Members">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Google OAuth Client ID</label>
+                        <input type="text" id="oauth-client-id" class="form-control" placeholder="123456789-abcdef.apps.googleusercontent.com">
+                        <small class="form-help">OAuth Client ID for Google sign-in authentication</small>
+                    </div>
+                </div>
+
+                <!-- Form Appearance -->
+                <h3 style="margin: 24px 0 12px 0; color: var(--text-primary);">Form Appearance & Behavior</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Form Title</label>
+                        <input type="text" id="form-title" class="form-control" placeholder="Member Registration" value="Member Registration">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Form Subtitle</label>
+                        <input type="text" id="form-subtitle" class="form-control" placeholder="Join our community..." value="Join our community of developers and contributors working on sustainable impact projects">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Primary Color</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="color" id="primary-color" value="#3B82F6" style="width: 50px; height: 38px; border: 1px solid var(--border-light); border-radius: 6px;">
+                            <input type="text" id="primary-color-text" class="form-control" value="#3B82F6" style="flex: 1;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Accent Color</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="color" id="accent-color" value="#10B981" style="width: 50px; height: 38px; border: 1px solid var(--border-light); border-radius: 6px;">
+                            <input type="text" id="accent-color-text" class="form-control" value="#10B981" style="flex: 1;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Welcome Messages -->
+                <h3 style="margin: 24px 0 12px 0; color: var(--text-primary);">Welcome Messages</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">New Member Welcome</label>
+                    <textarea id="welcome-new" class="form-control" rows="3" placeholder="Welcome message for new members...">Welcome! Please fill out the registration form to join our community of developers working on sustainable impact projects.</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Returning Member Welcome</label>
+                    <textarea id="welcome-returning" class="form-control" rows="3" placeholder="Welcome message for returning members...">Welcome back! Your existing information has been loaded. Please review and update any details as needed.</textarea>
+                </div>
+
+                <!-- Form Behavior -->
+                <h3 style="margin: 24px 0 12px 0; color: var(--text-primary);">Form Behavior</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="allow-duplicates" style="margin-right: 8px;">
+                            Allow Duplicate Emails
+                        </label>
+                        <small class="form-help">If unchecked, will update existing records instead of creating duplicates</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="require-github" checked style="margin-right: 8px;">
+                            Require GitHub Username
+                        </label>
+                        <small class="form-help">Make GitHub username a required field</small>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="show-progress" checked style="margin-right: 8px;">
+                            Show Progress Indicator
+                        </label>
+                        <small class="form-help">Display completion progress bar</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="enable-preview" checked style="margin-right: 8px;">
+                            Enable Data Preview
+                        </label>
+                        <small class="form-help">Allow users to preview data before submitting</small>
+                    </div>
+                </div>
+
+                <!-- Links and URLs -->
+                <h3 style="margin: 24px 0 12px 0; color: var(--text-primary);">Related Links</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Community Members Page</label>
+                        <input type="url" id="members-page-url" class="form-control" placeholder="https://model.earth/community/members" value="https://model.earth/community/members">
+                        <small class="form-help">Link to public members listing page</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Projects Page</label>
+                        <input type="url" id="projects-page-url" class="form-control" placeholder="https://model.earth/projects" value="https://model.earth/projects">
+                        <small class="form-help">Link to projects overview page</small>
+                    </div>
+                </div>
+
+                <div class="config-actions">
+                    <button class="btn btn-secondary" id="load-form-config" onclick="loadFormConfiguration()">
+                        <i data-feather="refresh-cw"></i>
+                        Load Current Config
+                    </button>
+                    <button class="btn btn-primary" id="save-form-config" onclick="saveFormConfiguration()">
+                        <i data-feather="save"></i>
+                        Save Form Config
+                    </button>
+                    <button class="btn btn-secondary" id="preview-form" onclick="previewForm()">
+                        <i data-feather="eye"></i>
+                        Preview Form
+                    </button>
+                </div>
+                <div id="form-config-status" class="status-message"></div>
+            </div>
+        </div>
+
+        <!-- Google Sheets Setup Guide -->
+        <div class="card">
+            <h2 class="card-title">📊 Google Sheets Setup Guide</h2>
+            <div class="setup-guide">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Create Google Sheet</h4>
+                        <p>Create a new Google Sheet with the following column headers in row 1:</p>
+                        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin: 8px 0; font-family: monospace; font-size: 13px; overflow-x: auto;">
+                            Timestamp | Handle | Name | ToDos | Projects | Team | Focus | UN Goal | School and Degree Program | Your Location | Github | Status | Email | StartDate | EndDate | Note | Your Website | Date Degree Completed | OPT University Department | OPT University Department,Email Phone | HoursPerWeek | Job Title | Phone
+                        </div>
+                        <button class="btn btn-secondary" onclick="copySheetHeaders()">
+                            <i data-feather="copy"></i>
+                            Copy Headers
+                        </button>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Share with Service Account</h4>
+                        <p>Share your Google Sheet with the service account email from your JSON key file. Grant "Editor" permissions.</p>
+                        <button class="btn btn-secondary" onclick="openGoogleSheets()">
+                            <i data-feather="external-link"></i>
+                            Open Google Sheets
+                        </button>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Configure OAuth for Public Access</h4>
+                        <p>Set up OAuth 2.0 client in Google Cloud Console for public form authentication.</p>
+                        <button class="btn btn-secondary" onclick="openOAuthConfig()">
+                            <i data-feather="key"></i>
+                            Configure OAuth
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">📖 Integration Guide & Documentation</h2>
+            <div id="readmeDiv" class="readme-content">
+                <p style="color: var(--text-secondary); font-style: italic;">
+                    Loading integration guide...
+                </p>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div style="margin: 24px 0; text-align: center;">
+            <a href="../form/" class="btn btn-primary" style="margin-right: 12px;">
+                <i data-feather="users"></i>
+                Open Member Registration Form
+            </a>
+            <a href="../../../projects/#list=modelteam" class="btn btn-secondary">
+                <i data-feather="code"></i>
+                View Coding Meetup Team
+            </a>
+        </div>
+
+    </div>
+
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>
+        const GEMINI_API_BASE = 'http://localhost:8081/api';
+
+        // Google Project Setup Functions
+        let PROJECT_ID = '';
+        let USER_EMAIL = '';
+        let apiToggleActive = false;
+        let configPanelVisible = false;
+        let isGoogleConnected = false;
+
+        // Google OAuth Integration Functions
+        async function connectGoogle() {
+            const connectBtn = document.getElementById('connect-google-btn');
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span>🔄</span> Connecting...';
+
+            try {
+                // Check if Rust API is running and properly configured
+                const healthCheck = await fetch(`${GEMINI_API_BASE}/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(() => null);
+
+                // If server is completely down (no response)
+                if (!healthCheck) {
+                    showServerNotRunningPopup();
+                    return;
+                }
+
+                // If server returns 503 Service Unavailable or other error status
+                if (!healthCheck.ok) {
+                    showServerNotRunningPopup();
+                    return;
+                }
+
+                // Get OAuth URL from our backend
+                const response = await fetch(`${GEMINI_API_BASE}/auth/google/url`);
+                
+                // Check if OAuth endpoint returns an error (server not configured)
+                if (!response.ok) {
+                    if (response.status === 503 || response.status === 500) {
+                        showServerNotRunningPopup();
+                        return;
+                    }
+                }
+
+                const data = await response.json();
+
+                if (data.auth_url) {
+                    // Open OAuth flow in new window
+                    const authWindow = window.open(
+                        data.auth_url,
+                        'google-oauth',
+                        'width=500,height=600,scrollbars=yes,resizable=yes'
+                    );
+
+                    // Poll for completion
+                    const checkClosed = setInterval(() => {
+                        if (authWindow.closed) {
+                            clearInterval(checkClosed);
+                            // Check if authentication was successful
+                            setTimeout(() => checkGoogleConnection(), 1000);
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error('Failed to get OAuth URL');
+                }
+            } catch (error) {
+                console.error('Google connection error:', error);
+                // Check if it's a network error (API not running)
+                if (error.message.includes('fetch') || error.message.includes('NetworkError') || error.toString().includes('TypeError')) {
+                    showServerNotRunningPopup();
+                } else {
+                    showStatus('connect-status', 'Connection failed: ' + error.message, 'error');
+                }
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span>🔗</span> Connect My Google Account';
+            }
+        }
+
+        function showServerNotRunningPopup() {
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                padding: 24px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                max-width: 400px;
+                width: 90%;
+                text-align: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 16px;">⚙️</div>
+                <h3 style="margin: 0 0 16px 0; color: var(--text-primary);">Server Configuration Required</h3>
+                <p style="margin: 0 0 20px 0; color: var(--text-secondary); line-height: 1.6;">
+                    The Rust API server needs to be started and configured before you can connect to Google&nbsp;Cloud.
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button onclick="closeServerPopup()" style="
+                        background: var(--bg-tertiary);
+                        border: 1px solid var(--border-medium);
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        color: var(--text-primary);
+                    ">Cancel</button>
+                    <button onclick="openDatabaseAdmin()" style="
+                        background: var(--accent-blue);
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 500;
+                    ">🗄️ Database Admin</button>
+                </div>
+            `;
+
+            popup.appendChild(modal);
+            document.body.appendChild(popup);
+            
+            // Store reference for cleanup
+            window.serverPopup = popup;
+
+            // Close on background click
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup) {
+                    closeServerPopup();
+                }
+            });
+        }
+
+        function closeServerPopup() {
+            if (window.serverPopup) {
+                document.body.removeChild(window.serverPopup);
+                window.serverPopup = null;
+            }
+        }
+
+        function openDatabaseAdmin() {
+            // Open Database Admin in new tab
+            window.open('../../sql/panel/', 'config_server');
+            closeServerPopup();
+        }
+
+        async function checkGoogleConnection() {
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/auth/user`);
+                const data = await response.json();
+
+                if (data.success && data.user) {
+                    isGoogleConnected = true;
+                    updateGoogleConnectionUI(true, data.user);
+                    await loadUserProjects();
+                } else {
+                    updateGoogleConnectionUI(false);
+                }
+            } catch (error) {
+                console.error('Error checking Google connection:', error);
+                updateGoogleConnectionUI(false);
+            }
+        }
+
+        function updateGoogleConnectionUI(connected, userInfo = null) {
+            const connectBtn = document.getElementById('connect-google-btn');
+            const statusDiv = document.getElementById('google-connection-status');
+            const statusText = document.getElementById('google-status-text');
+            const projectSelect = document.getElementById('project-selection');
+            const refreshBtn = document.getElementById('refresh-projects');
+
+            if (connected && userInfo) {
+                connectBtn.style.display = 'none';
+                statusDiv.style.display = 'block';
+                statusText.textContent = `Connected as ${userInfo.name} (${userInfo.email})`;
+                
+                // Enable project selection
+                projectSelect.disabled = false;
+                refreshBtn.disabled = false;
+                
+                // Update first option
+                projectSelect.options[0].text = 'Select or create project...';
+                projectSelect.options[1].disabled = false;
+                projectSelect.options[2].disabled = false;
+            } else {
+                connectBtn.style.display = 'block';
+                statusDiv.style.display = 'none';
+                
+                // Disable project selection
+                projectSelect.disabled = true;
+                refreshBtn.disabled = true;
+                
+                // Reset project dropdown
+                projectSelect.innerHTML = `
+                    <option value="">Connect Google account first...</option>
+                    <option value="reuse" disabled>Reuse existing project from above</option>
+                    <option value="new" disabled>Create new project for Discord Bot</option>
+                `;
+            }
+        }
+
+        async function disconnectGoogle() {
+            try {
+                await fetch(`${GEMINI_API_BASE}/auth/logout`, { method: 'POST' });
+                isGoogleConnected = false;
+                updateGoogleConnectionUI(false);
+                showStatus('connect-status', 'Disconnected from Google', 'success');
+            } catch (error) {
+                console.error('Error disconnecting:', error);
+            }
+        }
+
+        async function loadUserProjects() {
+            if (!isGoogleConnected) {
+                showStatus('project-status', 'Please connect your Google account first', 'error');
+                return;
+            }
+
+            const refreshBtn = document.getElementById('refresh-projects');
+            const projectSelect = document.getElementById('project-selection');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i data-feather="loader" style="animation: spin 1s linear infinite;"></i>';
+
+            try {
+                // For now, use mock data - replace with real API call when authentication is implemented
+                const response = await fetch(`${GEMINI_API_BASE}/google/projects/mock`);
+                const data = await response.json();
+
+                if (data.success && data.projects) {
+                    // Clear existing options except default ones
+                    projectSelect.innerHTML = `
+                        <option value="">Select a project...</option>
+                        <option value="new">Create new project for Discord Bot</option>
+                    `;
+
+                    // Add user's projects
+                    data.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.projectId;
+                        option.textContent = `${project.name} (${project.projectId})`;
+                        projectSelect.appendChild(option);
+                    });
+
+                    showStatus('project-status', `Loaded ${data.projects.length} projects`, 'success');
+                } else {
+                    throw new Error(data.message || 'Failed to load projects');
+                }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                showStatus('project-status', 'Failed to load projects: ' + error.message, 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
+                feather.replace();
+            }
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            // Create status element if it doesn't exist
+            let statusElement = document.getElementById(elementId);
+            if (!statusElement) {
+                statusElement = document.createElement('div');
+                statusElement.id = elementId;
+                statusElement.className = 'status-message';
+                statusElement.style.marginTop = '8px';
+                
+                // Insert after the relevant form element
+                const targetElement = document.getElementById(elementId.replace('-status', '')) || 
+                                    document.getElementById('connect-google-btn');
+                if (targetElement && targetElement.parentNode) {
+                    targetElement.parentNode.insertBefore(statusElement, targetElement.nextSibling);
+                }
+            }
+
+            statusElement.textContent = message;
+            statusElement.className = `status-message ${type}`;
+            
+            // Auto-hide success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusElement.textContent = '';
+                    statusElement.className = 'status-message';
+                }, 3000);
+            }
+        }
+
+        // Check Google connection on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkGoogleConnection();
+        });
+        
+        // Load configuration from .env file
+        async function loadConfiguration() {
+            const btn = document.getElementById('load-config');
+            const status = document.getElementById('config-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Loading...';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/config/env`);
+                
+                // Check if the response is ok before trying to parse JSON
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server returned ${response.status}: ${errorText || 'Unknown error'}`);
+                }
+                
+                // Get response text first to check if it's valid JSON
+                const responseText = await response.text();
+                
+                // Try to parse JSON, with fallback for empty or invalid responses
+                let data;
+                try {
+                    data = responseText ? JSON.parse(responseText) : {};
+                } catch (jsonError) {
+                    // If JSON parsing fails, provide the raw response for debugging
+                    throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+                }
+                
+                // Update form fields if values exist in .env
+                if (data.google_project_id) {
+                    document.getElementById('project-id').value = data.google_project_id;
+                    PROJECT_ID = data.google_project_id;
+                    updateProjectNameInText(data.google_project_id);
+                }
+                
+                if (data.google_user_email) {
+                    document.getElementById('user-email').value = data.google_user_email;
+                    USER_EMAIL = data.google_user_email;
+                }
+                
+                if (data.google_org_id) {
+                    document.getElementById('org-id').value = data.google_org_id;
+                }
+                
+                if (data.google_billing_id) {
+                    document.getElementById('billing-id').value = data.google_billing_id;
+                }
+                
+                if (data.google_service_key) {
+                    document.getElementById('service-key').value = data.google_service_key;
+                }
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = '<i data-feather="check-circle"></i> Configuration loaded from .env file';
+                
+                // Change button text to indicate reload functionality and mark as successful
+                btn.innerHTML = '<i data-feather="refresh-cw"></i> Reload from .env';
+                btn.setAttribute('data-loaded', 'true');
+                
+                // Update feather icons
+                if (window.feather) feather.replace();
+                
+            } catch (error) {
+                // Check if this looks like an API connection failure
+                if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                    handleApiConnectionError(error, 'config-status');
+                } else {
+                    status.className = 'status-message error';
+                    status.style.display = 'block';
+                    let errorMessage = 'Error loading configuration: ' + error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
+                }
+                
+                // Reset button text on error
+                btn.innerHTML = '<i data-feather="refresh-cw"></i> Load from .env';
+                btn.removeAttribute('data-loaded');
+            } finally {
+                btn.disabled = false;
+                
+                // Only reset button text if it wasn't successfully loaded
+                if (!btn.hasAttribute('data-loaded')) {
+                    btn.innerHTML = '<i data-feather="refresh-cw"></i> Load from .env';
+                }
+                
+                if (window.feather) feather.replace();
+            }
+        }
+        
+        // Save configuration to .env file
+        async function saveConfiguration() {
+            const btn = document.getElementById('save-config');
+            const status = document.getElementById('config-status');
+            const projectId = document.getElementById('project-id').value.trim();
+            const userEmail = document.getElementById('user-email').value.trim();
+            
+            if (!projectId || !userEmail) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Please fill in both Project ID and Email fields';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Saving...';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/config/env`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        google_project_id: projectId,
+                        google_user_email: userEmail,
+                        google_org_id: document.getElementById('org-id').value.trim() || null,
+                        google_billing_id: document.getElementById('billing-id').value.trim() || null,
+                        google_service_key: document.getElementById('service-key').value.trim() || null
+                    })
+                });
+                
+                // Check if the response is ok before trying to parse JSON
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server returned ${response.status}: ${errorText || 'Unknown error'}`);
+                }
+                
+                // Get response text first to check if it's valid JSON
+                const responseText = await response.text();
+                
+                // Try to parse JSON, with fallback for empty or invalid responses
+                let data;
+                try {
+                    data = responseText ? JSON.parse(responseText) : { success: false, error: 'Empty response from server' };
+                } catch (jsonError) {
+                    // If JSON parsing fails, provide the raw response for debugging
+                    throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+                }
+                
+                if (data.success) {
+                    // Update global variables
+                    PROJECT_ID = projectId;
+                    USER_EMAIL = userEmail;
+                    
+                    status.className = 'status-message success';
+                    status.style.display = 'block';
+                    status.innerHTML = '<i data-feather="check-circle"></i> Configuration saved to .env file';
+                } else {
+                    throw new Error(data.error || 'Failed to save configuration');
+                }
+                
+                // Update feather icons
+                if (window.feather) feather.replace();
+                
+            } catch (error) {
+                // Check if this looks like an API connection failure
+                if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                    handleApiConnectionError(error, 'config-status');
+                } else {
+                    status.className = 'status-message error';
+                    status.style.display = 'block';
+                    let errorMessage = 'Error saving configuration: ' + error.message + '. To view requested data, run locally using the commands on our Admin Page.';
+                    status.innerHTML = '<span style="color: var(--accent-red);">' + errorMessage + ' <a href="../../../admin" style="color: var(--accent-blue); text-decoration: underline;">Link to: /admin</a></span>';
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="save"></i> Save to .env';
+                if (window.feather) feather.replace();
+            }
+        }
+        
+        // Update PROJECT_ID and USER_EMAIL when form fields change
+        document.getElementById('project-id').addEventListener('input', function() {
+            PROJECT_ID = this.value.trim();
+            updateProjectNameInText(PROJECT_ID);
+        });
+        
+        document.getElementById('user-email').addEventListener('input', function() {
+            USER_EMAIL = this.value.trim();
+        });
+        
+        // Function to update project name in all text content
+        function updateProjectNameInText(projectName) {
+            const displayName = projectName || '[project name]';
+            
+            // Find all elements that contain project name references
+            const elementsToUpdate = [
+                // Status messages and instructions
+                ...document.querySelectorAll('.status-message'),
+                ...document.querySelectorAll('.step-content p'),
+                ...document.querySelectorAll('.step-content h4')
+            ];
+            
+            elementsToUpdate.forEach(element => {
+                if (element.innerHTML) {
+                    // Replace various patterns of project name references
+                    element.innerHTML = element.innerHTML
+                        .replace(/\[project id\]/g, displayName);
+                }
+            });
+        }
+        
+        // Manual project creation via Google Cloud Console
+        async function createGoogleProjectManual() {
+            const btn = document.getElementById('create-project-manual');
+            const status = document.getElementById('project-status');
+            
+            if (!PROJECT_ID) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Please enter a Project ID first';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Opening...';
+            
+            try {
+                // Open Google Cloud Console in new tab for manual project creation
+                const projectUrl = `https://console.cloud.google.com/projectcreate?previousPage=%2Fwelcome&project=${PROJECT_ID}`;
+                window.open(projectUrl, '_blank');
+                
+                // Show instructions
+                status.className = 'status-message info';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <strong>Manual Step Required:</strong><br>
+                    1. A new tab opened to Google Cloud Console<br>
+                    2. Set project name to: <strong>${PROJECT_ID || '[project name]'}</strong><br>
+                    3. Use billing account for: <strong>${USER_EMAIL}</strong><br>
+                    4. Click "Create" button<br>
+                    5. Return here and click "Project Created" when done
+                `;
+                
+                btn.innerHTML = '<i data-feather="check"></i> Project Created';
+                btn.onclick = () => confirmProjectCreated();
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Error: ' + error.message;
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="external-link"></i> Via Google Page';
+            }
+        }
+        
+        // Toggle API creation mode
+        function toggleAPICreation() {
+            const btn = document.getElementById('create-project-api');
+            const configPanel = document.getElementById('api-config-panel');
+            
+            apiToggleActive = !apiToggleActive;
+            configPanelVisible = apiToggleActive;
+            
+            if (apiToggleActive) {
+                // Active state: orange with white text
+                btn.classList.remove('btn-secondary', 'toggle-inactive');
+                btn.classList.add('btn-primary', 'toggle-active');
+                btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+                configPanel.classList.remove('hidden');
+                configPanel.style.display = 'block';
+            } else {
+                // Inactive state: no color, normal text
+                btn.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+                btn.classList.add('toggle-inactive');
+                btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+                configPanel.classList.add('hidden');
+                configPanel.style.display = 'none';
+            }
+            
+            if (window.feather) feather.replace();
+        }
+        
+        // API-based project creation
+        async function createGoogleProjectAPI() {
+            const btn = document.getElementById('create-project-api');
+            const status = document.getElementById('project-status');
+            const serviceKey = document.getElementById('service-key').value.trim();
+            
+            if (!PROJECT_ID) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Please enter a Project ID first';
+                return;
+            }
+            
+            if (!serviceKey) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Please provide a Service Account Key for API access';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Creating...';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/create-project`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: PROJECT_ID,
+                        user_email: USER_EMAIL,
+                        org_id: document.getElementById('org-id').value.trim() || null,
+                        billing_id: document.getElementById('billing-id').value.trim() || null,
+                        service_key: serviceKey
+                    })
+                });
+                
+                // Check if response is ok first, then parse JSON
+                let data;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    try {
+                        data = JSON.parse(errorText);
+                    } catch {
+                        throw new Error(`Server returned ${response.status}: ${errorText}`);
+                    }
+                } else {
+                    data = await response.json();
+                }
+                
+                if (data.success) {
+                    status.className = 'status-message success';
+                    status.style.display = 'block';
+                    status.innerHTML = `
+                        <i data-feather="check-circle"></i> <strong>Project Created Successfully!</strong><br>
+                        Project ID: <strong>${PROJECT_ID}</strong><br>
+                        ${data.message || 'Ready to proceed to next step.'}
+                    `;
+                    
+                    btn.innerHTML = '<i data-feather="check"></i> Completed';
+                    btn.disabled = true;
+                    
+                    // Enable next step
+                    document.getElementById('enable-apis').disabled = false;
+                    
+                } else {
+                    // Throw an error with the full data object for enhanced error handling
+                    const error = new Error(data.error || 'Failed to create project');
+                    error.responseData = data;
+                    throw error;
+                }
+                
+                // Update feather icons
+                if (window.feather) feather.replace();
+                
+            } catch (error) {
+                // Check if we have enhanced error data from the API response
+                const errorData = error.responseData;
+                
+                // Display enhanced error message if available
+                if (errorData && errorData.help) {
+                    status.className = 'status-message info'; // Light blue background
+                    status.style.display = 'block';
+                    status.innerHTML = `
+                        <div style="background: var(--accent-blue); color: white; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
+                            <strong>Get your Google Service Account Key</strong>
+                        </div>
+                        
+                        <div style="background: #E3F2FD; border: 1px solid #90CAF9; border-radius: 6px; padding: 12px;">
+                            <h4 style="color: #1565C0; margin: 0 0 8px 0;">
+                                <i data-feather="info" style="width: 16px; height: 16px;"></i> 
+                                ${errorData.help.title}
+                            </h4>
+                            
+                            <p style="margin: 8px 0;"><strong>
+                                <a href="${errorData.help.google_console_url}" target="_blank" style="color: var(--accent-blue); text-decoration: underline;">
+                                    → Open Google Cloud Console
+                                </a>
+                            </strong></p>
+                            
+                            <ol style="margin: 8px 0; padding-left: 18px;">
+                                ${errorData.help.steps.map(step => {
+                                    // Remove the number prefix since <ol> will add its own numbering
+                                    const cleanStep = step.replace(/^\d+\.\s*/, '');
+                                    return `<li style="margin: 4px 0;">${cleanStep}</li>`;
+                                }).join('')}
+                            </ol>
+                            
+                            <div style="background: #F3F4F6; padding: 8px; border-radius: 4px; margin: 8px 0; font-size: 13px;">
+                                <strong>JSON Format:</strong> ${errorData.help.json_format_example}
+                            </div>
+                            
+                            <div style="margin-top: 12px; font-size: 14px;">
+                                <strong style="color: #1565C0;">Billing Account Info:</strong><br>
+                                <span style="color: #2E7D32;">✓ Required:</span> ${errorData.help.billing_info.required_for}<br>
+                                <span style="color: #F57C00;">○ Optional:</span> ${errorData.help.billing_info.not_required_for}<br>
+                                <em style="color: #424242;">${errorData.help.billing_info.note}</em>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Fallback to original error display
+                    status.className = 'status-message error';
+                    status.style.display = 'block';
+                    status.innerHTML = `
+                        <strong>API Creation Failed:</strong><br>
+                        ${error.message}<br><br>
+                        <strong>Troubleshooting:</strong><br>
+                        • Ensure service account has Cloud Resource Manager Admin role<br>
+                        • Check that the JSON key is valid<br>
+                        • Verify organization/billing permissions if using those fields
+                    `;
+                }
+                
+                // Reset toggle state on error - set to inactive (no color)
+                apiToggleActive = false;
+                btn.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+                btn.classList.add('toggle-inactive');
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="zap"></i> Create via API';
+                if (window.feather) feather.replace();
+            }
+        }
+        
+        function confirmProjectCreated() {
+            const btnManual = document.getElementById('create-project-manual');
+            const status = document.getElementById('project-status');
+            const enableBtn = document.getElementById('enable-apis');
+            
+            status.className = 'status-message success';
+            status.innerHTML = '<i data-feather="check-circle"></i> Project created successfully!';
+            
+            // Reset manual button for reuse
+            btnManual.innerHTML = '<i data-feather="external-link"></i> Via Google Page';
+            btnManual.onclick = () => createGoogleProjectManual();
+            
+            // Reset API button toggle state to inactive (no color)
+            const btnAPI = document.getElementById('create-project-api');
+            apiToggleActive = false;
+            btnAPI.classList.remove('btn-primary', 'btn-secondary', 'toggle-active');
+            btnAPI.classList.add('toggle-inactive');
+            btnAPI.innerHTML = '<i data-feather="zap"></i> Create via API';
+            
+            // Enable next step
+            enableBtn.disabled = false;
+            
+            if (window.feather) feather.replace();
+        }
+        
+        async function enableAPIs() {
+            const btn = document.getElementById('enable-apis');
+            const status = document.getElementById('apis-status');
+            const serviceBtn = document.getElementById('create-service');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Enabling...';
+            
+            try {
+                // Open APIs & Services page
+                const apisUrl = `https://console.cloud.google.com/apis/dashboard?project=${PROJECT_ID}`;
+                window.open(apisUrl, '_blank');
+                
+                status.className = 'status-message info';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <strong>Enable these APIs:</strong><br>
+                    1. Google Sheets API<br>
+                    2. Google Meet API<br>
+                    3. Google Calendar API (optional)<br>
+                    <br>Click "APIs Enabled" when complete.
+                `;
+                
+                btn.innerHTML = '<i data-feather="check"></i> APIs Enabled';
+                btn.onclick = () => confirmAPIsEnabled();
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Error: ' + error.message;
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="settings"></i> Enable APIs';
+            }
+        }
+        
+        function confirmAPIsEnabled() {
+            const btn = document.getElementById('enable-apis');
+            const status = document.getElementById('apis-status');
+            const serviceBtn = document.getElementById('create-service');
+            
+            status.className = 'status-message success';
+            status.innerHTML = '<i data-feather="check-circle"></i> APIs enabled successfully!';
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i data-feather="check"></i> Completed';
+            
+            // Enable next step
+            serviceBtn.disabled = false;
+        }
+        
+        async function createServiceAccount() {
+            const btn = document.getElementById('create-service');
+            const status = document.getElementById('service-status');
+            const credsBtn = document.getElementById('download-creds');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Creating...';
+            
+            try {
+                // Open Service Accounts page
+                const serviceUrl = `https://console.cloud.google.com/iam-admin/serviceaccounts?project=${PROJECT_ID}`;
+                window.open(serviceUrl, '_blank');
+                
+                status.className = 'status-message info';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <strong>Create Service Account:</strong><br>
+                    1. Click "+ CREATE SERVICE ACCOUNT"<br>
+                    2. Name: <strong>${PROJECT_ID || '[project name]'}-service</strong><br>
+                    3. Description: <strong>Service account for ${PROJECT_ID || '[project name]'} integration</strong><br>
+                    4. Grant "Editor" role<br>
+                    5. Click "Service Account Created" when done
+                `;
+                
+                btn.innerHTML = '<i data-feather="check"></i> Service Account Created';
+                btn.onclick = () => confirmServiceAccountCreated();
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Error: ' + error.message;
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="key"></i> Create Service Account';
+            }
+        }
+        
+        function confirmServiceAccountCreated() {
+            const btn = document.getElementById('create-service');
+            const status = document.getElementById('service-status');
+            const credsBtn = document.getElementById('download-creds');
+            
+            status.className = 'status-message success';
+            status.innerHTML = '<i data-feather="check-circle"></i> Service account created successfully!';
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i data-feather="check"></i> Completed';
+            
+            // Enable next step
+            credsBtn.disabled = false;
+        }
+        
+        async function downloadCredentials() {
+            const btn = document.getElementById('download-creds');
+            const status = document.getElementById('creds-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Preparing...';
+            
+            try {
+                // Open Service Accounts page
+                const serviceUrl = `https://console.cloud.google.com/iam-admin/serviceaccounts?project=${PROJECT_ID}`;
+                window.open(serviceUrl, '_blank');
+                
+                status.className = 'status-message info';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <strong>Download Credentials:</strong><br>
+                    1. Click on the service account you created<br>
+                    2. Go to "Keys" tab<br>
+                    3. Click "ADD KEY" → "Create new key"<br>
+                    4. Select "JSON" format<br>
+                    5. Save as <strong>${PROJECT_ID || '[project name]'}-credentials.json</strong><br>
+                    6. Click "Credentials Downloaded" when done
+                `;
+                
+                btn.innerHTML = '<i data-feather="check"></i> Credentials Downloaded';
+                btn.onclick = () => confirmCredentialsDownloaded();
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.textContent = 'Error: ' + error.message;
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="download"></i> Download Credentials';
+            }
+        }
+        
+        function confirmCredentialsDownloaded() {
+            const btn = document.getElementById('download-creds');
+            const status = document.getElementById('creds-status');
+            
+            status.className = 'status-message success';
+            status.style.display = 'block';
+            status.innerHTML = `
+                <i data-feather="check-circle"></i> <strong>Setup Complete!</strong><br>
+                Your Google project is ready. Store the credentials file securely.<br>
+                <strong>Next:</strong> Configure the credentials in your application.
+            `;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i data-feather="check"></i> Completed';
+        }
+
+        // ============ MEMBER FORM CONFIGURATION FUNCTIONS ============
+
+        // Load form configuration from public config file
+        async function loadFormConfiguration() {
+            const btn = document.getElementById('load-form-config');
+            const status = document.getElementById('form-config-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Loading...';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/sheets/config`);
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+                
+                const configData = await response.json();
+                
+                if (configData.success && configData.config) {
+                    populateFormConfig(configData.config);
+                    showFormStatus('success', 'Form configuration loaded successfully');
+                } else {
+                    showFormStatus('info', 'Using default configuration. Save to create config file.');
+                }
+                
+            } catch (error) {
+                console.error('Error loading form configuration:', error);
+                showFormStatus('error', `Error loading configuration: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="refresh-cw"></i> Load Current Config';
+                feather.replace();
+            }
+        }
+
+        // Populate form with configuration data
+        function populateFormConfig(config) {
+            // Google Sheets settings
+            if (config.googleSheets) {
+                setIfExists('sheets-id', config.googleSheets.spreadsheetId);
+                setIfExists('worksheet-name', config.googleSheets.worksheetName);
+            }
+            
+            // OAuth settings
+            if (config.oauth) {
+                setIfExists('oauth-client-id', config.oauth.clientId);
+            }
+            
+            // Form appearance
+            if (config.appearance) {
+                setIfExists('form-title', config.appearance.title);
+                setIfExists('form-subtitle', config.appearance.subtitle);
+                setIfExists('primary-color', config.appearance.primaryColor);
+                setIfExists('primary-color-text', config.appearance.primaryColor);
+                setIfExists('accent-color', config.appearance.accentColor);
+                setIfExists('accent-color-text', config.appearance.accentColor);
+            }
+            
+            // Welcome messages
+            if (config.messages) {
+                setIfExists('welcome-new', config.messages.welcomeNew);
+                setIfExists('welcome-returning', config.messages.welcomeReturning);
+            }
+            
+            // Form behavior
+            if (config.behavior) {
+                setCheckboxIfExists('allow-duplicates', config.behavior.allowDuplicates);
+                setCheckboxIfExists('require-github', config.behavior.requireGithub);
+                setCheckboxIfExists('show-progress', config.behavior.showProgress);
+                setCheckboxIfExists('enable-preview', config.behavior.enablePreview);
+            }
+            
+            // Links
+            if (config.links) {
+                setIfExists('members-page-url', config.links.membersPage);
+                setIfExists('projects-page-url', config.links.projectsPage);
+            }
+        }
+
+        // Save form configuration to public config file
+        async function saveFormConfiguration() {
+            const btn = document.getElementById('save-form-config');
+            const status = document.getElementById('form-config-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Saving...';
+            
+            try {
+                const configData = collectFormConfiguration();
+                
+                const response = await fetch(`${GEMINI_API_BASE}/google/sheets/config`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showFormStatus('success', 'Form configuration saved successfully');
+                } else {
+                    throw new Error(result.error || 'Failed to save configuration');
+                }
+                
+            } catch (error) {
+                console.error('Error saving form configuration:', error);
+                showFormStatus('error', `Error saving configuration: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="save"></i> Save Form Config';
+                feather.replace();
+            }
+        }
+
+        // Collect form configuration data
+        function collectFormConfiguration() {
+            return {
+                googleSheets: {
+                    spreadsheetId: document.getElementById('sheets-id').value.trim(),
+                    worksheetName: document.getElementById('worksheet-name').value.trim() || 'Members',
+                    headerRow: 1,
+                    dataStartRow: 2
+                },
+                oauth: {
+                    clientId: document.getElementById('oauth-client-id').value.trim(),
+                    scopes: [
+                        "https://www.googleapis.com/auth/spreadsheets",
+                        "https://www.googleapis.com/auth/userinfo.profile", 
+                        "https://www.googleapis.com/auth/userinfo.email"
+                    ]
+                },
+                appearance: {
+                    title: document.getElementById('form-title').value.trim() || 'Member Registration',
+                    subtitle: document.getElementById('form-subtitle').value.trim(),
+                    primaryColor: document.getElementById('primary-color').value,
+                    accentColor: document.getElementById('accent-color').value
+                },
+                messages: {
+                    welcomeNew: document.getElementById('welcome-new').value.trim(),
+                    welcomeReturning: document.getElementById('welcome-returning').value.trim()
+                },
+                behavior: {
+                    allowDuplicates: document.getElementById('allow-duplicates').checked,
+                    requireGithub: document.getElementById('require-github').checked,
+                    showProgress: document.getElementById('show-progress').checked,
+                    enablePreview: document.getElementById('enable-preview').checked
+                },
+                links: {
+                    membersPage: document.getElementById('members-page-url').value.trim(),
+                    projectsPage: document.getElementById('projects-page-url').value.trim()
+                },
+                validation: {
+                    requiredFields: [
+                        "name", "team", "un_goals", "location", "status", 
+                        "github", "start_date", "job_title", "email"
+                    ],
+                    maxNameLength: 100,
+                    maxNoteLength: 1000
+                }
+            };
+        }
+
+        // Preview form with current configuration
+        function previewForm() {
+            const config = collectFormConfiguration();
+            const formUrl = '../form/';
+            
+            // Create a preview URL with configuration parameters
+            const params = new URLSearchParams({
+                preview: 'true',
+                title: config.appearance.title,
+                subtitle: config.appearance.subtitle,
+                primaryColor: config.appearance.primaryColor,
+                accentColor: config.appearance.accentColor
+            });
+            
+            window.open(`${formUrl}?${params.toString()}`, '_blank');
+        }
+
+        // Helper functions
+        function setIfExists(id, value) {
+            const element = document.getElementById(id);
+            if (element && value !== undefined && value !== null) {
+                element.value = value;
+            }
+        }
+
+        function setCheckboxIfExists(id, value) {
+            const element = document.getElementById(id);
+            if (element && value !== undefined && value !== null) {
+                element.checked = Boolean(value);
+            }
+        }
+
+        function showFormStatus(type, message) {
+            const status = document.getElementById('form-config-status');
+            status.className = `status-message ${type}`;
+            status.style.display = 'block';
+            status.innerHTML = message;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Setup guide functions
+        function copySheetHeaders() {
+            const headers = 'Timestamp\tHandle\tName\tToDos\tProjects\tTeam\tFocus\tUN Goal\tSchool and Degree Program\tYour Location\tGithub\tStatus\tEmail\tStartDate\tEndDate\tNote\tYour Website\tDate Degree Completed\tOPT University Department\tOPT University Department,Email Phone\tHoursPerWeek\tJob Title\tPhone';
+            
+            navigator.clipboard.writeText(headers).then(() => {
+                showFormStatus('success', 'Column headers copied to clipboard! Paste into row 1 of your Google Sheet.');
+            }).catch(() => {
+                showFormStatus('error', 'Failed to copy headers. Please copy manually from the display above.');
+            });
+        }
+
+        function openGoogleSheets() {
+            window.open('https://sheets.google.com', '_blank');
+        }
+
+        function openOAuthConfig() {
+            const projectId = document.getElementById('project-id').value.trim();
+            const url = projectId 
+                ? `https://console.cloud.google.com/apis/credentials?project=${projectId}`
+                : 'https://console.cloud.google.com/apis/credentials';
+            window.open(url, '_blank');
+        }
+
+        // Color picker synchronization
+        function setupColorPickers() {
+            const primaryColor = document.getElementById('primary-color');
+            const primaryColorText = document.getElementById('primary-color-text');
+            const accentColor = document.getElementById('accent-color');
+            const accentColorText = document.getElementById('accent-color-text');
+            
+            primaryColor.addEventListener('input', function() {
+                primaryColorText.value = this.value;
+            });
+            
+            primaryColorText.addEventListener('input', function() {
+                if (this.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                    primaryColor.value = this.value;
+                }
+            });
+            
+            accentColor.addEventListener('input', function() {
+                accentColorText.value = this.value;
+            });
+            
+            accentColorText.addEventListener('input', function() {
+                if (this.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                    accentColor.value = this.value;
+                }
+            });
+        }
+
+        // Make the Google Cloud setup panel collapsible
+        function makeGoogleCloudCollapsible() {
+            const targetDiv = document.getElementById('google-cloud-setup');
+            if (!targetDiv) return;
+            
+            // Check if already collapsed from localStorage
+            const isCollapsed = localStorage.getItem('google-cloud-setup-collapsed') === 'true';
+            
+            // Create toggle button  
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-secondary' : 'collapse-toggle-btn btn btn-primary';
+            toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; color: white !important;';
+            toggleBtn.textContent = isCollapsed ? 'Show' : 'Done';
+            
+            // Create status div (hidden by default)
+            const statusDiv = document.createElement('div');
+            statusDiv.style.cssText = 'color: var(--accent-green); margin-top: 8px; font-weight: bold; display: none;';
+            statusDiv.innerHTML = '✅ Google Cloud project setup completed and collapsed';
+            
+            // Create content wrapper to contain all content except the step number
+            const stepContent = targetDiv.querySelector('.step-content');
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'collapsible-content';
+            
+            // Move all step content into wrapper
+            while (stepContent.firstChild) {
+                contentWrapper.appendChild(stepContent.firstChild);
+            }
+            stepContent.appendChild(contentWrapper);
+            stepContent.appendChild(statusDiv);
+            
+            // Set initial state
+            if (isCollapsed) {
+                contentWrapper.style.display = 'none';
+                statusDiv.style.display = 'block';
+            }
+            
+            // Add toggle functionality
+            toggleBtn.addEventListener('click', function() {
+                const isCurrentlyCollapsed = contentWrapper.style.display === 'none';
+                
+                if (isCurrentlyCollapsed) {
+                    // Show content
+                    contentWrapper.style.display = 'block';
+                    statusDiv.style.display = 'none';
+                    toggleBtn.textContent = 'Done';
+                    toggleBtn.className = 'collapse-toggle-btn btn btn-primary';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; color: white !important;';
+                    localStorage.setItem('google-cloud-setup-collapsed', 'false');
+                } else {
+                    // Hide content
+                    contentWrapper.style.display = 'none';
+                    statusDiv.style.display = 'block';
+                    toggleBtn.textContent = 'Show';
+                    toggleBtn.className = 'collapse-toggle-btn btn btn-secondary';
+                    toggleBtn.style.cssText = 'position: absolute; top: 16px; right: 16px; padding: 6px 12px; font-size: 12px; z-index: 10; background-color: #F3F4F6 !important; border-color: #D1D5DB !important; color: #374151 !important;';
+                    localStorage.setItem('google-cloud-setup-collapsed', 'true');
+                }
+            });
+            
+            // Add toggle button to the step item
+            targetDiv.appendChild(toggleBtn);
+        }
+        
+        // ============ DISCORD BOT DEPLOYMENT FUNCTIONS ============
+
+        // Global deployment configuration
+        let deploymentConfig = {
+            projectId: '',
+            billingAccount: '',
+            region: 'us-central1',
+            serviceName: 'discord-bot-api',
+            githubOwner: 'modelearth',
+            githubRepo: 'feed',
+            appPath: 'membersense/backend'
+        };
+
+        // Handle project selection change
+        function handleProjectSelection() {
+            const selection = document.getElementById('project-selection').value;
+            const newProjectFields = document.getElementById('new-project-fields');
+            const setupBtn = document.getElementById('setup-project-btn');
+            
+            if (selection === 'new') {
+                newProjectFields.style.display = 'block';
+                setupBtn.disabled = false;
+            } else if (selection === 'reuse') {
+                newProjectFields.style.display = 'none';
+                // Use existing project ID
+                deploymentConfig.projectId = PROJECT_ID;
+                setupBtn.disabled = !PROJECT_ID;
+            } else {
+                newProjectFields.style.display = 'none';
+                setupBtn.disabled = true;
+            }
+        }
+
+        // Load user's Google Cloud projects
+        async function loadUserProjects() {
+            const refreshBtn = document.getElementById('refresh-projects');
+            const projectSelect = document.getElementById('project-selection');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span>';
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/projects`);
+                if (response.ok) {
+                    const projects = await response.json();
+                    
+                    // Clear existing options except defaults
+                    while (projectSelect.children.length > 3) {
+                        projectSelect.removeChild(projectSelect.lastChild);
+                    }
+                    
+                    // Add user's projects
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.projectId;
+                        option.textContent = `${project.name} (${project.projectId})`;
+                        projectSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
+                feather.replace();
+            }
+        }
+
+        // Load billing accounts
+        async function loadBillingAccounts() {
+            const billingSelect = document.getElementById('billing-account');
+            
+            try {
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/billing-accounts`);
+                if (response.ok) {
+                    const accounts = await response.json();
+                    
+                    billingSelect.innerHTML = '<option value="">Select billing account...</option>';
+                    accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.name;
+                        option.textContent = `${account.displayName} (${account.name})`;
+                        billingSelect.appendChild(option);
+                    });
+                } else {
+                    billingSelect.innerHTML = '<option value="">No billing accounts found</option>';
+                }
+            } catch (error) {
+                billingSelect.innerHTML = '<option value="">Error loading accounts</option>';
+                console.error('Failed to load billing accounts:', error);
+            }
+        }
+
+        // Setup project and enable required APIs
+        async function setupProjectAndAPIs() {
+            const btn = document.getElementById('setup-project-btn');
+            const status = document.getElementById('project-setup-status');
+            const selection = document.getElementById('project-selection').value;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Setting up...';
+            
+            try {
+                let projectId;
+                
+                if (selection === 'new') {
+                    projectId = document.getElementById('discord-project-id').value.trim();
+                    const projectName = document.getElementById('discord-project-name').value.trim();
+                    
+                    if (!projectId) {
+                        throw new Error('Please enter a project ID');
+                    }
+                    
+                    // Create new project
+                    const createResponse = await fetch(`${GEMINI_API_BASE}/google/cloud/create-project`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: projectId,
+                            displayName: projectName || 'Discord Bot API',
+                            billingAccount: document.getElementById('billing-account').value
+                        })
+                    });
+                    
+                    if (!createResponse.ok) {
+                        throw new Error('Failed to create project');
+                    }
+                } else if (selection === 'reuse') {
+                    projectId = PROJECT_ID;
+                } else {
+                    projectId = selection; // Selected existing project
+                }
+                
+                deploymentConfig.projectId = projectId;
+                
+                // Enable required APIs
+                const apis = [
+                    'cloudbuild.googleapis.com',
+                    'run.googleapis.com',
+                    'artifactregistry.googleapis.com',
+                    'developerconnect.googleapis.com'
+                ];
+                
+                const enableResponse = await fetch(`${GEMINI_API_BASE}/google/cloud/enable-apis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: projectId,
+                        apis: apis
+                    })
+                });
+                
+                if (!enableResponse.ok) {
+                    throw new Error('Failed to enable APIs');
+                }
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>Project Setup Complete!</strong><br>
+                    Project: <strong>${projectId}</strong><br>
+                    APIs Enabled: Cloud Build, Cloud Run, Artifact Registry, Developer Connect
+                `;
+                
+                // Enable next step
+                document.getElementById('setup-github-btn').disabled = false;
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>Setup Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="settings"></i> Setup Project & APIs';
+                feather.replace();
+            }
+        }
+
+        // Setup Developer Connect for GitHub integration
+        async function setupDeveloperConnect() {
+            const btn = document.getElementById('setup-github-btn');
+            const status = document.getElementById('github-setup-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Connecting...';
+            
+            try {
+                const githubOwner = document.getElementById('github-owner').value.trim();
+                const githubRepo = document.getElementById('github-repo').value.trim();
+                const region = document.getElementById('deployment-region').value;
+                
+                if (!githubOwner || !githubRepo) {
+                    throw new Error('Please enter GitHub repository details');
+                }
+                
+                deploymentConfig.githubOwner = githubOwner;
+                deploymentConfig.githubRepo = githubRepo;
+                deploymentConfig.region = region;
+                
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/setup-developer-connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: deploymentConfig.projectId,
+                        region: region,
+                        connectionName: `${githubRepo}-connection`,
+                        githubOwner: githubOwner,
+                        githubRepo: githubRepo
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to setup Developer Connect');
+                }
+                
+                const result = await response.json();
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>GitHub Connected!</strong><br>
+                    Repository: <strong>${githubOwner}/${githubRepo}</strong><br>
+                    ${result.authUrl ? `<a href="${result.authUrl}" target="_blank" style="color: var(--accent-blue);">Complete GitHub Authorization</a>` : 'Connection established'}
+                `;
+                
+                // Enable next step
+                document.getElementById('deploy-btn').disabled = false;
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>GitHub Setup Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="github"></i> Connect GitHub Repository';
+                feather.replace();
+            }
+        }
+
+        // Deploy to Cloud Run
+        async function deployToCloudRun() {
+            const btn = document.getElementById('deploy-btn');
+            const status = document.getElementById('deployment-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Deploying...';
+            
+            try {
+                const serviceName = document.getElementById('service-name').value.trim();
+                const appPath = document.getElementById('app-path').value.trim();
+                
+                // Collect selected integrations
+                const integrations = [];
+                document.querySelectorAll('input[name="integrations"]:checked').forEach(checkbox => {
+                    integrations.push(checkbox.value);
+                });
+                
+                deploymentConfig.serviceName = serviceName;
+                deploymentConfig.appPath = appPath;
+                deploymentConfig.integrations = integrations;
+                
+                const response = await fetch(`${GEMINI_API_BASE}/google/cloud/deploy-cloud-run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: deploymentConfig.projectId,
+                        region: deploymentConfig.region,
+                        serviceName: serviceName,
+                        githubOwner: deploymentConfig.githubOwner,
+                        githubRepo: deploymentConfig.githubRepo,
+                        appPath: appPath,
+                        integrations: integrations
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to deploy');
+                }
+                
+                const result = await response.json();
+                
+                const integrationSummary = integrations.length > 0 ? 
+                    `<br>Integrations: <strong>${integrations.map(i => i.charAt(0).toUpperCase() + i.slice(1)).join(', ')}</strong>` : '';
+                
+                status.className = 'status-message success';
+                status.style.display = 'block';
+                status.innerHTML = `
+                    <i data-feather="check-circle"></i> <strong>Deployment Successful!</strong><br>
+                    Service URL: <a href="${result.serviceUrl}" target="_blank" style="color: var(--accent-blue);">${result.serviceUrl}</a><br>
+                    Build Details: <a href="${result.buildUrl}" target="_blank" style="color: var(--accent-blue);">View Build</a>
+                    ${integrationSummary}
+                `;
+                
+                // Show deployment URL at top and save to cache
+                showDeploymentUrl(result.serviceUrl);
+                
+            } catch (error) {
+                status.className = 'status-message error';
+                status.style.display = 'block';
+                status.innerHTML = `<strong>Deployment Failed:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="upload-cloud"></i> Deploy Bot API';
+                feather.replace();
+            }
+        }
+
+        // Show deployment URL at top of page
+        function showDeploymentUrl(url) {
+            const display = document.getElementById('deployment-url-display');
+            const link = document.getElementById('deployed-url-link');
+            
+            link.href = url;
+            link.textContent = url;
+            display.style.display = 'block';
+            
+            // Save to localStorage
+            localStorage.setItem('discord-bot-deployment-url', url);
+        }
+
+        // Clear deployment URL
+        function clearDeploymentUrl() {
+            document.getElementById('deployment-url-display').style.display = 'none';
+            localStorage.removeItem('discord-bot-deployment-url');
+        }
+
+        // Load saved deployment configuration
+        function loadDeploymentConfiguration() {
+            const savedConfig = localStorage.getItem('discord-bot-deployment-config');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    
+                    // Populate form fields
+                    setIfExists('discord-project-id', config.projectId);
+                    setIfExists('github-owner', config.githubOwner);
+                    setIfExists('github-repo', config.githubRepo);
+                    setIfExists('app-path', config.appPath);
+                    setIfExists('deployment-region', config.region);
+                    setIfExists('service-name', config.serviceName);
+                    
+                    // Load integration checkboxes
+                    if (config.integrations) {
+                        config.integrations.forEach(integration => {
+                            const checkbox = document.getElementById(`integration-${integration}`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
+                    showDeploymentStatus('success', 'Configuration loaded from browser cache');
+                } catch (error) {
+                    showDeploymentStatus('error', 'Failed to load saved configuration');
+                }
+            }
+            
+            // Load deployment URL if available
+            const savedUrl = localStorage.getItem('discord-bot-deployment-url');
+            if (savedUrl) {
+                showDeploymentUrl(savedUrl);
+            }
+        }
+
+        // Save deployment configuration
+        function saveDeploymentConfiguration() {
+            // Collect selected integrations
+            const integrations = [];
+            document.querySelectorAll('input[name="integrations"]:checked').forEach(checkbox => {
+                integrations.push(checkbox.value);
+            });
+            
+            const config = {
+                projectId: document.getElementById('discord-project-id').value,
+                githubOwner: document.getElementById('github-owner').value,
+                githubRepo: document.getElementById('github-repo').value,
+                appPath: document.getElementById('app-path').value,
+                region: document.getElementById('deployment-region').value,
+                serviceName: document.getElementById('service-name').value,
+                integrations: integrations
+            };
+            
+            localStorage.setItem('discord-bot-deployment-config', JSON.stringify(config));
+            showDeploymentStatus('success', `Configuration saved to browser cache${integrations.length > 0 ? ` with ${integrations.length} integration(s)` : ''}`);
+        }
+
+        // Show deployment status message
+        function showDeploymentStatus(type, message) {
+            const status = document.getElementById('deployment-config-status');
+            status.className = `status-message ${type}`;
+            status.style.display = 'block';
+            status.innerHTML = message;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize feather icons
+            feather.replace();
+            
+            // Show config panel initially since button starts in orange state
+            const configPanel = document.getElementById('api-config-panel');
+            if (configPanel) {
+                configPanel.style.display = 'block';
+                configPanel.classList.remove('hidden');
+            }
+            
+            // Set initial state
+            apiToggleActive = true;
+            configPanelVisible = true;
+            
+            // Make Google Cloud setup collapsible
+            makeGoogleCloudCollapsible();
+            
+            // Load configurations automatically
+            loadConfiguration();
+            loadFormConfiguration();
+            
+            // Setup color picker synchronization
+            setupColorPickers();
+            
+            // Load deployment configuration and billing accounts
+            loadDeploymentConfiguration();
+            loadBillingAccounts();
+            
+            displayFile("README.md", "readmeDiv", "_parent");
+        });
+    </script>
+</body>
+</html>

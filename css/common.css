@@ -52,7 +52,6 @@ h2 {
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */
 .breadcrumb {
-    margin-top: 30px;
     margin-bottom: 8px;
     color: var(--text-secondary);
     font-size: 14px;
@@ -74,7 +73,7 @@ h2 {
     padding-bottom: 0px;
     border-radiusX: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    margin-bottom: 24px;
+    margin-bottom: 0px;
     text-align: center;
 }
 
