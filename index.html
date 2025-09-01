@@ -2080,9 +2080,57 @@
 
         // Handle window resize for responsive design
         window.addEventListener('resize', function() {
-            if (window.innerWidth <= 500) {
-                document.getElementById('sidebar').classList.add('collapsed');
+            console.log('RESIZE EVENT TRIGGERED - Width:', window.innerWidth);
+            
+            // Check both possible sidebar elements
+            const sidebar = document.getElementById('sidebar');
+            const sideNav = document.getElementById('side-nav');
+            
+            console.log('sidebar element found:', !!sidebar);
+            console.log('side-nav element found:', !!sideNav);
+            
+            if (sidebar) {
+                console.log('SIDEBAR classes:', sidebar.className);
             }
+            if (sideNav) {
+                console.log('SIDE-NAV classes:', sideNav.className);
+            }
+            
+            if (!sidebar && !sideNav) {
+                console.log('RESIZE: ERROR - no sidebar elements found!');
+                return;
+            }
+            
+            const targetSidebar = sidebar || sideNav;
+            console.log('RESIZE: Using targetSidebar classes:', targetSidebar.className);
+            
+            // Store if sidebar was explicitly collapsed by user (not just auto-collapsed)
+            const wasUserCollapsed = localStorage.getItem('sideNavCollapseStatus') === 'true';
+            console.log('RESIZE: Was user collapsed:', wasUserCollapsed);
+            
+            if (window.innerWidth <= 768) {
+                console.log('RESIZE: Auto-collapsing for narrow screen (768px threshold)');
+                // Auto-collapse on narrow screens
+                targetSidebar.classList.add('collapsed');
+                targetSidebar.classList.remove('expanded');
+                targetSidebar.classList.add('auto-collapsed-narrow');
+            } else if (window.innerWidth > 1000) {
+                console.log('RESIZE: Wide screen detected, checking auto-expand conditions');
+                // Auto-expand on wide screens if it was auto-collapsed (not user-collapsed)
+                if (targetSidebar.classList.contains('auto-collapsed-narrow') && !wasUserCollapsed) {
+                    console.log('RESIZE: Auto-expanding sidebar for wide screen');
+                    targetSidebar.classList.remove('collapsed');
+                    targetSidebar.classList.add('expanded');
+                    targetSidebar.classList.remove('auto-collapsed-narrow');
+                    if (typeof AppState !== 'undefined') {
+                        AppState.sidebarCollapsed = false;
+                    }
+                } else {
+                    console.log('RESIZE: Not auto-expanding - auto-collapsed:', targetSidebar.classList.contains('auto-collapsed-narrow'), 'user-collapsed:', wasUserCollapsed);
+                }
+            }
+            
+            console.log('RESIZE: Final targetSidebar classes:', targetSidebar.className);
         });
     </script>
 </body>

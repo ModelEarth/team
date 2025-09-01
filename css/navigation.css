@@ -34,6 +34,11 @@
     width: var(--sidebar-collapsed);
 }
 
+/* Auto-collapsed state for narrow screens */
+.sidebar.auto-collapsed-narrow {
+    /* Will auto-expand when screen gets wider */
+}
+
 .sidebar.collapsed .nav-text,
 .sidebar.collapsed .logo-text,
 .sidebar.collapsed .expand-icon {
