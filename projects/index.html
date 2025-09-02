@@ -2655,11 +2655,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
         }
         
+        // Wrapper function that calls getMeetupParticipants with specific URL
+        async function getMeetupParticipantsWithUrl(url, corsEnabled = false) {
+            console.log('getMeetupParticipantsWithUrl called with:', url, 'CORS:', corsEnabled);
+            // Temporarily store the URL and call main function
+            const originalSelectedFile = selectedFile;
+            selectedFile = url;
+            
+            // Create a temporary option-like object for CORS checking
+            const tempOption = { getAttribute: (attr) => attr === 'data-cors' ? corsEnabled.toString() : url };
+            
+            await getMeetupParticipants();
+            
+            // Restore original selectedFile if needed
+            selectedFile = originalSelectedFile;
+        }
+        
         async function getMeetupParticipants() {
-            // Get URL from selected dropdown option
-            const selectedOption = fileSelect.options[fileSelect.selectedIndex];
-            let meetupLink = selectedOption.getAttribute('data-url') || selectedFile;
-            const isCors = selectedOption.getAttribute('data-cors') === 'true';
+            // Get URL from selected dropdown option using value (more reliable)
+            const currentValue = fileSelect.value;
+            const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
+            let meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
+            const isCors = selectedOption?.getAttribute('data-cors') === 'true';
+            
+            console.log('=== getMeetupParticipants DEBUG ===');
+            console.log('Current fileSelect value:', currentValue);
+            console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
+            console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
+            console.log('selectedFile variable:', selectedFile);
+            console.log('Final meetupLink:', meetupLink);
             
             // If no valid URL found, try to get modelteam URL from dropdown
             if (!meetupLink) {
@@ -2674,15 +2698,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 getParticipantsButton.disabled = true;
                 participantsSpinner.style.display = 'inline-block';
                 
-                // Hide table initially
-                document.getElementById('participants-table-card').style.display = 'none';
+                // Hide table and clear content immediately to prevent flash
+                const participantsTableCard = document.getElementById('participants-table-card');
+                const tableContainer = document.getElementById('participants-table-container');
+                
+                if (participantsTableCard) {
+                    participantsTableCard.style.display = 'none';
+                }
+                if (tableContainer) {
+                    tableContainer.innerHTML = '<div class="loading-state">Loading data...</div>';
+                }
 
                 // Use unified data loading from js/list.js
                 console.log(`Loading data from: ${meetupLink}, CORS: ${isCors}`);
+                console.log('API_BASE:', GEMINI_API_BASE);
                 const loadResult = await loadUnifiedData(meetupLink, {
                     forceCorsProxy: isCors,
                     API_BASE: GEMINI_API_BASE
                 });
+                console.log('Load result status:', loadResult.success, 'data length:', loadResult.data?.length);
                 
                 if (!loadResult.data || loadResult.data.length === 0) {
                     const errorMessage = `No data found in the source\n\nPath attempted: ${meetupLink}`;
@@ -4518,19 +4552,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         function shouldShowGroupParticipants() {
-            // Check if URL contains #list=team or any variant with "team"
-            const urlParams = new URLSearchParams(window.location.search);
-            const listParam = urlParams.get('list');
-            const hashParams = window.location.hash.substring(1); // Remove #
-            const hasTeamInUrl = (listParam && listParam.toLowerCase().includes('team')) ||
-                                hashParams.toLowerCase().includes('list=team') ||
-                                hashParams.toLowerCase().includes('list=modelteam');
+            // Check current list from hash
+            const currentList = getURLHashParam('list');
             
-            // Check if there are already stored group participants
-            const storedGroup = localStorage.getItem(getListStorageKey('groupParticipants'));
-            const hasStoredGroup = storedGroup && storedGroup.trim() !== '';
+            // Check if the current list supports groups (modelteam) AND it exists in fileSelect
+            const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+            const isCurrentlyOnGroupList = currentList === 'modelteam';
             
-            return hasTeamInUrl || hasStoredGroup;
+            // Only show if currently on a group-supporting list AND that list is available in fileSelect
+            return isCurrentlyOnGroupList && isGroupList;
         }
         
         function updateGroupParticipantsVisibility() {
@@ -5570,7 +5600,27 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (columnView) columnView.style.display = 'none';
             if (galleryView) galleryView.style.display = 'none';
             
-            console.log('List display elements hidden');
+            // Clear all view containers immediately when list changes
+            const columnGrid = document.getElementById('participants-column-grid');
+            const tableBody = document.querySelector('#participants-table tbody');
+            const galleryGrid = document.getElementById('participants-gallery-grid');
+            const tableContainer = document.getElementById('participants-table-container');
+            const loadStatus = document.getElementById('loadStatus');
+            
+            if (columnGrid) columnGrid.innerHTML = '';
+            if (tableBody) tableBody.innerHTML = '';
+            if (galleryGrid) galleryGrid.innerHTML = '';
+            if (tableContainer) tableContainer.innerHTML = '';
+            if (loadStatus) {
+                loadStatus.innerHTML = '';
+                loadStatus.style.display = 'none';
+            }
+            
+            // Clear data arrays
+            allParticipantsData = [];
+            filteredData = [];
+            
+            console.log('List display elements hidden and data cleared');
         }
         
         // Show UI elements when new list loads successfully
@@ -5603,19 +5653,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Team legend will be shown by generateTeamLegend if there's a Team column
             
-            // Show group control only for modelteam list
+            // Show group control only for modelteam list (if available in fileSelect)
             const groupControl = document.getElementById('group-control');
             const currentList = getURLHashParam('list');
             if (groupControl) {
-                if (currentList === 'modelteam') {
+                // Check if modelteam option exists in fileSelect before showing group control
+                const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+                if (currentList === 'modelteam' && isGroupList) {
                     groupControl.style.display = 'block';
                 } else {
                     groupControl.style.display = 'none';
                 }
             }
             
-            // Update group snapshot info after elements are shown (only for modelteam)
-            if (currentList === 'modelteam') {
+            // Update group snapshot info after elements are shown (only for modelteam if available)
+            const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+            if (currentList === 'modelteam' && isGroupList) {
                 waitForElm('#group-snapshot-info').then(() => {
                     updateGroupSnapshotInfo();
                 });
@@ -5672,68 +5725,27 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             console.log('All filters cleared for new list selection');
         }
         
+        
         // File selection handling functions
         function handleFileDropdownChange() {
             const value = fileSelect.value;
             
-            // Clear previous results
-            statusMessages.innerHTML = '';
-            document.getElementById('loadStatus').style.display = 'none';
+            console.log('DROPDOWN CHANGE: Selected value:', value, '- updating hash');
             
-            // Clear all filters when selecting a new list
-            clearAllFilters();
-            
-            // Hide UI elements when changing to a new list
-            hideListDisplayElements();
-            
-            // Update the participant list title
-            updateParticipantListTitle();
-            
-            // Update menu visibility
-            updateMenuVisibility();
-            
+            // Only update hash - let hashchange event handle all processing
             if (value === 'custom') {
-                // Show custom file upload section
+                // Show custom file selection without hash update
                 customFileSection.style.display = 'block';
                 selectedFile = null;
-            } else if (value.startsWith('custom_')) {
-                // This is a previously uploaded custom file
-                const fileName = value.replace('custom_', '');
-                const customFile = customFiles[fileName];
-                if (customFile) {
-                    selectedFile = customFile;
-                    customFileSection.style.display = 'none';
-                }
             } else {
-                // Hide custom file upload and use predefined file
+                // Hide custom file selection and update hash
                 customFileSection.style.display = 'none';
                 
-                // Check if "All Lists" option is selected
-                if (value === 'all') {
-                    selectedFile = 'all';
-                    console.log('Selected option: All Lists - showing meta list');
-                    
-                    // Show all feeds meta list
-                    showAllFeeds();
-                } else {
-                    // Get the selected option to check for data attributes
-                    const selectedOption = fileSelect.options[fileSelect.selectedIndex];
-                    const dataUrl = selectedOption.getAttribute('data-url');
-                    
-                    if (dataUrl) {
-                        selectedFile = dataUrl;
-                        console.log(`Selected option: ${selectedOption.textContent} (${value}) - URL: ${dataUrl}`);
-                        
-                        // Auto-refresh the list when selection changes
-                        getMeetupParticipants();
-                    }
-                }
-            }
-            
-            // Save selection to storage (use 'list=' instead of 'feed=')
-            if (value !== 'custom') {
-                saveFileSelectionToStorage(value, STORAGE_KEY);
+                // Update hash parameter - hashchange event will handle everything else
                 updateListHashParam(value);
+                
+                // Save selection to storage
+                saveFileSelectionToStorage(value, STORAGE_KEY);
             }
         }
         
@@ -5759,10 +5771,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         if (matchingOption && matchingOption.textContent) {
                             titleText = matchingOption.textContent;
                             participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
+                            // Update dropdown selection to match
+                            fileSelect.value = listParam;
                         } else {
-                            // Use the list parameter value as title if no matching option found
+                            // List parameter not available in this site's fileSelect options
+                            // Just use the parameter as title without changing dropdown
                             titleText = listParam;
                             participantListTitle.textContent = `📊 ${listParam}`;
+                            console.log('List param not found in fileSelect options:', listParam, 'keeping original selection');
                         }
                     }
                 } else {
@@ -5789,9 +5805,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const header = document.querySelector('.header');
             
             if (header) {
-                // Only show header when list=modelteam
-                header.style.display = (listParam === 'modelteam') ? 'block' : 'none';
-                console.log('Header visibility updated:', listParam === 'modelteam' ? 'visible' : 'hidden', 'for list:', listParam);
+                // Only show header when list=modelteam AND modelteam option exists in fileSelect
+                const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+                const shouldShowHeader = (listParam === 'modelteam') && isGroupList;
+                header.style.display = shouldShowHeader ? 'block' : 'none';
+                console.log('Header visibility updated:', shouldShowHeader ? 'visible' : 'hidden', 'for list:', listParam, 'modelteam available:', !!isGroupList);
             }
         }
         
@@ -6161,11 +6179,23 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
 
         function showAllFeeds() {
+            // Show loading status for list of lists
+            document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
+            document.getElementById('loadStatus').style.display = 'block';
+            
             // Load and display the meta-list Google Sheet with all feeds
             const masterSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
             
-            // Clear current data and show loading state
+            // Clear current data immediately to prevent flash
             const tableContainer = document.getElementById('participants-table-container');
+            const participantsTableCard = document.getElementById('participants-table-card');
+            
+            // Hide the table card first to prevent flash
+            if (participantsTableCard) {
+                participantsTableCard.style.display = 'none';
+            }
+            
+            // Clear table content and show loading state
             if (tableContainer) {
                 tableContainer.innerHTML = '<div class="loading-state">Loading feeds list...</div>';
             }
@@ -6234,6 +6264,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     // Show UI elements after successful feeds load
                     showListDisplayElements();
                     
+                    // Update status to show completion
+                    document.getElementById('loadStatus').innerHTML = `<div class="success-message">Loaded ${feedsData.length} lists.</div>`;
+                    document.getElementById('loadStatus').style.display = 'block';
+                    
                     // Update URL hash to list=all
                     updateListHashParam('all');
                     
@@ -6246,6 +6280,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     if (tableContainer) {
                         tableContainer.innerHTML = '<div class="error-state">Error loading feeds list. Please try again.<br><small>Error: ' + error.message + '</small></div>';
                     }
+                    
+                    // Show error in status
+                    document.getElementById('loadStatus').innerHTML = '<div class="error-message">Error loading list of lists</div>';
+                    document.getElementById('loadStatus').style.display = 'block';
                     
                     // Update URL hash to list=all even on error to maintain state
                     updateListHashParam('all');
@@ -6448,6 +6486,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Listen for URL changes to handle list parameter changes
             window.addEventListener('hashchange', function() {
                 const listParam = getURLHashParam('list');
+                console.log('HASHCHANGE: Processing list parameter:', listParam);
                 
                 // Update UI for hash changes (header visibility and title)
                 updateUIForHashChange();
@@ -6455,40 +6494,44 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Update list select visibility
                 updateListSelectVisibility();
                 
-                // Hide UI elements when list hash changes
-                if (listParam && listParam !== fileSelect.value) {
+                // Update group control visibility
+                updateGroupParticipantsVisibility();
+                
+                // Update menu visibility
+                updateMenuVisibility();
+                
+                // Handle list parameter changes
+                if (listParam) {
+                    // Hide UI elements and clear filters when list changes
                     hideListDisplayElements();
                     clearAllFilters();
-                }
-                
-                // Update dropdown selection if it doesn't match current value
-                if (listParam && listParam !== fileSelect.value) {
+                    
                     // Check if the option exists in the dropdown
                     const targetOption = Array.from(fileSelect.options).find(option => option.value === listParam);
                     if (targetOption) {
-                        fileSelect.value = listParam;
+                        console.log('HASHCHANGE: Found option for:', listParam);
+                        
+                        // Update dropdown selection if needed
+                        if (listParam !== fileSelect.value) {
+                            console.log('HASHCHANGE: Updating dropdown to match hash:', listParam);
+                            fileSelect.value = listParam;
+                        }
+                        
+                        // Always update selectedFile and load data
                         selectedFile = targetOption.getAttribute('data-url') || listParam;
                         
                         // Load the corresponding data
                         if (listParam === 'all') {
+                            console.log('HASHCHANGE: Loading all feeds');
                             showAllFeeds();
-                        } else if (listParam === 'geo') {
-                            getMeetupParticipants();
                         } else {
+                            console.log('HASHCHANGE: Loading participant data for:', listParam, 'URL:', selectedFile);
                             getMeetupParticipants();
                         }
+                    } else {
+                        console.log('HASHCHANGE: List param not found in dropdown options:', listParam);
                     }
-                } else if (listParam === 'all' && fileSelect.value !== 'all') {
-                    // Special case: URL has list=all but dropdown is not set to "All Lists"
-                    hideListDisplayElements();
-                    clearAllFilters();
-                    fileSelect.value = 'all';
-                    selectedFile = 'all';
-                    showAllFeeds();
                 }
-                
-                // Update menu visibility after any list changes
-                updateMenuVisibility();
             });
             
             // Listen for URL changes to handle display mode changes

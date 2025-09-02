@@ -481,11 +481,10 @@ function clearMessages(statusMessages = null) {
 // API UTILITIES
 // =============================================================================
 
-async function fetchExternalAPI(url, options = {}, forceCorsProxy = false, API_BASE = 'http://localhost:8081/api') {
+async function fetchListFeed(url, options = {}, forceCorsProxy = false, API_BASE = 'http://localhost:8081/api') {
     // Check if we're on model.earth domain (allow-listed for direct access)
     const isModelEarthDomain = window.location.hostname.includes('model.earth');
-    
-    if (isModelEarthDomain && !forceCorsProxy) {
+    if ((isModelEarthDomain) && !forceCorsProxy) {
         // Direct fetch for model.earth domain (CORS allow-listed)
         showMessage('Using direct API access for model.earth domain...', 'info');
         const response = await fetch(url, options);
@@ -1256,8 +1255,8 @@ async function loadUnifiedData(url, options = {}) {
             };
             
         } else {
-            // Handle JSON, RSS, XML, and other formats using fetchExternalAPI
-            const response = await fetchExternalAPI(url, {}, forceCorsProxy, API_BASE);
+            // Handle JSON, RSS, XML, and other formats using fetchListFeed
+            const response = await fetchListFeed(url, {}, forceCorsProxy, API_BASE);
             
             // Handle different response structures
             let processedData;
@@ -1636,7 +1635,7 @@ if (typeof module !== 'undefined' && module.exports) {
         clearMessages,
         
         // API utilities
-        fetchExternalAPI,
+        fetchListFeed,
         maskApiKey,
         
         // Data formatting
