@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="img/neighborhood/logo/favicon.png" type="image/png">
+    <link rel="icon" href="img/logo/neighborhood/favicon.png" type="image/png">
     <title>Project Collaboration Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,6 @@
             displayX:none !important;
         }
 
-        /*
         :root {
             --bg-primary: #F9FAFB;
             --bg-secondary: #FFFFFF;
@@ -73,7 +72,7 @@
         }
         .dark {
             --bg-secondary: #555;
-            --bg-tertiary: #555;
+            --bg-tertiary: #333;
             --text-secondary: #aaa;
         }
         * {
@@ -149,7 +148,6 @@
         }
 
         
-        */
 
         .content-area {
             flex: 1;
@@ -468,7 +466,7 @@
                                 <i data-feather="users"></i>
                             </div>
                             <h3 class="feature-title">Team Collaboration</h3>
-                            <p class="feature-desc">Connect with local programming teams, join Innovation Bond projects, and collaborate on government AI insights implementation.</p>
+                            <p class="feature-desc">Connect with your vibe programmers, join innovation bond projects, and collaborate on AI implementations for realtime job creation.</p>
                         </div>
 
                         <div style="display:none" class="earth">
@@ -521,6 +519,11 @@
                             <li><strong>Team Building:</strong> Create and manage teams and organizations using API integrations.</li>
                             <li><strong>Preference Matching:</strong> AI-powered recommendations based on member interests.</li>
                         </ul>
+
+                        <!-- Gemini Status Info -->
+                        <div id="gemini-status-container" style="margin-top: 24px;">
+                            <!-- Gemini status will be loaded here -->
+                        </div>
 
                     </div>
                 </div>
@@ -1963,6 +1966,9 @@
             // Setup tab click handlers
             setupTabHandlers();
             
+            // Initialize Gemini status in documentation tab
+            initializeGeminiStatus();
+            
             // Initialize projects manager
             if (window.projectsManager) {
                 window.projectsManager.init();
@@ -2058,11 +2064,36 @@
             navigationFunction();
         }
 
+        // Function to initialize Gemini status in documentation tab using common.js
+        function initializeGeminiStatus() {
+            const container = document.getElementById('gemini-status-container');
+            if (!container) return;
+            
+            // Create a gemini-resources section and reuse the common logic
+            container.innerHTML = `
+                <div class="cardsection" id="gemini-resources-doc" style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+                    <div id="gemini-key-content">
+                        You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
+                        <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
+                    </div>
+                </div>
+            `;
+            
+            // Use the existing checkGeminiKeyStatus function from common.js
+            if (window.checkGeminiKeyStatus) {
+                window.checkGeminiKeyStatus();
+            }
+        }
+
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             
             // Setup tab click handlers
             setupTabHandlers();
+            
+            // Initialize Gemini status in documentation tab
+            initializeGeminiStatus();
             
             // Initialize projects manager
             if (window.projectsManager) {

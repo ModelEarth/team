@@ -461,9 +461,11 @@ function updateGeminiKeyUI(keyIsAvailable) {
     
     if (keyIsAvailable) {
         // Key is available - update to activated state
-        titleElement.textContent = 'Gemini Key Activated';
+        titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">Your Gemini Key is Activated</h2>';
+        // Calculate correct relative path to projects
+        const projectsPath = fixRelativePath('projects/#list=all');
         contentElement.innerHTML = `
-            You can ask questions about datasets on the <a href="team/projects/#list=all">AI Data Insights</a> page.<br>
+            You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env
         `;
     } else {
