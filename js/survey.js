@@ -65,11 +65,11 @@ class SurveyManager {
             <div class="rating-scale">
                 <select class="survey-dropdown" data-question="${questionNum}">
                     <option value="">Your response...</option>
-                    <option value="1">Strongly Disagree</option>
-                    <option value="2">Disagree</option>
-                    <option value="3">No Opinion</option>
-                    <option value="4">Agree</option>
                     <option value="5">Strongly Agree</option>
+                    <option value="4">Agree</option>
+                    <option value="3">No Opinion</option>
+                    <option value="2">Disagree</option>
+                    <option value="1">Strongly Disagree</option>
                 </select>
             </div>
         `;
