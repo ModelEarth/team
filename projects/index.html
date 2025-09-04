@@ -1045,14 +1045,15 @@
             color: var(--text-primary);
             margin-bottom: 4px;
             font-size: 16px;
+            display: flex;
+            align-items: center;
         }
         
         .participant-checkbox {
-            position: absolute;
-            top: 8px;
-            left: 8px;
             width: 18px;
             height: 18px;
+            margin-right: 8px;
+            vertical-align: middle;
             cursor: pointer;
             z-index: 10;
         }
@@ -1189,6 +1190,8 @@
             font-size: 18px;
             font-weight: 700;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
@@ -2113,21 +2116,21 @@
                     <h4>Filter by Team</h4>
                     <div class="legend-controls">
                         <div class="button-with-dropdown">
-                            <button class="btn btn-sm" id="sort-toggle">Sort by</button>
+                            <button class="btn btn-sm btn-secondary" id="sort-toggle">Sort by</button>
                             <div class="sort-dropdown" id="sort-dropdown" style="display: none;">
                                 <div class="sort-header">
                                     <h4>Sort by</h4>
-                                    <button class="btn btn-sm" id="close-sort">×</button>
+                                    <button class="btn btn-sm btn-secondary" id="close-sort">×</button>
                                 </div>
                                 <div class="sort-items" id="sort-items"></div>
                             </div>
                         </div>
                         <div class="button-with-dropdown">
-                            <button class="btn btn-sm" id="status-toggle">Status</button>
+                            <button class="btn btn-sm btn-secondary" id="status-toggle">Status</button>
                             <div class="status-dropdown" id="status-dropdown" style="display: none;">
                                 <div class="status-header">
                                     <h4>Filter by Status</h4>
-                                    <button class="btn btn-sm" id="close-status">×</button>
+                                    <button class="btn btn-sm btn-secondary" id="close-status">×</button>
                                 </div>
                                 <div class="status-items" id="status-items"></div>
                             </div>
@@ -3126,7 +3129,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const imageContainer = imagePaths.length > 0 ? createImageContainer(imagePaths, false) : '';
                 
                 card.innerHTML = `
-                    <input type="checkbox" class="participant-checkbox" data-name="${name}">
                     <div class="participant-menu">
                         ⋯
                         <div class="participant-menu-dropdown">
@@ -3136,7 +3138,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         </div>
                     </div>
                     ${imageContainer}
-                    <div class="participant-name">${name}</div>
+                    <div class="participant-name">
+                        <input type="checkbox" class="participant-checkbox" data-name="${name}">
+                        ${name}
+                    </div>
                     <div class="participant-info"><strong>Team:</strong> ${team}</div>
                     <div class="participant-info"><strong>Status:</strong> <span class="participant-status ${status.toLowerCase()}">${status}</span></div>
                     <div class="participant-info"><strong>Location:</strong> ${location}</div>
@@ -3165,6 +3170,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         });
                         // Toggle this dropdown
                         dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                    });
+                    
+                    // Add event listener to menu items to close dropdown when clicked
+                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    menuItems.forEach(item => {
+                        item.addEventListener('click', function() {
+                            const dropdown = menu.querySelector('.participant-menu-dropdown');
+                            if (dropdown) {
+                                dropdown.style.display = 'none';
+                            }
+                        });
                     });
                 }
             });
@@ -3757,7 +3773,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 card.innerHTML = `
-                    <input type="checkbox" class="participant-checkbox" data-name="${name}" style="position: absolute; top: 8px; left: 8px; width: 18px; height: 18px; cursor: pointer; z-index: 10;">
                     <div class="participant-menu">
                         ⋯
                         <div class="participant-menu-dropdown">
@@ -3767,7 +3782,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         </div>
                     </div>
                     <div class="gallery-content">
-                        <div class="gallery-name">${name}</div>
+                        <div class="gallery-name">
+                            <input type="checkbox" class="participant-checkbox" data-name="${name}">
+                            ${name}
+                        </div>
                         <div class="gallery-info">${location}</div>
                         <div class="gallery-info">${status}</div>
                         <div class="gallery-info"><strong>Team:</strong> ${team}</div>
@@ -3801,6 +3819,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         });
                         // Toggle this dropdown
                         dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                    });
+                    
+                    // Add event listener to menu items to close dropdown when clicked
+                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    menuItems.forEach(item => {
+                        item.addEventListener('click', function() {
+                            const dropdown = menu.querySelector('.participant-menu-dropdown');
+                            if (dropdown) {
+                                dropdown.style.display = 'none';
+                            }
+                        });
                     });
                 }
             });
