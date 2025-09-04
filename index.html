@@ -2069,13 +2069,12 @@
             const container = document.getElementById('gemini-status-container');
             if (!container) return;
             
-            // Create a gemini-resources section and reuse the common logic
+            // Create a gemini-resources section that matches common.js structure exactly
             container.innerHTML = `
-                <div class="cardsection" id="gemini-resources-doc" style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius-md);">
-                    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+                <div class="cardsection" id="gemini-resources" style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title"></h4>
                     <div id="gemini-key-content">
-                        You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-                        <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
+                        <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link"></a>
                     </div>
                 </div>
             `;

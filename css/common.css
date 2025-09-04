@@ -360,8 +360,8 @@ pre code {
 /* ===== COLLAPSIBLE SECTIONS ===== */
 .collapse-toggle-btn {
     position: absolute !important;
-    top: 16px !important;
-    right: 16px !important;
+    top: 8px;
+    right: 0px;
     padding: 6px 12px !important;
     font-size: 12px !important;
     z-index: 10 !important;

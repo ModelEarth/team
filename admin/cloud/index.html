@@ -47,6 +47,12 @@
             --radius-lg: 12px;
         }
 
+        .dark {
+            --bg-secondary: #555;
+            --bg-tertiary: #333;
+            --text-secondary: #aaa;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -162,6 +168,12 @@
             background-color: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border-medium);
+        }
+
+        /* Override for View Coding Meetup Team button to match dark mode appearance */
+        a[href*="projects/#list=modelteam"].btn-secondary {
+            background-color: #333;
+            color: white;
         }
 
         .btn-secondary:hover:not(:disabled) {
@@ -471,6 +483,8 @@
 
         #connect-google-btn {
             transition: all 0.2s ease;
+            width: auto;
+            max-width: 300px;
         }
 
         #connect-google-btn:hover {
