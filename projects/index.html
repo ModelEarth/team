@@ -1068,11 +1068,62 @@
         .participant-checkbox {
             position: absolute;
             top: 8px;
-            right: 8px;
+            left: 8px;
             width: 18px;
             height: 18px;
             cursor: pointer;
             z-index: 10;
+        }
+        
+        /* 3-dot menu for participant cards */
+        .participant-menu {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+        
+        .participant-menu:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .participant-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            min-width: 150px;
+            z-index: 1000;
+            display: none;
+            margin-top: 4px;
+        }
+        
+        .participant-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .participant-menu-item:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .participant-menu-item a {
+            color: inherit;
+            text-decoration: none;
         }
         
         /* Table-specific checkbox styling */
@@ -2891,6 +2942,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Current view mode and filtering
         let currentView = getURLHashParam('display') || 'column'; // Always default to column if absent from hash
         let currentTeamFilter = getURLHashParam('team') || localStorage.getItem(getListStorageKey('participantsTeamFilter')) || null;
+        let currentLoadedList = null; // Track which list is currently loaded
         let initialTeamLegendGenerated = false;
         
         // Flag to prevent group parameter processing during status updates
@@ -3080,6 +3132,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 card.innerHTML = `
                     <input type="checkbox" class="participant-checkbox" data-name="${name}">
+                    <div class="participant-menu">
+                        ⋯
+                        <div class="participant-menu-dropdown">
+                            <div class="participant-menu-item">
+                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                            </div>
+                        </div>
+                    </div>
                     ${imageContainer}
                     <div class="participant-name">${name}</div>
                     <div class="participant-info"><strong>Team:</strong> ${team}</div>
@@ -3095,6 +3155,21 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (checkbox) {
                     checkbox.addEventListener('change', function() {
                         handleCheckboxChange(this.dataset.name, this.checked);
+                    });
+                }
+                
+                // Add 3-dot menu event listener
+                const menu = card.querySelector('.participant-menu');
+                if (menu) {
+                    menu.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        // Close other dropdowns
+                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                            if (d !== dropdown) d.style.display = 'none';
+                        });
+                        // Toggle this dropdown
+                        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
                     });
                 }
             });
@@ -3237,11 +3312,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 headerRow.appendChild(th);
             });
             
-            // Add checkbox column header at the end
+            // Add checkbox column header at the beginning
             const checkboxTh = document.createElement('th');
             checkboxTh.style.width = '40px';
             checkboxTh.style.textAlign = 'center';
-            headerRow.appendChild(checkboxTh);
+            headerRow.insertBefore(checkboxTh, headerRow.firstChild);
+            
+            // Add menu column header at the end
+            const menuTh = document.createElement('th');
+            menuTh.style.width = '40px';
+            menuTh.style.textAlign = 'center';
+            headerRow.appendChild(menuTh);
             
             tableHeader.appendChild(headerRow);
             
@@ -3327,13 +3408,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     tr.title = `Click to view data from: ${row.Title || row.Feed}`;
                 }
                 
-                headers.forEach(header => {
-                    const td = document.createElement('td');
-                    td.textContent = row[header] || '';
-                    tr.appendChild(td);
-                });
-                
-                // Add checkbox column last
+                // Add checkbox column first
                 const checkboxTd = document.createElement('td');
                 checkboxTd.style.textAlign = 'center';
                 checkboxTd.style.verticalAlign = 'middle';
@@ -3372,6 +3447,39 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 checkboxTd.appendChild(checkbox);
                 tr.appendChild(checkboxTd);
+                
+                // Add data columns
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = row[header] || '';
+                    tr.appendChild(td);
+                });
+                
+                // Add menu column last
+                const menuTd = document.createElement('td');
+                menuTd.style.textAlign = 'center';
+                menuTd.style.verticalAlign = 'middle';
+                menuTd.style.padding = '8px';
+                menuTd.style.position = 'relative';
+                
+                menuTd.innerHTML = `
+                    <div class="participant-menu">
+                        ⋯
+                        <div class="participant-menu-dropdown">
+                            <div class="participant-menu-item">
+                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Prevent row click when clicking in menu cell
+                menuTd.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                });
+                
+                tr.appendChild(menuTd);
                 
                 tableBody.appendChild(tr);
             });
@@ -3654,7 +3762,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 card.innerHTML = `
-                    <input type="checkbox" class="participant-checkbox" data-name="${name}" style="position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; cursor: pointer; z-index: 10;">
+                    <input type="checkbox" class="participant-checkbox" data-name="${name}" style="position: absolute; top: 8px; left: 8px; width: 18px; height: 18px; cursor: pointer; z-index: 10;">
+                    <div class="participant-menu">
+                        ⋯
+                        <div class="participant-menu-dropdown">
+                            <div class="participant-menu-item">
+                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                            </div>
+                        </div>
+                    </div>
                     <div class="gallery-content">
                         <div class="gallery-name">${name}</div>
                         <div class="gallery-info">${location}</div>
@@ -3675,6 +3791,21 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     checkbox.addEventListener('change', function(e) {
                         e.stopPropagation(); // Prevent card click
                         handleCheckboxChange(this.dataset.name, this.checked);
+                    });
+                }
+                
+                // Add 3-dot menu event listener
+                const menu = card.querySelector('.participant-menu');
+                if (menu) {
+                    menu.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        // Close other dropdowns
+                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                            if (d !== dropdown) d.style.display = 'none';
+                        });
+                        // Toggle this dropdown
+                        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
                     });
                 }
             });
@@ -3842,11 +3973,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 statusItem.appendChild(checkbox);
                 statusItem.appendChild(label);
                 
-                // Add click handler for the whole item
-                statusItem.addEventListener('click', (e) => {
-                    if (e.target.type !== 'checkbox') {
-                        checkbox.checked = !checkbox.checked;
-                    }
+                // Add checkbox change handler
+                checkbox.addEventListener('change', (e) => {
+                    handleStatusChange(status, e.target.checked);
+                });
+                
+                // Add click handler for the label only
+                label.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    checkbox.checked = !checkbox.checked;
                     handleStatusChange(status, checkbox.checked);
                 });
                 
@@ -5473,6 +5609,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (!statusDropdown.contains(e.target) && !statusToggle.contains(e.target)) {
                 statusDropdown.style.display = 'none';
             }
+            
+            // Close participant menu dropdowns when clicking outside
+            if (!e.target.closest('.participant-menu')) {
+                document.querySelectorAll('.participant-menu-dropdown').forEach(dropdown => {
+                    dropdown.style.display = 'none';
+                });
+            }
         });
         
         // Group participants event listeners
@@ -6500,8 +6643,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Update menu visibility
                 updateMenuVisibility();
                 
-                // Handle list parameter changes
-                if (listParam) {
+                // Handle list parameter changes - only load data if list actually changed
+                if (listParam && listParam !== currentLoadedList) {
+                    console.log('HASHCHANGE: List changed from', currentLoadedList, 'to', listParam);
+                    currentLoadedList = listParam;
+                    
                     // Hide UI elements and clear filters when list changes
                     hideListDisplayElements();
                     clearAllFilters();
@@ -6517,7 +6663,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             fileSelect.value = listParam;
                         }
                         
-                        // Always update selectedFile and load data
+                        // Update selectedFile and load data
                         selectedFile = targetOption.getAttribute('data-url') || listParam;
                         
                         // Load the corresponding data
@@ -6531,6 +6677,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     } else {
                         console.log('HASHCHANGE: List param not found in dropdown options:', listParam);
                     }
+                } else if (listParam) {
+                    console.log('HASHCHANGE: List param unchanged:', listParam, '- skipping data reload');
                 }
             });
             
