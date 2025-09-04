@@ -165,8 +165,17 @@ class DatabaseAdmin {
         this.addLog(`Testing database connection for: ${this.selectedConnection}`);
         
         try {
-            // Test the selected connection using the new endpoint
-            const response = await this.makeRequest(`/config/database/${this.selectedConnection}`, {
+            // Test the selected connection using the correct endpoint
+            let endpoint;
+            if (this.selectedConnection === 'COMMONS') {
+                endpoint = '/db/test-commons-connection';
+            } else if (this.selectedConnection === 'EXIOBASE') {
+                endpoint = '/db/test-exiobase-connection';
+            } else {
+                throw new Error(`Unknown database connection: ${this.selectedConnection}`);
+            }
+            
+            const response = await this.makeRequest(endpoint, {
                 method: 'GET'
             });
 
@@ -179,10 +188,10 @@ class DatabaseAdmin {
                 if (response.is_mock || response.placeholder || response.demo || 
                     (response.message && response.message.toLowerCase().includes('placeholder'))) {
                     this.databaseConnectionStatus[this.selectedConnection] = 'mock';
-                    this.showMock(`Mock Data: Database connection simulated (${response.connection_name})`, 'connection-result');
+                    this.showMock(`Mock Data: Database connection simulated (${response.database || this.selectedConnection})`, 'connection-result');
                     this.addLog(`🎭 Mock connection response: ${response.message}`);
                 } else {
-                    this.showSuccess(`Database connection successful! (${response.connection_name})`, 'connection-result');
+                    this.showSuccess(`Database connection successful! (${response.database || this.selectedConnection})`, 'connection-result');
                     this.addLog(`✅ Connection successful: ${response.message}`);
                 }
                 if (response.config) {
@@ -217,13 +226,19 @@ class DatabaseAdmin {
         try {
             // Since we can't directly connect to PostgreSQL from browser,
             // we'll try to make a request to our Rust backend
-            const testData = {
-                server: CONFIG.DATABASE.SERVER,
-                database: CONFIG.DATABASE.DATABASE,
-                username: CONFIG.DATABASE.USERNAME,
-                port: CONFIG.DATABASE.PORT,
-                ssl: CONFIG.DATABASE.SSL
-            };
+            let testData = {};
+            if (this.envConfig && this.envConfig.database_connections) {
+                const connection = this.envConfig.database_connections.find(conn => conn.name === this.selectedConnection);
+                if (connection) {
+                    testData = {
+                        server: connection.host,
+                        database: connection.database,
+                        username: connection.username,
+                        port: connection.port,
+                        ssl: connection.ssl_mode
+                    };
+                }
+            }
 
             this.addLog(`📡 Testing connection with parameters: ${JSON.stringify(testData, null, 2)}`);
             
