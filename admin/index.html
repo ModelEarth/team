@@ -543,11 +543,8 @@
     <link rel="stylesheet" href="../css/shared-styles.css">
     <script src="../js/common.js"></script>
 
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Feather icons handled by nav.js -->
     <script>
-        // Initialize Feather Icons
-        feather.replace();
-        
         // Track session start time for usage monitoring
         const sessionStartTime = new Date();
 
@@ -563,7 +560,7 @@
             }
             document.getElementById(tabName).style.display = "block";
             evt.currentTarget.className += " active";
-            feather.replace();
+            // Feather icons handled by nav.js
         }
 
         // Add some interactivity
@@ -625,7 +622,7 @@
 
             button.disabled = true;
             button.innerHTML = '<i data-feather="loader" style="width: 16px; height: 16px; margin-right: 4px; animation: spin 1s linear infinite;"></i>Checking...';
-            feather.replace();
+            // Feather icons handled by nav.js
             status.style.display = 'block';
             status.className = 'info';
             status.style.background = 'rgba(59, 130, 246, 0.1)';
@@ -690,7 +687,7 @@
             } finally {
                 button.disabled = false;
                 button.innerHTML = '<i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>Check Usage';
-                feather.replace();
+                // Feather icons handled by nav.js
                 setTimeout(() => {
                     status.style.display = 'none';
                 }, 5000);

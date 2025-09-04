@@ -344,15 +344,13 @@
         </div>
     </div>
 
-    <!-- Load Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Feather icons handled by nav.js -->
     
     <!-- Load Common JS -->
     <script src="../../js/common.js"></script>
     
     <script>
-        // Initialize Feather Icons
-        feather.replace();
+        // Feather icons handled by nav.js
 
         // Show/hide compensation field based on type
         document.querySelector('[name="type"]').addEventListener('change', (e) => {
@@ -420,7 +418,7 @@
             `;
             
             document.body.appendChild(notification);
-            feather.replace();
+            // Feather icons handled by nav.js
             
             // Show notification
             setTimeout(() => notification.classList.add('show'), 100);

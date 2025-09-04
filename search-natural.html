@@ -9,7 +9,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
-
+    
+    <!-- Side Nav -->
+    <link rel="stylesheet" href="../localsite/css/nav.css">
+    <script src="../localsite/js/nav.js"></script>
+    
     <link rel="stylesheet" href="css/projects.css">
     <link rel="stylesheet" href="css/people-teams.css">
     <link rel="stylesheet" href="css/account.css">
@@ -2016,8 +2020,7 @@
         </div>
     </div>
 
-    <!-- Load Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Feather icons handled by nav.js -->
     
     <!-- Load Projects Module -->
     <script src="js/projects.js"></script>
@@ -2026,8 +2029,7 @@
     <script src="js/survey.js"></script>
     
     <script>
-        // Initialize Feather Icons
-        feather.replace();
+        // Feather icons handled by nav.js
 
         // API Configuration
         const API_BASE = 'http://localhost:8081/api';
@@ -2316,9 +2318,7 @@
                 icon.setAttribute('data-feather', 'chevrons-left');
             }
             
-            if (window.feather) {
-                feather.replace();
-            }
+            // Feather icons handled by nav.js
         }
 
         // Navigation Functions

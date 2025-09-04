@@ -1,8 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title id="page-title">Database Edit Test</title>
     <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+    
+    <link type="text/css" href="../../localsite/css/base.css" rel="stylesheet" />
+    <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
+    <script src="../js/common.js"></script>
+    
+    <!-- Feather icons handled by nav.js -->
+    <!-- Side Nav -->
+    <link rel="stylesheet" href="../../localsite/css/nav.css">
+    <script src="../../localsite/js/nav.js?shownav=false"></script>
     <style>
         body {
             line-height: 2.5em;
@@ -418,10 +428,6 @@
             color: #e0e0e0;
         }
         
-        .dark .content {
-            background-color: #1a1a1a;
-        }
-        
         .dark .form-field {
             color: #e0e0e0;
         }
@@ -565,12 +571,7 @@
             }
         }
     </style>
-    <link type="text/css" href="../../localsite/css/base.css" rel="stylesheet" />
-    <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
-    <script src="../js/common.js"></script>
-    
-    <!-- Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
+
 </head>
 <body>
 
@@ -731,7 +732,7 @@
                 }
                 
                 // Initialize feather icons after updating DOM
-                setTimeout(() => feather.replace(), 100);
+                // Feather icons handled by nav.js
             } catch (error) {
                 handleApiConnectionError(error, 'connection-status');
             }
@@ -807,7 +808,7 @@
                 
                 document.getElementById('form-result').innerHTML = 
                     `<p style="color: green;"><i data-feather="check-circle" style="width: 16px; height: 16px;"></i> ${itemType} ${actionText} successfully!</p>`;
-                feather.replace(); // Update icons
+                // Feather icons handled by nav.js
                 
                 if (!editingProjectId) {
                     e.target.reset();
@@ -838,7 +839,7 @@
                         <i data-feather="info" style="width: 16px; height: 16px; margin-right: 6px;"></i>
                         <strong>Demo Mode:</strong> Database connection inactive. <a href="../admin/server/" style="color: #856404; text-decoration: underline;">Configure Your Local Server</a>
                     </p>`;
-                feather.replace(); // Update icons
+                // Feather icons handled by nav.js
             }
         } catch (error) {
             document.getElementById('form-result').innerHTML = 
@@ -846,7 +847,7 @@
                     <i data-feather="info" style="width: 16px; height: 16px; margin-right: 6px;"></i>
                     <strong>Demo Mode:</strong> Database connection inactive. <a href="../admin/server/" style="color: #856404; text-decoration: underline;">Configure Your Local Server</a>
                 </p>`;
-            feather.replace(); // Update icons
+            // Feather icons handled by nav.js
         }
     });
     
@@ -952,7 +953,7 @@
         `).join('');
         
         container.innerHTML = `<div class="projects-list">${projectsHtml}</div>`;
-        feather.replace(); // Re-initialize icons
+        // Feather icons handled by nav.js
     }
     
     // Display pagination controls
@@ -1058,7 +1059,7 @@
             // Show success message
             document.getElementById('form-result').innerHTML = 
                 '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
-            feather.replace();
+            // Feather icons handled by nav.js
         } else {
             // Fallback - try to fetch individual project
             try {
@@ -1099,7 +1100,7 @@
                     // Show success message
                     document.getElementById('form-result').innerHTML = 
                         '<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Project loaded for editing</p>';
-                    feather.replace();
+                    // Feather icons handled by nav.js
                 } else {
                     alert('Unable to load project for editing');
                 }
@@ -1192,7 +1193,7 @@
         // Show message
         document.getElementById('form-result').innerHTML = 
             `<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Ready to add a new ${itemType}</p>`;
-        feather.replace();
+        // Feather icons handled by nav.js
     }
     
     // Dark mode functionality
@@ -1213,7 +1214,9 @@
         }
         
         // Re-initialize feather icons to update the changed icon
-        feather.replace();
+        if (window.standaloneNav && window.standaloneNav.replaceFeatherIcons) {
+            window.standaloneNav.replaceFeatherIcons();
+        }
         
         // Save preference
         localStorage.setItem('darkMode', isDark);
@@ -1229,7 +1232,7 @@
             toggleIcon.setAttribute('data-feather', 'toggle-right');
             toggleText.textContent = 'Light';
             // Re-initialize feather icons
-            setTimeout(() => feather.replace(), 100);
+            // Feather icons handled by nav.js
         }
     }
     
@@ -1320,8 +1323,7 @@
     checkConnection();
     loadDarkModePreference();
     
-    // Initialize feather icons
-    feather.replace();
+    // Feather icons handled by nav.js
 </script>
 </body>
 </html>

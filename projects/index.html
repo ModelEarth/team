@@ -16,24 +16,6 @@
     <link rel="stylesheet" href="../../localsite/css/nav.css">
     <script src="../../localsite/js/nav.js"></script>
     
-    <!-- Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
-    <script>
-        // Initialize Feather Icons after ensuring library is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof feather !== 'undefined') {
-                feather.replace();
-            } else {
-                console.warn('Feather Icons library not yet loaded');
-                // Retry after a short delay
-                setTimeout(() => {
-                    if (typeof feather !== 'undefined') {
-                        feather.replace();
-                    }
-                }, 100);
-            }
-        });
-    </script>
 
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
@@ -3813,8 +3795,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Sync checkboxes after rendering gallery
             setTimeout(syncCheckboxesWithGroup, 10);
             
-            // Initialize feather icons for the newly created gallery cards
-            setTimeout(() => feather.replace(), 100);
+            // Feather icons will be initialized by nav.js
         }
         
         // Sort functionality
@@ -7118,8 +7099,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 toggleBtn.title = 'Show info';
             }
             
-            // Reinitialize feather icons to apply the change
-            feather.replace();
+            // Feather icons will be refreshed by nav.js
         }
 
         // Add event listeners for hover and keyboard navigation

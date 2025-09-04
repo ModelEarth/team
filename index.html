@@ -1489,8 +1489,6 @@
     <!-- Load Shared Auth Modal -->
     <script src="js/auth-modal.js"></script>
     
-    <!-- Load Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
     
     <!-- Load Projects Module -->
     <script src="js/common.js"></script>
@@ -1512,8 +1510,7 @@
     </script>
     
     <script>
-        // Initialize Feather Icons
-        feather.replace();
+        // Feather Icons initialized by nav.js
 
         // API Configuration loaded from common.js
         
@@ -1836,9 +1833,7 @@
                 icon.setAttribute('data-feather', 'chevrons-left');
             }
             
-            if (window.feather) {
-                feather.replace();
-            }
+            // Feather icons handled by nav.js
         }
 
         // Navigation Functions

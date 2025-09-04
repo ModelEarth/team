@@ -58,9 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeFeatherIcons() {
-    if (window.feather) {
-        feather.replace();
-    }
+    // Feather icons handled by nav.js
 }
 
 async function loadConfiguration() {
@@ -291,12 +289,7 @@ function disableGoogleSignIn() {
             existingButton.parentNode.insertBefore(disabledButton, existingButton.nextSibling);
         }
         
-        // Initialize feather icons for the new button
-        setTimeout(() => {
-            if (window.feather) {
-                feather.replace();
-            }
-        }, 100);
+        // Feather icons handled by nav.js
     }
 }
 

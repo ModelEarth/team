@@ -1013,7 +1013,7 @@
 
     </div>
 
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Feather icons handled by nav.js -->
     <script>
         const GEMINI_API_BASE = 'http://localhost:8081/api';
 
@@ -1283,7 +1283,7 @@
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -1383,7 +1383,7 @@
                 btn.setAttribute('data-loaded', 'true');
                 
                 // Update feather icons
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
                 
             } catch (error) {
                 // Check if this looks like an API connection failure
@@ -1407,7 +1407,7 @@
                     btn.innerHTML = '<i data-feather="refresh-cw"></i> Load from .env';
                 }
                 
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
             }
         }
         
@@ -1474,7 +1474,7 @@
                 }
                 
                 // Update feather icons
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
                 
             } catch (error) {
                 // Check if this looks like an API connection failure
@@ -1489,7 +1489,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="save"></i> Save to .env';
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
             }
         }
         
@@ -1593,7 +1593,7 @@
                 configPanel.style.display = 'none';
             }
             
-            if (window.feather) feather.replace();
+            // Feather icons handled by nav.js
         }
         
         // API-based project creation
@@ -1670,7 +1670,7 @@
                 }
                 
                 // Update feather icons
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
                 
             } catch (error) {
                 // Check if we have enhanced error data from the API response
@@ -1737,7 +1737,7 @@
                 btn.classList.add('toggle-inactive');
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="zap"></i> Create via API';
-                if (window.feather) feather.replace();
+                // Feather icons handled by nav.js
             }
         }
         
@@ -1763,7 +1763,7 @@
             // Enable next step
             enableBtn.disabled = false;
             
-            if (window.feather) feather.replace();
+            // Feather icons handled by nav.js
         }
         
         async function enableAPIs() {
@@ -1954,7 +1954,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="refresh-cw"></i> Load Current Config';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2039,7 +2039,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="save"></i> Save Form Config';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2315,7 +2315,7 @@
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = '<i data-feather="refresh-cw"></i>';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2425,7 +2425,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="settings"></i> Setup Project & APIs';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2487,7 +2487,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="github"></i> Connect GitHub Repository';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2556,7 +2556,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-feather="upload-cloud"></i> Deploy Bot API';
-                feather.replace();
+                // Feather icons handled by nav.js
             }
         }
 
@@ -2653,8 +2653,7 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize feather icons
-            feather.replace();
+            // Feather icons handled by nav.js
             
             // Show config panel initially since button starts in orange state
             const configPanel = document.getElementById('api-config-panel');
