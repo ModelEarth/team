@@ -491,8 +491,8 @@ async fn get_env_config() -> Result<HttpResponse> {
             };
             
             let display_name = match prefix {
-                "COMMONS" => "PartnerTools Database (Default)".to_string(),
-                "EXIOBASE" => "EXIOBASE Database".to_string(),
+                "COMMONS" => "MemberCommons Database (Default)".to_string(),
+                "EXIOBASE" => "ModelEarth Industry Database".to_string(),
                 _ => format!("{} Database", prefix.replace('_', " ")),
             };
             
@@ -546,8 +546,8 @@ async fn get_env_config() -> Result<HttpResponse> {
                 
                 // Add to connections list with display name
                 let display_name = match key.as_str() {
-                    "DATABASE_URL" => "PartnerTools Database (Default)".to_string(),
-                    "EXIOBASE_URL" => "EXIOBASE Database".to_string(),
+                    "DATABASE_URL" => "MemberCommons Database (Default)".to_string(),
+                    "EXIOBASE_URL" => "ModelEarth Industry Database".to_string(),
                     _ => {
                         let name = key.replace("_URL", "").replace("_", " ");
                         format!("{} Database", name.split_whitespace()
@@ -1720,7 +1720,7 @@ async fn db_test_commons_connection(data: web::Data<Arc<ApiState>>) -> Result<Ht
     }
 }
 
-// Test Exiobase database connection specifically
+// Test ModelEarth Industry Database connection specifically
 async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     // Check if Exiobase environment variables are configured
     let exiobase_host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
@@ -1733,7 +1733,7 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
        exiobase_host.is_empty() || exiobase_name.is_empty() || exiobase_user.is_empty() || exiobase_password.is_empty() {
         return Ok(HttpResponse::Ok().json(json!({
             "success": false,
-            "message": "Exiobase database not configured",
+            "message": "ModelEarth Industry Database not configured",
             "database": "model_earth_db",
             "active": false,
             "error": "Database credentials not configured (placeholder values detected)"
@@ -1749,14 +1749,14 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
             match test_db_connection(&pool).await {
                 Ok(info) => Ok(HttpResponse::Ok().json(json!({
                     "success": true,
-                    "message": "Exiobase database connection successful",
+                    "message": "ModelEarth Industry Database connection successful",
                     "database": "model_earth_db",
                     "active": true,
                     "info": info
                 }))),
                 Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
                     "success": false,
-                    "message": "Exiobase database connection failed",
+                    "message": "ModelEarth Industry Database connection failed",
                     "database": "model_earth_db",
                     "active": false,
                     "error": e.to_string()
@@ -1765,7 +1765,7 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
         }
         Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
             "success": false,
-            "message": "Exiobase database connection failed",
+            "message": "ModelEarth Industry Database connection failed",
             "database": "model_earth_db",
             "active": false,
             "error": e.to_string()
