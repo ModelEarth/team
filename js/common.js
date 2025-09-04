@@ -415,9 +415,11 @@ gemini</code></pre>
                 <pre><code>git submodule update --init --recursive</code></pre>
             </div>
             <div class="cardsection" id="gemini-resources">
-                <h4 style="margin: 0 0 8px 0;">Add AI Insights Key:</h4>
-                You can use a free Gemini key for AI insights.<br>
-                <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
+                <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+                <div id="gemini-key-content">
+                    You can use a free Gemini key for AI insights.<br>
+                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
+                </div>
             </div>
         </div>
     `;
@@ -426,6 +428,52 @@ gemini</code></pre>
     
     // Initialize the panel after creating it
     initializeOSDetectionPanel();
+    
+    // Check Gemini key status and update UI
+    checkGeminiKeyStatus();
+}
+
+// Function to check Gemini key status and update UI
+async function checkGeminiKeyStatus() {
+    try {
+        // Call the config/current endpoint to check if Gemini key is available
+        const response = await fetch(`${API_BASE}/config/current`);
+        if (response.ok) {
+            const config = await response.json();
+            updateGeminiKeyUI(config.gemini_api_key_present);
+        } else {
+            // If API call fails, assume key is not available
+            updateGeminiKeyUI(false);
+        }
+    } catch (error) {
+        // If there's an error (e.g., server not running), assume key is not available
+        updateGeminiKeyUI(false);
+    }
+}
+
+// Function to update the Gemini key UI based on availability
+function updateGeminiKeyUI(keyIsAvailable) {
+    const titleElement = document.getElementById('gemini-key-title');
+    const contentElement = document.getElementById('gemini-key-content');
+    const linkElement = document.getElementById('gemini-key-link');
+    
+    if (!titleElement || !contentElement || !linkElement) return;
+    
+    if (keyIsAvailable) {
+        // Key is available - update to activated state
+        titleElement.textContent = 'Gemini Key Activated';
+        contentElement.innerHTML = `
+            You can ask questions about datasets on the <a href="team/projects/#list=all">AI Data Insights</a> page.<br>
+            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env
+        `;
+    } else {
+        // Key is not available - keep original state
+        titleElement.textContent = 'Add AI Insights Key:';
+        contentElement.innerHTML = `
+            You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
+            <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
+        `;
+    }
 }
 
 // Function to initialize OS detection panel functionality
@@ -1822,3 +1870,5 @@ window.getBasePath = getBasePath;
 window.fixRelativePath = fixRelativePath;
 window.updateFaviconPath = updateFaviconPath;
 window.BASE_PATH = BASE_PATH;
+window.checkGeminiKeyStatus = checkGeminiKeyStatus;
+window.updateGeminiKeyUI = updateGeminiKeyUI;
