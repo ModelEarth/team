@@ -1479,7 +1479,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         </div>
                         <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
                             <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
-                            <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth industry database inactive</span>
+                            <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth Industry Database inactive</span>
                         </div>
 
                        
@@ -1784,7 +1784,7 @@ async function checkBackendStatus() {
             'exiobase-db-indicator',
             'exiobase-db-text',
             'Industry database active',
-            'ModelEarth industry database inactive'
+            'ModelEarth Industry Database inactive'
         )
     ]);
 }
