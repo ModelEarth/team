@@ -5,6 +5,16 @@ It connects to **Azure Postgres databases** (Commons + Exiobase), provides REST 
 
 ---
 
+IMPORTANT NOTE:
+The files here did not pull into the team repo due to a DUMMY_SECRET error in Github Actions.
+https://github.com/ModelEarth/team/pull/11/files
+
+The DUMMY_SECRET error is visible here:
+https://github.com/ModelEarth/team/actions/runs/17217842776/job/48845757765
+
+Will we even need the GPC botstraps with auth.js?
+
+
 ## 📦 Project Structure
 
 - `Dockerfile` – Multi-stage build (Rust → minimal Debian runtime)
