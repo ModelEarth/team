@@ -1080,6 +1080,38 @@
             color: var(--text-primary);
         }
         
+        /* Center 3-dot menu in table cells */
+        tr .participant-menu.table-menu {
+            position: relative;
+            z-index: 9998;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+            transition: transform 0.2s;
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+        }
+        
+        tr:hover .participant-menu.table-menu {
+            transform: scale(1.05);
+        }
+        
+        /* Enhanced table menu cell positioning - center the menu */
+        td:has(.table-menu) {
+            position: sticky;
+            right: 0;
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border-light);
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            min-width: 50px;
+        }
+        
         .participant-menu-dropdown {
             position: absolute;
             top: 100%;
@@ -1094,10 +1126,33 @@
             margin-top: 4px;
         }
         
+        /* Ensure table dropdowns appear above all table elements */
+        tr .participant-menu-dropdown {
+            z-index: 10000;
+            position: absolute;
+            top: 100%;
+            left: -100px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-medium);
+            background: var(--bg-secondary) !important;
+            opacity: 1 !important;
+            min-width: 150px;
+            margin-top: 4px;
+        }
+        
+        /* Override table container z-index issues */
+        .table-container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        
         .participant-menu-item {
             padding: 8px 12px;
             cursor: pointer;
             font-size: 14px;
+            display: block;
+            width: 100%;
         }
         
         .participant-menu-item:hover {
@@ -1107,6 +1162,10 @@
         .participant-menu-item a {
             color: inherit;
             text-decoration: none;
+            display: block;
+            width: 100%;
+            height: 100%;
+            padding: 0;
         }
         
         /* Table-specific checkbox styling */
@@ -1891,7 +1950,7 @@
             <a href="../admin/">Partner Tools</a>
         </div>
 
-        <div class="header" style="display: none;">
+        <div class="header" id="teamHeader" style="displayX: none;">
             <h1>
                 <div class="gemini-icon">G</div>
                 Coding Meetup Integration
@@ -3124,7 +3183,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         ⋯
                         <div class="participant-menu-dropdown">
                             <div class="participant-menu-item">
-                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                                <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
                     </div>
@@ -3256,18 +3315,42 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             console.log(`💾 Auto-saved group selection to snapshot: ${snapshotName}`);
         }
         
-        // Sync checkboxes based on group field
+        // Sync checkboxes based on group field (case insensitive)
         function syncCheckboxesWithGroup() {
             const groupField = document.getElementById('group');
             if (!groupField) return;
             
             const groupList = groupField.value.split(',').map(name => name.trim()).filter(name => name);
+            const groupListLower = groupList.map(name => name.toLowerCase());
             const checkboxes = document.querySelectorAll('.participant-checkbox');
             
             checkboxes.forEach(checkbox => {
                 const participantName = checkbox.dataset.name;
-                checkbox.checked = groupList.includes(participantName);
+                const participantNameLower = participantName.toLowerCase();
+                checkbox.checked = groupListLower.includes(participantNameLower);
             });
+        }
+        
+        // Format group field names: capitalize first letter, lowercase rest, alphabetical order
+        function formatGroupFieldNames() {
+            const groupField = document.getElementById('group');
+            if (!groupField) return;
+            
+            const names = groupField.value.split(',')
+                .map(name => name.trim())
+                .filter(name => name.length > 0)
+                .map(name => {
+                    // Capitalize first letter, lowercase the rest
+                    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                })
+                .sort(); // Alphabetical order
+            
+            groupField.value = names.join(', ');
+            
+            // Update group participants set and trigger related updates
+            updateGroupCount();
+            updateGroupHighlighting();
+            saveGroupParticipants();
         }
         
         // Render table view
@@ -3463,13 +3546,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 menuTd.style.verticalAlign = 'middle';
                 menuTd.style.padding = '8px';
                 menuTd.style.position = 'relative';
+                menuTd.style.width = '50px';
                 
                 menuTd.innerHTML = `
-                    <div class="participant-menu">
+                    <div class="participant-menu table-menu">
                         ⋯
                         <div class="participant-menu-dropdown">
                             <div class="participant-menu-item">
-                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                                <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
                     </div>
@@ -3481,6 +3565,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     e.stopImmediatePropagation();
                 });
                 
+                // Add 3-dot menu event listener for table menu
+                const tableMenu = menuTd.querySelector('.participant-menu');
+                if (tableMenu) {
+                    tableMenu.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        
+                        // Close other dropdowns
+                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                            if (d !== dropdown) d.style.display = 'none';
+                        });
+                        
+                        // Toggle this dropdown
+                        const isVisible = dropdown.style.display === 'block';
+                        if (isVisible) {
+                            dropdown.style.display = 'none';
+                        } else {
+                            // Just show the dropdown - let CSS handle positioning
+                            dropdown.style.display = 'block';
+                        }
+                    });
+                    
+                    // Add event listener to menu items to close dropdown when clicked
+                    const tableMenuItems = tableMenu.querySelectorAll('.participant-menu-item');
+                    tableMenuItems.forEach(item => {
+                        item.addEventListener('click', function() {
+                            const dropdown = tableMenu.querySelector('.participant-menu-dropdown');
+                            if (dropdown) {
+                                dropdown.style.display = 'none';
+                            }
+                        });
+                    });
+                }
+                
                 tr.appendChild(menuTd);
                 
                 tableBody.appendChild(tr);
@@ -3488,6 +3606,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Sync checkboxes after rendering table
             setTimeout(syncCheckboxesWithGroup, 10);
+            
+            // Add scroll listener to close dropdowns when table scrolls
+            const tableContainer = document.querySelector('.table-container');
+            if (tableContainer) {
+                tableContainer.addEventListener('scroll', function() {
+                    document.querySelectorAll('tr .participant-menu-dropdown').forEach(dropdown => {
+                        dropdown.style.display = 'none';
+                    });
+                });
+            }
         }
         
         // Get team class based on team value (checks all teams in comma-separated list)
@@ -3768,7 +3896,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         ⋯
                         <div class="participant-menu-dropdown">
                             <div class="participant-menu-item">
-                                <a href="https://model.earth/projects/hub/#assignee=${encodeURIComponent(name)}" target="_blank">View Projects</a>
+                                <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
                     </div>
@@ -4222,10 +4350,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function switchView(viewType) {
             currentView = viewType;
             
-            // Clear active snapshot since view changed manually
-            clearActiveSnapshot();
-            
-            // Save view preference to list-specific localStorage
+            // Save view preference to list-specific localStorage (view mode is list-based, not snapshot-based)
             localStorage.setItem(getListStorageKey('participantsViewMode'), viewType);
             
             // Update URL hash parameter (don't send 'column' since it's the default)
@@ -5959,14 +6084,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Show/hide header based on list parameter
         function updateHeaderVisibility() {
             const listParam = getURLHashParam('list');
-            const header = document.querySelector('.header');
+            const header = document.getElementById('teamHeader');
             
             if (header) {
                 // Only show header when list=modelteam AND modelteam option exists in fileSelect
-                const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+                const fileSelectElement = document.getElementById('fileSelect');
+                let isGroupList = false;
+                
+                if (fileSelectElement && fileSelectElement.options) {
+                    isGroupList = Array.from(fileSelectElement.options).find(option => option.value === 'modelteam');
+                }
+                
                 const shouldShowHeader = (listParam === 'modelteam') && isGroupList;
                 header.style.display = shouldShowHeader ? 'block' : 'none';
-                console.log('Header visibility updated:', shouldShowHeader ? 'visible' : 'hidden', 'for list:', listParam, 'modelteam available:', !!isGroupList);
+                console.log('🏠 Header visibility updated:', shouldShowHeader ? 'visible' : 'hidden', 
+                           'for list:', listParam, 'modelteam available:', !!isGroupList, 
+                           'fileSelect options count:', fileSelectElement?.options?.length || 0);
+            } else {
+                console.error('❌ teamHeader element not found!');
             }
         }
         
@@ -6626,6 +6761,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Sync checkboxes when group field changes
                 groupField.addEventListener('input', syncCheckboxesWithGroup);
                 groupField.addEventListener('change', syncCheckboxesWithGroup);
+                
+                // Auto-format names when user clicks off the field
+                groupField.addEventListener('blur', function() {
+                    formatGroupFieldNames();
+                    syncCheckboxesWithGroup();
+                });
                 
                 // Initial sync when page loads
                 setTimeout(syncCheckboxesWithGroup, 100);
