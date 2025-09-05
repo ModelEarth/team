@@ -1792,9 +1792,9 @@
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            justify-content: flex-start;
+            align-items: flex-start;
+            text-align: left;
         }
         
         /* Dark overlay for cards with background images */
@@ -1803,15 +1803,6 @@
             color: white;
         }
         
-        /* Cards without images get the original bottom positioning without white background */
-        .gallery-card:not(.has-background-image) .gallery-content {
-            top: auto;
-            bottom: 0;
-            background: transparent;
-            justify-content: flex-start;
-            align-items: flex-start;
-            text-align: left;
-        }
         
         .gallery-card.has-background-image .gallery-name {
             color: white;
@@ -1826,9 +1817,9 @@
             color: white;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            justify-content: flex-start;
+            align-items: flex-start;
+            text-align: left;
         }
         
         /* Text mode for cards without images */
@@ -2938,7 +2929,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         // Current view mode and filtering
-        let currentView = getURLHashParam('display') || 'column'; // Always default to column if absent from hash
+        let currentView = getURLHashParam('display') || localStorage.getItem(getListStorageKey('participantsViewMode')) || 'column'; // Check URL hash first, then list-specific storage, then default to column
         let currentTeamFilter = getURLHashParam('team') || localStorage.getItem(getListStorageKey('participantsTeamFilter')) || null;
         let currentLoadedList = null; // Track which list is currently loaded
         let initialTeamLegendGenerated = false;
@@ -4234,8 +4225,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Clear active snapshot since view changed manually
             clearActiveSnapshot();
             
-            // Save view preference to localStorage
-            localStorage.setItem('participantsViewMode', viewType);
+            // Save view preference to list-specific localStorage
+            localStorage.setItem(getListStorageKey('participantsViewMode'), viewType);
             
             // Update URL hash parameter (don't send 'column' since it's the default)
             if (viewType === 'column') {
