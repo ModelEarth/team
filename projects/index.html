@@ -500,6 +500,18 @@
             overflow-x: hidden !important;
         }
         
+        /* Maintain 3-dot menu spacing in fullscreen mode */
+        .fullscreen-mode .participants-table .participant-menu {
+            right: 8px !important;
+        }
+        
+        /* Ensure menu column has consistent width in all modes */
+        .fullscreen-mode .participants-table td:last-child {
+            width: 70px !important;
+            min-width: 70px !important;
+            padding: 8px 16px !important;
+        }
+        
         
         /* Condensed layout styles */
         .condensed-mode .view-buttons {
@@ -1116,6 +1128,9 @@
         /* Menu cells need overflow visible for dropdown */
         .participants-table td:last-child {
             overflow: visible;
+            width: 70px !important;
+            min-width: 70px !important;
+            padding: 8px 16px !important;
         }
         
         /* 3-dot menu vertical centering only in table view */
@@ -3570,9 +3585,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const menuTd = document.createElement('td');
                 menuTd.style.textAlign = 'center';
                 menuTd.style.verticalAlign = 'middle';
-                menuTd.style.padding = '8px';
+                menuTd.style.padding = '8px 16px';
                 menuTd.style.position = 'relative';
-                menuTd.style.width = '50px';
+                menuTd.style.width = '70px';
+                menuTd.style.minWidth = '70px';
                 menuTd.style.zIndex = '100';
                 
                 menuTd.innerHTML = `
