@@ -322,7 +322,7 @@
             color: var(--text-primary);
             position: sticky;
             top: 0;
-            z-index: 1;
+            z-index: 10;
         }
         
         .participants-table td {
@@ -333,18 +333,21 @@
             text-overflow: ellipsis;
             cursor: pointer;
             transition: all 0.2s ease;
-            vertical-align: top;
+            vertical-align: middle;
         }
         
         .participants-table td.expanded {
             white-space: normal;
             word-wrap: break-word;
             max-width: none;
+            vertical-align: middle;
+            display: table-cell;
         }
         
         .participants-table tr:hover {
             background: rgba(59, 130, 246, 0.05);
         }
+        
         
         .table-info {
             display: flex;
@@ -495,6 +498,18 @@
         .fullscreen-mode .card {
             max-width: 100% !important;
             overflow-x: hidden !important;
+        }
+        
+        /* Maintain 3-dot menu spacing in fullscreen mode */
+        .fullscreen-mode .participants-table .participant-menu {
+            right: 8px !important;
+        }
+        
+        /* Ensure menu column has consistent width in all modes */
+        .fullscreen-mode .participants-table td:last-child {
+            width: 70px !important;
+            min-width: 70px !important;
+            padding: 8px 16px !important;
         }
         
         
@@ -1066,7 +1081,7 @@
             width: 24px;
             height: 24px;
             cursor: pointer;
-            z-index: 10;
+            z-index: 5;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1080,79 +1095,105 @@
             color: var(--text-primary);
         }
         
-        /* Center 3-dot menu in table cells */
-        tr .participant-menu.table-menu {
-            position: relative;
-            z-index: 9998;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-light);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            opacity: 1;
-            transition: transform 0.2s;
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-        }
-        
-        tr:hover .participant-menu.table-menu {
-            transform: scale(1.05);
-        }
-        
-        /* Enhanced table menu cell positioning - center the menu */
-        td:has(.table-menu) {
-            position: sticky;
-            right: 0;
-            background: var(--bg-primary);
-            border-left: 1px solid var(--border-light);
-            padding: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 50px;
-            min-width: 50px;
-        }
         
         .participant-menu-dropdown {
             position: absolute;
             top: 100%;
-            right: 0;
+            right: 26px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-light);
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-md);
             min-width: 150px;
-            z-index: 1000;
+            z-index: 999999;
             display: none;
-            margin-top: 4px;
+            margin-top: -20px;
         }
         
-        /* Ensure table dropdowns appear above all table elements */
-        tr .participant-menu-dropdown {
-            z-index: 10000;
-            position: absolute;
-            top: 100%;
-            left: -100px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            border: 1px solid var(--border-medium);
-            background: var(--bg-secondary) !important;
-            opacity: 1 !important;
-            min-width: 150px;
-            margin-top: 4px;
-        }
         
         /* Override table container z-index issues */
         .table-container {
             position: relative;
             z-index: 1;
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        
+        /* Only allow overflow for menu cells to show dropdowns */
+        .participants-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Menu cells need overflow visible for dropdown */
+        .participants-table td:last-child {
+            overflow: visible;
+            width: 70px !important;
+            min-width: 70px !important;
+            padding: 8px 16px !important;
+        }
+        
+        /* 3-dot menu vertical centering only in table view */
+        .participants-table .participant-menu {
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        /* 3-dot menu dark color for gallery view visibility */
+        .gallery-card .participant-menu {
+            color: #000000 !important;
+        }
+        
+        .gallery-card .participant-menu:hover {
+            color: #000000 !important;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Ensure participants table container doesn't clip dropdowns */
+        .participants-table-container {
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        
+        /* Table right-click context menu */
+        .table-context-menu {
+            position: fixed;
+            z-index: 999999;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            min-width: 150px;
+            padding: 4px 0;
+            opacity: 1;
+        }
+        
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .context-menu-item:hover {
+            background: var(--bg-tertiary);
         }
         
         
         .participant-menu-item {
-            padding: 8px 12px;
+            padding: 12px 16px;
             cursor: pointer;
             font-size: 14px;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
+            min-height: 40px;
+            text-align: center;
         }
         
         .participant-menu-item:hover {
@@ -1162,10 +1203,13 @@
         .participant-menu-item a {
             color: inherit;
             text-decoration: none;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
             height: 100%;
             padding: 0;
+            text-align: center;
         }
         
         /* Table-specific checkbox styling */
@@ -1591,15 +1635,12 @@
         .participant-card[style*="cursor: pointer"]:hover,
         .gallery-card[style*="cursor: pointer"]:hover,
         .participants-table tr[style*="cursor: pointer"]:hover {
-            background-color: var(--bg-tertiary);
+            background-color: rgba(59, 130, 246, 0.1) !important;
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
             transition: all 0.2s ease;
         }
         
-        .participants-table tr[style*="cursor: pointer"]:hover {
-            background-color: rgba(59, 130, 246, 0.1) !important;
-        }
         
         /* Raw Data Editor Close Button */
         #raw-data-close {
@@ -3540,16 +3581,18 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     tr.appendChild(td);
                 });
                 
-                // Add menu column last
+                // Add menu column last (using same approach as column/gallery views)
                 const menuTd = document.createElement('td');
                 menuTd.style.textAlign = 'center';
                 menuTd.style.verticalAlign = 'middle';
-                menuTd.style.padding = '8px';
+                menuTd.style.padding = '8px 16px';
                 menuTd.style.position = 'relative';
-                menuTd.style.width = '50px';
+                menuTd.style.width = '70px';
+                menuTd.style.minWidth = '70px';
+                menuTd.style.zIndex = '100';
                 
                 menuTd.innerHTML = `
-                    <div class="participant-menu table-menu">
+                    <div class="participant-menu">
                         ⋯
                         <div class="participant-menu-dropdown">
                             <div class="participant-menu-item">
@@ -3559,39 +3602,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     </div>
                 `;
                 
-                // Prevent row click when clicking in menu cell
-                menuTd.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                });
-                
-                // Add 3-dot menu event listener for table menu
-                const tableMenu = menuTd.querySelector('.participant-menu');
-                if (tableMenu) {
-                    tableMenu.addEventListener('click', function(e) {
+                // Add the same 3-dot menu event listener as column/gallery views
+                const menu = menuTd.querySelector('.participant-menu');
+                if (menu) {
+                    menu.addEventListener('click', function(e) {
                         e.stopPropagation();
                         const dropdown = this.querySelector('.participant-menu-dropdown');
-                        
                         // Close other dropdowns
                         document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
                             if (d !== dropdown) d.style.display = 'none';
                         });
-                        
                         // Toggle this dropdown
-                        const isVisible = dropdown.style.display === 'block';
-                        if (isVisible) {
-                            dropdown.style.display = 'none';
-                        } else {
-                            // Just show the dropdown - let CSS handle positioning
-                            dropdown.style.display = 'block';
-                        }
+                        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
                     });
                     
                     // Add event listener to menu items to close dropdown when clicked
-                    const tableMenuItems = tableMenu.querySelectorAll('.participant-menu-item');
-                    tableMenuItems.forEach(item => {
+                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    menuItems.forEach(item => {
                         item.addEventListener('click', function() {
-                            const dropdown = tableMenu.querySelector('.participant-menu-dropdown');
+                            const dropdown = menu.querySelector('.participant-menu-dropdown');
                             if (dropdown) {
                                 dropdown.style.display = 'none';
                             }
@@ -3607,15 +3636,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Sync checkboxes after rendering table
             setTimeout(syncCheckboxesWithGroup, 10);
             
-            // Add scroll listener to close dropdowns when table scrolls
-            const tableContainer = document.querySelector('.table-container');
-            if (tableContainer) {
-                tableContainer.addEventListener('scroll', function() {
-                    document.querySelectorAll('tr .participant-menu-dropdown').forEach(dropdown => {
-                        dropdown.style.display = 'none';
-                    });
-                });
-            }
         }
         
         // Get team class based on team value (checks all teams in comma-separated list)
