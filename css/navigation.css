@@ -79,37 +79,6 @@
     width: auto;
 }
 
-/* Sidebar Header */
-.sidebar-header {
-    padding: 24px 20px;
-    border-bottom: 1px solid var(--border-light);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: relative;
-}
-
-.logo {
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    flex-shrink: 0;
-}
-
-.logo-text {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    transition: var(--transition-smooth);
-    white-space: nowrap;
-}
-
 .sidebar-toggle {
     position: absolute;
     right: 12px;
