@@ -1122,6 +1122,12 @@
             display: none;
             margin-top: -20px;
         }
+
+        /* Specific positioning for table view dropdown */
+        .participants-table .participant-menu-dropdown {
+            right: 32px;
+            margin-top: -34px;
+        }
         
         
         /* Override table container z-index issues */
@@ -1141,15 +1147,70 @@
         /* Menu cells need overflow visible for dropdown */
         .participants-table td:last-child {
             overflow: visible;
-            width: 70px !important;
-            min-width: 70px !important;
-            padding: 8px 16px !important;
+            width: 50px !important;
+            min-width: 50px !important;
+            padding: 8px 12px !important;
         }
         
         /* 3-dot menu vertical centering only in table view */
         .participants-table .participant-menu {
+            position: absolute;
             top: 50%;
-            transform: translateY(-50%);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 18px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            z-index: 5;
+            background: transparent;
+        }
+
+        /* Hover effect for the menu button */
+        .participants-table .participant-menu:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Ensure the menu cell is sticky as well */
+        .participants-table td:last-child {
+            position: sticky !important;
+            right: 0 !important;
+            background: var(--bg-secondary) !important;
+            border-left: 1px solid var(--border-light) !important;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1) !important;
+            z-index: 10 !important;
+        }
+
+        /* Make the menu header column sticky too */
+        .participants-table th:last-child {
+            position: sticky !important;
+            right: 0 !important;
+            background: var(--bg-tertiary) !important;
+            border-left: 1px solid var(--border-light) !important;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1) !important;
+            z-index: 11 !important;
+            width: 50px !important;
+            min-width: 50px !important;
+        }
+
+        /* Dark mode support for sticky menu column */
+        .dark .participants-table td:last-child,
+        .dark .participants-table th:last-child {
+            background: var(--bg-secondary) !important;
+            border-left: 1px solid var(--border-medium) !important;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .dark .participants-table .participant-menu {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-medium);
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.3);
         }
         
         /* 3-dot menu dark color for gallery view visibility */
@@ -3459,7 +3520,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Add menu column header at the end
             const menuTh = document.createElement('th');
-            menuTh.style.width = '40px';
+            menuTh.style.width = '50px';
             menuTh.style.textAlign = 'center';
             headerRow.appendChild(menuTh);
             
@@ -3598,10 +3659,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const menuTd = document.createElement('td');
                 menuTd.style.textAlign = 'center';
                 menuTd.style.verticalAlign = 'middle';
-                menuTd.style.padding = '8px 16px';
+                menuTd.style.padding = '8px 12px';
                 menuTd.style.position = 'relative';
-                menuTd.style.width = '70px';
-                menuTd.style.minWidth = '70px';
+                menuTd.style.width = '50px';
+                menuTd.style.minWidth = '50px';
                 menuTd.style.zIndex = '100';
                 
                 menuTd.innerHTML = `
