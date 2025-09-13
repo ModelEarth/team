@@ -47,6 +47,14 @@ class AuthModal {
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
             }
 
+            /* Wider layout for short browser heights */
+            @media (max-height: 700px) {
+                .auth-modal-content {
+                    max-width: 600px;
+                    width: 95%;
+                }
+            }
+
             .auth-modal-header {
                 display: flex;
                 align-items: center;
@@ -87,6 +95,15 @@ class AuthModal {
                 display: flex;
                 flex-direction: column;
                 gap: 12px;
+            }
+
+            /* 2-column grid for short browser heights */
+            @media (max-height: 700px) {
+                .auth-buttons {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
+                }
             }
 
             .auth-btn {

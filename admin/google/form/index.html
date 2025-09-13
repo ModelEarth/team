@@ -6,6 +6,9 @@
     <link rel="icon" type="image/x-icon" href="../../../img/logo/neighborhood/favicon.png">
     <title>Member Registration</title>
 
+    <link type="text/css" rel="stylesheet" href="../../../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../../../../localsite/js/localsite.js?showheader=true"></script>
+
     <link rel="stylesheet" href="../../../css/common.css">
     <link rel="stylesheet" href="../../../css/shared-styles.css">
     
@@ -13,7 +16,12 @@
 
     <script src="../../../js/common.js"></script>
     
+    <!-- needs dark mode
     <link rel="stylesheet" href="../../../css/claude.css">
+    -->
+
+    <!-- Load Shared Auth Modal -->
+    <script src="../../../js/auth-modal.js"></script>
 
     <!-- Google OAuth (only load if not localhost) -->
     <script>
@@ -27,6 +35,7 @@
     </script>
 
     <style>
+        /*
         :root {
             --bg-primary: #F9FAFB;
             --bg-secondary: #FFFFFF;
@@ -59,7 +68,7 @@
             color: var(--text-primary);
             line-height: 1.6;
         }
-
+        
         .container {
             max-width: 800px;
             margin: 20px auto;
@@ -93,6 +102,9 @@
             font-size: 1rem;
         }
 
+        */
+        
+        
         .auth-section {
             text-align: center;
             padding: 40px 20px;
@@ -196,20 +208,13 @@
 
         .checkbox-group {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             margin-top: 8px;
         }
 
-        /* Responsive grid: 2 columns when container < 800px */
-        @container (max-width: 799px) {
-            .checkbox-group {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Single column for very small containers */
-        @container (max-width: 399px) {
+        /* Single column for narrow containers */
+        @container (max-width: 500px) {
             .checkbox-group {
                 grid-template-columns: 1fr;
             }
@@ -279,6 +284,17 @@
 
         .btn-secondary:hover:not(:disabled) {
             background: var(--border-light);
+        }
+
+        .btn-secondary.active {
+            border: 2px solid var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+            box-sizing: border-box;
+        }
+
+        /* Dark mode button hover */
+        .dark .btn-secondary:hover:not(:disabled) {
+            color: white !important;
         }
 
         .btn-success {
@@ -397,6 +413,22 @@
 </head>
 <body>
     <div class="container">
+        <!-- Header with Navigation and Sign In -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <a href="../../../projects/#list=modelteam" class="btn btn-secondary" style="text-decoration: none;">
+                    <i data-feather="arrow-left"></i>
+                    Team Members
+                </a>
+            </div>
+            <div class="sign-in-container" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="adminInfoBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('admin')" style="display: none;">Admin Info</button>
+                <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('google')" style="display: none;">Google API</button>
+                <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth.js Config</button>
+                <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showAuthModal()">Sign In</button>
+            </div>
+        </div>
+
         <!-- Authentication Section -->
         <div class="card auth-section auth-required">
             <h1 class="card-title">
@@ -437,6 +469,7 @@
 
         <!-- Member Registration Form -->
         <div class="card form-section" id="member-form">
+            <div id="adminDiv" style="display: none; margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border-light);"></div>
             <div class="user-info" id="user-info" style="display: none;">
                 <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
                 <div>
@@ -756,5 +789,82 @@
     </div>
 
     <script src="form.js"></script>
+    
+    <script>
+        // Function to check if a value represents boolean true
+        function isTrueValue(value) {
+            if (!value) return false;
+            const lowerValue = value.toLowerCase();
+            return lowerValue === '1' || lowerValue === 'true' || lowerValue === 'yes' || lowerValue === 'on';
+        }
+        
+        // Get URL hash parameters
+        function getHashParams() {
+            const hash = window.location.hash.substr(1);
+            const params = new URLSearchParams(hash);
+            return params;
+        }
+        
+        // Check for admininfo parameter
+        const hashParams = getHashParams();
+        const adminInfoParam = hashParams.get('admininfo');
+        const showAdminInfo = isTrueValue(adminInfoParam);
+        
+        // Show Admin Info buttons on localhost OR when admininfo=true
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocalhost || showAdminInfo) {
+            document.getElementById('adminInfoBtn').style.display = 'block';
+            document.getElementById('googleApiBtn').style.display = 'block';
+            document.getElementById('authConfigBtn').style.display = 'block';
+        }
+        
+        // Track current active section
+        let currentActiveSection = null;
+        
+        // Toggle admin section display
+        function toggleAdminSection(section) {
+            const adminDiv = document.getElementById('adminDiv');
+            const buttons = {
+                'admin': document.getElementById('adminInfoBtn'),
+                'google': document.getElementById('googleApiBtn'),
+                'auth': document.getElementById('authConfigBtn')
+            };
+            
+            const files = {
+                'admin': 'admin.md',
+                'google': 'google.md',
+                'auth': 'auth.md'
+            };
+            
+            // If clicking the same section that's already active, hide it
+            if (currentActiveSection === section) {
+                adminDiv.style.display = 'none';
+                buttons[section].classList.remove('active');
+                currentActiveSection = null;
+                return;
+            }
+            
+            // Hide current section and remove active state from all buttons
+            Object.values(buttons).forEach(btn => btn.classList.remove('active'));
+            
+            // Load and show new section
+            console.log('Loading section:', section, 'file:', files[section]);
+            adminDiv.innerHTML = ''; // Clear previous content
+            loadMarkdown(files[section], 'adminDiv', '_parent', 1);
+            adminDiv.style.display = 'block';
+            buttons[section].classList.add('active');
+            currentActiveSection = section;
+        }
+        
+        // Auto-open admin info if admininfo parameter is true
+        if (showAdminInfo) {
+            // Wait for DOM to be fully loaded
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                    toggleAdminSection('admin');
+                }, 100);
+            });
+        }
+    </script>
 </body>
 </html>

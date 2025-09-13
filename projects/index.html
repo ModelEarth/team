@@ -2065,7 +2065,7 @@
             <a href="../admin/">Partner Tools</a>
         </div>
 
-        <div class="header" id="teamHeader" style="displayX: none;">
+        <div class="header" id="teamHeader" style="display: none;">
             <h1>
                 <div class="gemini-icon">G</div>
                 Coding Meetup Integration
@@ -2412,7 +2412,7 @@
             const aiInsights = document.getElementById('aiInsights');
             if (aiInsights && window.participantsData && window.participantsData.length > 0) {
                 // Only show if insights=all is in URL, otherwise respect the hidden state
-                const insightsParam = getURLHashParam('insights');
+                const insightsParam = getHash().insights;
                 if (insightsParam === 'all') {
                     aiInsights.style.setProperty('display', 'block', 'important');
                 }
@@ -3098,13 +3098,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Helper function to get list-specific localStorage key
         function getListStorageKey(baseKey) {
-            const listId = getURLHashParam('list') || 'default';
+            const listId = getHash().list || 'default';
             return `${listId}_1_${baseKey}`;
         }
         
         // Current view mode and filtering
-        let currentView = getURLHashParam('display') || localStorage.getItem(getListStorageKey('participantsViewMode')) || 'column'; // Check URL hash first, then list-specific storage, then default to column
-        let currentTeamFilter = getURLHashParam('team') || localStorage.getItem(getListStorageKey('participantsTeamFilter')) || null;
+        let currentView = getHash().display || localStorage.getItem(getListStorageKey('participantsViewMode')) || 'column'; // Check URL hash first, then list-specific storage, then default to column
+        let currentTeamFilter = getHash().team || localStorage.getItem(getListStorageKey('participantsTeamFilter')) || null;
         let currentLoadedList = null; // Track which list is currently loaded
         let initialTeamLegendGenerated = false;
         
@@ -3134,7 +3134,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         let originalDataOrder = [];
         
         // Status filtering - check URL hash first, then localStorage
-        let selectedStatuses = new Set(getURLHashParam('status') ? getURLHashParam('status').split(',') : JSON.parse(localStorage.getItem(getListStorageKey('participantsStatusFilter')) || '["All"]'));
+        let selectedStatuses = new Set(getHash().status ? getHash().status.split(',') : JSON.parse(localStorage.getItem(getListStorageKey('participantsStatusFilter')) || '["All"]'));
         let availableStatuses = [];
         
         // Group participants toggle state
@@ -3257,7 +3257,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 return;
             }
             
-            const isMetaList = getURLHashParam('list') === 'all';
+            const isMetaList = getHash().list === 'all';
             
             let imageCount = 0;
             data.forEach(participant => {
@@ -3528,7 +3528,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Create table body
             tableBody.innerHTML = '';
-            const isMetaList = getURLHashParam('list') === 'all';
+            const isMetaList = getHash().list === 'all';
             
             data.forEach(row => {
                 if (!row) return; // Skip null/undefined rows
@@ -3941,7 +3941,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 return;
             }
             
-            const isMetaList = getURLHashParam('list') === 'all';
+            const isMetaList = getHash().list === 'all';
             
             let imageCount = 0;
             data.forEach(participant => {
@@ -4528,7 +4528,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             updateGroupCount();
             
             // Initialize previousGroupParam state
-            previousGroupParam = getURLHashParam('group');
+            previousGroupParam = getHash().group;
         }
         
         function scrollGroupInputToRight() {
@@ -4922,7 +4922,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function shouldShowGroupParticipants() {
             // Check current list from hash
-            const currentList = getURLHashParam('list');
+            const currentList = getHash().list;
             
             // Check if the current list supports groups (modelteam) AND it exists in fileSelect
             const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
@@ -5159,7 +5159,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function getCurrentDataSource() {
             // Get current data source based on selection and hash parameters
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             
             if (listParam === 'all') {
                 return 'Meta-list: All Available Feeds';
@@ -5267,7 +5267,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         let currentActiveSnapshot = null;
         
         function getSnapshotsStorageKey() {
-            const listId = getURLHashParam('list') || 'default';
+            const listId = getHash().list || 'default';
             return `${listId}_1_snapshots`;
         }
         
@@ -5352,7 +5352,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function loadSnapshot(name) {
             const snapshots = loadSnapshots();
-            console.log(`🔄 Loading snapshot "${name}" for list:`, getURLHashParam('list'));
+            console.log(`🔄 Loading snapshot "${name}" for list:`, getHash().list);
             console.log('📸 Available snapshots:', Object.keys(snapshots));
             
             if (snapshots[name]) {
@@ -6031,7 +6031,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Show group control only for modelteam list (if available in fileSelect)
             const groupControl = document.getElementById('group-control');
-            const currentList = getURLHashParam('list');
+            const currentList = getHash().list;
             if (groupControl) {
                 // Check if modelteam option exists in fileSelect before showing group control
                 const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
@@ -6055,7 +6055,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Update menu visibility based on current list
         function updateMenuVisibility() {
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             const allFeedsToggle = document.getElementById('list-feeds-toggle');
             
             if (allFeedsToggle) {
@@ -6135,7 +6135,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 participantListTitle.textContent = `📊 ${customTitle}`;
             } else {
                 // Check if there's a list parameter in the hash
-                const listParam = getURLHashParam('list');
+                const listParam = getHash().list;
                 if (listParam) {
                     // Special case for geo - use "Location Visits" title
                     if (listParam === 'geo') {
@@ -6177,7 +6177,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Show/hide header based on list parameter
         function updateHeaderVisibility() {
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             const header = document.getElementById('teamHeader');
             
             if (header) {
@@ -6265,7 +6265,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             addGeoOption();
             
             // Check for geo-related domains or hash parameter
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             const shouldDefaultToGeo = !listParam && (window.location.hostname.includes('geo') || window.location.hostname.includes('location'));
             
             if (listParam === 'all') {
@@ -6333,8 +6333,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
         }
         
+        function addModelteamOption() {
+            // Check if "modelteam" option already exists
+            const existingModelteamOption = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
+            if (existingModelteamOption) return;
+            
+            // Add "Model Earth Team" option (from lists.csv line 4)
+            const modelteamOption = document.createElement('option');
+            modelteamOption.value = 'modelteam';
+            modelteamOption.textContent = 'Model Earth Team';
+            modelteamOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv');
+            
+            // Insert after other options but before "Choose File..."
+            const chooseFileOption = Array.from(fileSelect.options).find(option => option.value === 'custom');
+            if (chooseFileOption) {
+                fileSelect.insertBefore(modelteamOption, chooseFileOption);
+            } else {
+                fileSelect.appendChild(modelteamOption);
+            }
+        }
+        
         function updateListSelectVisibility() {
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             const pageControls = document.getElementById('pageControls');
             const breadcrumb = document.querySelector('.breadcrumb');
             const addVisitBtn = document.getElementById('add-visit-btn');
@@ -6406,7 +6426,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Check for insights parameter in URL and show/hide accordingly
         function checkInsightsFromURL() {
-            const insightsParam = getURLHashParam('insights');
+            const insightsParam = getHash().insights;
             const aiInsights = document.getElementById('aiInsights');
             const insightsBtn = document.getElementById('insights-btn');
             
@@ -6866,8 +6886,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 setTimeout(syncCheckboxesWithGroup, 100);
             }
             
-            // Set initial header visibility based on current hash
-            updateHeaderVisibility();
+            // Add modelteam option to dropdown if it doesn't exist (temporary fix)
+            addModelteamOption();
+            
+            // Set initial header visibility based on current hash (with delay to ensure dropdown is populated)
+            setTimeout(updateHeaderVisibility, 500);
             
             // Initialize insights visibility from URL (with delay to ensure DOM is ready)
             setTimeout(checkInsightsFromURL, 100);
@@ -6877,7 +6900,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle list parameter changes
             window.addEventListener('hashchange', function() {
-                const listParam = getURLHashParam('list');
+                const listParam = getHash().list;
                 console.log('HASHCHANGE: Processing list parameter:', listParam);
                 
                 // Update UI for hash changes (header visibility and title)
@@ -6933,7 +6956,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle display mode changes
             window.addEventListener('hashchange', function() {
-                const displayParam = getURLHashParam('display') || 'column'; // Default to column if absent
+                const displayParam = getHash().display || 'column'; // Default to column if absent
                 if (['column', 'table', 'gallery'].includes(displayParam) && displayParam !== currentView) {
                     switchView(displayParam);
                 }
@@ -6955,7 +6978,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle team parameter changes
             window.addEventListener('hashchange', function() {
-                const teamParam = getURLHashParam('team');
+                const teamParam = getHash().team;
                 if (teamParam !== currentTeamFilter) {
                     console.log('🔗 Team parameter changed in URL hash:', teamParam);
                     currentTeamFilter = teamParam;
@@ -6974,7 +6997,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle status parameter changes
             window.addEventListener('hashchange', function() {
-                const statusParam = getURLHashParam('status');
+                const statusParam = getHash().status;
                 const newStatuses = statusParam ? statusParam.split(',') : ['All'];
                 const currentStatusArray = Array.from(selectedStatuses);
                 
@@ -7007,7 +7030,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }, 100);
             
             // Check for list=all in URL hash to auto-load meta list
-            const listParam = getURLHashParam('list');
+            const listParam = getHash().list;
             if (listParam === 'all') {
                 showAllFeeds();
             } else if (listParam === 'geo') {
@@ -7518,7 +7541,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
 
         function getAllCacheData() {
-            const currentListId = getURLHashParam('list') || 'default';
+            const currentListId = getHash().list || 'default';
             const cacheData = {
                 currentList: currentListId,
                 globalSettings: {},
