@@ -39,7 +39,7 @@ const jobTitleSuggestions = [
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, hostname:', window.location.hostname);
     
-    initializeFeatherIcons();
+    initializeFeatherIcons(); // Reside in common.js
     setupFormEventListeners();
     setupJobTitleAutocomplete();
     updateProgressIndicator();
@@ -56,10 +56,6 @@ document.addEventListener('DOMContentLoaded', function() {
         loadConfiguration();
     }
 });
-
-function initializeFeatherIcons() {
-    // Feather icons handled by nav.js
-}
 
 async function loadConfiguration() {
     try {

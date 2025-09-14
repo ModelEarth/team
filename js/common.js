@@ -1080,7 +1080,7 @@ function initializeFeatherIcons() {
                 if (typeof feather !== 'undefined' || window.feather) {
                     initializeFeatherIcons();
                 }
-            }, 100);
+            }, 200);
         }
     }
 }

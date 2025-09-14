@@ -856,15 +856,53 @@
             currentActiveSection = section;
         }
         
-        // Auto-open admin info if admininfo parameter is true
-        if (showAdminInfo) {
-            // Wait for DOM to be fully loaded
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(function() {
-                    toggleAdminSection('admin');
-                }, 100);
-            });
+        // Function to check and handle admin info display
+        function checkAndShowAdminInfo() {
+            const hashParams = getHashParams();
+            const adminInfoParam = hashParams.get('admininfo');
+            const shouldShowAdminInfo = isTrueValue(adminInfoParam);
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            if (isLocalhost || shouldShowAdminInfo) {
+                // Show admin buttons
+                document.getElementById('adminInfoBtn').style.display = 'block';
+                document.getElementById('googleApiBtn').style.display = 'block';
+                document.getElementById('authConfigBtn').style.display = 'block';
+                
+                // Auto-open admin info if not already open and admininfo=true
+                if (shouldShowAdminInfo && currentActiveSection !== 'admin') {
+                    setTimeout(function() {
+                        toggleAdminSection('admin');
+                    }, 100);
+                }
+            } else {
+                // Hide admin buttons if not localhost and no admininfo param
+                document.getElementById('adminInfoBtn').style.display = 'none';
+                document.getElementById('googleApiBtn').style.display = 'none';
+                document.getElementById('authConfigBtn').style.display = 'none';
+                
+                // Hide admin content if visible
+                const adminDiv = document.getElementById('adminDiv');
+                if (currentActiveSection) {
+                    adminDiv.style.display = 'none';
+                    const buttons = {
+                        'admin': document.getElementById('adminInfoBtn'),
+                        'google': document.getElementById('googleApiBtn'),
+                        'auth': document.getElementById('authConfigBtn')
+                    };
+                    Object.values(buttons).forEach(btn => btn.classList.remove('active'));
+                    currentActiveSection = null;
+                }
+            }
         }
+        
+        // Check on initial load
+        checkAndShowAdminInfo();
+        
+        // Listen for hash changes
+        window.addEventListener('hashchange', function() {
+            checkAndShowAdminInfo();
+        });
     </script>
 </body>
 </html>
