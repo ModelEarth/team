@@ -982,6 +982,15 @@
             clearTimeout(searchTimeout);
             
             searchTimeout = setTimeout(() => {
+                const modelsiteCookie = Cookies.get('modelsite');
+                console.log('modelsite cookie value:', modelsiteCookie);
+                
+                // Only do name lookup if modelsite is model.earth
+                if (modelsiteCookie !== 'model.earth') {
+                    hideSuggestions();
+                    return;
+                }
+                
                 const cursorPos = this.selectionStart;
                 const textBeforeCursor = this.value.substring(0, cursorPos);
                 const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
