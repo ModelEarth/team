@@ -66,6 +66,7 @@
         @media (max-width: 700px) {
             .form-field.description-field .form-label,
             .form-field.participant-handles-field .form-label,
+            .form-field.participant-names-field .form-label,
             .form-field.project-name-field .form-label,
             .form-field.location-field .form-label {
                 float: none !important;
@@ -73,6 +74,7 @@
             }
             .form-field.description-field .form-value,
             .form-field.participant-handles-field .form-value,
+            .form-field.participant-names-field .form-value,
             .form-field.project-name-field .form-value,
             .form-field.location-field .form-value {
                 float: none !important;
@@ -81,11 +83,68 @@
         }
         .form-field.participant-handles-field {
             overflow: auto;
+            display: none; /* Hidden by default */
+            position: relative;
+            z-index: 1;
+        }
+        .form-field.participant-handles-field.localhost {
+            display: block; /* Show only on localhost */
         }
         .form-field.participant-handles-field .form-value {
             width: calc(100% - 165px);
         }
-        textarea[name="participant_handles"] {
+        .form-field.participant-names-field {
+            overflow: auto;
+            position: relative;
+            z-index: 10;
+        }
+        .form-field.participant-names-field .form-value {
+            width: calc(100% - 165px);
+        }
+        
+        /* Name lookup styles */
+        .name-lookup-container {
+            position: relative;
+        }
+        .name-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+        }
+        .name-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .name-suggestion:hover,
+        .name-suggestion.active {
+            background: #f8f9fa;
+        }
+        .name-suggestion:last-child {
+            border-bottom: none;
+        }
+        .dark .name-suggestions {
+            background: #2d2d2d;
+            border-color: #404040;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .dark .name-suggestion {
+            border-bottom-color: #404040;
+            color: #e0e0e0;
+        }
+        .dark .name-suggestion:hover,
+        .dark .name-suggestion.active {
+            background: #333;
+        }
+        textarea[name="participant_handles"],
+        textarea[name="participant_names"] {
             width: 100% !important;
             padding: 10px !important;
             box-sizing: border-box !important;
@@ -636,6 +695,15 @@
             <div class="form-label">Description</div>
             <div class="form-value"><textarea name="description"></textarea></div>
         </div>
+        <div class="form-field participant-names-field">
+            <div class="form-label">Names</div>
+            <div class="form-value">
+                <div class="name-lookup-container">
+                    <textarea name="participant_names" placeholder="Start typing names to search..."></textarea>
+                </div>
+                <div class="tip-text">Comma separated list. Type to search team members.</div>
+            </div>
+        </div>
         <div class="form-field participant-handles-field">
             <div class="form-label">Handles</div>
             <div class="form-value">
@@ -704,11 +772,329 @@
         return errorMessage;
     }
 
+    // CSV data URL for name lookup
+    const CSV_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv';
+    
+    // Store CSV data globally
+    let csvData = [];
+    
+    // Parse CSV with proper quote handling
+    function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        result.push(current.trim());
+        return result;
+    }
+    
+    // Load CSV data for name lookup
+    async function loadCSVData() {
+        try {
+            const response = await fetch(CSV_DATA_URL);
+            const csvText = await response.text();
+            
+            // Parse CSV data with proper quote handling
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length === 0) return;
+            
+            const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').trim());
+            
+            csvData = lines.slice(1).map(line => {
+                const values = parseCSVLine(line).map(v => v.replace(/"/g, '').trim());
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = values[index] || '';
+                });
+                return obj;
+            }).filter(obj => obj.Name && obj.Name.length > 0); // Filter out empty rows
+            
+            console.log('CSV data loaded:', csvData.length, 'entries');
+            console.log('Sample data:', csvData.slice(0, 3));
+        } catch (error) {
+            console.error('Failed to load CSV data:', error);
+        }
+    }
+    
+    // Search names in CSV data
+    function searchNames(query) {
+        if (!query || query.length < 2) return [];
+        
+        const searchTerm = query.toLowerCase();
+        return csvData.filter(person => 
+            person.Name && person.Name.toLowerCase().includes(searchTerm)
+        ).slice(0, 10); // Limit to 10 suggestions
+    }
+    
+    // Show name suggestions
+    function showNameSuggestions(suggestions, inputElement) {
+        let suggestionsDiv = document.getElementById('name-suggestions');
+        
+        if (suggestions.length === 0) {
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Create suggestions div if it doesn't exist or move it to body
+        if (!suggestionsDiv || suggestionsDiv.parentElement !== document.body) {
+            // Remove existing one if it's in the wrong place
+            if (suggestionsDiv) {
+                suggestionsDiv.remove();
+            }
+            
+            suggestionsDiv = document.createElement('div');
+            suggestionsDiv.id = 'name-suggestions';
+            suggestionsDiv.className = 'name-suggestions';
+            document.body.appendChild(suggestionsDiv);
+        }
+        
+        const suggestionsHtml = suggestions.map(person => {
+            // Try different possible handle field names
+            const handle = person.Handle || person.handle || person.GitHub || person.github || person.Username || person.username || '';
+            return `<div class="name-suggestion" data-name="${person.Name}" data-handle="${handle}">${person.Name}</div>`;
+        }).join('');
+        
+        suggestionsDiv.innerHTML = suggestionsHtml;
+        
+        // Position the dropdown relative to the input field
+        positionDropdown(suggestionsDiv, inputElement);
+        suggestionsDiv.style.display = 'block';
+        
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.name-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+                selectName(this.dataset.name, this.dataset.handle, inputElement);
+            });
+        });
+    }
+    
+    // Select a name and update both Names and Handles fields
+    function selectName(name, handle, inputElement) {
+        const namesField = inputElement;
+        const handlesField = document.querySelector('textarea[name="participant_handles"]');
+        
+        // Find the position where we're inserting
+        const cursorPos = namesField.selectionStart;
+        const textBeforeCursor = namesField.value.substring(0, cursorPos);
+        const textAfterCursor = namesField.value.substring(cursorPos);
+        
+        // Find the current partial name being typed
+        const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
+        const currentQuery = textBeforeCursor.substring(lastCommaIndex + 1).trim();
+        
+        // Replace the current partial name with the selected name
+        let beforeQuery = textBeforeCursor.substring(0, lastCommaIndex + 1);
+        if (beforeQuery && beforeQuery !== ',') {
+            beforeQuery += ' '; // Add space after comma if there's text before
+        }
+        
+        // Build the new names value
+        const newNamesValue = beforeQuery + name + textAfterCursor;
+        namesField.value = newNamesValue;
+        
+        // Update handles field simultaneously
+        // Get current handles and split them
+        let currentHandles = handlesField.value.split(',').map(h => h.trim()).filter(h => h);
+        let currentNames = newNamesValue.split(',').map(n => n.trim()).filter(n => n);
+        
+        // Find the position of the newly added name
+        const namePosition = currentNames.indexOf(name);
+        
+        // Add or update the handle at the same position
+        if (handle && namePosition !== -1) {
+            // Ensure handles array is long enough
+            while (currentHandles.length <= namePosition) {
+                currentHandles.push('');
+            }
+            currentHandles[namePosition] = handle;
+            
+            // Remove trailing empty handles
+            while (currentHandles.length > 0 && currentHandles[currentHandles.length - 1] === '') {
+                currentHandles.pop();
+            }
+            
+            handlesField.value = currentHandles.join(', ');
+        }
+        
+        // Hide suggestions
+        hideSuggestions();
+        
+        // Position cursor after the inserted name, ready for next entry
+        const newCursorPos = (beforeQuery + name).length;
+        setTimeout(() => {
+            namesField.setSelectionRange(newCursorPos, newCursorPos);
+            namesField.focus();
+            
+            // If there's no text after and we're not at the end, add a comma and space for next entry
+            if (!textAfterCursor.trim() && newCursorPos === namesField.value.length) {
+                const shouldAddComma = !namesField.value.endsWith(',') && !namesField.value.endsWith(', ');
+                if (shouldAddComma) {
+                    namesField.value += ', ';
+                    namesField.setSelectionRange(namesField.value.length, namesField.value.length);
+                }
+            }
+        }, 0);
+    }
+    
+    // Position dropdown relative to input field
+    function positionDropdown(suggestionsDiv, inputElement) {
+        const rect = inputElement.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        
+        suggestionsDiv.style.top = (rect.bottom + scrollTop) + 'px';
+        suggestionsDiv.style.left = (rect.left + scrollLeft) + 'px';
+        suggestionsDiv.style.width = rect.width + 'px';
+    }
+    
+    // Hide suggestions helper function
+    function hideSuggestions() {
+        const suggestionsDiv = document.getElementById('name-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.style.display = 'none';
+        }
+    }
+    
+    // Handle participant names field - setup name lookup
+    function setupNameLookup() {
+        const namesField = document.querySelector('textarea[name="participant_names"]');
+        
+        if (!namesField) return;
+        
+        let searchTimeout;
+        
+        namesField.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            
+            searchTimeout = setTimeout(() => {
+                const cursorPos = this.selectionStart;
+                const textBeforeCursor = this.value.substring(0, cursorPos);
+                const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
+                const currentQuery = textBeforeCursor.substring(lastCommaIndex + 1).trim();
+                
+                if (currentQuery.length >= 2) {
+                    const suggestions = searchNames(currentQuery);
+                    showNameSuggestions(suggestions, this);
+                } else {
+                    hideSuggestions();
+                }
+            }, 300);
+        });
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.name-lookup-container') && !e.target.closest('.name-suggestions')) {
+                hideSuggestions();
+            }
+        });
+        
+        // Throttle function for scroll events
+        let scrollTimeout;
+        
+        // Update dropdown position on scroll and resize
+        window.addEventListener('scroll', function() {
+            const suggestionsDiv = document.getElementById('name-suggestions');
+            if (suggestionsDiv && suggestionsDiv.style.display === 'block') {
+                // Clear existing timeout
+                clearTimeout(scrollTimeout);
+                
+                // Check if input field is still visible
+                const rect = namesField.getBoundingClientRect();
+                const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                
+                if (isVisible) {
+                    // Update position if still visible
+                    positionDropdown(suggestionsDiv, namesField);
+                } else {
+                    // Hide if input field is out of view
+                    hideSuggestions();
+                }
+            }
+        }, { passive: true });
+        
+        window.addEventListener('resize', function() {
+            const suggestionsDiv = document.getElementById('name-suggestions');
+            if (suggestionsDiv && suggestionsDiv.style.display === 'block') {
+                positionDropdown(suggestionsDiv, namesField);
+            }
+        });
+        
+        // Handle keyboard navigation
+        namesField.addEventListener('keydown', function(e) {
+            const suggestionsDiv = document.getElementById('name-suggestions');
+            if (!suggestionsDiv || suggestionsDiv.style.display === 'none') return;
+            
+            const suggestions = suggestionsDiv.querySelectorAll('.name-suggestion');
+            const activeSuggestion = suggestionsDiv.querySelector('.name-suggestion.active');
+            
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                
+                if (suggestions.length === 0) {
+                    return; // No suggestions, do nothing
+                }
+                
+                if (activeSuggestion) {
+                    // Select the active suggestion
+                    selectName(activeSuggestion.dataset.name, activeSuggestion.dataset.handle, this);
+                } else if (suggestions.length === 1) {
+                    // Auto-complete the single suggestion
+                    const suggestion = suggestions[0];
+                    selectName(suggestion.dataset.name, suggestion.dataset.handle, this);
+                } else {
+                    // Multiple suggestions, activate the first one
+                    suggestions[0].classList.add('active');
+                }
+                return;
+            }
+            
+            if (suggestions.length === 0) return;
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (activeSuggestion) {
+                    activeSuggestion.classList.remove('active');
+                    const next = activeSuggestion.nextElementSibling || suggestions[0];
+                    next.classList.add('active');
+                } else {
+                    suggestions[0].classList.add('active');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeSuggestion) {
+                    activeSuggestion.classList.remove('active');
+                    const prev = activeSuggestion.previousElementSibling || suggestions[suggestions.length - 1];
+                    prev.classList.add('active');
+                } else {
+                    suggestions[suggestions.length - 1].classList.add('active');
+                }
+            } else if (e.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+    }
+
     // Check database connection and load tables
     async function checkConnection() {
-        // Only show connection status on localhost
+        // Only show connection status and handles field on localhost
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             document.getElementById('connection-status').classList.add('localhost');
+            document.querySelector('.form-field.participant-handles-field').classList.add('localhost');
             
             try {
                 const response = await fetch(`${API_BASE}/health`);
@@ -766,6 +1152,7 @@
             name: formData.get('name'),
             location: formData.get('location'),
             description: formData.get('description'),
+            participant_names: formData.get('participant_names'),
             participant_handles: formData.get('participant_handles'),
             total_participants: parseInt(formData.get('total_participants')) || 1,
             status: formData.get('status'),
@@ -1032,6 +1419,7 @@
             document.querySelector('input[name="name"]').value = project.name || '';
             document.querySelector('input[name="location"]').value = project.location || '';
             document.querySelector('textarea[name="description"]').value = project.description || '';
+            document.querySelector('textarea[name="participant_names"]').value = project.participant_names || '';
             document.querySelector('textarea[name="participant_handles"]').value = project.participant_handles || '';
             document.querySelector('input[name="total_participants"]').value = project.total_participants || 1;
             document.querySelector('select[name="status"]').value = project.status || 'Active';
@@ -1073,6 +1461,7 @@
                     document.querySelector('input[name="name"]').value = projectData.name || '';
                     document.querySelector('input[name="location"]').value = projectData.location || '';
                     document.querySelector('textarea[name="description"]').value = projectData.description || '';
+                    document.querySelector('textarea[name="participant_names"]').value = projectData.participant_names || '';
                     document.querySelector('textarea[name="participant_handles"]').value = projectData.participant_handles || '';
                     document.querySelector('input[name="total_participants"]').value = projectData.total_participants || 1;
                     document.querySelector('select[name="status"]').value = projectData.status || 'Active';
@@ -1322,6 +1711,8 @@
     // Initialize
     checkConnection();
     loadDarkModePreference();
+    loadCSVData();
+    setupNameLookup();
     
     // Feather icons handled by nav.js
 </script>
