@@ -6,11 +6,10 @@ class SurveyManager {
         this.responses = {};
         this.interests = {};
         this.surveyQuestions = [
-            "Rural initiatives should primarily focus on open, transparent technology",
-            "Government spending reductions should be enhanced through technology",
-            "Public education should include digital literacy training",
+            "Government spending reductions should include cost saving tech solutions",
+            "Rural and smart city initiatives should focus on open, transparent technology",
             "Worker protection laws should cover gig economy participants",
-            "Government should prioritize investments in renewable energy infrastructure",
+            "Public education should include digital literacy training",
             "Public funding should include AI implementations for government efficiency",
             "AI features in apps should be optional, not automatic.",
             "Digital privacy rights should be strengthened with new legislation",
@@ -21,6 +20,7 @@ class SurveyManager {
             "Climate change adaptation should be included in infrastructure planning",
             "Public internet access should be treated as a basic utility",
             "Local communities should have realtime voting during technology adoption",
+            "Government should prioritize investments in renewable energy infrastructure",
             "Innovation bonds should be included in public investment incentives",
             "Environmental justice should guide technology deployment decisions",
             "Businesses using open apps should receive priority in government contracts"
