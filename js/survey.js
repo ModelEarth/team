@@ -6,27 +6,24 @@ class SurveyManager {
         this.responses = {};
         this.interests = {};
         this.surveyQuestions = [
-            "Government transparency should be enhanced through technology",
+            "Rural initiatives should primarily focus on open, transparent technology",
+            "Government spending reductions should be enhanced through technology",
             "Public education should include digital literacy training",
             "Worker protection laws should cover gig economy participants",
             "Government should prioritize investments in renewable energy infrastructure",
             "Public funding should include AI implementations for government efficiency",
-            "By law, AI features in apps should be optional, not automatic.",
+            "AI features in apps should be optional, not automatic.",
             "Digital privacy rights should be strengthened with new legislation",
-            "Tech companies should face stricter regulation of data collection",
-            "Universal basic income should be piloted in local communities",
+            "Tech companies should compensate creators for AI training data collection",
             "Public-private partnerships should be expanded for infrastructure",
             "Government should increase funding for public transportation",
             "Open source software should be prioritized in government systems",
-            "Climate change adaptation should guide all infrastructure planning",
+            "Climate change adaptation should be included in infrastructure planning",
             "Public internet access should be treated as a basic utility",
-            "Local communities should have more control over technology adoption",
-            "Healthcare data should remain under strict public control",
-            "Innovation districts should receive public investment incentives",
+            "Local communities should have realtime voting during technology adoption",
+            "Innovation bonds should be included in public investment incentives",
             "Environmental justice should guide technology deployment decisions",
-            "Small businesses should receive priority in government contracts",
-            "Digital equity should be measured and reported by local governments",
-            "Smart city initiatives should primarily focus on open technology"
+            "Businesses using open apps should receive priority in government contracts"
         ];
     }
 
