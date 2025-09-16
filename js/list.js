@@ -936,14 +936,14 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
             const citiesOption = document.createElement('option');
             citiesOption.value = 'cities';
             citiesOption.textContent = 'Cities';
-            citiesOption.setAttribute('data-url', 'map/cities.csv');
+            citiesOption.setAttribute('data-url', 'projects/map/cities.csv');
             citiesOption.setAttribute('data-cors', 'false');
             fileSelect.insertBefore(citiesOption, customOption);
             
             // Add Model Team option as secondary fallback
             const fallbackOption = document.createElement('option');
             fallbackOption.value = 'modelteam';
-            fallbackOption.textContent = 'Model Team';
+            fallbackOption.textContent = 'Model Team (list.js)';
             fallbackOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv');
             fallbackOption.setAttribute('data-cors', 'false');
             fileSelect.insertBefore(fallbackOption, customOption);
