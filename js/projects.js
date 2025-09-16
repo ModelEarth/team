@@ -642,7 +642,7 @@ class ProjectsManager {
                 <h3>${this.isUsingPlaceholderData ? 'Placeholder (List not loaded)' : 'Democracy Lab Projects'}</h3>
                 ${!this.isUsingPlaceholderData ? `
                     <p style="margin: 8px 0; color: var(--text-secondary); font-size: 14px;">
-                        View current frontend at <a href="https://democracylab.org/projects" target="_blank" rel="noopener noreferrer" style="color: var(--accent-blue); text-decoration: none;">DemocracyLab.org/projects</a>
+                        <a href="projects/#list=democracylab">API pull</a> from frontend at <a href="https://democracylab.org/projects" target="_blank" rel="noopener noreferrer" style="color: var(--accent-blue); text-decoration: none;">DemocracyLab.org/projects</a>
                     </p>
                 ` : ''}
             </div>

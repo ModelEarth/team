@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<title>Natural Language Processing (NLP) Search</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { font-family: Arial, sans-serif; margin: 2rem; }
+input, button { margin: 0.3rem; padding: 0.5rem; font-size: 1rem; }
+.card { border: 1px solid #ccc; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; }
+.searchbar { margin-bottom: 1rem; }
+button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+button:hover { background-color: #45a049; }
+</style>
+</head>
+<body>
+
+<h2>Feed/Project Search</h2>
+Pointed at: <a href="https://github.com/ModelEarth/team/blob/main/projects/map/cities.csv">cities.csv</a><br><br>
+
+Doesn't appear to be working yet. Ask Claude to active.<br><br>
+
+<div class="searchbar">
+    <input id="q" placeholder="Search feeds/projects…" />
+    <label><input type="checkbox" id="fuzzy" checked /> Fuzzy</label>
+    <input type="range" id="th" min="0" max="60" value="35" />
+    <button id="ai-refine">Ask AI to refine</button>
+</div>
+<div id="search-results">Loading feeds…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById("q");
+    const fuzzyCheckbox = document.getElementById("fuzzy");
+    const thresholdSlider = document.getElementById("th");
+    const searchResultsDiv = document.getElementById("search-results");
+    const aiRefineBtn = document.getElementById("ai-refine");
+
+    let feeds = [];
+    let fuse;
+
+    // Load CSV
+    Papa.parse("projects/map/cities.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            if(results.data.length === 0 || results.meta.fields.includes("404: Not Found")){
+                searchResultsDiv.innerHTML = `<p style="color:red;">CSV not found or failed to load.</p>`;
+                console.error("CSV load failed. Check the filename and path.");
+                return;
+            }
+
+            feeds = results.data.map(r => ({
+                Title: r.Title?.trim() || "(No title)",
+                Description: r.Description?.trim() || "(No description)",
+                URL: r.URL?.trim() || "#"
+            }));
+
+            console.log("CSV loaded successfully. Headers:", results.meta.fields, "Total feeds:", feeds.length);
+
+            fuse = new Fuse(feeds, {
+                keys: ['Title', 'Description'],
+                threshold: thresholdSlider.value / 100,
+                includeScore: true
+            });
+
+            searchResultsDiv.innerHTML = `<p>Loaded ${feeds.length} rows. Start searching above!</p>`;
+        },
+        error: function(err) {
+            searchResultsDiv.innerHTML = `<p style="color:red;">Error loading CSV: ${err}</p>`;
+        }
+    });
+
+    const doSearch = () => {
+        if (!feeds.length) return;
+
+        const query = searchInput.value.trim();
+        if (!query) {
+            searchResultsDiv.innerHTML = '';
+            return;
+        }
+
+        let results = fuzzyCheckbox.checked ? fuse.search(query) : feeds.filter(f =>
+            f.Title.toLowerCase().includes(query.toLowerCase()) ||
+            f.Description.toLowerCase().includes(query.toLowerCase())
+        ).map(f => ({ item: f }));
+
+        if(!results.length){
+            searchResultsDiv.innerHTML = `<p>No results found for "<strong>${query}</strong>"</p>`;
+            return;
+        }
+
+        searchResultsDiv.innerHTML = results.map(r => {
+            const item = r.item;
+            return `<div class="card">
+                        <h3>${item.Title}</h3>
+                        <p>${item.Description}</p>
+                        <a href="${item.URL}" target="_blank">Link</a>
+                    </div>`;
+        }).join('');
+    };
+
+    // Event listeners
+    searchInput.addEventListener("input", doSearch);
+    searchInput.addEventListener("keydown", e => { if(e.key==="Enter") doSearch(); });
+    thresholdSlider.addEventListener("input", () => {
+        if(fuse) fuse.options.threshold = thresholdSlider.value / 100;
+        doSearch();
+    });
+    fuzzyCheckbox.addEventListener("change", doSearch);
+
+    aiRefineBtn.addEventListener("click", () => {
+        if (!feeds.length) return;
+        const query = searchInput.value.trim();
+        if(!query) return;
+
+        const refined = feeds.filter(f =>
+            f.Title.toLowerCase().includes(query.toLowerCase()) ||
+            f.Description.toLowerCase().includes(query.toLowerCase())
+        ).slice(0, 2);
+
+        searchResultsDiv.innerHTML = refined.map(r =>
+            `<div class="card">
+                <h3>${r.Title}</h3>
+                <p>${r.Description} <em>(AI refined)</em></p>
+                <a href="${r.URL}" target="_blank">Link</a>
+            </div>`
+        ).join('');
+    });
+});
+</script>
+
+</body>
+</html>
