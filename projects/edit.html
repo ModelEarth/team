@@ -60,23 +60,17 @@
         .form-field.description-field {
             overflow: auto;
         }
-        .form-field.description-field .form-value {
+        /* Wide form field styles */
+        .form-field.wide-field .form-value {
             width: calc(100% - 165px);
         }
+        
         @media (max-width: 700px) {
-            .form-field.description-field .form-label,
-            .form-field.participant-handles-field .form-label,
-            .form-field.participant-names-field .form-label,
-            .form-field.project-name-field .form-label,
-            .form-field.location-field .form-label {
+            .form-field.wide-field .form-label {
                 float: none !important;
                 margin-bottom: 5px;
             }
-            .form-field.description-field .form-value,
-            .form-field.participant-handles-field .form-value,
-            .form-field.participant-names-field .form-value,
-            .form-field.project-name-field .form-value,
-            .form-field.location-field .form-value {
+            .form-field.wide-field .form-value {
                 float: none !important;
                 width: 100% !important;
             }
@@ -143,8 +137,52 @@
         .dark .name-suggestion.active {
             background: #333;
         }
+
+        /* Location lookup styles */
+        .location-lookup-container {
+            position: relative;
+        }
+        .location-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+        }
+        .location-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .location-suggestion:hover,
+        .location-suggestion.active {
+            background: #f8f9fa;
+        }
+        .location-suggestion:last-child {
+            border-bottom: none;
+        }
+        .dark .location-suggestions {
+            background: #2d2d2d;
+            border-color: #404040;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .dark .location-suggestion {
+            border-bottom-color: #404040;
+            color: #e0e0e0;
+        }
+        .dark .location-suggestion:hover,
+        .dark .location-suggestion.active {
+            background: #333;
+        }
+
         textarea[name="participant_handles"],
-        textarea[name="participant_names"] {
+        textarea[name="participant_names"],
+        textarea[name="participant_emails"] {
             width: 100% !important;
             padding: 10px !important;
             box-sizing: border-box !important;
@@ -683,25 +721,38 @@
     </div>
     
     <form id="project-form">
-        <div class="form-field project-name-field">
+        <div class="form-field project-name-field wide-field">
             <div class="form-label">Project Name</div>
             <div class="form-value"><input type="text" name="name" required></div>
         </div>
-        <div class="form-field location-field">
+        <div class="form-field location-field wide-field">
             <div class="form-label">Location</div>
-            <div class="form-value"><input type="text" name="location"></div>
+            <div class="form-value">
+                <div class="location-lookup-container">
+                    <input type="text" name="location" placeholder="Start typing city names...">
+                </div>
+                <div class="tip-text">Comma separated list. Type to search cities.</div>
+                <div class="location-status" style="display: none; font-size: 12px; color: #999; margin-top: 4px;"></div>
+            </div>
         </div>
-        <div class="form-field description-field">
+        <div class="form-field description-field wide-field">
             <div class="form-label">Description</div>
             <div class="form-value"><textarea name="description"></textarea></div>
         </div>
-        <div class="form-field participant-names-field">
+        <div class="form-field participant-names-field wide-field">
             <div class="form-label">Names</div>
             <div class="form-value">
                 <div class="name-lookup-container">
                     <textarea name="participant_names" placeholder="Start typing names to search..."></textarea>
                 </div>
                 <div class="tip-text">Comma separated list. Type to search team members.</div>
+            </div>
+        </div>
+        <div class="form-field participant-emails-field wide-field">
+            <div class="form-label">Emails</div>
+            <div class="form-value">
+                <textarea name="participant_emails" placeholder="Email addresses will be populated automatically..."></textarea>
+                <div class="tip-text">Comma separated list. Populated automatically from Names field.</div>
             </div>
         </div>
         <div class="form-field participant-handles-field">
@@ -829,14 +880,42 @@
         }
     }
     
-    // Search names in CSV data
+    // Search names in CSV data (for model.earth) or teamLookup cache (for other sites)
     function searchNames(query) {
         if (!query || query.length < 2) return [];
         
-        const searchTerm = query.toLowerCase();
-        return csvData.filter(person => 
-            person.Name && person.Name.toLowerCase().includes(searchTerm)
-        ).slice(0, 10); // Limit to 10 suggestions
+        const modelsiteCookie = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+        
+        // For model.earth, use existing CSV data
+        if (modelsiteCookie === 'model.earth') {
+            const searchTerm = query.toLowerCase();
+            return csvData.filter(person => 
+                person.Name && person.Name.toLowerCase().includes(searchTerm)
+            ).slice(0, 10); // Limit to 10 suggestions
+        }
+        
+        // For other sites, use teamLookup cache directly
+        if (typeof window.teamLookup !== 'undefined' && window.teamLookup[modelsiteCookie]) {
+            const searchTerm = query.toLowerCase();
+            const results = [];
+            
+            Object.values(window.teamLookup[modelsiteCookie]).forEach(member => {
+                if (member.Name && member.Name.toLowerCase().includes(searchTerm)) {
+                    results.push(member);
+                }
+            });
+            
+            return results.slice(0, 10); // Limit to 10 suggestions
+        }
+        
+        // Try the searchTeamMembers function as fallback
+        if (typeof searchTeamMembers === 'function') {
+            return searchTeamMembers(query).slice(0, 10); // Limit to 10 suggestions
+        }
+        
+        // Fallback: no results
+        console.log('No search method available for current modelsite:', modelsiteCookie);
+        return [];
     }
     
     // Show name suggestions
@@ -907,16 +986,55 @@
         const newNamesValue = beforeQuery + name + textAfterCursor;
         namesField.value = newNamesValue;
         
-        // Update handles field simultaneously
-        // Get current handles and split them
+        // Update emails and handles fields simultaneously
+        const emailsField = document.querySelector('textarea[name="participant_emails"]');
+        
+        // Get team member data for email using teamLookup
+        let email = '';
+        const modelsiteCookie = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+        
+        // Try teamLookup cache directly first
+        if (typeof window.teamLookup !== 'undefined' && window.teamLookup[modelsiteCookie]) {
+            const memberData = window.teamLookup[modelsiteCookie][name.toLowerCase()];
+            if (memberData && memberData.Email) {
+                email = memberData.Email;
+            }
+        }
+        
+        // Fallback to getTeamMemberByName function if available
+        if (!email && typeof getTeamMemberByName === 'function') {
+            const memberData = getTeamMemberByName(name);
+            if (memberData && memberData.Email) {
+                email = memberData.Email;
+            }
+        }
+        
+        // Get current field values and split them
+        let currentEmails = emailsField ? emailsField.value.split(',').map(e => e.trim()).filter(e => e) : [];
         let currentHandles = handlesField.value.split(',').map(h => h.trim()).filter(h => h);
         let currentNames = newNamesValue.split(',').map(n => n.trim()).filter(n => n);
         
         // Find the position of the newly added name
         const namePosition = currentNames.indexOf(name);
         
-        // Add or update the handle at the same position
-        if (handle && namePosition !== -1) {
+        // Add or update the email at the same position
+        if (email && emailsField && namePosition !== -1) {
+            // Ensure emails array is long enough
+            while (currentEmails.length <= namePosition) {
+                currentEmails.push('');
+            }
+            currentEmails[namePosition] = email;
+            
+            // Remove trailing empty emails
+            while (currentEmails.length > 0 && currentEmails[currentEmails.length - 1] === '') {
+                currentEmails.pop();
+            }
+            
+            emailsField.value = currentEmails.join(', ');
+        }
+        
+        // Add or update the handle at the same position (only for model.earth)
+        if (handle && namePosition !== -1 && modelsiteCookie === 'model.earth') {
             // Ensure handles array is long enough
             while (currentHandles.length <= namePosition) {
                 currentHandles.push('');
@@ -985,17 +1103,39 @@
                 const modelsiteCookie = Cookies.get('modelsite');
                 console.log('modelsite cookie value:', modelsiteCookie);
                 
-                // Only do name lookup if modelsite is model.earth
-                if (modelsiteCookie !== 'model.earth') {
-                    hideSuggestions();
-                    return;
-                }
-                
+                // Get current query
                 const cursorPos = this.selectionStart;
                 const textBeforeCursor = this.value.substring(0, cursorPos);
                 const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
                 const currentQuery = textBeforeCursor.substring(lastCommaIndex + 1).trim();
                 
+                // Only do name lookup if modelsite is model.earth
+                if (modelsiteCookie !== 'model.earth') {
+                    // Try to load from localStorage cache if not in memory
+                    if (typeof loadTeamLookupFromCache === 'function' && (!window.teamLookup || !window.teamLookup[modelsiteCookie])) {
+                        const cachedData = loadTeamLookupFromCache(modelsiteCookie);
+                        if (cachedData) {
+                            if (!window.teamLookup) {
+                                window.teamLookup = {};
+                            }
+                            if (!window.teamLookup[modelsiteCookie]) {
+                                window.teamLookup[modelsiteCookie] = {};
+                            }
+                            Object.assign(window.teamLookup[modelsiteCookie], cachedData);
+                        }
+                    }
+                    
+                    // For non-model.earth sites, use teamLookup
+                    if (currentQuery.length >= 2) {
+                        const suggestions = searchNames(currentQuery);
+                        showNameSuggestions(suggestions, this);
+                    } else {
+                        hideSuggestions();
+                    }
+                    return;
+                }
+                
+                // For model.earth, use CSV data
                 if (currentQuery.length >= 2) {
                     const suggestions = searchNames(currentQuery);
                     showNameSuggestions(suggestions, this);
@@ -1722,6 +1862,308 @@
     loadDarkModePreference();
     loadCSVData();
     setupNameLookup();
+
+    // Location autocomplete functionality
+    let citiesData = [];
+    let locationSearchTimeout;
+
+    // Load cities data from CSV
+    async function loadCitiesData() {
+        try {
+            console.log('DEBUG: Starting to load cities data from map/cities.csv');
+            const response = await fetch('map/cities.csv');
+            console.log('DEBUG: Response status:', response.status, response.statusText);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const csvText = await response.text();
+            
+            console.log('DEBUG: Raw CSV text length:', csvText.length);
+            console.log('DEBUG: First 200 chars:', csvText.substring(0, 200));
+            
+            // Parse CSV data
+            const lines = csvText.split('\n').filter(line => line.trim().length > 0);
+            console.log('DEBUG: Total lines found:', lines.length);
+            
+            if (lines.length < 2) {
+                throw new Error('CSV file appears to be empty or invalid');
+            }
+            
+            const headers = lines[0].split(',').map(h => h.trim());
+            console.log('DEBUG: Headers found:', headers);
+            
+            citiesData = lines.slice(1).map((line, lineIndex) => {
+                const values = line.split(',');
+                const obj = {};
+                headers.forEach((header, colIndex) => {
+                    obj[header] = values[colIndex] ? values[colIndex].trim() : '';
+                });
+                
+                // Debug first few rows
+                if (lineIndex < 3) {
+                    console.log(`DEBUG: Row ${lineIndex + 1}:`, obj);
+                }
+                
+                return obj;
+            }).filter(obj => obj.City && obj.City.length > 0);
+            
+            console.log('Cities data loaded:', citiesData.length, 'cities');
+        } catch (error) {
+            console.error('Failed to load cities data:', error);
+        }
+    }
+
+    // Search cities by name
+    function searchCities(query) {
+        if (!query || query.length < 2) return [];
+        
+        const searchTerm = query.toLowerCase();
+        return citiesData.filter(city => 
+            city.City && city.City.toLowerCase().includes(searchTerm)
+        ).slice(0, 10); // Limit to 10 suggestions
+    }
+
+    // Show location suggestions
+    function showLocationSuggestions(suggestions, inputElement) {
+        let suggestionsDiv = document.getElementById('location-suggestions');
+        
+        if (suggestions.length === 0) {
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Create suggestions div if it doesn't exist or move it to body
+        if (!suggestionsDiv || suggestionsDiv.parentElement !== document.body) {
+            // Remove existing one if it's in the wrong place
+            if (suggestionsDiv) {
+                suggestionsDiv.remove();
+            }
+            
+            suggestionsDiv = document.createElement('div');
+            suggestionsDiv.id = 'location-suggestions';
+            suggestionsDiv.className = 'location-suggestions';
+            document.body.appendChild(suggestionsDiv);
+        }
+        
+        const suggestionsHtml = suggestions.map(city => {
+            return `<div class="location-suggestion" data-city="${city.City}">${city.City}</div>`;
+        }).join('');
+        
+        suggestionsDiv.innerHTML = suggestionsHtml;
+        
+        // Position the dropdown relative to the input field
+        positionLocationDropdown(suggestionsDiv, inputElement);
+        suggestionsDiv.style.display = 'block';
+        
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.location-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+                selectLocation(this.dataset.city, inputElement);
+            });
+        });
+    }
+
+    // Select a location and update both Location and Description fields
+    function selectLocation(cityName, inputElement) {
+        const locationField = inputElement;
+        const descriptionField = document.querySelector('textarea[name="description"]');
+        
+        // Find the position where we're inserting
+        const cursorPos = inputElement.selectionStart;
+        const textBeforeCursor = inputElement.value.substring(0, cursorPos);
+        const textAfterCursor = inputElement.value.substring(cursorPos);
+        
+        // Find the last comma before cursor to replace the partial query
+        const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
+        const beforeQuery = lastCommaIndex === -1 ? '' : textBeforeCursor.substring(0, lastCommaIndex + 1) + ' ';
+        
+        // Update location field
+        const newLocationValue = beforeQuery + cityName + textAfterCursor;
+        locationField.value = newLocationValue;
+        
+        // Update description field
+        updateDescriptionFromLocation(newLocationValue);
+        
+        // Hide suggestions
+        hideLocationSuggestions();
+        
+        // Position cursor after the inserted city name
+        const newCursorPos = (beforeQuery + cityName).length;
+        setTimeout(() => {
+            locationField.setSelectionRange(newCursorPos, newCursorPos);
+            locationField.focus();
+            
+            // If there's no text after and we're not at the end, add a comma and space for next entry
+            if (!textAfterCursor.trim() && newCursorPos === locationField.value.length) {
+                const shouldAddComma = !locationField.value.endsWith(',') && !locationField.value.endsWith(', ');
+                if (shouldAddComma) {
+                    locationField.value += ', ';
+                    locationField.setSelectionRange(locationField.value.length, locationField.value.length);
+                }
+            }
+        }, 0);
+    }
+
+    // Update description field based on location
+    function updateDescriptionFromLocation(locationValue) {
+        const descriptionField = document.querySelector('textarea[name="description"]');
+        const statusElement = document.querySelector('.location-status');
+        
+        if (!locationValue.trim()) {
+            statusElement.style.display = 'none';
+            return;
+        }
+        
+        // Get cities from location field
+        const currentCities = locationValue.split(',').map(c => c.trim()).filter(c => c);
+        
+        if (currentCities.length === 0) {
+            statusElement.style.display = 'none';
+            return;
+        }
+        
+        // Check if current description matches the "Visited [cities]" pattern
+        const currentDescription = descriptionField.value.trim();
+        const expectedDescription = `Visited ${currentCities.join(', ')}`;
+        
+        // Extract cities from current description if it follows the pattern
+        const visitedMatch = currentDescription.match(/^Visited\s+(.+)$/);
+        
+        if (visitedMatch) {
+            const descriptionCities = visitedMatch[1].split(',').map(c => c.trim()).filter(c => c);
+            
+            // Check if description cities match location cities
+            const citiesMatch = descriptionCities.length === currentCities.length && 
+                               descriptionCities.every(city => currentCities.includes(city)) &&
+                               currentCities.every(city => descriptionCities.includes(city));
+            
+            if (citiesMatch) {
+                // Cities match, update description
+                descriptionField.value = expectedDescription;
+                statusElement.style.display = 'none';
+            } else {
+                // Cities don't match, show warning
+                const mismatchedCities = [
+                    ...descriptionCities.filter(city => !currentCities.includes(city)),
+                    ...currentCities.filter(city => !descriptionCities.includes(city))
+                ];
+                statusElement.textContent = `Didn't update Description since cities don't match: ${mismatchedCities.join(', ')}`;
+                statusElement.style.display = 'block';
+            }
+        } else if (!currentDescription || currentDescription === expectedDescription) {
+            // No description or exact match, update it
+            descriptionField.value = expectedDescription;
+            statusElement.style.display = 'none';
+        } else {
+            // Description exists but doesn't follow pattern, show warning
+            statusElement.textContent = `Didn't update Description since it doesn't follow "Visited [cities]" pattern`;
+            statusElement.style.display = 'block';
+        }
+    }
+
+    // Position dropdown for location suggestions
+    function positionLocationDropdown(suggestionsDiv, inputElement) {
+        const rect = inputElement.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        
+        suggestionsDiv.style.position = 'absolute';
+        suggestionsDiv.style.top = (rect.bottom + scrollTop + 2) + 'px';
+        suggestionsDiv.style.left = (rect.left + scrollLeft) + 'px';
+        suggestionsDiv.style.width = rect.width + 'px';
+    }
+
+    // Hide location suggestions helper function
+    function hideLocationSuggestions() {
+        const suggestionsDiv = document.getElementById('location-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.style.display = 'none';
+        }
+    }
+
+    // Setup location lookup
+    function setupLocationLookup() {
+        const locationField = document.querySelector('input[name="location"]');
+        
+        if (!locationField) return;
+        
+        locationField.addEventListener('input', function() {
+            clearTimeout(locationSearchTimeout);
+            
+            locationSearchTimeout = setTimeout(() => {
+                const cursorPos = this.selectionStart;
+                const textBeforeCursor = this.value.substring(0, cursorPos);
+                const lastCommaIndex = textBeforeCursor.lastIndexOf(',');
+                const currentQuery = textBeforeCursor.substring(lastCommaIndex + 1).trim();
+                
+                if (currentQuery.length >= 2) {
+                    const suggestions = searchCities(currentQuery);
+                    showLocationSuggestions(suggestions, this);
+                } else {
+                    hideLocationSuggestions();
+                }
+            }, 300);
+        });
+        
+        // Update description when location field changes
+        locationField.addEventListener('blur', function() {
+            updateDescriptionFromLocation(this.value);
+        });
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.location-lookup-container') && !e.target.closest('.location-suggestions')) {
+                hideLocationSuggestions();
+            }
+        });
+        
+        // Update dropdown position on scroll and resize
+        window.addEventListener('scroll', function() {
+            const suggestionsDiv = document.getElementById('location-suggestions');
+            if (suggestionsDiv && suggestionsDiv.style.display === 'block') {
+                // Check if input field is still visible
+                const inputRect = locationField.getBoundingClientRect();
+                if (inputRect.bottom < 0 || inputRect.top > window.innerHeight) {
+                    suggestionsDiv.style.display = 'none';
+                } else {
+                    positionLocationDropdown(suggestionsDiv, locationField);
+                }
+            }
+        }, { passive: true });
+        
+        window.addEventListener('resize', function() {
+            const suggestionsDiv = document.getElementById('location-suggestions');
+            if (suggestionsDiv && suggestionsDiv.style.display === 'block') {
+                positionLocationDropdown(suggestionsDiv, locationField);
+            }
+        });
+    }
+
+    // Initialize location autocomplete
+    loadCitiesData().then(() => {
+        setupLocationLookup();
+    });
+
+    // Hide Handles field for model.georgia
+    function checkHandlesVisibility() {
+        const modelsiteCookie = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+        const handlesField = document.querySelector('.form-field.participant-handles-field');
+        
+        if (modelsiteCookie === 'model.georgia' && handlesField) {
+            handlesField.style.display = 'none';
+            console.log('DEBUG: Hiding Handles field for model.georgia');
+        } else if (handlesField) {
+            handlesField.style.display = '';
+            console.log('DEBUG: Showing Handles field for modelsite:', modelsiteCookie);
+        }
+    }
+
+    // Check handles visibility on page load
+    checkHandlesVisibility();
     
     // Feather icons handled by nav.js
 </script>

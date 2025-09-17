@@ -263,6 +263,22 @@
             border: 1px solid rgba(59, 130, 246, 0.3);
         }
         
+        /* Dark mode status message styles */
+        .dark .status-message.info {
+            background: rgba(59, 130, 246, 0.15);
+            color: white;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+        
+        .dark .status-message.success {
+            color: white;
+        }
+        
+        .dark .status-message.error {
+            color: white;
+        }
+        
+        
         .config-form {
             background: var(--bg-tertiary);
             padding: 20px;
@@ -2384,10 +2400,12 @@
             </div>
         </div>
         
+        <!-- Status Messages (external to card) -->
+        <div id="statusMessages" class="message-log"></div>
+        
         <!-- Load Status Panel -->
         <div class="card" id="loadStatus" style="display: none;">
             <div id="participants-result"></div>
-            <div id="statusMessages" class="message-log"></div>
         </div>
 
     </div>
@@ -2858,7 +2876,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Helper function to append messages to statusMessages
         function appendStatusMessage(message, type = 'info') {
             const messageDiv = document.createElement('div');
-            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.className = `status-message ${type}`;
+            messageDiv.style.display = 'block'; // Ensure message is visible
             messageDiv.innerHTML = message;
             statusMessages.appendChild(messageDiv);
         }
@@ -6155,6 +6174,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             titleText = listParam;
                             participantListTitle.textContent = `📊 ${listParam}`;
                             console.log('List param not found in fileSelect options:', listParam, 'keeping original selection');
+                            
+                            // Display user-visible message about unavailable list
+                            appendStatusMessage(`📋 List "${listParam}" is not available in the current dropdown options. Showing default selection instead.`, 'info');
                         }
                     }
                 } else {
@@ -6266,7 +6288,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Check for geo-related domains or hash parameter
             const listParam = getHash().list;
-            const shouldDefaultToGeo = !listParam && (window.location.hostname.includes('geo') || window.location.hostname.includes('location'));
+            const shouldDefaultToGeo = !listParam && isGeoSite();
             
             if (listParam === 'all') {
                 fileSelect.value = 'all';
@@ -6337,6 +6359,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Check if "modelteam" option already exists
             const existingModelteamOption = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
             if (existingModelteamOption) return;
+            
+            // Don't add Model Earth Team option for geo sites
+            if (isGeoSite()) {
+                return;
+            }
             
             // Add "Model Earth Team" option (from lists.csv line 4)
             const modelteamOption = document.createElement('option');
@@ -6631,10 +6658,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     const feedsData = [];
                     
                     // Check if this is a geo site for filtering
-                    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
-                    const isGeoSite = window.location.hostname.includes('geo') || 
-                                     window.location.hostname.includes('location') ||
-                                     (modelsite === 'model.georgia');
+                    const isGeoSiteCheck = isGeoSite();
                     const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
                     
                     // Parse data rows
@@ -6647,7 +6671,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             });
                             
                             // Filter entries for geo sites (check the 'feed' field)
-                            if (isGeoSite) {
+                            if (isGeoSiteCheck) {
                                 const feedValue = feedEntry['feed'] || feedEntry['Feed'];
                                 if (!allowedGeoOptions.includes(feedValue)) {
                                     continue; // Skip this entry for geo sites
@@ -6948,6 +6972,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         }
                     } else {
                         console.log('HASHCHANGE: List param not found in dropdown options:', listParam);
+                        // Display user-visible message about unavailable list
+                        appendStatusMessage(`📋 List "${listParam}" is not available in the current dropdown options. Please select from available options.`, 'info');
                     }
                 } else if (listParam) {
                     console.log('HASHCHANGE: List param unchanged:', listParam, '- skipping data reload');
@@ -7038,7 +7064,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 getMeetupParticipants();
             } else if (!listParam) {
                 // No list parameter - check if should default to geo
-                const shouldDefaultToGeo = window.location.hostname.includes('geo') || window.location.hostname.includes('location');
+                const shouldDefaultToGeo = isGeoSite();
                 if (shouldDefaultToGeo) {
                     window.location.hash = 'list=geo';
                     fileSelect.value = 'geo';

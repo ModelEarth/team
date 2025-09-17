@@ -1,4 +1,4 @@
-# Configuration files with sensitive data
+# Configuration files
 config/settings.js
 config/keys.json
 config/.env

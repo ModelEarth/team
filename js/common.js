@@ -1,5 +1,13 @@
 // Common utilities and shared functions
 
+// Function to detect if current site is a geo site
+function isGeoSite() {
+    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+    return window.location.hostname.includes('geo') || 
+           window.location.hostname.includes('location') ||
+           (modelsite === 'model.georgia');
+}
+
 // Function to create OS detection panel directly in a container
 function createOSDetectionPanelIn(containerId) {
     function createPanel() {
@@ -1933,3 +1941,145 @@ async function testGeminiFromPanel() {
         }
     }
 }
+
+// Team Lookup Cache System
+// Global object to store team data by modelsite
+window.teamLookup = window.teamLookup || {};
+
+// Function to get modelsite cookie value using Cookies.get (like localsite.js)
+function getModelsiteCookie() {
+    if (typeof Cookies !== 'undefined') {
+        const modelsite = Cookies.get('modelsite');
+        if (modelsite) {
+            return modelsite;
+        }
+    }
+    // Fallback to 'nosite' if no cookie found
+    console.log('No modelsite cookie found, using "nosite"');
+    return 'nosite';
+}
+
+// Function to save team data to browser cache (localStorage)
+function saveTeamLookupToCache(modelsite, teamData) {
+    try {
+        const cacheKey = `teamLookup_${modelsite}`;
+        localStorage.setItem(cacheKey, JSON.stringify(teamData));
+        console.log(`Team lookup data cached for modelsite: ${modelsite}`);
+    } catch (error) {
+        console.error('Failed to save team lookup to cache:', error);
+    }
+}
+
+// Function to load team data from browser cache
+function loadTeamLookupFromCache(modelsite) {
+    try {
+        const cacheKey = `teamLookup_${modelsite}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+    } catch (error) {
+        console.error('Failed to load team lookup from cache:', error);
+    }
+    return null;
+}
+
+// Function to populate teamLookup object from list data
+function populateTeamLookup(listData) {
+    const modelsite = getModelsiteCookie();
+    
+    if (!listData || !Array.isArray(listData)) {
+        console.error('Invalid list data provided to populateTeamLookup');
+        return;
+    }
+    
+    // Initialize teamLookup for this modelsite if it doesn't exist
+    if (!window.teamLookup[modelsite]) {
+        window.teamLookup[modelsite] = {};
+    }
+    
+    console.log(`Populating team lookup for modelsite: ${modelsite}`);
+    
+    // Process each team member
+    listData.forEach(member => {
+        if (member.Name) {
+            // Extract required fields: Name, Email, Role (Title), Team (Department)
+            const teamMember = {
+                Name: member.Name || '',
+                Email: member.Email || '',
+                Role: member.Role || member.Title || '',
+                Team: member.Team || member.Department || ''
+            };
+            
+            // Store by name (case-insensitive key)
+            const nameKey = member.Name.toLowerCase();
+            window.teamLookup[modelsite][nameKey] = teamMember;
+        }
+    });
+    
+    // Save to browser cache
+    saveTeamLookupToCache(modelsite, window.teamLookup[modelsite]);
+    
+    console.log(`Team lookup populated with ${Object.keys(window.teamLookup[modelsite]).length} members for ${modelsite}`);
+}
+
+// Function to get team member by name
+function getTeamMemberByName(name) {
+    const modelsite = getModelsiteCookie();
+    
+    // Check if we have data for this modelsite
+    if (!window.teamLookup[modelsite]) {
+        // Try to load from cache
+        const cachedData = loadTeamLookupFromCache(modelsite);
+        if (cachedData) {
+            window.teamLookup[modelsite] = cachedData;
+        } else {
+            console.log(`No team lookup data available for modelsite: ${modelsite}`);
+            return null;
+        }
+    }
+    
+    const nameKey = name.toLowerCase();
+    return window.teamLookup[modelsite][nameKey] || null;
+}
+
+// Function to search team members by partial name
+function searchTeamMembers(query) {
+    const modelsite = getModelsiteCookie();
+    
+    // Check if we have data for this modelsite
+    if (!window.teamLookup[modelsite]) {
+        // Try to load from cache
+        const cachedData = loadTeamLookupFromCache(modelsite);
+        if (cachedData) {
+            window.teamLookup[modelsite] = cachedData;
+        } else {
+            console.log(`No team lookup data available for modelsite: ${modelsite}`);
+            return [];
+        }
+    }
+    
+    const queryLower = query.toLowerCase();
+    const results = [];
+    
+    Object.values(window.teamLookup[modelsite]).forEach(member => {
+        if (member.Name.toLowerCase().includes(queryLower)) {
+            results.push(member);
+        }
+    });
+    
+    return results.sort((a, b) => a.Name.localeCompare(b.Name));
+}
+
+// Initialize team lookup from cache on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const modelsite = getModelsiteCookie();
+    const cachedData = loadTeamLookupFromCache(modelsite);
+    if (cachedData) {
+        if (!window.teamLookup[modelsite]) {
+            window.teamLookup[modelsite] = {};
+        }
+        Object.assign(window.teamLookup[modelsite], cachedData);
+        console.log(`Team lookup initialized from cache for ${modelsite}: ${Object.keys(cachedData).length} members`);
+    }
+});
