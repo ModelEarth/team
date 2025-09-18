@@ -1,7 +1,7 @@
 /* Shared Navigation Styles */
 
 :root {
-    --sidebar-width: 280px;
+    --sidebar-width-expanded: 280px;
     --sidebar-collapsed: 64px;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -16,7 +16,7 @@
 
 /* Sidebar Styles */
 .sidebar {
-    width: var(--sidebar-width);
+    width: var(--sidebar-width-expanded);
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-light);
     display: flex;
@@ -48,7 +48,7 @@
 }
 
 .sidebar.collapsed.hover-expanded:not(.locked) {
-    width: var(--sidebar-width);
+    width: var(--sidebar-width-expanded);
     box-shadow: var(--shadow-lg);
 }
 
@@ -67,7 +67,7 @@
 /* Desktop behavior - push content when hover expanding */
 @media (min-width: 500px) {
     .sidebar.collapsed.hover-expanded:not(.locked) ~ .main-content {
-        margin-left: var(--sidebar-width); /* Push content when hover expanding */
+        margin-left: var(--sidebar-width-expanded); /* Push content when hover expanding */
         transition: var(--transition-smooth);
     }
 }
@@ -380,7 +380,7 @@
 /* Main Content */
 .main-content {
     flex: 1;
-    margin-left: var(--sidebar-width);
+    margin-left: var(--sidebar-width-expanded);
     transition: var(--transition-smooth);
     display: flex;
     flex-direction: column;

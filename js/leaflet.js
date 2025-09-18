@@ -8,6 +8,8 @@ class LeafletMapManager {
         this.markers = [];
         this.currentMapStyle = 'monochrome';
         this.currentOverlay = null;
+        this.isFullscreen = false;
+        this.originalStyles = null;
         this.popupOptions = {
             maxWidth: 300,
             className: 'custom-popup',
@@ -243,16 +245,19 @@ class LeafletMapManager {
         
         // Add zoom display
         this.addZoomDisplay();
+        
+        // Add fullscreen toggle
+        this.addFullscreenToggle();
     }
     
     addMapStyleSelector() {
         // Create style selector control
-        const styleControl = L.control({ position: 'topright' });
+        const styleControl = L.control({ position: 'bottomleft' });
         
         styleControl.onAdd = (map) => {
             const div = L.DomUtil.create('div', 'map-style-selector');
             div.innerHTML = `
-                <select class="map-style-select">
+                <select class="map-style-select mapPopButton">
                     ${Object.entries(this.mapStyles).map(([key, style]) => 
                         `<option value="${key}" ${key === this.currentMapStyle ? 'selected' : ''}>${style.name}</option>`
                     ).join('')}
@@ -683,7 +688,7 @@ class LeafletMapManager {
             
             const currentLevel = this.map.getZoom();
             div.innerHTML = `
-                <div class="zoom-display-current">Level: ${currentLevel}</div>
+                <div class="zoom-display-current mapPopButton">Level: ${currentLevel}</div>
                 <div class="zoom-display-levels">
                     ${this.generateZoomLevels(currentLevel)}
                 </div>
@@ -794,27 +799,136 @@ class LeafletMapManager {
         levelsContainer.scrollTop = scrollPosition * itemHeight;
     }
     
+    addFullscreenToggle() {
+        // Create fullscreen toggle control
+        const fullscreenControl = L.control({ position: 'topright' });
+        
+        fullscreenControl.onAdd = (map) => {
+            const div = L.DomUtil.create('div', 'fullscreen-toggle-container');
+            div.innerHTML = `
+                <button class="fullscreen-toggle-btn" title="Toggle Fullscreen">
+                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                    </svg>
+                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                    </svg>
+                </button>
+            `;
+            
+            // Prevent map interaction when clicking toggle
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            
+            // Handle fullscreen toggle
+            const button = div.querySelector('.fullscreen-toggle-btn');
+            const expandIcon = div.querySelector('.expand-icon');
+            const collapseIcon = div.querySelector('.collapse-icon');
+            
+            button.addEventListener('click', () => {
+                this.toggleFullscreen();
+                
+                // Update icon visibility
+                if (this.isFullscreen) {
+                    expandIcon.style.display = 'none';
+                    collapseIcon.style.display = 'block';
+                    button.title = 'Exit Fullscreen';
+                } else {
+                    expandIcon.style.display = 'block';
+                    collapseIcon.style.display = 'none';
+                    button.title = 'Toggle Fullscreen';
+                }
+            });
+            
+            return div;
+        };
+        
+        this.fullscreenControl = fullscreenControl;
+        fullscreenControl.addTo(this.map);
+    }
+    
+    toggleFullscreen() {
+        const mapContainer = document.getElementById(this.containerId);
+        const pageContent = document.getElementById('pageContent');
+        
+        if (!this.isFullscreen) {
+            // Enter fullscreen within pageContent
+            this.isFullscreen = true;
+            
+            // Store original styles
+            this.originalStyles = {
+                mapContainer: {
+                    position: mapContainer.style.position,
+                    top: mapContainer.style.top,
+                    left: mapContainer.style.left,
+                    width: mapContainer.style.width,
+                    height: mapContainer.style.height,
+                    zIndex: mapContainer.style.zIndex,
+                    marginBottom: mapContainer.style.marginBottom
+                }
+            };
+            
+            if (pageContent) {
+                // Get pageContent bounds
+                const contentRect = pageContent.getBoundingClientRect();
+                
+                // Apply fullscreen styles within pageContent
+                mapContainer.style.position = 'fixed';
+                mapContainer.style.top = contentRect.top + 'px';
+                mapContainer.style.left = contentRect.left + 'px';
+                mapContainer.style.width = contentRect.width + 'px';
+                mapContainer.style.height = contentRect.height + 'px';
+                mapContainer.style.zIndex = '9999';
+                mapContainer.style.marginBottom = '0';
+            } else {
+                // Fallback to full page if pageContent not found
+                mapContainer.style.position = 'fixed';
+                mapContainer.style.top = '0';
+                mapContainer.style.left = '0';
+                mapContainer.style.width = '100vw';
+                mapContainer.style.height = '100vh';
+                mapContainer.style.zIndex = '9999';
+                mapContainer.style.marginBottom = '0';
+            }
+            
+            // Add fullscreen class for additional styling
+            mapContainer.classList.add('fullscreen-map');
+            
+        } else {
+            // Exit fullscreen
+            this.isFullscreen = false;
+            
+            // Restore original styles
+            if (this.originalStyles) {
+                Object.assign(mapContainer.style, this.originalStyles.mapContainer);
+            }
+            
+            // Remove fullscreen class
+            mapContainer.classList.remove('fullscreen-map');
+        }
+        
+        // Invalidate map size to ensure proper rendering
+        setTimeout(() => {
+            this.map.invalidateSize();
+        }, 100);
+    }
+    
     addCustomCSS() {
         if (document.querySelector('#leaflet-custom-styles')) return;
         
         const style = document.createElement('style');
         style.id = 'leaflet-custom-styles';
         style.textContent = `
-            /* Map Style Selector */
-            .map-style-selector {
-                background: white;
-                padding: 5px;
-                border-radius: 4px;
-                box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            /* Bottom Left Controls Layout */
+            .leaflet-bottom.leaflet-left {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-end;
+                gap: 10px;
             }
             
-            /* Zoom Level Display */
-            .zoom-display-container {
-                position: relative;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }
-            
-            .zoom-display-current {
+            /* Shared Button Style */
+            .mapPopButton {
                 background: rgba(0, 0, 0, 0.8);
                 color: white;
                 padding: 4px 8px;
@@ -824,9 +938,67 @@ class LeafletMapManager {
                 box-shadow: 0 1px 3px rgba(0,0,0,0.3);
                 cursor: pointer;
                 transition: all 0.2s ease;
-                width: 68px;
+                border: none;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 text-align: center;
                 white-space: nowrap;
+                margin: 0px !important;
+            }
+            
+            .mapPopButton:hover {
+                background: rgba(0, 0, 0, 0.9);
+            }
+            
+            /* Map Style Selector */
+            .map-style-selector {
+                background: transparent;
+                padding: 0;
+                border-radius: 0;
+                box-shadow: none;
+                margin-bottom: 0;
+            }
+            
+            /* Fullscreen Toggle */
+            .fullscreen-toggle-container {
+                background: white;
+                border-radius: 4px;
+                box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            }
+            
+            .fullscreen-toggle-btn {
+                background: white;
+                border: none;
+                padding: 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.2s ease;
+                color: #333;
+            }
+            
+            .fullscreen-toggle-btn:hover {
+                background-color: #f5f5f5;
+            }
+            
+            .fullscreen-toggle-btn:active {
+                background-color: #e5e5e5;
+            }
+            
+            /* Fullscreen map styling */
+            .fullscreen-map {
+                border-radius: 0 !important;
+            }
+            
+            /* Zoom Level Display */
+            .zoom-display-container {
+                position: relative;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            
+            .zoom-display-current {
+                width: 68px;
             }
             
             .zoom-display-container:hover .zoom-display-current {
