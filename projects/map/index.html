@@ -76,18 +76,18 @@
             padding: 24px;
         }
 
-        .header {
+        .widgetHeader {
             margin-bottom: 24px;
         }
 
-        .header h1 {
+        .widgetHeader h1 {
             font-size: 2rem;
             font-weight: bold;
             color: #1a1a1a;
             margin-bottom: 8px;
         }
 
-        .header .info {
+        .widgetHeader .info {
             color: #666;
             font-size: 0.9rem;
         }
@@ -645,7 +645,7 @@
             position: absolute;
             top: 24px;
             right: 24px;
-            z-index: 1000;
+            z-index: 10;
         }
 
         /* New Page Layout Styles */
@@ -676,16 +676,17 @@
             background: white;
             border-radius: 8px;
             padding: 16px;
+            min-height: 400px;
         }
 
         #pageMap {
             background: white;
             border-radius: 8px;
-            padding: 16px;
         }
 
         #pageMap #map {
             margin-bottom: 0;
+            height: 100%;
         }
 
         /* Mobile Layout: ≤600px - Stack vertically */

@@ -930,14 +930,16 @@ class ListingsDisplay {
 
         app.innerHTML = `
             <!-- Header -->
-            <div class="header" style="position:relative">
+            <div class="widgetHeader" style="position:relative">
                 <div class="sign-in-container">
                     <button id="signInBtn" class="btn btn-primary" onclick="showAuthModal()">Sign In</button>
                 </div>
                 <h1>${this.config?.listTitle || 'Listings'}</h1>
                 ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
             </div>
-
+            <div class="widgetHero" style="position:relative">
+            </div>
+                
             <!-- Page Content Container -->
             <div id="pageContent">
                 <!-- Details Section (Left column on desktop) -->
@@ -997,7 +999,8 @@ class ListingsDisplay {
                 <div class="right-column">
                     <!-- Gallery Section -->
                     <div id="pageGallery">
-                        <img src="../../img/banner.webp" alt="Banner" class="gallery-banner">
+                        <!-- ../../img/banner.webp --->
+                        <img src="../../../community/img/hero/hero.png" alt="Banner" class="gallery-banner">
                     </div>
 
                     <!-- Map Section -->
