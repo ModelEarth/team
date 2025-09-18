@@ -2170,62 +2170,6 @@
             
             console.log('RESIZE: Final targetSidebar classes:', targetSidebar.className);
         });
-
-        // Load team data for teamLookup cache
-        async function loadTeamDataForLookup() {
-            const modelsite = typeof getModelsiteCookie === 'function' ? getModelsiteCookie() : 'nosite';
-            console.log('Loading team data for modelsite:', modelsite);
-            
-            try {
-                // Try to load from the modelteam source (main team data)
-                const teamDataUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv';
-                
-                // Use loadUnifiedData if available
-                let teamData;
-                if (typeof loadUnifiedData === 'function') {
-                    const result = await loadUnifiedData(teamDataUrl);
-                    teamData = result.data;
-                } else {
-                    // Fallback to direct fetch
-                    const response = await fetch(teamDataUrl);
-                    const csvText = await response.text();
-                    // Simple CSV parsing (basic implementation)
-                    const lines = csvText.split('\n');
-                    const headers = lines[0].split(',').map(h => h.trim());
-                    teamData = lines.slice(1).map(line => {
-                        const values = line.split(',');
-                        const obj = {};
-                        headers.forEach((header, index) => {
-                            obj[header] = values[index] ? values[index].trim() : '';
-                        });
-                        return obj;
-                    }).filter(obj => obj.Name && obj.Name.length > 0);
-                }
-                
-                if (teamData && teamData.length > 0) {
-                    console.log(`Loaded ${teamData.length} team members for lookup cache`);
-                    alert(`DEBUG TEAM DATA: Loaded ${teamData.length} team members for modelsite "${modelsite}". Sample: ${teamData.slice(0, 3).map(m => m.Name || 'No Name').join(', ')}`);
-                    // Populate the teamLookup cache
-                    if (typeof populateTeamLookup === 'function') {
-                        populateTeamLookup(teamData);
-                        alert(`DEBUG TEAM DATA: teamLookup populated. Cache now has ${Object.keys(window.teamLookup[modelsite] || {}).length} members for "${modelsite}"`);
-                    } else {
-                        alert('DEBUG TEAM DATA: populateTeamLookup function not available');
-                    }
-                } else {
-                    console.log('No team data found or failed to parse');
-                    alert('DEBUG TEAM DATA: No team data found or failed to parse');
-                }
-            } catch (error) {
-                console.error('Failed to load team data for lookup cache:', error);
-            }
-        }
-
-        // Load team data when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // Wait a bit for other scripts to load
-            setTimeout(loadTeamDataForLookup, 1000);
-        });
     </script>
 </body>
 </html>
