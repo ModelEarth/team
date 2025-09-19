@@ -387,7 +387,7 @@ function createOSDetectionPanel(containerId) {
                     </div>
                     <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
                         
-                        
+                        Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
                         If you haven't installed Claude yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a>, then install Claude Code CLI with:<br>
                         <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
@@ -408,6 +408,7 @@ npx @anthropic-ai/claude-code</div>
                     </div>
                 </div>
             </div>
+
             <div class="cardsection" id="gemini-installation" style="display: none;">
                 <h4 style="margin: 0 0 8px 0;">Gemini CLI Installation:</h4>
                 <div id="gemini-command-display">
