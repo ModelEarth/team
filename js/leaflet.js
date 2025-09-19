@@ -848,6 +848,27 @@ class LeafletMapManager {
     }
     
     toggleFullscreen() {
+        // Use the new myHero function from the widget for map expansion
+        if (window.listingsApp && window.listingsApp.myHero) {
+            // Find the fullscreen button that was clicked
+            const fullscreenBtn = document.querySelector('.leaflet-control-container .fullscreen-toggle-btn');
+            if (fullscreenBtn) {
+                // Create a synthetic event to pass to myHero
+                window.event = { target: fullscreenBtn };
+                window.listingsApp.myHero();
+            }
+        } else {
+            console.warn('Widget myHero function not available, falling back to original fullscreen');
+            // Fallback to original implementation if myHero is not available
+            this.originalToggleFullscreen();
+        }
+        
+        // Toggle fullscreen state for icon updates
+        this.isFullscreen = !this.isFullscreen;
+    }
+
+    // Keep original implementation as fallback
+    originalToggleFullscreen() {
         const mapContainer = document.getElementById(this.containerId);
         const pageContent = document.getElementById('pageContent');
         
