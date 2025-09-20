@@ -246,8 +246,8 @@ class LeafletMapManager {
         // Add zoom display
         this.addZoomDisplay();
         
-        // Add fullscreen toggle
-        this.addFullscreenToggle();
+        // Add fullscreen toggle - DISABLED: using widget wrapper button instead
+        // this.addFullscreenToggle();
     }
     
     addMapStyleSelector() {

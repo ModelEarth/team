@@ -967,7 +967,7 @@ class ListingsDisplay {
                                 </div>
                                 <!-- Expand Icon for Details -->
                                 <div class="fullscreen-toggle-container">
-                                    <button class="fullscreen-toggle-btn" onclick="window.listingsApp.myHero()" title="Expand Details">
+                                    <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
                                         <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                                         </svg>
@@ -997,7 +997,7 @@ class ListingsDisplay {
                     <div id="pageGallery" myparent="widgetGalleryParent">
                         <!-- Expand Icon for Gallery -->
                         <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
-                            <button class="fullscreen-toggle-btn" onclick="window.listingsApp.myHero()" title="Expand Gallery">
+                            <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
                                 <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                                 </svg>
@@ -1011,9 +1011,23 @@ class ListingsDisplay {
                     </div>
                     </div>
                     <!-- Map Section -->
-                    <div id="pageMap">
-                        <!-- Map Container -->
-                        <div id="widgetmap" myparent="pageMap" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
+                    <div id="pageMap" style="position: relative;">
+                        <!-- Map Wrapper Container -->
+                        <div id="widgetmapWrapper" myparent="pageMap" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden; position: relative;">
+                            <div id="widgetmap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                            </div>
+                            <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
+                            <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
+                                <button class="fullscreen-toggle-btn" mywidgetpanel="widgetmapWrapper" onclick="window.listingsApp.myHero()" title="Expand Map">
+                                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                                    </svg>
+                                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1168,7 +1182,7 @@ class ListingsDisplay {
         }
     }
 
-    myHero(heroDiv, chartTypes = ['widgetmap', 'widgetDetails', 'pageGallery']) {
+    myHero(heroDiv, chartTypes = ['widgetmapWrapper', 'widgetDetails', 'pageGallery']) {
         // Get the element that was clicked to trigger the hero mode
         const clickedElement = event?.target || window.event?.target;
         
@@ -1180,8 +1194,36 @@ class ListingsDisplay {
         // Create selector from chartTypes parameter
         const selector = chartTypes.map(type => `#${type}`).join(', ');
         
-        // Find the div to move to hero (either the clicked element or its parent)
-        let contentDiv = clickedElement.closest(selector);
+        // Find the div to move to hero using the mywidgetpanel attribute
+        let contentDiv = null;
+        
+        // Get the button that was clicked
+        const button = clickedElement.closest('.fullscreen-toggle-btn');
+        if (button) {
+            const panelId = button.getAttribute('mywidgetpanel');
+            if (panelId) {
+                contentDiv = document.getElementById(panelId);
+                // Found the target div using mywidgetpanel attribute
+                
+            }
+        }
+        
+        // Fallback: use the old complex method if mywidgetpanel didn't work
+        if (!contentDiv) {
+            // Fallback to complex detection if mywidgetpanel not available
+            // Look for the target div within the same parent container as the button
+            const buttonContainer = button?.closest('[id$="Parent"], #pageMap');
+            if (buttonContainer) {
+                contentDiv = buttonContainer.querySelector(selector);
+                // Found via button container method
+            }
+            
+            // Final fallback: use the old method if the above didn't work
+            if (!contentDiv) {
+                contentDiv = clickedElement.closest(selector);
+                // Found via fallback closest method
+            }
+        }
         
         if (!contentDiv) {
             console.warn('No valid content div found for hero mode');
@@ -1200,23 +1242,22 @@ class ListingsDisplay {
         const parentDiv = myparent ? document.getElementById(myparent) : contentDiv.parentElement;
         
         // Check if THIS specific content is currently in hero (expanded state)
-        // We check if the hero container contains a clone of our specific contentDiv
-        const isExpanded = heroContainer.style.display === 'block' && 
-                          heroContainer.querySelector(`#${contentDiv.id}`) !== null;
+        // Improved expansion detection - just check if the panel is contained in the hero
+        const isExpanded = heroContainer.contains(contentDiv) && heroContainer.style.display !== 'none';
         
-        // Find the button that was clicked to update its icons
-        const button = clickedElement.closest('.fullscreen-toggle-btn');
+        
+        // Get the icons from the button (no cloning, so this is always the right button)
         const expandIcon = button?.querySelector('.expand-icon');
         const collapseIcon = button?.querySelector('.collapse-icon');
         
         if (isExpanded) {
-            // Collapsing - remove only this content from hero and restore original parent
+            // Collapsing - move panel back to original parent
             if (myparent) {
                 const originalParent = document.getElementById(myparent);
-                const clonedInHero = heroContainer.querySelector(`#${contentDiv.id}`);
-                if (originalParent && clonedInHero) {
-                    // Remove only this specific cloned content from hero
-                    clonedInHero.remove();
+                if (originalParent && contentDiv) {
+                    // Move the panel back to its original parent
+                    contentDiv.style.marginBottom = '';
+                    originalParent.appendChild(contentDiv);
                     
                     // If hero container is now empty, hide it
                     if (heroContainer.children.length === 0) {
@@ -1226,33 +1267,36 @@ class ListingsDisplay {
                     // Show the original parent
                     originalParent.style.display = '';
                     
-                    // Update button icons - show expand, hide collapse
+                    // Update button icons - show expand, hide collapse (panel is now collapsed)
                     if (expandIcon && collapseIcon) {
                         expandIcon.style.display = 'block';
                         collapseIcon.style.display = 'none';
                     }
                     
                     // Re-initialize map if it was the map that was collapsed
-                    if (contentDiv.id === 'widgetmap') {
+                    if (contentDiv.id === 'widgetmapWrapper') {
                         setTimeout(() => {
-                            this.initializeMap();
+                            try {
+                                this.initializeMap();
+                            } catch (error) {
+                                console.warn('Map reinitialization error after collapse:', error);
+                            }
                         }, 100);
                     }
                 }
             }
         } else {
-            // Expanding to hero mode
-            const clonedContent = contentDiv.cloneNode(true);
+            // Expanding to hero mode - move the actual panel
             
             // If heroDiv parameter is provided, wrap in that container
             if (heroDiv) {
                 heroContainer.innerHTML = `<div id="${heroDiv}" style="width: 100%; height: 100%; padding: 20px; box-sizing: border-box;"></div>`;
                 const heroWrapper = heroContainer.querySelector(`#${heroDiv}`);
-                heroWrapper.appendChild(clonedContent);
+                heroWrapper.appendChild(contentDiv);
             } else {
-                // Full screen mode - add content directly to hero
-                heroContainer.innerHTML = '';
-                heroContainer.appendChild(clonedContent);
+                // Full screen mode - move panel to hero container
+                contentDiv.style.marginBottom = '10px';
+                heroContainer.appendChild(contentDiv);
             }
             
             // Hide the parent div
@@ -1263,16 +1307,21 @@ class ListingsDisplay {
             // Show hero container
             heroContainer.style.display = 'block';
             
-            // Update button icons - hide expand, show collapse
+            // Update button icons - hide expand, show collapse (panel is now expanded)
             if (expandIcon && collapseIcon) {
                 expandIcon.style.display = 'none';
                 collapseIcon.style.display = 'block';
+                
             }
             
             // Re-initialize map if it was the map that was moved
-            if (contentDiv.id === 'widgetmap') {
+            if (contentDiv.id === 'widgetmapWrapper') {
                 setTimeout(() => {
-                    this.initializeMap();
+                    try {
+                        this.initializeMap();
+                    } catch (error) {
+                        console.warn('Map reinitialization error after expansion:', error);
+                    }
                 }, 100);
             }
         }
@@ -1295,7 +1344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.myHero = function(heroDiv, chartTypes) {
         // Default chartTypes based on page type
         if (!chartTypes) {
-            chartTypes = teamwidgetElement ? ['widgetmap', 'widgetDetails', 'pageGallery'] : ['chart2', 'sankey'];
+            chartTypes = teamwidgetElement ? ['widgetmapWrapper', 'widgetDetails', 'pageGallery'] : ['chart2Wrapper', 'sankeyWrapper'];
         }
         
         // If ListingsDisplay is available, use its method
@@ -1315,18 +1364,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // Create selector from chartTypes parameter
         const selector = chartTypes.map(type => `#${type}`).join(', ');
         
-        // Find the div to move to hero
-        let contentDiv = clickedElement.closest(selector);
+        // Find the div to move to hero using the mywidgetpanel attribute
+        let contentDiv = null;
         
+        // Get the button that was clicked
+        const button = clickedElement.closest('.fullscreen-toggle-btn');
+        if (button) {
+            const panelId = button.getAttribute('mywidgetpanel');
+            if (panelId) {
+                contentDiv = document.getElementById(panelId);
+                // Found the target div using mywidgetpanel attribute
+            }
+        }
+        
+        // Fallback: use the old complex method if mywidgetpanel didn't work
         if (!contentDiv) {
-            // Try alternative approach - look for parent containers
-            const button = clickedElement.closest('.fullscreen-toggle-btn');
-            if (button) {
-                const parentContainers = chartTypes.map(type => `#${type}Parent`).join(', ');
-                const parentContainer = button.closest(parentContainers);
-                if (parentContainer) {
-                    contentDiv = parentContainer.querySelector(selector);
-                }
+            // Fallback to complex detection if mywidgetpanel not available
+            // Look for the target div within the same parent container as the button
+            const buttonContainer = button?.closest('[id$="Parent"], #pageMap');
+            if (buttonContainer) {
+                contentDiv = buttonContainer.querySelector(selector);
+                // Found via button container method
+            }
+            
+            // Final fallback: use the old method if the above didn't work
+            if (!contentDiv) {
+                contentDiv = clickedElement.closest(selector);
+                // Found via fallback closest method
             }
         }
         
@@ -1346,27 +1410,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const myparent = contentDiv.getAttribute('myparent');
         const parentDiv = myparent ? document.getElementById(myparent) : contentDiv.parentElement;
         
-        // Check if content is currently in hero (expanded state)
-        const isExpanded = heroContainer.style.display === 'block' && heroContainer.children.length > 0;
+        // Check if THIS specific content is currently in hero (expanded state)
+        // Since we move panels instead of cloning, check if the panel's parent is the hero container
+        const isExpanded = contentDiv.parentElement === heroContainer || 
+                          (heroContainer.children.length > 0 && heroContainer.contains(contentDiv));
         
-        // Find the button that was clicked to update its icons
-        const button = clickedElement.closest('.fullscreen-toggle-btn');
+        // Get the icons from the button (no cloning, so this is always the right button)
         const expandIcon = button?.querySelector('.expand-icon');
         const collapseIcon = button?.querySelector('.collapse-icon');
         
         if (isExpanded) {
-            // Collapsing - move content back to original location
+            // Collapsing - move panel back to original parent
             if (myparent) {
                 const originalParent = document.getElementById(myparent);
-                if (originalParent) {
-                    // Clear hero container first
-                    heroContainer.innerHTML = '';
-                    heroContainer.style.display = 'none';
+                if (originalParent && contentDiv) {
+                    // Move the panel back to its original parent
+                    contentDiv.style.marginBottom = '';
+                    originalParent.appendChild(contentDiv);
+                    
+                    // If hero container is now empty, hide it
+                    if (heroContainer.children.length === 0) {
+                        heroContainer.style.display = 'none';
+                    }
                     
                     // Show the original parent
                     originalParent.style.display = '';
                     
-                    // Update button icons - show expand, hide collapse
+                    // Update button icons - show expand, hide collapse (panel is now collapsed)
                     if (expandIcon && collapseIcon) {
                         expandIcon.style.display = 'block';
                         collapseIcon.style.display = 'none';
@@ -1377,18 +1447,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            // Expanding to hero mode
-            const clonedContent = contentDiv.cloneNode(true);
+            // Expanding to hero mode - move the actual panel
             
             // If heroDiv parameter is provided, wrap in that container
             if (heroDiv) {
                 heroContainer.innerHTML = `<div id="${heroDiv}" style="width: 100%; height: 100%; padding: 20px; box-sizing: border-box;"></div>`;
                 const heroWrapper = heroContainer.querySelector(`#${heroDiv}`);
-                heroWrapper.appendChild(clonedContent);
+                heroWrapper.appendChild(contentDiv);
             } else {
-                // Full screen mode - add content directly to hero
-                heroContainer.innerHTML = '';
-                heroContainer.appendChild(clonedContent);
+                // Full screen mode - move panel to hero container
+                contentDiv.style.marginBottom = '10px';
+                heroContainer.appendChild(contentDiv);
             }
             
             // Hide the parent div
@@ -1399,14 +1468,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show hero container
             heroContainer.style.display = 'block';
             
-            // Update button icons - hide expand, show collapse
+            // Update button icons - hide expand, show collapse (panel is now expanded)
             if (expandIcon && collapseIcon) {
                 expandIcon.style.display = 'none';
                 collapseIcon.style.display = 'block';
             }
             
             // Trigger chart resize
-            triggerChartResize(clonedContent, 'expand', chartTypes);
+            triggerChartResize(contentDiv, 'expand', chartTypes);
         }
     };
 });
