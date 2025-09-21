@@ -941,7 +941,7 @@ class ListingsDisplay {
             </div>
             
             <!-- Widget Top Container -->
-            <div id="widgetTop">
+            <div id="widgetTop" class="basePanel basePanelPadding">
                 <div class="search-results">
                     Showing ${this.getCurrentPageListings().length} of ${this.filteredListings.length} listings
                     ${this.filteredListings.length !== this.listings.length ? ` (${this.listings.length} total)` : ''}
@@ -957,10 +957,10 @@ class ListingsDisplay {
             <!-- Widget Content Container -->
             <div id="widgetContent">
                 <!-- Details Section (Left column on desktop) -->
-                <div id="widgetDetailsParent">
-                <div id="widgetDetails" myparent="widgetDetailsParent">
+                <div id="widgetDetailsParent" class="basePanel">
+                <div id="widgetDetails" myparent="widgetDetailsParent" class="basePanel">
                     <!-- Controls -->
-                    <div class="controls-container">
+                    <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
                         <div class="search-container">
                             ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
                             <div class="list-selector">
@@ -1009,8 +1009,10 @@ class ListingsDisplay {
                     </div>
                     
                     <!-- Listings Grid -->
-                    <div class="listings-grid">
-                        ${this.renderListings()}
+                    <div class="listings-scroll-container">
+                        <div class="listings-grid basePanelPadding" style="padding-top:0px">
+                            ${this.renderListings()}
+                        </div>
                     </div>
 
                     ${this.renderNoResults()}
@@ -1434,23 +1436,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (panelId) {
                 contentDiv = document.getElementById(panelId);
                 // Found the target div using mywidgetpanel attribute
-            }
-        }
-        
-        // Fallback: use the old complex method if mywidgetpanel didn't work
-        if (!contentDiv) {
-            // Fallback to complex detection if mywidgetpanel not available
-            // Look for the target div within the same parent container as the button
-            const buttonContainer = button?.closest('[id$="Parent"], #pageMap');
-            if (buttonContainer) {
-                contentDiv = buttonContainer.querySelector(selector);
-                // Found via button container method
-            }
-            
-            // Final fallback: use the old method if the above didn't work
-            if (!contentDiv) {
-                contentDiv = clickedElement.closest(selector);
-                // Found via fallback closest method
             }
         }
         

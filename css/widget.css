@@ -32,17 +32,15 @@ body {
     color: #1a1a1a;
     margin-bottom: 8px;
 }
-
 .widgetHeader .info {
     color: #666;
     font-size: 0.9rem;
 }
-
-
-.controls-container {
-    margin-bottom: 24px;
+#widgetDetailsControls {
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
-
 .search-container {
     display: flex;
     gap: 12px;
@@ -387,8 +385,14 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
 }
 
+.listings-scroll-container {
+    overflow-y: auto;
+    height: calc(100vh - 200px);
+    margin-top: -20px; /* Places under control fade out */
+    padding-top: 15px;
+}
+
 .listing-card {
-    background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border: 1px solid #e5e5e5;
@@ -410,14 +414,12 @@ body {
 .listing-name {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #1a1a1a;
     margin: 0;
 }
 
 .listing-title {
     font-size: 1.1rem;
     font-weight: 500;
-    color: #4a4a4a;
     margin: 0;
 }
 
@@ -516,7 +518,6 @@ body {
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #666;
     background: none;
     border: none;
     padding: 0;
@@ -527,7 +528,9 @@ body {
 .details-toggle:hover {
     color: #007bff;
 }
-
+.dark .details-toggle:hover {
+    color: #ddd;
+}
 .toggle-arrow {
     transition: transform 0.2s;
     font-size: 0.7rem;
@@ -567,7 +570,6 @@ body {
 .detail-key,
 .detail-label {
     font-weight: 500;
-    color: #666;
     min-width: 90px;
     flex-shrink: 0;
 }
@@ -577,7 +579,6 @@ body {
 }
 
 .detail-value {
-    color: #4a4a4a;
     word-break: break-word;
     flex: 1;
 }
@@ -625,10 +626,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
     margin-bottom: 16px;
-    background: white;
-    border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -668,9 +666,6 @@ body {
 }
 
 #widgetDetailsParent {
-    background: white;
-    border-radius: 8px;
-    padding: 16px;
     min-height: 400px;
 }
 
@@ -729,7 +724,6 @@ body {
     #widgetDetailsParent {
         flex: 0 0 55%;
         order: 1;
-        overflow-y: auto;
     }
 
     .right-column {
