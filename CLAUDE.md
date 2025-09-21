@@ -1,6 +1,7 @@
 # SQL Team - Rust API CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and other AI CLI processes.
+It applies to both this "team" submodule and its parent webroot and the webroot's other child repos and submodules.
 
 ## Development Commands
 
@@ -291,10 +292,7 @@ When you type "confirm" or "less quick", remove it:
 
 ## Project Vision & Requirements
 
-This is a **project posting, assignment and to-do tracking system** - an all-in-one partner tool for managing public-facing listings with searchable directories. The system enables collaboration between teams, organizations and clients to share opportunities, handle proposals, assign projects, track progress, and manage invoices.
-
-### Target Audience
-Technical coders and programmers who deploy AI to streamline government processes while providing real-time mentoring at local projects funded by Innovation Bonds.
+This is a **project posting, assignment and to-do tracking system** - an all-in-one partner tool for managing public-facing listings with searchable directories. The system enables collaboration between teams, organizations and clients to share opportunities, handle proposals, assign projects, and track progress.
 
 ### Core Features Required
 1. **Project Management**: Post activities, join projects, track progress
@@ -302,7 +300,7 @@ Technical coders and programmers who deploy AI to streamline government processe
 3. **Directory System**: Searchable public listings with pagination
 4. **Survey System**: Policy preferences and interests with 5-star ratings
 5. **Auth Integration**: Google, GitHub, LinkedIn, email login + Admin Demo bypass
-6. **Gemini AI Integration**: Smart insights and natural language search
+6. **AI Integration**: Smart insights and natural language search
 
 ## Architecture Overview
 
@@ -310,7 +308,7 @@ Technical coders and programmers who deploy AI to streamline government processe
 - **REST API Server**: Actix-web based HTTP server at `src/main.rs`
 - **Database Layer**: PostgreSQL using SQLx with async connection pooling
 - **CLI Interface**: Clap-based command structure with `serve` and `init-db` subcommands
-- **AI Integration**: Uses `gemini_client_rust` for Google Gemini API
+- **Gemini AI Integration**: Uses `gemini_client_rust` for Google Gemini API
 
 ### Frontend (JAM Stack JavaScript)
 - **Design Philosophy**: Notion-inspired aesthetic - modular, calm, ultra-minimal
@@ -379,11 +377,3 @@ Webroot Container (port 8887) is preferred since other repos can then reside in 
 
 ### Database Initialization
 Run `cargo run -- init-db` to create all tables with proper relationships and constraints. The schema supports full CRM functionality with foreign key relationships between entities.
-
-## Submodules and Sample Code
-
-### Submodules (Do Not Document Unless Specifically Referenced)
-- **localhost/**: Submodule containing occasional sample code for local development
-- **planet/**: Submodule containing occasional sample code and examples
-
-**Important**: These submodules are not part of the main PartnerTools application and should not be documented or investigated by the CLI unless specific processes and files within them are explicitly referenced in the prompt. They contain sample code that may be used for reference but are not part of the core application functionality.
