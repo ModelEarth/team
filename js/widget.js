@@ -904,12 +904,17 @@ class ListingsDisplay {
 
         teamwidget.innerHTML = `
             <!-- Header -->
-            <div class="widgetHeader" style="position:relative">
-                <div class="sign-in-container">
-                    <button id="signInBtn" class="btn btn-primary" onclick="showAuthModal()">Sign In</button>
+            <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="flex:1;">
+                    <h1>${this.config?.listTitle || 'Listings'}</h1>
+                    ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
                 </div>
-                <h1>${this.config?.listTitle || 'Listings'}</h1>
-                ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="map-print-download-icons"></div>
+                    <div class="sign-in-container">
+                        <button id="signInBtn" class="btn btn-primary" onclick="showAuthModal()">Sign In</button>
+                    </div>
+                </div>
             </div>
             
             <!-- Widget Top Container -->
@@ -1039,6 +1044,7 @@ class ListingsDisplay {
         setTimeout(() => {
             this.setupEventListeners();
             this.initializeMap();
+            this.setupPrintDownloadIcons();
         }, 0);
     }
     
@@ -1325,6 +1331,37 @@ class ListingsDisplay {
                 }, 100);
             }
         }
+    }
+    
+    setupPrintDownloadIcons() {
+        if (typeof PrintDownloadWidget !== 'undefined') {
+            const data = this.getDataForDownload();
+            const options = {
+                showMap: true,
+                filename: 'listings'
+            };
+            
+            PrintDownloadWidget.addPrintDownloadIcons(
+                'map',
+                '#map-print-download-icons',
+                data,
+                options
+            );
+        }
+    }
+    
+    getDataForDownload() {
+        // Return the current filtered listings for download
+        return this.filteredListings.map(listing => {
+            // Clean up the data for export
+            const cleanListing = {};
+            Object.keys(listing).forEach(key => {
+                if (key !== 'id' && listing[key] !== null && listing[key] !== undefined) {
+                    cleanListing[key] = listing[key];
+                }
+            });
+            return cleanListing;
+        });
     }
 }
 
