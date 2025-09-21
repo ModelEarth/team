@@ -1,5 +1,5 @@
 class ListingsDisplay {
-    constructor() {
+    constructor(options = {}) {
         this.listings = [];
         this.filteredListings = [];
         this.searchTerm = '';
@@ -16,7 +16,30 @@ class ListingsDisplay {
         this.dataLoaded = false;
         this.mapInitializing = false;
         
+        // Configuration for paths
+        this.pathConfig = {
+            basePath: options.basePath || this.detectBasePath()
+        };
+        
         this.init();
+    }
+    
+    detectBasePath() {
+        // Try to detect the correct base path based on current location
+        const currentPath = window.location.pathname;
+        
+        // If we're in display/team/test.html, we need to go back to team/projects/map/
+        if (currentPath.includes('/display/team/')) {
+            return '../../team/projects/map/';
+        }
+        
+        // If we're in team/projects/map/, use relative path
+        if (currentPath.includes('/team/projects/map/')) {
+            return './';
+        }
+        
+        // Default fallback - assume we need to reach team/projects/map/ from current location
+        return '../../team/projects/map/';
     }
 
     async init() {
@@ -51,8 +74,8 @@ class ListingsDisplay {
     }
 
     async loadShowConfigs() {
-        // Try to load adjacent show.json file first
-        const response = await fetch('show.json');
+        // Try to load show.json file using the configured base path
+        const response = await fetch(this.pathConfig.basePath + 'show.json');
         
         if (response.ok) {
             this.showConfigs = await response.json();
@@ -152,7 +175,7 @@ class ListingsDisplay {
         if (config.googleCSV) {
             return await this.loadGoogleCSV(config.googleCSV);
         } else if (config.dataset) {
-            return await this.loadCSVData(config.dataset);
+            return await this.loadCSVData(this.pathConfig.basePath + config.dataset);
         } else {
             return this.createMockData(config);
         }
