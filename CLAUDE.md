@@ -119,6 +119,12 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 - Keep commit messages clean and focused on the actual changes
 - Include a brief summary of changes in the commit text
 
+### Push Reporting Guidelines
+- **ONLY report what was pushed in the current push operation**
+- Do NOT describe or reference previous commits or earlier implementations
+- Focus on the specific files and changes that were just committed
+- Keep push summaries factual and limited to the immediate operation
+
 ### Pull / Pull All
 When you type "pull" or "pull all", run this comprehensive pull workflow that pulls from all parent repos, submodules and industry repos:
 
