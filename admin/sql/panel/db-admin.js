@@ -308,8 +308,8 @@ class DatabaseAdmin {
                 // Limit results if requested
                 const tables = limit ? response.tables.slice(0, limit) : response.tables;
                 
-                // Check if this is mock data - either from response flags or if database isn't actually connected
-                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                // Check if this is mock data - only from response flags, not connection status
+                const isMock = response.is_mock || response.placeholder || response.demo;
                 
                 this.displayTables(tables, response.tables.length, isMock);
                 const foundMessage = limit ? 
@@ -429,8 +429,8 @@ class DatabaseAdmin {
                     tableInfo += `<br><strong>Columns:</strong> ${columnNames}`;
                 }
                 
-                // Check if this is mock data - either from response flags or if database isn't actually connected
-                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                // Check if this is mock data - only from response flags, not connection status
+                const isMock = response.is_mock || response.placeholder || response.demo;
                 if (isMock) {
                     this.showMock(`Mock Data: Table ${tableName}: ${tableInfo}`, 'quick-actions-result');
                     this.addLog(`🎭 Mock table ${tableName} check: ${JSON.stringify(data)}`);
@@ -467,8 +467,8 @@ class DatabaseAdmin {
             });
 
             if (response.success && response.data) {
-                // Check if this is mock data - either from response flags or if database isn't actually connected
-                const isMock = response.is_mock || response.placeholder || response.demo || !this.isDatabaseConnected();
+                // Check if this is mock data - only from response flags, not connection status
+                const isMock = response.is_mock || response.placeholder || response.demo;
                 if (isMock) {
                     this.showMock(`Mock Query: ${JSON.stringify(response.data)}`, 'quick-actions-result');
                     this.addLog(`🎭 Mock query result: ${JSON.stringify(response.data, null, 2)}`);
