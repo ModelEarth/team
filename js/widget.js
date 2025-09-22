@@ -9,7 +9,7 @@ class ListingsDisplay {
         this.showConfigs = {};
         this.currentShow = this.getInitialShow();
         this.currentPage = 1;
-        this.itemsPerPage = 200;
+        this.itemsPerPage = 500;
         this.searchFields = new Set();
         this.availableFields = new Set();
         this.searchPopupOpen = false;
@@ -22,6 +22,17 @@ class ListingsDisplay {
         };
         
         this.init();
+        this.setupGlobalEventListeners();
+    }
+
+    setupGlobalEventListeners() {
+        // Use event delegation for buttons that get re-rendered
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#searchFieldsBtn')) {
+                e.stopPropagation();
+                this.toggleSearchPopup();
+            }
+        });
     }
     
     detectBasePath() {
@@ -522,7 +533,7 @@ class ListingsDisplay {
             });
         }
         this.currentPage = 1;
-        this.renderListingsOnly();
+        this.render();
         
         // Update map with filtered results
         if (window.leafletMap) {
@@ -603,6 +614,31 @@ class ListingsDisplay {
         this.render();
     }
 
+    renderSearchPopup() {
+        if (this.availableFields.size === 0) return '';
+        
+        return `
+            <div class="search-fields-popup">
+                <div class="search-fields-header">
+                    <span>Filter by columns:</span>
+                    <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">Select All</button>
+                </div>
+                <div class="search-fields-list">
+                    ${Array.from(this.availableFields).map(field => `
+                        <div class="search-field-item" onclick="window.listingsApp.toggleSearchField('${field}')">
+                            <input type="checkbox" 
+                                   id="field-${field.replace(/\s+/g, '-')}" 
+                                   ${this.searchFields.has(field) ? 'checked' : ''}
+                                   onchange="window.listingsApp.toggleSearchField('${field}')"
+                            />
+                            <label for="field-${field.replace(/\s+/g, '-')}">${field}</label>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     clearSearch() {
         this.searchTerm = '';
         const searchInput = document.getElementById('searchInput');
@@ -657,13 +693,7 @@ class ListingsDisplay {
             });
         }
 
-        const searchFieldsBtn = document.getElementById('searchFieldsBtn');
-        if (searchFieldsBtn) {
-            searchFieldsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleSearchPopup();
-            });
-        }
+        // Search fields button handled by global event delegation
 
         // Close popup when clicking outside
         document.addEventListener('click', (e) => {
@@ -725,11 +755,6 @@ class ListingsDisplay {
     changePage(page) {
         this.currentPage = page;
         this.render();
-        // Scroll to top of listings
-        const listingsGrid = document.querySelector('.listings-grid');
-        if (listingsGrid) {
-            listingsGrid.scrollIntoView({ behavior: 'smooth' });
-        }
     }
 
     getTotalPages() {
@@ -855,7 +880,7 @@ class ListingsDisplay {
         return `
             <div class="pagination-container">
                 <button class="pagination-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>
-                    Previous
+                    ←
                 </button>
                 
                 <div class="page-numbers">
@@ -877,14 +902,8 @@ class ListingsDisplay {
                 </div>
                 
                 <button class="pagination-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>
-                    Next
+                    →
                 </button>
-                
-                <div class="pagination-info">
-                    Page ${currentPage} of ${totalPages}
-                </div>
-                
-                <a href="../edit.html?add=visit" class="add-visit-btn">Add Visit</a>
             </div>
         `;
     }
@@ -934,20 +953,6 @@ class ListingsDisplay {
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div id="map-print-download-icons"></div>
-                    <div class="sign-in-container">
-                        <button id="signInBtn" class="btn btn-primary" onclick="showAuthModal()">Sign In</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Widget Top Container -->
-            <div id="widgetTop" class="basePanel basePanelPadding">
-                <div class="search-results">
-                    Showing ${this.getCurrentPageListings().length} of ${this.filteredListings.length} listings
-                    ${this.filteredListings.length !== this.listings.length ? ` (${this.listings.length} total)` : ''}
-                </div>
-                <div class="pagination-container">
-                    ${this.renderPagination()}
                 </div>
             </div>
             
@@ -1017,6 +1022,17 @@ class ListingsDisplay {
 
                     ${this.renderNoResults()}
                     ${this.renderEmptyState()}
+                    
+                    <!-- Widget Details Bottom Container -->
+                    <div id="widgetDetailsBottom" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
+                        <div class="search-results">
+                            ${this.getCurrentPageListings().length} of ${this.filteredListings.length}
+                            ${this.filteredListings.length !== this.listings.length ? ` (${this.listings.length} total)` : ''}
+                        </div>
+                        <div class="pagination-container">
+                            ${this.renderPagination()}
+                        </div>
+                    </div>
                 </div>
                 </div>
 
@@ -1024,7 +1040,7 @@ class ListingsDisplay {
                 <div class="right-column">
                     <!-- Gallery Section -->
                     <div id="widgetGalleryParent">
-                    <div id="pageGallery" myparent="widgetGalleryParent">
+                    <div id="pageGallery" myparent="widgetGalleryParent" style="display:none" class="earth">
                         <!-- Expand Icon for Gallery -->
                         <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
                             <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
@@ -1043,8 +1059,12 @@ class ListingsDisplay {
                     <!-- Map Section -->
                     <div id="pageMap" style="position: relative;">
                         <!-- Map Wrapper Container -->
-                        <div id="widgetmapWrapper" myparent="pageMap" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden; position: relative;">
+                        <div id="widgetmapWrapper" myparent="pageMap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden; position: relative;">
                             <div id="widgetmap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                            </div>
+                            <!-- Add Visit Button - Upper Left Corner -->
+                            <div style="position: absolute; top: 8px; left: 8px; z-index: 1000;">
+                                <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn">Add Visit</a>
                             </div>
                             <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
                             <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
@@ -1366,9 +1386,13 @@ class ListingsDisplay {
                 filename: 'listings'
             };
             
+            // Check if rightTeamControls exists, otherwise use default location
+            const rightTeamControls = document.getElementById('rightTeamControls');
+            const targetSelector = rightTeamControls ? '#rightTeamControls' : '#map-print-download-icons';
+            
             PrintDownloadWidget.addPrintDownloadIcons(
                 'map',
-                '#map-print-download-icons',
+                targetSelector,
                 data,
                 options
             );
