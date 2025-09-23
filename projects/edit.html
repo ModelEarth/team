@@ -12,6 +12,7 @@
     <!-- Feather icons handled by nav.js -->
     <!-- Side Nav -->
     <link rel="stylesheet" href="../../localsite/css/nav.css">
+    <link rel="stylesheet" href="../css/common.css">
     <script src="../../localsite/js/nav.js?shownav=false"></script>
     <style>
         body {
@@ -224,15 +225,11 @@
         }
         
         .header-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-            gap: 15px;
+            margin-bottom: 15px;
         }
         
         .header-controls #connection-status {
-            flex: 1;
+            width: 100%;
         }
         .add-visit-btn {
             padding: 10px 20px;
@@ -668,6 +665,24 @@
                 gap: 5px;
             }
         }
+        .selectMenu {
+            padding: 8px 12px;
+            border: 1px solid rgb(204, 204, 204);
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+            max-width: 150px; 
+        }
+        
+        /* Ensure tabs span full width */
+        .team-tabs-container {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .team-tabs {
+            width: 100%;
+        }
     </style>
 
 </head>
@@ -684,17 +699,27 @@
         <div id="connection-status">
             <p>Checking database connection...</p>
         </div>
-        <div class="header-buttons">
-            <button class="view-toggle-btn active" id="add-new-btn" onclick="addNewProject()">
+    </div>
+
+    <div class="team-tabs-container">
+        <div class="team-tabs">
+            <button class="team-tab active" id="form-tab" onclick="switchToView('form')">
                 <span id="add-new-text">Add Project</span>
             </button>
-            <button class="view-toggle-btn" id="view-projects-btn" onclick="showProjectsView()">
+            <button class="team-tab" id="visits-tab" onclick="switchToView('visits')">
                 <span id="view-projects-text">View Projects</span>
             </button>
-            <button class="view-toggle-btn" id="view-tables-btn" onclick="toggleTablesView()">
+            <button class="team-tab" id="tables-tab" onclick="switchToView('tables')">
                 <span id="tables-btn-text">View Tables</span>
             </button>
+            <button class="team-tab" id="google-tab" onclick="switchToView('google')" style="display:none">
+                Google Config
+            </button>
+            <button class="team-tab" id="map-tab" onclick="switchToView('map')" style="display:none">
+                View Map
+            </button>
         </div>
+        <div class="team-tabs-line"></div>
     </div>
 
     <h1>Project</h1>
@@ -721,10 +746,40 @@
         </div>
     </div>
     
+    <!-- Google Config Section -->
+    <div id="google-section" class="content-section">
+        <div id="google-config-content">
+            <h2>Google Sheets Configuration</h2>
+            <p>Loading configuration status...</p>
+        </div>
+    </div>
+
     <form id="project-form">
+
+        <div style="display:none" class="georgia">
+            <div class="form-field project-name-field wide-field">
+                <div class="form-label">Team</div>
+                <div class="form-value">
+                    
+                    <select id="teamFilter" class="selectMenu">
+                        <option>Team...</option>
+                        <option value="Admin">Admin</option><option value="Arts">Arts</option>
+                        <option value="Center of Innovation">Center of Innovation</option>
+                        <option value="Commisioner">Commisioner</option>
+                        <option value="Film">Film</option>
+                        <option value="Global Commerce">Global Commerce</option>
+                        <option value="IT">IT</option>
+                        <option value="Marketing and Communications">Marketing and Communications</option><option value="Trade">Trade</option>
+                        </select>
+
+                </div>
+            </div>
+        </div>
+        <div class="earth" style="display:none">
         <div class="form-field project-name-field wide-field">
             <div class="form-label">Project Name</div>
             <div class="form-value"><input type="text" name="name" required></div>
+        </div>
         </div>
         <div class="form-field location-field wide-field">
             <div class="form-label">Location</div>
@@ -770,7 +825,7 @@
         <div class="form-field">
             <div class="form-label">Status</div>
             <div class="form-value">
-                <select name="status">
+                <select name="status" class="selectMenu">
                     <option value="Active">Active</option>
                     <option value="Included">Include on Map</option>
                     <option value="In Review">In Review</option>
@@ -789,7 +844,7 @@
         <button type="submit" class="btnX btn-primary add-visit-btn">Save Project</button>
     </form>
     
-    <div id="form-result"></div>
+    
 </div>
 
 <script>
@@ -1701,22 +1756,24 @@
     // Add new project function - clears form and resets to add mode
     function addNewProject() {
         // Clear all form fields
-        document.getElementById('project-form').reset();
+        const projectForm = document.getElementById('project-form');
+        if (projectForm) projectForm.reset();
         
         // Reset form state
         resetForm();
         
-        // Hide all sections (projects and tables)
-        document.getElementById('projects-view-section').classList.remove('active');
-        document.getElementById('tables-section').classList.remove('active');
+        // Hide all sections (projects, tables, and google)
+        const projectsSection = document.getElementById('projects-view-section');
+        const tablesSection = document.getElementById('tables-section');
+        const googleSection = document.getElementById('google-section');
         
-        // Update button states - make Add Project/Visit active, others inactive
-        document.getElementById('add-new-btn').classList.add('active');
-        document.getElementById('view-projects-btn').classList.remove('active');
-        document.getElementById('view-tables-btn').classList.remove('active');
+        if (projectsSection) projectsSection.classList.remove('active');
+        if (tablesSection) tablesSection.classList.remove('active');
+        if (googleSection) googleSection.classList.remove('active');
         
         // Update tables button text to default state
-        document.getElementById('tables-btn-text').textContent = 'View Tables';
+        const tablesBtnText = document.getElementById('tables-btn-text');
+        if (tablesBtnText) tablesBtnText.textContent = 'View Tables';
         
         // Clear current view
         currentView = null;
@@ -1730,8 +1787,10 @@
         const itemType = isVisitMode ? 'visit' : 'project';
         
         // Show message
-        document.getElementById('form-result').innerHTML = 
-            `<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Ready to add a new ${itemType}</p>`;
+        const formResult = document.getElementById('form-result');
+        if (formResult) {
+            formResult.innerHTML = `<p style="color: #0066cc;"><i data-feather="info" style="width: 16px; height: 16px;"></i> Ready to add a new ${itemType}</p>`;
+        }
         // Feather icons handled by nav.js
     }
     
@@ -1782,13 +1841,14 @@
     
     // Toggle view functions
     function showTablesView() {
-        // Update button states
-        document.getElementById('view-tables-btn').classList.add('active');
-        document.getElementById('view-projects-btn').classList.remove('active');
-        
         // Show tables section, hide projects section
-        document.getElementById('tables-section').classList.add('active');
-        document.getElementById('projects-view-section').classList.remove('active');
+        const tablesSection = document.getElementById('tables-section');
+        const projectsSection = document.getElementById('projects-view-section');
+        const googleSection = document.getElementById('google-section');
+        
+        if (tablesSection) tablesSection.classList.add('active');
+        if (projectsSection) projectsSection.classList.remove('active');
+        if (googleSection) googleSection.classList.remove('active');
         
         // Load tables if not already loaded
         if (!tablesLoaded) {
@@ -1798,21 +1858,21 @@
         
         currentView = 'tables';
         
-        // Update button text
-        document.getElementById('tables-btn-text').textContent = 'Hide Tables';
+        // Keep button text as "View Tables" (don't change to "Hide Tables")
     }
     
     function toggleTablesView() {
         const tablesSection = document.getElementById('tables-section');
-        const tablesBtn = document.getElementById('view-tables-btn');
         const tablesBtnText = document.getElementById('tables-btn-text');
+        
+        if (!tablesSection) return;
+        
         const isCurrentlyVisible = tablesSection.classList.contains('active');
         
         if (isCurrentlyVisible) {
             // Hide tables
             tablesSection.classList.remove('active');
-            tablesBtn.classList.remove('active');
-            tablesBtnText.textContent = 'View Tables';
+            if (tablesBtnText) tablesBtnText.textContent = 'View Tables';
             
             // If we were in tables view, clear current view
             if (currentView === 'tables') {
@@ -1821,10 +1881,7 @@
         } else {
             // Show tables
             tablesSection.classList.add('active');
-            tablesBtn.classList.add('active');
-            tablesBtnText.textContent = 'Hide Tables';
-            
-            // Don't hide other sections - allow tables to be shown alongside them
+            if (tablesBtnText) tablesBtnText.textContent = 'Hide Tables';
             
             // Load tables if not already loaded
             if (!tablesLoaded) {
@@ -1837,17 +1894,18 @@
     }
     
     function showProjectsView() {
-        // Update button states - make View Projects active, others inactive
-        document.getElementById('view-projects-btn').classList.add('active');
-        document.getElementById('view-tables-btn').classList.remove('active');
-        document.getElementById('add-new-btn').classList.remove('active');
+        // Show projects section, hide other sections
+        const projectsSection = document.getElementById('projects-view-section');
+        const tablesSection = document.getElementById('tables-section');
+        const googleSection = document.getElementById('google-section');
         
-        // Show projects section, hide tables section
-        document.getElementById('projects-view-section').classList.add('active');
-        document.getElementById('tables-section').classList.remove('active');
+        if (projectsSection) projectsSection.classList.add('active');
+        if (tablesSection) tablesSection.classList.remove('active');
+        if (googleSection) googleSection.classList.remove('active');
         
         // Reset tables button text
-        document.getElementById('tables-btn-text').textContent = 'View Tables';
+        const tablesBtnText = document.getElementById('tables-btn-text');
+        if (tablesBtnText) tablesBtnText.textContent = 'View Tables';
         
         // Load projects if not already loaded
         if (!projectsLoaded) {
@@ -1858,11 +1916,118 @@
         currentView = 'projects';
     }
     
+    // Google Config view function
+    function showGoogleConfigView() {
+        // Show google section, hide other sections
+        const googleSection = document.getElementById('google-section');
+        const projectsSection = document.getElementById('projects-view-section');
+        const tablesSection = document.getElementById('tables-section');
+        
+        if (googleSection) googleSection.classList.add('active');
+        if (projectsSection) projectsSection.classList.remove('active');
+        if (tablesSection) tablesSection.classList.remove('active');
+        
+        // Reset tables button text
+        const tablesBtnText = document.getElementById('tables-btn-text');
+        if (tablesBtnText) tablesBtnText.textContent = 'View Tables';
+        
+        currentView = 'google';
+        
+        // Load Google config status
+        checkGoogleSheetsConfig(true);
+    }
+    
+    // Map redirect function
+    function redirectToMap() {
+        // Redirect to display/team with the correct hash
+        window.location.href = '../../display/team/#list=cities&view=visits';
+    }
+    
+    // Hash-based navigation functions
+    function switchToView(view) {
+        // Update hash
+        updateHash({'view': view});
+        
+        // Apply the view
+        applyView(view);
+    }
+    
+    function applyView(view) {
+        // Update sections visibility
+        document.getElementById('projects-view-section').classList.remove('active');
+        document.getElementById('tables-section').classList.remove('active');
+        const googleSection = document.getElementById('google-section');
+        if (googleSection) googleSection.classList.remove('active');
+        
+        switch(view) {
+            case 'form':
+                setActiveTab('form-tab');
+                addNewProject();
+                break;
+            case 'visits':
+                setActiveTab('visits-tab');
+                showProjectsView();
+                break;
+            case 'tables':
+                setActiveTab('tables-tab');
+                showTablesView();
+                break;
+            case 'google':
+                setActiveTab('google-tab');
+                showGoogleConfigView();
+                break;
+            case 'map':
+                setActiveTab('map-tab');
+                redirectToMap();
+                break;
+            default:
+                // Default to form view
+                setActiveTab('form-tab');
+                addNewProject();
+        }
+    }
+    
+    // Generic active tab system - sets active class on any tab
+    function setActiveTab(tabId) {
+        // Remove active class from all tabs
+        document.querySelectorAll('.team-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Add active class to clicked tab
+        const activeTab = document.getElementById(tabId);
+        if (activeTab) {
+            activeTab.classList.add('active');
+        }
+        
+        // Update line color with generic active class
+        const tabsLine = document.querySelector('.team-tabs-line');
+        if (tabsLine) {
+            tabsLine.classList.add('active');
+        }
+    }
+    
+    function initializeFromHash() {
+        const hash = getHash();
+        const view = hash.view || 'form';
+        applyView(view);
+        
+        // Show Google and Map tabs for visit mode
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('add') === 'visit') {
+            const googleTab = document.getElementById('google-tab');
+            const mapTab = document.getElementById('map-tab');
+            if (googleTab) googleTab.style.display = 'block';
+            if (mapTab) mapTab.style.display = 'block';
+        }
+    }
+    
     // Initialize
     checkConnection();
     loadDarkModePreference();
     loadCSVData();
     setupNameLookup();
+    initializeFromHash();
 
     // Location autocomplete functionality
     let citiesData = [];
@@ -2165,6 +2330,139 @@
 
     // Check handles visibility on page load
     checkHandlesVisibility();
+    
+    // Check Google Sheets configuration
+    async function checkGoogleSheetsConfig(forceShow = false) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isVisitMode = urlParams.get('add') === 'visit';
+        
+        // Only check automatically for visit mode, but allow forced display for Google tab
+        if (!isVisitMode && !forceShow) return;
+        
+        try {
+            // Check if required Google Sheets configuration exists
+            const response = await fetch(`${API_BASE}/config/env`);
+            if (!response.ok) {
+                showConfigurationMessage(null, forceShow);
+                return;
+            }
+            
+            const config = await response.json();
+            
+            // Check for required fields
+            const requiredFields = [
+                'google_project_id',
+                'google_oauth_client_id', 
+                'google_sheet_id',
+                'google_worksheet_name'
+            ];
+            
+            const missingFields = requiredFields.filter(field => !config[field]);
+            
+            if (missingFields.length > 0) {
+                showConfigurationMessage(missingFields, forceShow);
+            } else if (forceShow) {
+                showConfigurationSuccess(config);
+            }
+            
+        } catch (error) {
+            console.log('Google Sheets config check failed:', error);
+            showConfigurationMessage(null, forceShow);
+        }
+    }
+    
+    function showConfigurationMessage(missingFields = null, forceShow = false) {
+        const missingFieldsList = missingFields ? 
+            `<br><small><strong>Missing:</strong> ${missingFields.join(', ')}</small>` : '';
+        
+        const configHtml = `
+            <div style="color: #856404; background: #fff3cd; padding: 16px; border-radius: 8px; border: 1px solid #ffeaa7; margin: 20px 0;">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <i data-feather="settings" style="width: 20px; height: 20px; margin-right: 8px;"></i>
+                    <strong>Google Sheets Setup Required</strong>
+                </div>
+                <p style="margin: 8px 0;">Visit logging requires Google Sheets integration to be configured.</p>
+                ${missingFieldsList}
+                <div style="margin-top: 12px;">
+                    <a href="../admin/cloud/" style="color: #856404; text-decoration: underline; font-weight: 600;">
+                        Configure Google Cloud Integration →
+                    </a>
+                </div>
+                <div style="font-size: 12px; color: #6c5701; margin-top: 8px;">
+                    <strong>Required:</strong> Google Project ID, OAuth Client ID, Sheet ID, Worksheet Name
+                </div>
+            </div>
+        `;
+        
+        // Show in Google tab if forceShow is true, otherwise show in form-result
+        if (forceShow) {
+            const googleContent = document.getElementById('google-config-content');
+            if (googleContent) {
+                googleContent.innerHTML = '<h2>Google Sheets Configuration</h2>' + configHtml;
+                // Show the Google tab
+                const googleTab = document.getElementById('google-tab');
+                if (googleTab) googleTab.style.display = 'block';
+            }
+        } else {
+            const formResult = document.getElementById('form-result');
+            if (formResult) {
+                formResult.innerHTML = configHtml;
+                // Show the Google tab for visit mode
+                const googleTab = document.getElementById('google-tab');
+                if (googleTab) googleTab.style.display = 'block';
+            }
+        }
+        
+        // Only disable form submission for visit mode (not when viewing config tab)
+        const urlParams = new URLSearchParams(window.location.search);
+        const isVisitMode = urlParams.get('add') === 'visit';
+        
+        if (isVisitMode && !forceShow) {
+            const form = document.getElementById('project-form');
+            const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Configuration Required';
+                submitBtn.style.backgroundColor = '#6b7280';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        }
+    }
+    
+    function showConfigurationSuccess(config) {
+        const googleContent = document.getElementById('google-config-content');
+        if (!googleContent) return;
+        
+        googleContent.innerHTML = `
+            <h2>Google Sheets Configuration</h2>
+            <div style="color: #155724; background: #d4edda; padding: 16px; border-radius: 8px; border: 1px solid #c3e6cb; margin: 20px 0;">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <i data-feather="check-circle" style="width: 20px; height: 20px; margin-right: 8px;"></i>
+                    <strong>Google Sheets Integration Configured</strong>
+                </div>
+                <p style="margin: 8px 0;">All required configuration is present and ready for use.</p>
+                <div style="margin-top: 12px; font-size: 14px;">
+                    <strong>Configuration Details:</strong><br>
+                    <ul style="margin: 8px 0; padding-left: 20px;">
+                        <li>Project ID: ${config.google_project_id || 'Not set'}</li>
+                        <li>OAuth Client ID: ${config.google_oauth_client_id ? 'Configured' : 'Not set'}</li>
+                        <li>Sheet ID: ${config.google_sheet_id ? 'Configured' : 'Not set'}</li>
+                        <li>Worksheet Name: ${config.google_worksheet_name || 'Not set'}</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 12px;">
+                    <a href="../admin/cloud/" style="color: #155724; text-decoration: underline; font-weight: 600;">
+                        Manage Configuration →
+                    </a>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Run the configuration check on page load after DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        checkGoogleSheetsConfig();
+    });
     
     // Feather icons handled by nav.js
 </script>
