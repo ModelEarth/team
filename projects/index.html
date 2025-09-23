@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="../../localsite/css/nav.css">
     <script src="../../localsite/js/nav.js"></script>
     
+    <!-- Map and list displays -->
+    <script src="../js/widget.js"></script>
 
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
@@ -2073,6 +2075,9 @@
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
+        .dark .view-btn:hover:not(.active) {
+            color: #fff !important;
+        }
     </style>
 </head>
 <body>
@@ -2886,22 +2891,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function getModelteamUrl() {
             const modelteamOption = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
-        }
-        
-        // Wrapper function that calls getMeetupParticipants with specific URL
-        async function getMeetupParticipantsWithUrl(url, corsEnabled = false) {
-            console.log('getMeetupParticipantsWithUrl called with:', url, 'CORS:', corsEnabled);
-            // Temporarily store the URL and call main function
-            const originalSelectedFile = selectedFile;
-            selectedFile = url;
-            
-            // Create a temporary option-like object for CORS checking
-            const tempOption = { getAttribute: (attr) => attr === 'data-cors' ? corsEnabled.toString() : url };
-            
-            await getMeetupParticipants();
-            
-            // Restore original selectedFile if needed
-            selectedFile = originalSelectedFile;
         }
         
         async function getMeetupParticipants() {
@@ -5817,13 +5806,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             console.log('CSV export completed');
         }
 
-        getParticipantsButton.addEventListener('click', getMeetupParticipants);
+        //getParticipantsButton.addEventListener('click', getMeetupParticipants);
         
 
-        // View switching event listeners
-        document.getElementById('column-view-btn').addEventListener('click', () => switchView('column'));
-        document.getElementById('table-view-btn').addEventListener('click', () => switchView('table'));
-        document.getElementById('gallery-view-btn').addEventListener('click', () => switchView('gallery'));
+        // View switching event listeners - Use localsite.js hash functions
+        document.getElementById('column-view-btn').addEventListener('click', () => {
+            goHash({}, ['display']); // Remove display parameter
+        });
+        document.getElementById('table-view-btn').addEventListener('click', () => {
+            goHash({ display: 'table' }, []); // Set display=table
+        });
+        document.getElementById('gallery-view-btn').addEventListener('click', () => {
+            goHash({ display: 'gallery' }, []); // Set display=gallery
+        });
         
         // Team filter event listener (now handled in generateTeamLegend function)
         
@@ -6924,6 +6919,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle list parameter changes
             window.addEventListener('hashchange', function() {
+                alert("hashchange")
                 const listParam = getHash().list;
                 console.log('HASHCHANGE: Processing list parameter:', listParam);
                 
@@ -7057,6 +7053,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Check for list=all in URL hash to auto-load meta list
             const listParam = getHash().list;
+            alert("listParam " + listParam);
             if (listParam === 'all') {
                 showAllFeeds();
             } else if (listParam === 'geo') {

@@ -1,3 +1,7 @@
+//  1. Stores the int_required filtered data in DOM storage only once on initial load
+//  2. Apply search filters to the stored data rather than updating the stored data
+//  3. Only update DOM storage when the list= parameter changes (new dataset)
+
 class ListingsDisplay {
     constructor(options = {}) {
         this.listings = [];
@@ -157,11 +161,25 @@ class ListingsDisplay {
         
         this.config = showConfig;
         
-        const data = await this.loadDataFromConfig(showConfig);
+        let data = await this.loadDataFromConfig(showConfig);
+        
+        // Apply int_required filtering if specified
+        if (showConfig.int_required && data.length > 0) {
+            const intRequiredField = showConfig.int_required;
+            const originalCount = data.length;
+            data = data.filter(row => {
+                const value = row[intRequiredField];
+                return value && !isNaN(parseInt(value)) && parseInt(value).toString() === value.toString();
+            });
+            console.log(`Filtered by int_required (${intRequiredField}): ${data.length} rows remaining from ${originalCount} original rows`);
+        }
         
         this.listings = data;
         this.filteredListings = data;
         this.currentPage = 1;
+        
+        // Store filtered data in DOM for download/print functionality
+        this.storeDataInDOM(data);
         
         this.initializeSearchFields();
         this.dataLoaded = true;
@@ -184,9 +202,14 @@ class ListingsDisplay {
 
     async loadDataFromConfig(config) {
         if (config.googleCSV) {
-            return await this.loadGoogleCSV(config.googleCSV);
+            //return await this.loadGoogleCSV(config.googleCSV);
+            return await this.loadCSVData(config.googleCSV);
+        } else if (config.dataset.endsWith('.json') ) {
+            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.pathConfig.basePath + config.dataset;
+            return await this.loadJSONData(datasetUrl);
         } else if (config.dataset) {
-            return await this.loadCSVData(this.pathConfig.basePath + config.dataset);
+            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.pathConfig.basePath + config.dataset;
+            return await this.loadCSVData(datasetUrl);
         } else {
             return this.createMockData(config);
         }
@@ -257,7 +280,7 @@ class ListingsDisplay {
         return [];
     }
 
-    async loadGoogleCSV(url) {
+    async loadGoogleCSV(url) { /* Probably not needed since the same as loadCSVData */
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -277,6 +300,23 @@ class ListingsDisplay {
         
         const csvText = await response.text();
         return this.parseCSV(csvText);
+    }
+
+    async loadJSONData(url) {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load JSON: ${response.status} ${response.statusText}`);
+        }
+        
+        const jsonData = await response.json();
+        
+        // Convert JSON array to the same format as CSV data
+        if (Array.isArray(jsonData) && jsonData.length > 0) {
+            return jsonData;
+        }
+        
+        return [];
     }
 
     parseCSV(csvText) {
@@ -616,7 +656,6 @@ class ListingsDisplay {
 
     renderSearchPopup() {
         if (this.availableFields.size === 0) return '';
-        
         return `
             <div class="search-fields-popup">
                 <div class="search-fields-header">
@@ -774,11 +813,19 @@ class ListingsDisplay {
             const displayData = this.getDisplayData(listing);
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             
+            // Helper function to check if key is in featured columns (case-insensitive)
+            const isInFeaturedColumns = (key) => {
+                const featuredColumns = this.config?.featuredColumns || [];
+                return featuredColumns.some(col => col.toLowerCase() === key.toLowerCase());
+            };
+            
             // Count additional details (excluding featured columns and coordinates)
             const additionalDetailsCount = Object.entries(listing)
                 .filter(([key, value]) => 
-                    !(this.config?.featuredColumns || []).includes(key) && 
+                    !isInFeaturedColumns(key) && 
                     value && 
+                    value.toString().trim() !== '' &&
+                    value.toString().trim() !== '-' &&
                     key !== 'latitude' && 
                     key !== 'longitude'
                 ).length;
@@ -798,8 +845,10 @@ class ListingsDisplay {
                         <div class="details-content" id="${uniqueId}">
                             ${Object.entries(listing)
                                 .filter(([key, value]) => 
-                                    !(this.config?.featuredColumns || []).includes(key) && 
+                                    !isInFeaturedColumns(key) && 
                                     value && 
+                                    value.toString().trim() !== '' &&
+                                    value.toString().trim() !== '-' &&
                                     key !== 'latitude' && 
                                     key !== 'longitude'
                                 )
@@ -1039,7 +1088,7 @@ class ListingsDisplay {
                 <!-- Right Column (Gallery + Map on desktop) -->
                 <div class="right-column">
                     <!-- Gallery Section -->
-                    <div id="widgetGalleryParent">
+                    <div id="widgetGalleryParent" style="display:none">
                     <div id="pageGallery" myparent="widgetGalleryParent" style="display:none" class="earth">
                         <!-- Expand Icon for Gallery -->
                         <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
@@ -1053,7 +1102,9 @@ class ListingsDisplay {
                             </button>
                         </div>
                         <!-- ../../img/banner.webp --->
+                        <!--
                         <img src="../../../community/img/hero/hero.png" alt="Banner" class="gallery-banner">
+                        -->
                     </div>
                     </div>
                     <!-- Map Section -->
@@ -1064,7 +1115,7 @@ class ListingsDisplay {
                             </div>
                             <!-- Add Visit Button - Upper Left Corner -->
                             <div style="position: absolute; top: 8px; left: 8px; z-index: 1000;">
-                                <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn">Add Visit</a>
+                                <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn list-cities" style="display:none">Add Visit</a>
                             </div>
                             <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
                             <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
@@ -1186,7 +1237,11 @@ class ListingsDisplay {
         const data = {};
         
         featuredColumns.forEach((column, index) => {
-            const value = listing[column];
+            // Find the actual column name (case-insensitive)
+            const actualColumnName = Object.keys(listing).find(key => 
+                key.toLowerCase() === column.toLowerCase()
+            ) || column;
+            const value = listing[actualColumnName];
             if (value) {
                 if (index === 0) {
                     data.primary = value;
@@ -1381,9 +1436,24 @@ class ListingsDisplay {
     setupPrintDownloadIcons() {
         if (typeof PrintDownloadWidget !== 'undefined') {
             const data = this.getDataForDownload();
+            
+            // Get list name from current hash or config for filename
+            let listName = 'listings';
+            if (typeof getHash === 'function') {
+                const hashParams = getHash();
+                listName = hashParams.list || listName;
+            }
+            
+            // If we have config with a title, use that instead
+            if (this.config && (this.config.shortTitle || this.config.listTitle)) {
+                listName = this.config.shortTitle || this.config.listTitle;
+                // Clean filename - remove spaces and special characters
+                listName = listName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+            }
+            
             const options = {
                 showMap: true,
-                filename: 'listings'
+                filename: listName
             };
             
             // Check if rightTeamControls exists, otherwise use default location
@@ -1399,10 +1469,68 @@ class ListingsDisplay {
         }
     }
     
+    storeDataInDOM(data) {
+        // Store data in DOM as base64 encoded JSON to handle quotes and special characters
+        const dataElement = document.getElementById('widget-stored-data') || document.createElement('div');
+        dataElement.id = 'widget-stored-data';
+        dataElement.style.display = 'none';
+        
+        // Clean up the data for storage
+        const cleanedData = data.map(listing => {
+            const cleanListing = {};
+            Object.keys(listing).forEach(key => {
+                if (key !== 'id' && listing[key] !== null && listing[key] !== undefined) {
+                    cleanListing[key] = listing[key];
+                }
+            });
+            return cleanListing;
+        });
+        
+        // Base64 encode to safely handle quotes and special characters including Unicode
+        const jsonString = JSON.stringify(cleanedData);
+        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+        dataElement.setAttribute('data-widget-listings', encodedData);
+        
+        if (!document.getElementById('widget-stored-data')) {
+            document.body.appendChild(dataElement);
+        }
+        
+        console.log(`Stored ${cleanedData.length} rows in DOM for download/print functionality`);
+    }
+
     getDataForDownload() {
-        // Return the current filtered listings for download
+        // Get base data from DOM storage instead of pulling fresh
+        const dataElement = document.getElementById('widget-stored-data');
+        if (dataElement && dataElement.getAttribute('data-widget-listings')) {
+            try {
+                const encodedData = dataElement.getAttribute('data-widget-listings');
+                const decodedString = decodeURIComponent(escape(atob(encodedData)));
+                let baseData = JSON.parse(decodedString);
+                console.log(`Retrieved ${baseData.length} rows from DOM storage for filtering and download`);
+                
+                // Apply current search filters to the stored data
+                if (this.searchTerm.trim()) {
+                    const fieldsToSearch = this.searchFields.size > 0 ? 
+                        Array.from(this.searchFields) : 
+                        Array.from(this.availableFields);
+                    
+                    baseData = baseData.filter(listing => {
+                        return fieldsToSearch.some(field => {
+                            const value = listing[field];
+                            return value && value.toString().toLowerCase().includes(this.searchTerm.toLowerCase());
+                        });
+                    });
+                    console.log(`Applied search filter "${this.searchTerm}": ${baseData.length} rows remaining`);
+                }
+                
+                return baseData;
+            } catch (error) {
+                console.warn('Error retrieving data from DOM storage, falling back to current filtered listings:', error);
+            }
+        }
+        
+        // Fallback to current filtered listings if DOM storage fails
         return this.filteredListings.map(listing => {
-            // Clean up the data for export
             const cleanListing = {};
             Object.keys(listing).forEach(key => {
                 if (key !== 'id' && listing[key] !== null && listing[key] !== undefined) {

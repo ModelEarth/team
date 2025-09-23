@@ -40,12 +40,14 @@ body {
     position: sticky;
     top: 0;
     z-index: 10;
+    overflow: visible;
 }
 .search-container {
     display: flex;
     gap: 12px;
     align-items: flex-start;
     margin-bottom: 12px;
+    overflow: visible;
 }
 
 .list-selector {
@@ -109,6 +111,7 @@ body {
 .search-fields-control {
     position: relative;
     min-width: 150px;
+    overflow: visible;
 }
 
 .search-fields-btn {
@@ -242,16 +245,18 @@ body {
 }
 
 .search-fields-popup {
-    position: absolute;
+    position: sticky;
     top: 100%;
     left: 0;
-    right: 0;
     background: white;
     border: 1px solid #ddd;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 9999;
     margin-top: 4px;
+    min-width: 280px;
+    max-width: 400px;
+    width: max-content;
 }
 
 .dark .search-fields-popup {
@@ -736,7 +741,6 @@ body {
     overflow: visible;
 }
 #pageMap {
-    background: white;
     border-radius: 8px;
 }
 
@@ -821,4 +825,8 @@ body {
 #widgetHero #widgetmap {
     width: 100% !important;
     height: 100% !important;
+}
+.leaflet-container {
+    background: none !important; /* Prevents white corner radius edge */
+    /* outline-offset: 0px !important; Not sure if we'll need this */
 }

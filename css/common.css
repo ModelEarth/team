@@ -166,7 +166,8 @@ h2 {
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: var(--border-light);
+    /* Caused hover to occur on active layout indicator on team/projects */
+    /* background: var(--border-light); */
 }
 
 .actions {
@@ -384,7 +385,8 @@ pre code {
     transform: translateY(-1px);
 }
 .dark .btn-secondary:hover {
-    color:#333 !important;
+    /* Caused hover to occur on active layout indicator on team/projects */
+    /* color:#333 !important; */
 }
 .collapse-toggle-btn.btn-secondary:hover {
     background: var(--border-medium) !important;

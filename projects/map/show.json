@@ -15,6 +15,17 @@
     "datastates": ["GA"],
     "mapInfo": "Cities in Georgia"
   },
+  "liaisons": {
+    "shortTitle": "Film Liaisons",
+    "listTitle": "Film Liaisons",
+    "dataTitle": "Film Liaisons",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
+    "markerType": "google",
+    "nameColumn": "name",
+    "featuredColumns": ["Name", "Address", "City", "State", "Zip", "Population"],
+    "int_required": "liaison_id"
+  },
   "recyclers": {
     "listTitle": "B2B Recyclers",
     "dataTitle": "B2B Recyclers",
