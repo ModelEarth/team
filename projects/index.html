@@ -6919,7 +6919,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Listen for URL changes to handle list parameter changes
             window.addEventListener('hashchange', function() {
-                alert("hashchange")
+                //alert("hashchange")
                 const listParam = getHash().list;
                 console.log('HASHCHANGE: Processing list parameter:', listParam);
                 
@@ -7053,7 +7053,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Check for list=all in URL hash to auto-load meta list
             const listParam = getHash().list;
-            alert("listParam " + listParam);
             if (listParam === 'all') {
                 showAllFeeds();
             } else if (listParam === 'geo') {
