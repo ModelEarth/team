@@ -174,6 +174,20 @@ class ListingsDisplay {
             console.log(`Filtered by int_required (${intRequiredField}): ${data.length} rows remaining from ${originalCount} original rows`);
         }
         
+        // Apply state_required filtering if specified
+        if (showConfig.state_required && data.length > 0) {
+            const requiredState = showConfig.state_required;
+            const originalCount = data.length;
+            data = data.filter(row => this.matchesRequiredState(row, requiredState));
+            console.log(`Filtered by state_required (${requiredState}): ${data.length} rows remaining from ${originalCount} original rows`);
+        }
+        
+        // Sort data alphabetically by primary name field
+        if (data.length > 0) {
+            data = this.sortDataAlphabetically(data, showConfig);
+            console.log(`Sorted ${data.length} rows alphabetically`);
+        }
+        
         this.listings = data;
         this.filteredListings = data;
         this.currentPage = 1;
@@ -556,7 +570,158 @@ class ListingsDisplay {
         return strValue;
     }
 
+    formatKeyName(key) {
+        if (!key) return '';
+        
+        // Words that should not be capitalized unless at the start
+        const lowercaseWords = ['in', 'to', 'of', 'for', 'and', 'or', 'but', 'at', 'by', 'with', 'from', 'on', 'as', 'is', 'the', 'a', 'an'];
+        // Words that should be all caps
+        const uppercaseWords = ['id', 'url'];
+        
+        return key
+            .replace(/_/g, ' ')  // Replace underscores with spaces
+            .split(' ')
+            .map((word, index) => {
+                const lowerWord = word.toLowerCase();
+                // Check if word should be all caps
+                if (uppercaseWords.includes(lowerWord)) {
+                    return word.toUpperCase();
+                }
+                // Always capitalize the first word, or if it's not in the lowercase list
+                if (index === 0 || !lowercaseWords.includes(lowerWord)) {
+                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                }
+                return lowerWord;
+            })
+            .join(' ');
+    }
+
+    getStateLookup() {
+        return {
+            'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+            'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+            'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+            'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+            'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+            'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+            'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+            'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+            'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+            'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming',
+            'DC': 'District of Columbia'
+        };
+    }
+
+    matchesRequiredState(row, requiredState) {
+        // If no required state specified, include the row
+        if (!requiredState) return true;
+        
+        const stateLookup = this.getStateLookup();
+        const requiredStateLower = requiredState.toLowerCase();
+        const requiredStateFull = stateLookup[requiredState.toUpperCase()] || requiredState;
+        
+        // Check State field first if it exists
+        const stateField = Object.keys(row).find(key => key.toLowerCase() === 'state');
+        if (stateField && row[stateField]) {
+            const stateValue = row[stateField].toString().trim().toLowerCase();
+            // Check for exact match (2-char or full name)
+            if (stateValue === requiredStateLower || 
+                stateValue === requiredStateFull.toLowerCase() ||
+                stateLookup[stateValue.toUpperCase()] === requiredStateFull) {
+                return true;
+            }
+        }
+        
+        // Check Address field if State field doesn't match or doesn't exist
+        const addressField = Object.keys(row).find(key => key.toLowerCase() === 'address');
+        if (addressField && row[addressField]) {
+            const addressValue = row[addressField].toString().toLowerCase();
+            
+            // Look for 2-character state codes in address
+            const stateCodeRegex = /\b([A-Z]{2})\b/gi;
+            const stateMatches = addressValue.match(stateCodeRegex);
+            if (stateMatches) {
+                for (const match of stateMatches) {
+                    const matchUpper = match.toUpperCase();
+                    if (matchUpper === requiredState.toUpperCase() || 
+                        stateLookup[matchUpper] === requiredStateFull) {
+                        return true;
+                    }
+                }
+            }
+            
+            // Look for full state names in address
+            for (const [code, fullName] of Object.entries(stateLookup)) {
+                if (addressValue.includes(fullName.toLowerCase())) {
+                    if (code === requiredState.toUpperCase() || 
+                        fullName.toLowerCase() === requiredStateLower) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // If no state found in Address or State field, include the row
+        return true;
+    }
+
+    sortDataAlphabetically(data, config) {
+        if (!data || data.length === 0) return data;
+        
+        // Determine the primary field to sort by
+        let sortField = null;
+        
+        // Priority 1: Use nameColumn from config if specified
+        if (config && config.nameColumn) {
+            // Find the actual field name (case-insensitive)
+            sortField = Object.keys(data[0]).find(key => 
+                key.toLowerCase() === config.nameColumn.toLowerCase()
+            );
+        }
+        
+        // Priority 2: Use first featured column if no nameColumn
+        if (!sortField && config && config.featuredColumns && config.featuredColumns.length > 0) {
+            // Find the actual field name (case-insensitive)
+            sortField = Object.keys(data[0]).find(key => 
+                key.toLowerCase() === config.featuredColumns[0].toLowerCase()
+            );
+        }
+        
+        // Priority 3: Look for common name fields
+        if (!sortField) {
+            const commonNameFields = ['name', 'title', 'organization', 'organization name', 'company', 'city'];
+            sortField = Object.keys(data[0]).find(key => 
+                commonNameFields.some(commonField => 
+                    key.toLowerCase().includes(commonField.toLowerCase())
+                )
+            );
+        }
+        
+        // Priority 4: Use first field if nothing else found
+        if (!sortField) {
+            sortField = Object.keys(data[0])[0];
+        }
+        
+        // Sort the data
+        return data.sort((a, b) => {
+            const valueA = a[sortField] ? a[sortField].toString().toLowerCase().trim() : '';
+            const valueB = b[sortField] ? b[sortField].toString().toLowerCase().trim() : '';
+            
+            // Handle empty values - put them at the end
+            if (!valueA && !valueB) return 0;
+            if (!valueA) return 1;
+            if (!valueB) return -1;
+            
+            return valueA.localeCompare(valueB);
+        });
+    }
+
     filterListings() {
+        // Store current focus state
+        const activeElement = document.activeElement;
+        const wasSearchInputFocused = activeElement && activeElement.id === 'searchInput';
+        const cursorPosition = wasSearchInputFocused ? activeElement.selectionStart : null;
+        
         if (!this.searchTerm.trim()) {
             this.filteredListings = this.listings;
         } else {
@@ -574,6 +739,19 @@ class ListingsDisplay {
         }
         this.currentPage = 1;
         this.render();
+        
+        // Restore focus and cursor position if search input was focused
+        if (wasSearchInputFocused) {
+            setTimeout(() => {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    if (cursorPosition !== null) {
+                        searchInput.setSelectionRange(cursorPosition, cursorPosition);
+                    }
+                }
+            }, 0);
+        }
         
         // Update map with filtered results
         if (window.leafletMap) {
@@ -753,26 +931,29 @@ class ListingsDisplay {
             }
 
             // Handle details toggle - check for both the button and arrow
-            if (e.target.classList.contains('details-toggle') || 
-                e.target.classList.contains('toggle-arrow') ||
-                e.target.classList.contains('toggle-label') ||
-                e.target.closest('.details-toggle')) {
-                
+            const toggleElement = e.target.closest('.details-toggle');
+            const isToggleArrow = e.target.classList.contains('toggle-arrow');
+            const isToggleLabel = e.target.classList.contains('toggle-label');
+            
+            if (toggleElement || isToggleArrow || isToggleLabel) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                let toggle = e.target;
-                if (e.target.classList.contains('toggle-arrow')) {
+                // Find the toggle container
+                let toggle = toggleElement;
+                if (!toggle && (isToggleArrow || isToggleLabel)) {
                     toggle = e.target.parentElement;
-                } else if (!e.target.classList.contains('details-toggle')) {
-                    toggle = e.target.closest('.details-toggle');
+                    // Make sure we found a details-toggle element
+                    if (!toggle || !toggle.classList.contains('details-toggle')) {
+                        toggle = e.target.closest('.details-toggle');
+                    }
                 }
                 
-                if (toggle) {
+                if (toggle && toggle.classList.contains('details-toggle')) {
                     const content = toggle.nextElementSibling;
                     const arrow = toggle.querySelector('.toggle-arrow');
                     
-                    if (content && arrow) {
+                    if (content && content.classList.contains('details-content') && arrow) {
                         const isExpanded = content.classList.contains('expanded');
                         
                         if (isExpanded) {
@@ -819,10 +1000,17 @@ class ListingsDisplay {
                 return featuredColumns.some(col => col.toLowerCase() === key.toLowerCase());
             };
             
-            // Count additional details (excluding featured columns and coordinates)
+            // Helper function to check if key is in omit list (case-insensitive)
+            const isInOmitList = (key) => {
+                const omitList = this.config?.omit_display || [];
+                return omitList.some(col => col.toLowerCase() === key.toLowerCase());
+            };
+            
+            // Count additional details (excluding featured columns, omitted fields, and coordinates)
             const additionalDetailsCount = Object.entries(listing)
                 .filter(([key, value]) => 
                     !isInFeaturedColumns(key) && 
+                    !isInOmitList(key) &&
                     value && 
                     value.toString().trim() !== '' &&
                     value.toString().trim() !== '-' &&
@@ -846,6 +1034,7 @@ class ListingsDisplay {
                             ${Object.entries(listing)
                                 .filter(([key, value]) => 
                                     !isInFeaturedColumns(key) && 
+                                    !isInOmitList(key) &&
                                     value && 
                                     value.toString().trim() !== '' &&
                                     value.toString().trim() !== '-' &&
@@ -859,7 +1048,7 @@ class ListingsDisplay {
                                     
                                     return `
                                         <div class="detail-item${stackedClass}">
-                                            <span class="detail-label">${key}:</span>
+                                            <span class="detail-label">${this.formatKeyName(key)}:</span>
                                             <span class="detail-value">${formattedValue}</span>
                                         </div>
                                     `;
@@ -1249,12 +1438,12 @@ class ListingsDisplay {
                     // Add "Population: " prefix for population data
                     data.secondary = column.toLowerCase().includes('population') ? 
                         `Population: ${this.formatFieldValue(value, 'population')}` : 
-                        `${column}: ${this.formatFieldValue(value)}`;
+                        `${this.formatKeyName(column)}: ${this.formatFieldValue(value)}`;
                 } else if (index === 2) {
                     // Add " County" suffix for county data
                     data.tertiary = column.toLowerCase().includes('county') ? 
                         `${value} County` : 
-                        `${column}: ${value}`;
+                        `${this.formatKeyName(column)}: ${value}`;
                 }
             }
         });

@@ -635,7 +635,7 @@ body {
 .detail-key,
 .detail-label {
     font-weight: 500;
-    min-width: 90px;
+    min-width: 100px;
     flex-shrink: 0;
 }
 

@@ -23,7 +23,8 @@
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
     "nameColumn": "name",
-    "featuredColumns": ["Name", "Address", "City", "State", "Zip", "Population"],
+    "featuredColumns": ["Name", "Contact_Name", "Address", "City", "State", "Zip", "Population"],
+    "omit_display": ["geo_json"],
     "int_required": "liaison_id"
   },
   "recyclers": {
@@ -52,6 +53,7 @@
       "In Website URL": "website"
     },
     "datastates": ["GA"],
+    "state_required": "GA",
     "mapInfo": "Add <a href='https://map.georgia.org/recycling/'>B2B&nbsp;Recycler Listings</a> or post comments to submit additions to our <a href='https://docs.google.com/spreadsheets/d/1YmfBPEFpfmaKmxcnxijPU8-esVkhaVBE1wLZqPNOKtY/edit?usp=sharing' target='georgia_recyclers_sheet'>Google&nbsp;Sheet</a>."
   }
 }
