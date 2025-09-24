@@ -12,10 +12,6 @@
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/shared-styles.css">
     
-    <!-- Side Nav -->
-    <link rel="stylesheet" href="../../localsite/css/nav.css">
-    <script src="../../localsite/js/nav.js"></script>
-    
     <!-- Map and list displays -->
     <script src="../js/widget.js"></script>
 
@@ -6473,11 +6469,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
         }
         
-        // Listen for hash changes (manual editing)
-        window.addEventListener('hashchange', function() {
-            checkInsightsFromURL();
-        });
-        
         // Restore saved view state
         function restoreViewState() {
             // Restore the saved view mode (currentView is already loaded from localStorage)
@@ -6869,7 +6860,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 condensedText.textContent = 'Condense Layout';
             }
         }
-        
         // Load README documentation and configuration
         document.addEventListener('DOMContentLoaded', async function() {
             
@@ -6914,12 +6904,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Initialize insights visibility from URL (with delay to ensure DOM is ready)
             setTimeout(checkInsightsFromURL, 100);
             
-            // Listen for URL changes to update visibility
-            window.addEventListener('hashchange', updateGroupParticipantsVisibility);
-            
             // Listen for URL changes to handle list parameter changes
-            window.addEventListener('hashchange', function() {
-                //alert("hashchange")
+            document.addEventListener('hashChangeEvent', function (elem) { // hashChangeEvent resides in localsite.js
+
+                console.log("team/projects detects hashChangeEvent")
+
+                updateGroupParticipantsVisibility();
+
                 const listParam = getHash().list;
                 console.log('HASHCHANGE: Processing list parameter:', listParam);
                 
@@ -6935,6 +6926,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Update menu visibility
                 updateMenuVisibility();
                 
+                checkInsightsFromURL();
+
                 // Handle list parameter changes - only load data if list actually changed
                 if (listParam && listParam !== currentLoadedList) {
                     console.log('HASHCHANGE: List changed from', currentLoadedList, 'to', listParam);
@@ -6974,32 +6967,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 } else if (listParam) {
                     console.log('HASHCHANGE: List param unchanged:', listParam, '- skipping data reload');
                 }
-            });
-            
-            // Listen for URL changes to handle display mode changes
-            window.addEventListener('hashchange', function() {
+
                 const displayParam = getHash().display || 'column'; // Default to column if absent
                 if (['column', 'table', 'gallery'].includes(displayParam) && displayParam !== currentView) {
                     switchView(displayParam);
                 }
-            });
+
             
-            // Listen for URL changes to handle group parameter changes
-            window.addEventListener('hashchange', function() {
-                // Skip group parameter processing if we're currently updating status
-                if (isUpdatingStatus) {
-                    console.log('🔄 Skipping group parameter processing during status update');
-                    return;
-                }
-                
-                // Group hash parameters are no longer processed
-                console.log('🔄 Group hash parameters disabled - using localStorage/snapshots only');
-            });
             
-            // Note: Sort parameters are no longer in URL hash, only in localStorage
-            
-            // Listen for URL changes to handle team parameter changes
-            window.addEventListener('hashchange', function() {
                 const teamParam = getHash().team;
                 if (teamParam !== currentTeamFilter) {
                     console.log('🔗 Team parameter changed in URL hash:', teamParam);
@@ -7015,10 +6990,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     // Apply filters
                     applyAllFilters();
                 }
-            });
-            
-            // Listen for URL changes to handle status parameter changes
-            window.addEventListener('hashchange', function() {
+
                 const statusParam = getHash().status;
                 const newStatuses = statusParam ? statusParam.split(',') : ['All'];
                 const currentStatusArray = Array.from(selectedStatuses);
