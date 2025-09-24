@@ -12,6 +12,7 @@ class ListingsDisplay {
         this.error = null;
         this.dataLoadError = null;
         this.enableStateFiltering = false;
+        this.usingEmbeddedList = false;
         this.showConfigs = {};
         this.currentShow = this.getInitialShow();
         this.currentPage = 1;
@@ -91,11 +92,20 @@ class ListingsDisplay {
     }
 
     async loadShowConfigs() {
-        // Try to load show.json file using the configured base path
-        let listsJson = "trade.json"
-        if (Cookies.get('modelsite').indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) {
-            listsJson = 'show.json'
+        // Check for source parameter in widget.js script URL
+        let listsJson = this.getSourceFromScriptUrl();
+        
+        // If no source parameter, use default logic
+        if (!listsJson) {
+            listsJson = "trade.json"
+            if (Cookies.get('modelsite')?.indexOf("geo") >= 0 || 
+                location.host.indexOf("geo") >= 0 || 
+                location.host.indexOf("locations.pages.dev") >= 0) {
+                listsJson = 'show.json'
+            }
         }
+        
+        console.log(`Loading configuration from: ${this.pathConfig.basePath}${listsJson}`);
         const response = await fetch(this.pathConfig.basePath + listsJson);
         
         if (response.ok) {
@@ -1100,6 +1110,22 @@ class ListingsDisplay {
         return details;
     }
 
+    getSourceFromScriptUrl() {
+        // Check for source parameter in widget.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        for (const script of widgetScripts) {
+            if (script.src.includes('source=')) {
+                const scriptUrl = new URL(script.src);
+                const sourceParam = scriptUrl.searchParams.get('source');
+                if (sourceParam) {
+                    console.log(`Using source parameter: ${sourceParam}`);
+                    return sourceParam;
+                }
+            }
+        }
+        return null;
+    }
+
     renderNoResults() {
         // Show no results message when data is loaded but filtered results are empty
         if (this.dataLoaded && this.filteredListings.length === 0 && this.searchTerm) {
@@ -1418,12 +1444,32 @@ class ListingsDisplay {
             return hashList;
         }
         
+        // Check for list parameter in widget.js script URL (from widget-embed.js)
+        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        for (const script of widgetScripts) {
+            if (script.src.includes('?list=')) {
+                const scriptUrl = new URL(script.src);
+                const embedList = scriptUrl.searchParams.get('list');
+                if (embedList) {
+                    this.usingEmbeddedList = true;
+                    console.log(`Using embedded list parameter: ${embedList}`);
+                    return embedList;
+                }
+            }
+        }
+        
         // Fall back to cached list
         const cachedList = this.loadCachedShow();
         return cachedList || 'cities';
     }
     
     updateUrlHash(showKey) {
+        // Don't update hash when using embedded list parameter
+        if (this.usingEmbeddedList) {
+            console.log(`Skipping hash update - using embedded list parameter: ${showKey}`);
+            return;
+        }
+        
         const currentHash = window.location.hash.substring(1);
         const urlParams = new URLSearchParams(currentHash);
         urlParams.set('list', showKey);
@@ -1769,7 +1815,6 @@ class ListingsDisplay {
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
-    alert("widget initializing");
     // Only initialize if the teamwidget element exists
     const teamwidgetElement = document.getElementById('teamwidget');
     if (teamwidgetElement && !window.listingsApp) {

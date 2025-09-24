@@ -84,18 +84,35 @@
     Promise.all(scriptPromises).then(() => {
         console.log('Essential scripts loaded, loading widget.js');
         
-        // Get list parameter from current script tag or URL
+        // Get parameters from current script tag
         let listParam = '';
+        let sourceParam = '';
         const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
+        
         if (currentScript && currentScript.src.includes('?')) {
             const url = new URL(currentScript.src);
             if (url.searchParams.get('list')) {
                 listParam = '?list=' + url.searchParams.get('list');
             }
+            if (url.searchParams.get('source')) {
+                sourceParam = '&source=' + url.searchParams.get('source');
+            }
         }
         
-        // Load widget.js with optional list parameter
-        return loadScript(widgetWebroot + '/team/js/widget.js' + listParam, '/team/js/widget.js');
+        // Check if #teamwidget exists, if not create it at script location
+        let teamwidgetExists = document.getElementById('teamwidget');
+        if (!teamwidgetExists && currentScript) {
+            console.log('Creating #teamwidget at script location');
+            const teamwidgetDiv = document.createElement('div');
+            teamwidgetDiv.id = 'teamwidget';
+            
+            // Insert the teamwidget div right after the script tag
+            currentScript.parentNode.insertBefore(teamwidgetDiv, currentScript.nextSibling);
+        }
+        
+        // Load widget.js with optional parameters
+        const fullParams = listParam + sourceParam;
+        return loadScript(widgetWebroot + '/team/js/widget.js' + fullParams, '/team/js/widget.js');
     }).then(() => {
         console.log('Widget.js loaded successfully');
         
