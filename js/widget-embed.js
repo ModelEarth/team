@@ -1,0 +1,108 @@
+// Load localsite.js and supporting files for widget.js
+// Optimized loading strategy: parallel JS batches, non-blocking CSS
+
+(function() {
+    // Configuration - set widgetWebroot to match your deployment path
+    const widgetWebroot = '';
+    
+    // Helper function to load script with promise
+    function loadScript(src, id) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = src;
+            if (id) script.id = id;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+    
+    // Helper function to load CSS (non-blocking)
+    function loadCSS(href, id) {
+        const link = document.createElement('link');
+        link.type = 'text/css';
+        link.rel = 'stylesheet';
+        link.href = href;
+        if (id) link.id = id;
+        document.head.appendChild(link);
+    }
+    
+    // Load base.css early (non-blocking)
+    loadCSS(widgetWebroot + '/localsite/css/base.css', '/localsite/css/base.css');
+    
+    // Load essential JS files in parallel (batch 1 - no waiting)
+    const essentialScripts = [
+        { src: widgetWebroot + '/localsite/js/localsite.js?showheader=true&showfooter=false' }, // No id for localsite.js
+        { src: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', id: '/leaflet.js', integrity: 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=', crossorigin: 'anonymous' },
+        { src: widgetWebroot + '/team/js/leaflet.js', id: '/team/js/leaflet.js' },
+        { src: widgetWebroot + '/team/js/common.js', id: '/team/js/common.js' }
+    ];
+    
+    // Load all essential scripts in parallel
+    const scriptPromises = essentialScripts.map(script => {
+        if (script.integrity) {
+            // Handle external scripts with integrity
+            return new Promise((resolve, reject) => {
+                const scriptEl = document.createElement('script');
+                scriptEl.src = script.src;
+                if (script.id) scriptEl.id = script.id;
+                if (script.integrity) scriptEl.integrity = script.integrity;
+                if (script.crossorigin !== undefined) scriptEl.crossOrigin = script.crossorigin;
+                scriptEl.onload = resolve;
+                scriptEl.onerror = reject;
+                document.head.appendChild(scriptEl);
+            });
+        } else {
+            return loadScript(script.src, script.id);
+        }
+    });
+    
+    // Load CSS files as separate non-blocking batch
+    const cssFiles = [
+        { href: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', id: '/leaflet.css', integrity: 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=', crossorigin: 'anonymous' },
+        { href: widgetWebroot + '/team/css/common.css', id: '/team/css/common.css' },
+        { href: widgetWebroot + '/team/css/widget.css', id: '/team/css/widget.css' }
+    ];
+    
+    cssFiles.forEach(css => {
+        if (css.integrity) {
+            // Handle external CSS with integrity
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = css.href;
+            if (css.id) link.id = css.id;
+            if (css.integrity) link.integrity = css.integrity;
+            if (css.crossorigin !== undefined) link.crossOrigin = css.crossorigin;
+            document.head.appendChild(link);
+        } else {
+            loadCSS(css.href, css.id);
+        }
+    });
+    
+    // Wait for essential scripts to load, then load widget.js
+    Promise.all(scriptPromises).then(() => {
+        console.log('Essential scripts loaded, loading widget.js');
+        
+        // Get list parameter from current script tag or URL
+        let listParam = '';
+        const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
+        if (currentScript && currentScript.src.includes('?')) {
+            const url = new URL(currentScript.src);
+            if (url.searchParams.get('list')) {
+                listParam = '?list=' + url.searchParams.get('list');
+            }
+        }
+        
+        // Load widget.js with optional list parameter
+        return loadScript(widgetWebroot + '/team/js/widget.js' + listParam, '/team/js/widget.js');
+    }).then(() => {
+        console.log('Widget.js loaded successfully');
+        
+        // Load non-essential print-download.js last (optional)
+        loadScript(widgetWebroot + '/team/js/print-download.js', '/team/js/print-download.js')
+            .catch(err => console.warn('Print-download.js failed to load (non-critical):', err));
+    }).catch(err => {
+        console.error('Failed to load essential scripts:', err);
+    });
+})();

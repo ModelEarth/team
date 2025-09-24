@@ -1767,12 +1767,9 @@ class ListingsDisplay {
     }
 }
 
-
-
-
-
-// Initialize the application when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize the application when DOM is loaded or immediately if already loaded
+function initializeWidget() {
+    alert("widget initializing");
     // Only initialize if the teamwidget element exists
     const teamwidgetElement = document.getElementById('teamwidget');
     if (teamwidgetElement && !window.listingsApp) {
@@ -1900,7 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerChartResize(contentDiv, 'expand', chartTypes);
         }
     };
-});
+}
 
 // Shared chart resize function
 function triggerChartResize(contentDiv, mode, chartTypes) {
@@ -1931,4 +1928,12 @@ function triggerChartResize(contentDiv, mode, chartTypes) {
             }
         }, 100);
     }
+}
+
+// Check if DOM is already loaded, otherwise wait for it
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeWidget);
+} else {
+    // DOM already loaded, initialize immediately (handles dynamic loading)
+    initializeWidget();
 }
