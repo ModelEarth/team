@@ -1,8 +1,8 @@
 {
   "cities": {
     "shortTitle": "Products",
-    "listTitle": "Products made in India",
-    "dataTitle": "Products made in India",
+    "listTitle": "Construction Products Made in India",
+    "dataTitle": "Made in India",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/Sirishaupadhyayula/products-data/refs/heads/main/IN.csv",
     "markerType": "google",
