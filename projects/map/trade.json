@@ -1,0 +1,17 @@
+{
+  "cities": {
+    "shortTitle": "Products",
+    "listTitle": "Products made in India",
+    "dataTitle": "Products made in India",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/Sirishaupadhyayula/products-data/refs/heads/main/IN.csv",
+    "markerType": "google",
+    "nameColumn": "Name",
+    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "search": {
+      "In City": "Name",
+      "In County Name": "County"
+    },
+    "mapInfo": "Companies in India"
+  }
+}

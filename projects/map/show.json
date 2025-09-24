@@ -1,6 +1,6 @@
 {
   "cities": {
-    "shortTitle": "Location Visits",
+    "shortTitle": "Locations Visits",
     "listTitle": "Location Visits",
     "dataTitle": "Location Visits",
     "datatype": "csv",
@@ -28,7 +28,7 @@
     "int_required": "liaison_id"
   },
   "cameraready": {
-    "shortTitle": "Camera Ready ",
+    "shortTitle": "Locations",
     "listTitle": "Camera Ready Locations",
     "dataTitle": "Georgia Camera Ready Locations",
     "datatype": "csv",
@@ -40,6 +40,7 @@
     "int_required": "listing_id"
   },
   "recyclers": {
+    "shortTitle": "B2B Recyclers",
     "listTitle": "B2B Recyclers",
     "dataTitle": "B2B Recyclers",
     "googleCSV": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=1924677788&single=true&output=csv",

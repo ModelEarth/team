@@ -90,7 +90,11 @@ class ListingsDisplay {
 
     async loadShowConfigs() {
         // Try to load show.json file using the configured base path
-        const response = await fetch(this.pathConfig.basePath + 'show.json');
+        let listsJson = "trade.json"
+        if (Cookies.get('modelsite').indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) {
+            listsJson = 'show.json'
+        }
+        const response = await fetch(this.pathConfig.basePath + listsJson);
         
         if (response.ok) {
             this.showConfigs = await response.json();
@@ -111,38 +115,7 @@ class ListingsDisplay {
                     "search": {
                         "In City": "City",
                         "In County Name": "County"
-                    },
-                    "datastates": ["GA"],
-                    "mapInfo": "Cities in Georgia"
-                },
-                "recyclers": {
-                    "listTitle": "B2B Recyclers",
-                    "dataTitle": "B2B Recyclers",
-                    "datatype": "csv",
-                    "googleCSV": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=1924677788&single=true&output=csv",
-                    "googleCategories": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=381237740&single=true&output=csv",
-                    "nameColumn": "organization name",
-                    "titleColumn": "organization name",
-                    "featuredColumns": ["organization name", "Category", "Materials Accepted"],
-                    "searchFields": "organization name",
-                    "addressColumn": "address",
-                    "valueColumn": "category",
-                    "valueColumnLabel": "Category",
-                    "catColumn": "Category",
-                    "subcatColumn": "Materials Accepted",
-                    "itemsColumn": "Materials Accepted",
-                    "color": "#E31C79",
-                    "markerType": "google",
-                    "search": {
-                        "In Main Category": "Category",
-                        "In Materials Accepted": "Materials Accepted",
-                        "In Location Name": "organization name",
-                        "In Address": "address",
-                        "In County Name": "county",
-                        "In Website URL": "website"
-                    },
-                    "datastates": ["GA"],
-                    "mapInfo": "Add <a href='https://map.georgia.org/recycling/'>B2B&nbsp;Recycler Listings</a> or post comments to submit additions to our <a href='https://docs.google.com/spreadsheets/d/1YmfBPEFpfmaKmxcnxijPU8-esVkhaVBE1wLZqPNOKtY/edit?usp=sharing' target='georgia_recyclers_sheet'>Google&nbsp;Sheet</a>."
+                    }
                 }
             };
     }
@@ -1262,12 +1235,15 @@ class ListingsDisplay {
                     ${this.renderEmptyState()}
                     
                     <!-- Widget Details Bottom Container -->
-                    <div id="widgetDetailsBottom" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
+                    <div id="widgetDetailsBottom">
                         <div class="search-results">
-                            ${this.getCurrentPageListings().length} of ${this.filteredListings.length}
+                            ${this.getCurrentPageListings().length === this.filteredListings.length ? 
+                                `${this.filteredListings.length}` : 
+                                `${this.getCurrentPageListings().length} of ${this.filteredListings.length}`}
                             ${this.filteredListings.length !== this.listings.length ? ` (${this.listings.length} total)` : ''}
+                            ${this.config?.shortTitle ? ` ${this.config.shortTitle}` : ''}
                         </div>
-                        <div class="pagination-container">
+                        <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
                             ${this.renderPagination()}
                         </div>
                     </div>

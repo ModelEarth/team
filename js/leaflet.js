@@ -10,6 +10,8 @@ class LeafletMapManager {
         this.currentOverlay = null;
         this.isFullscreen = false;
         this.originalStyles = null;
+        this.initialZoom = null;
+        this.useLargerSizes = false;
         this.popupOptions = {
             maxWidth: 300,
             className: 'custom-popup',
@@ -373,9 +375,49 @@ class LeafletMapManager {
                 padding: [10, 10],
                 maxZoom: 15  // Zoom closer to fill screen more
             });
+            
+            // Capture initial zoom level and set larger sizes flag if initial zoom is 5 or less
+            const currentZoom = this.map.getZoom();
+            if (this.initialZoom === null) {
+                this.initialZoom = currentZoom;
+            }
+            
+            // Always check if larger sizes should be used
+            const shouldUseLargerSizes = currentZoom <= 5;
+            if (shouldUseLargerSizes) {
+                this.useLargerSizes = true;
+                console.log(`Zoom ${currentZoom} detected, enabling larger sizes`);
+            }
+            
+            // Apply multiple checks with delays to ensure consistent behavior
+            this.ensureLargerSizesIfNeeded();
         }
         
         console.log(`Added ${validMarkers.length} markers to map from ${data.length} data items`);
+    }
+    
+    ensureLargerSizesIfNeeded() {
+        // Check multiple times with different delays to handle map reinitialization
+        const checkTimes = [20]; // [10, 700];
+        
+        checkTimes.forEach(delay => {
+            setTimeout(() => {
+                if (!this.map) return; // Map might be destroyed
+                
+                const currentZoom = this.map.getZoom();
+                const shouldUseLargerSizes = currentZoom <= 5;
+                
+                if (shouldUseLargerSizes && !this.useLargerSizes) {
+                    this.useLargerSizes = true;
+                    console.log(`[Delay ${delay}ms] Zoom ${currentZoom} detected, enabling larger sizes`);
+                    this.updateMarkerSizes();
+                } else if (shouldUseLargerSizes && this.useLargerSizes && this.markers.length > 0) {
+                    // Force update even if flag is already set (handles reinitialization)
+                    console.log(`[Delay ${delay}ms] Forcing marker size update for zoom ${currentZoom}`);
+                    this.updateMarkerSizes();
+                }
+            }, delay);
+        });
     }
     
     extractCoordinates(item) {
@@ -586,75 +628,149 @@ class LeafletMapManager {
     }
     
     getMarkerHtml(zoom, iconSize) {
-        // Use different dot styles based on zoom level
-        if (zoom <= 3) {
-            // Half-size dots for zoom 1-3
-            const halfSize = Math.max(1, Math.round(iconSize * 0.2));
-            return `<div class="marker-dot-tiny" style="width: ${halfSize}px; height: ${halfSize}px;"></div>`;
-        } else if (zoom === 4) {
-            // 30% dots for zoom 4
-            const size4 = Math.max(1, Math.round(iconSize * 0.3));
-            return `<div class="marker-dot-tiny" style="width: ${size4}px; height: ${size4}px;"></div>`;
-        } else if (zoom === 5) {
-            // 40% dots for zoom 5
-            const size5 = Math.max(2, Math.round(iconSize * 0.4));
-            return `<div class="marker-dot-tiny" style="width: ${size5}px; height: ${size5}px;"></div>`;
-        } else if (zoom === 6) {
-            // 60% dots for zoom 6
-            const size6 = Math.max(2, Math.round(iconSize * 0.6));
-            return `<div class="marker-dot-tiny" style="width: ${size6}px; height: ${size6}px;"></div>`;
-        } else if (zoom === 7) {
-            // 100% pins for zoom 7
-            return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
-                      <div class="marker-dot"></div>
-                    </div>`;
+        // Use conditional logic based on initial zoom level
+        if (this.useLargerSizes) {
+            // Apply larger sizes when initial zoom was 5 or less
+            if (zoom <= 3) {
+                // 50% dots for zoom 1-3 (slightly smaller than level 4)
+                const size3 = Math.max(2, Math.round(iconSize * 0.5));
+                return `<div class="marker-dot-tiny" style="width: ${size3}px; height: ${size3}px;"></div>`;
+            } else if (zoom === 4) {
+                // 60% dots for zoom 4 (like the old default level 6)
+                const size4 = Math.max(2, Math.round(iconSize * 0.6));
+                return `<div class="marker-dot-tiny" style="width: ${size4}px; height: ${size4}px;"></div>`;
+            } else if (zoom === 5) {
+                // 100% pins for zoom 5 (same as level 7)
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            } else if (zoom === 6) {
+                // 100% pins for zoom 6 (same as level 7)
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            } else if (zoom === 7) {
+                // 100% pins for zoom 7
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            } else {
+                // Regular pin markers for zoom 8+
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            }
         } else {
-            // Regular pin markers for zoom 8+
-            return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
-                      <div class="marker-dot"></div>
-                    </div>`;
+            // Use default/original sizes when initial zoom was greater than 5
+            if (zoom <= 3) {
+                // Half-size dots for zoom 1-3
+                const halfSize = Math.max(1, Math.round(iconSize * 0.2));
+                return `<div class="marker-dot-tiny" style="width: ${halfSize}px; height: ${halfSize}px;"></div>`;
+            } else if (zoom === 4) {
+                // 30% dots for zoom 4
+                const size4 = Math.max(1, Math.round(iconSize * 0.3));
+                return `<div class="marker-dot-tiny" style="width: ${size4}px; height: ${size4}px;"></div>`;
+            } else if (zoom === 5) {
+                // 40% dots for zoom 5
+                const size5 = Math.max(2, Math.round(iconSize * 0.4));
+                return `<div class="marker-dot-tiny" style="width: ${size5}px; height: ${size5}px;"></div>`;
+            } else if (zoom === 6) {
+                // 60% dots for zoom 6
+                const size6 = Math.max(2, Math.round(iconSize * 0.6));
+                return `<div class="marker-dot-tiny" style="width: ${size6}px; height: ${size6}px;"></div>`;
+            } else if (zoom === 7) {
+                // 100% pins for zoom 7
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            } else {
+                // Regular pin markers for zoom 8+
+                return `<div class="marker-pin" style="width: ${iconSize}px; height: ${iconSize}px;">
+                          <div class="marker-dot"></div>
+                        </div>`;
+            }
         }
     }
     
     getIconAnchor(zoom, iconSize) {
-        // Adjust anchor based on marker type and size
-        if (zoom <= 3) {
-            const halfSize = Math.max(1, Math.round(iconSize * 0.2));
-            return [halfSize/2, halfSize/2];  // Center anchor for half-size dots
-        } else if (zoom === 4) {
-            const size4 = Math.max(1, Math.round(iconSize * 0.3));
-            return [size4/2, size4/2];  // Center anchor for 30% dots
-        } else if (zoom === 5) {
-            const size5 = Math.max(2, Math.round(iconSize * 0.4));
-            return [size5/2, size5/2];  // Center anchor for 40% dots
-        } else if (zoom === 6) {
-            const size6 = Math.max(2, Math.round(iconSize * 0.6));
-            return [size6/2, size6/2];  // Center anchor for 60% dots
-        } else if (zoom === 7) {
-            return [iconSize/2, iconSize];    // Bottom center for 100% pins
+        // Use conditional logic based on initial zoom level
+        if (this.useLargerSizes) {
+            // Apply larger sizes when initial zoom was 5 or less
+            if (zoom <= 3) {
+                const size3 = Math.max(2, Math.round(iconSize * 0.5));
+                return [size3/2, size3/2];  // Center anchor for 50% dots
+            } else if (zoom === 4) {
+                const size4 = Math.max(2, Math.round(iconSize * 0.6));
+                return [size4/2, size4/2];  // Center anchor for 60% dots
+            } else if (zoom === 5) {
+                return [iconSize/2, iconSize];    // Bottom center for 100% pins
+            } else if (zoom === 6) {
+                return [iconSize/2, iconSize];    // Bottom center for 100% pins
+            } else if (zoom === 7) {
+                return [iconSize/2, iconSize];    // Bottom center for 100% pins
+            } else {
+                return [iconSize/2, iconSize];    // Bottom center for regular pins
+            }
         } else {
-            return [iconSize/2, iconSize];    // Bottom center for regular pins
+            // Use default/original anchors when initial zoom was greater than 5
+            if (zoom <= 3) {
+                const halfSize = Math.max(1, Math.round(iconSize * 0.2));
+                return [halfSize/2, halfSize/2];  // Center anchor for half-size dots
+            } else if (zoom === 4) {
+                const size4 = Math.max(1, Math.round(iconSize * 0.3));
+                return [size4/2, size4/2];  // Center anchor for 30% dots
+            } else if (zoom === 5) {
+                const size5 = Math.max(2, Math.round(iconSize * 0.4));
+                return [size5/2, size5/2];  // Center anchor for 40% dots
+            } else if (zoom === 6) {
+                const size6 = Math.max(2, Math.round(iconSize * 0.6));
+                return [size6/2, size6/2];  // Center anchor for 60% dots
+            } else if (zoom === 7) {
+                return [iconSize/2, iconSize];    // Bottom center for 100% pins
+            } else {
+                return [iconSize/2, iconSize];    // Bottom center for regular pins
+            }
         }
     }
     
     getPopupAnchor(zoom, iconSize) {
-        // Adjust popup position based on marker type
-        if (zoom <= 3) {
-            const halfSize = Math.max(1, Math.round(iconSize * 0.2));
-            return [0, -halfSize/2];  // Above center for half-size dots
-        } else if (zoom === 4) {
-            const size4 = Math.max(1, Math.round(iconSize * 0.3));
-            return [0, -size4/2];  // Above center for 30% dots
-        } else if (zoom === 5) {
-            const size5 = Math.max(2, Math.round(iconSize * 0.4));
-            return [0, -size5/2];  // Above center for 40% dots
-        } else if (zoom === 6) {
-            const size6 = Math.max(2, Math.round(iconSize * 0.6));
-            return [0, -size6/2];  // Above center for 60% dots
-        } else if (zoom === 7) {
-            return [0, -iconSize];    // Above 100% pin point
+        // Use conditional logic based on initial zoom level
+        if (this.useLargerSizes) {
+            // Apply larger sizes when initial zoom was 5 or less
+            if (zoom <= 3) {
+                const size3 = Math.max(2, Math.round(iconSize * 0.5));
+                return [0, -size3/2];  // Above center for 50% dots
+            } else if (zoom === 4) {
+                const size4 = Math.max(2, Math.round(iconSize * 0.6));
+                return [0, -size4/2];  // Above center for 60% dots
+            } else if (zoom === 5) {
+                return [0, -iconSize];    // Above 100% pin point
+            } else if (zoom === 6) {
+                return [0, -iconSize];    // Above 100% pin point
+            } else if (zoom === 7) {
+                return [0, -iconSize];    // Above 100% pin point
+            } else {
+                return [0, -iconSize];    // Above regular pin point
+            }
         } else {
-            return [0, -iconSize];    // Above regular pin point
+            // Use default/original popup anchors when initial zoom was greater than 5
+            if (zoom <= 3) {
+                const halfSize = Math.max(1, Math.round(iconSize * 0.2));
+                return [0, -halfSize/2];  // Above center for half-size dots
+            } else if (zoom === 4) {
+                const size4 = Math.max(1, Math.round(iconSize * 0.3));
+                return [0, -size4/2];  // Above center for 30% dots
+            } else if (zoom === 5) {
+                const size5 = Math.max(2, Math.round(iconSize * 0.4));
+                return [0, -size5/2];  // Above center for 40% dots
+            } else if (zoom === 6) {
+                const size6 = Math.max(2, Math.round(iconSize * 0.6));
+                return [0, -size6/2];  // Above center for 60% dots
+            } else if (zoom === 7) {
+                return [0, -iconSize];    // Above 100% pin point
+            } else {
+                return [0, -iconSize];    // Above regular pin point
+            }
         }
     }
     
@@ -1284,6 +1400,11 @@ class LeafletMapManager {
         }
         
         this.addMarkersFromData(listingsApp.filteredListings, listingsApp.config);
+        
+        // Ensure larger sizes are applied after listings app update
+        setTimeout(() => {
+            //this.ensureLargerSizesIfNeeded();
+        }, 50);
     }
     
     // Cache management methods
