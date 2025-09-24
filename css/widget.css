@@ -830,3 +830,6 @@ body {
     background: none !important; /* Prevents white corner radius edge */
     /* outline-offset: 0px !important; Not sure if we'll need this */
 }
+.leaflet-container a.leaflet-popup-close-button {
+    font: 18px / 24px Tahoma, Verdana, sans-serif !important; /* For map popup close-X */
+}

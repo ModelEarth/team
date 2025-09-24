@@ -80,10 +80,6 @@ class PrintDownloadWidget {
                     color: #333;
                 }
                 
-                .popup-content {
-                    padding: 8px 0;
-                }
-                
                 .popup-item {
                     padding: 8px 16px;
                     cursor: pointer;
