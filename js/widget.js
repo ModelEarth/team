@@ -10,6 +10,8 @@ class ListingsDisplay {
         this.config = null;
         this.loading = true;
         this.error = null;
+        this.dataLoadError = null;
+        this.enableStateFiltering = false;
         this.showConfigs = {};
         this.currentShow = this.getInitialShow();
         this.currentPage = 1;
@@ -124,12 +126,24 @@ class ListingsDisplay {
         this.loading = true;
         this.dataLoaded = false;
         
-        const showConfig = this.showConfigs[this.currentShow];
+        let showConfig = this.showConfigs[this.currentShow];
         
         if (!showConfig) {
-            this.error = `Could not find show configuration for: ${this.currentShow}`;
-            this.loading = false;
-            return;
+            // If requested list not found, use the first available list
+            const availableKeys = Object.keys(this.showConfigs);
+            if (availableKeys.length > 0) {
+                const firstKey = availableKeys[0];
+                console.warn(`List "${this.currentShow}" not found, using "${firstKey}" instead`);
+                this.currentShow = firstKey;
+                showConfig = this.showConfigs[firstKey];
+                
+                // Update URL hash to reflect the actual list being used
+                this.updateUrlHash(firstKey);
+            } else {
+                this.error = `No show configurations available`;
+                this.loading = false;
+                return;
+            }
         }
         
         this.config = showConfig;
@@ -147,12 +161,17 @@ class ListingsDisplay {
             console.log(`Filtered by int_required (${intRequiredField}): ${data.length} rows remaining from ${originalCount} original rows`);
         }
         
-        // Apply state_required filtering if specified
+        // Apply state_required filtering if specified and enabled
         if (showConfig.state_required && data.length > 0) {
             const requiredState = showConfig.state_required;
             const originalCount = data.length;
-            data = data.filter(row => this.matchesRequiredState(row, requiredState));
-            console.log(`Filtered by state_required (${requiredState}): ${data.length} rows remaining from ${originalCount} original rows`);
+            
+            if (this.enableStateFiltering) {
+                data = data.filter(row => this.matchesRequiredState(row, requiredState));
+                console.log(`State filtering APPLIED: Filtered by state_required (${requiredState}): ${data.length} rows remaining from ${originalCount} original rows`);
+            } else {
+                console.log(`State filtering SKIPPED: Would have filtered by state_required (${requiredState}), but enableStateFiltering is false. Keeping all ${originalCount} rows.`);
+            }
         }
         
         // Sort data alphabetically by primary name field
@@ -961,6 +980,22 @@ class ListingsDisplay {
     }
 
     renderListings() {
+        // Show error inline if there's a data loading error
+        if (this.dataLoadError) {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const errorDetails = isLocalhost ? this.getErrorDetails() : '';
+            
+            return `
+                <div class="listing-error">
+                    <div class="error-box">
+                        <div class="error-title">Error loading data:</div>
+                        <div class="error-message">${this.dataLoadError}</div>
+                        ${errorDetails ? `<div class="error-details">${errorDetails}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
         const currentPageListings = this.getCurrentPageListings();
         
         return currentPageListings.map(listing => {
@@ -1031,6 +1066,38 @@ class ListingsDisplay {
                 </div>
             `;
         }).join('');
+    }
+
+    getErrorDetails() {
+        // Provide detailed error information for localhost debugging
+        let details = '<strong>Debug Info (localhost only):</strong><br>';
+        
+        // Show current configuration
+        if (this.currentShow) {
+            details += `• Current dataset: <code>${this.currentShow}</code><br>`;
+        }
+        
+        // Show config source
+        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? 'show.json' : 'trade.json';
+        details += `• Config file: <code>${this.pathConfig.basePath}${listsJson}</code><br>`;
+        
+        // Show dataset path if config exists
+        if (this.config?.dataset) {
+            const datasetPath = this.config.dataset.startsWith('http') ? this.config.dataset : this.pathConfig.basePath + this.config.dataset;
+            details += `• Dataset file: <code>${datasetPath}</code><br>`;
+        }
+        
+        // Show base path
+        details += `• Base path: <code>${this.pathConfig.basePath}</code><br>`;
+        
+        // Show available configs
+        if (this.showConfigs && Object.keys(this.showConfigs).length > 0) {
+            details += `• Available datasets: <code>${Object.keys(this.showConfigs).join(', ')}</code>`;
+        } else {
+            details += '• No dataset configurations found';
+        }
+        
+        return details;
     }
 
     renderNoResults() {
@@ -1138,16 +1205,9 @@ class ListingsDisplay {
             }
         }
 
+        // Store data loading error but don't return early - still show the interface
         if (this.error) {
-            teamwidget.innerHTML = `
-                <div class="error">
-                    <div class="error-box">
-                        <div class="error-title">Error loading data:</div>
-                        <div>${this.error}</div>
-                    </div>
-                </div>
-            `;
-            return;
+            this.dataLoadError = this.error;
         }
 
         if (!this.showConfigs || Object.keys(this.showConfigs).length === 0) {
@@ -1182,7 +1242,7 @@ class ListingsDisplay {
                             <div class="list-selector">
                                 <select id="listSelect" class="list-select">
                                     ${Object.keys(this.showConfigs).map(key => 
-                                        `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].listTitle || key}</option>`
+                                        `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
                                     ).join('')}
                                 </select>
                             </div>

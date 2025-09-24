@@ -1,8 +1,8 @@
 {
   "cities": {
     "shortTitle": "Locations Visits",
+    "menuTitle": "Location Visits",
     "listTitle": "Location Visits",
-    "dataTitle": "Location Visits",
     "datatype": "csv",
     "dataset": "cities.csv",
     "markerType": "google",
@@ -17,8 +17,8 @@
   },
   "liaisons": {
     "shortTitle": "Liaisons",
-    "listTitle": "Camera Ready Liaisons",
-    "dataTitle": "Georgia Camera Ready Liaisons",
+    "menuTitle": "Camera Ready Liaisons",
+    "listTitle": "Georgia Camera Ready Liaisons",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
@@ -29,8 +29,8 @@
   },
   "cameraready": {
     "shortTitle": "Locations",
-    "listTitle": "Camera Ready Locations",
-    "dataTitle": "Georgia Camera Ready Locations",
+    "menuTitle": "Camera Ready Locations",
+    "listTitle": "Georgia Camera Ready Locations",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
@@ -41,8 +41,8 @@
   },
   "recyclers": {
     "shortTitle": "B2B Recyclers",
+    "menuTitle": "B2B Recyclers",
     "listTitle": "B2B Recyclers",
-    "dataTitle": "B2B Recyclers",
     "googleCSV": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=1924677788&single=true&output=csv",
     "googleCategories": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=381237740&single=true&output=csv",
     "nameColumn": "organization name",
