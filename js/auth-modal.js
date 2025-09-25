@@ -336,10 +336,20 @@ class AuthModal {
     }
 }
 
-// Initialize auth modal when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.authModal = new AuthModal();
-});
+// Initialize auth modal when DOM is loaded or immediately if DOM is already loaded
+function initAuthModal() {
+    if (!window.authModal) {
+        window.authModal = new AuthModal();
+    }
+}
+
+// Check if DOM is already loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAuthModal);
+} else {
+    // DOM is already loaded, initialize immediately
+    initAuthModal();
+}
 
 // Global functions for backward compatibility
 window.showAuthModal = () => window.authModal?.show();
