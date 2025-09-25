@@ -56,6 +56,8 @@ lsof -ti:8081 | xargs kill -9
 
 ## Server Management
 
+**IMPORTANT**: Always check if an HTTP server is already running before attempting to start it. Use `lsof -ti:8887` to check if the HTTP server is running, then only start if needed. This prevents errors and duplicate HTTP server processes. Note: Rust API servers may need to be restarted for code changes.
+
 ### Start HTTP Server
 When you type "start server", first check if server is already running, then start only if needed:
 

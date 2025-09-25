@@ -2384,6 +2384,22 @@
             <div class="view-container" id="gallery-view" style="display: none;">
                 <div class="participants-gallery" id="participants-gallery-grid"></div>
             </div>
+            
+            <!-- Email List (Admin Mode Only) -->
+            <div id="emailListContainer" style="display: none; margin-top: 20px; border-top: 1px solid var(--border-light); padding-top: 20px;">
+                <h3 style="margin-bottom: 12px; color: var(--text-primary); font-size: 16px; font-weight: 600;">
+                    📧 Extracted Emails
+                </h3>
+                <textarea 
+                    id="emailList" 
+                    readonly 
+                    style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-tertiary); color: var(--text-secondary); font-family: 'Courier New', monospace; font-size: 13px; resize: vertical; line-height: 1.4;"
+                    placeholder="No emails found in the dataset"
+                ></textarea>
+                <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
+                    <span id="emailCount">0 emails</span> • Click to select all
+                </div>
+            </div>
         </div>
         
         <!-- Prompt Modal for custom AI prompts -->
@@ -2890,25 +2906,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         async function getMeetupParticipants() {
-            // Get URL from selected dropdown option using value (more reliable)
-            const currentValue = fileSelect.value;
-            const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
-            let meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
-            const isCors = selectedOption?.getAttribute('data-cors') === 'true';
+            // Check for admin=1 and list=modelteam in hash
+            const hash = getHash();
+            const isAdmin = hash.admin === '1';
+            const isModelTeam = hash.list === 'modelteam';
             
-            console.log('=== getMeetupParticipants DEBUG ===');
-            console.log('Current fileSelect value:', currentValue);
-            console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
-            console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
-            console.log('selectedFile variable:', selectedFile);
-            console.log('Final meetupLink:', meetupLink);
+            let meetupLink;
+            let isCors;
             
-            // If no valid URL found, try to get modelteam URL from dropdown
-            if (!meetupLink) {
-                meetupLink = getModelteamUrl();
+            if (isAdmin && isModelTeam) {
+                // Use community/people.csv for admin modelteam
+                meetupLink = '../../community/people.csv';
+                isCors = false;
+                console.log('Admin mode: Loading from community/people.csv');
+            } else {
+                // Normal processing
+                const currentValue = fileSelect.value;
+                const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
+                meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
+                isCors = selectedOption?.getAttribute('data-cors') === 'true';
+                
+                console.log('=== getMeetupParticipants DEBUG ===');
+                console.log('Current fileSelect value:', currentValue);
+                console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
+                console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
+                console.log('selectedFile variable:', selectedFile);
+                console.log('Final meetupLink:', meetupLink);
+                
+                // If no valid URL found, try to get modelteam URL from dropdown
                 if (!meetupLink) {
-                    appendStatusMessage('Please select a valid data source or wait for options to load.', 'error');
-                    return;
+                    meetupLink = getModelteamUrl();
+                    if (!meetupLink) {
+                        appendStatusMessage('Please select a valid data source or wait for options to load.', 'error');
+                        return;
+                    }
                 }
             }
 
@@ -3054,6 +3085,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 displayParticipantsTable(validData);
                 
+                // Extract and display emails if Email column exists
+                extractAndDisplayEmails(validData);
+                
                 appendStatusMessage(`Successfully loaded ${validData.length} records from ${loadResult.format.toUpperCase()} source`, 'success');
                 document.getElementById('loadStatus').style.display = 'block';
                 
@@ -3096,6 +3130,154 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 getParticipantsButton.disabled = false;
                 participantsSpinner.style.display = 'none';
             }
+        }
+
+        // Extract and display emails from data when Email column exists
+        function extractAndDisplayEmails(data) {
+            const emailContainer = document.getElementById('emailListContainer');
+            const emailTextarea = document.getElementById('emailList');
+            const emailCountSpan = document.getElementById('emailCount');
+            
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                if (emailContainer) emailContainer.style.display = 'none';
+                return;
+            }
+            
+            // Find email columns (case-insensitive)
+            const headers = Object.keys(data[0] || {});
+            const emailColumns = headers.filter(header => 
+                header.toLowerCase().includes('email') || 
+                header.toLowerCase().includes('e-mail') ||
+                header.toLowerCase() === 'mail'
+            );
+            
+            if (emailColumns.length === 0) {
+                if (emailContainer) emailContainer.style.display = 'none';
+                return;
+            }
+            
+            // Extract unique emails from all email columns
+            const emailSet = new Set();
+            
+            data.forEach(row => {
+                emailColumns.forEach(column => {
+                    const emailValue = row[column];
+                    if (emailValue && typeof emailValue === 'string') {
+                        // Split by common separators and clean up
+                        const emails = emailValue.split(/[,;|\s]+/)
+                            .map(email => email.trim().toLowerCase())
+                            .filter(email => {
+                                // Basic email validation
+                                return email && 
+                                       email.includes('@') && 
+                                       email.includes('.') && 
+                                       email.length > 5 &&
+                                       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+                            });
+                        
+                        emails.forEach(email => emailSet.add(email));
+                    }
+                });
+            });
+            
+            // Convert to sorted array
+            const uniqueEmails = Array.from(emailSet).sort();
+            
+            if (uniqueEmails.length === 0) {
+                if (emailContainer) emailContainer.style.display = 'none';
+                return;
+            }
+            
+            // Display the emails
+            const emailsText = uniqueEmails.join(', ');
+            if (emailTextarea) {
+                emailTextarea.value = emailsText;
+                emailTextarea.addEventListener('click', function() {
+                    this.select();
+                });
+            }
+            
+            if (emailCountSpan) {
+                emailCountSpan.textContent = `${uniqueEmails.length} email${uniqueEmails.length !== 1 ? 's' : ''}`;
+            }
+            
+            if (emailContainer) {
+                emailContainer.style.display = 'block';
+            }
+            
+            // Store emails for filtering
+            window.extractedEmails = uniqueEmails;
+            window.allExtractedEmails = uniqueEmails;
+        }
+
+        // Update email list based on filtered participant data
+        function updateFilteredEmails(filteredData) {
+            const emailTextarea = document.getElementById('emailList');
+            const emailCountSpan = document.getElementById('emailCount');
+            
+            if (!filteredData || filteredData.length === 0) {
+                if (emailTextarea) {
+                    emailTextarea.value = '';
+                }
+                if (emailCountSpan) {
+                    emailCountSpan.textContent = '0 emails';
+                }
+                return;
+            }
+            
+            // Find email columns in the current data structure
+            const headers = Object.keys(filteredData[0] || {});
+            const emailColumns = headers.filter(header => 
+                header.toLowerCase().includes('email') || 
+                header.toLowerCase().includes('e-mail') ||
+                header.toLowerCase() === 'mail'
+            );
+            
+            if (emailColumns.length === 0) {
+                return;
+            }
+            
+            // Extract unique emails from filtered data
+            const emailSet = new Set();
+            
+            filteredData.forEach(row => {
+                emailColumns.forEach(column => {
+                    const emailValue = row[column];
+                    if (emailValue && typeof emailValue === 'string') {
+                        // Split by common separators and clean up
+                        const emails = emailValue.split(/[,;|\s]+/)
+                            .map(email => email.trim().toLowerCase())
+                            .filter(email => {
+                                // Basic email validation
+                                return email && 
+                                       email.includes('@') && 
+                                       email.includes('.') && 
+                                       email.length > 5 &&
+                                       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+                            });
+                        
+                        emails.forEach(email => emailSet.add(email));
+                    }
+                });
+            });
+            
+            // Convert to sorted array
+            const filteredEmails = Array.from(emailSet).sort();
+            
+            // Update the display
+            const emailsText = filteredEmails.join(', ');
+            if (emailTextarea) {
+                emailTextarea.value = emailsText;
+            }
+            
+            if (emailCountSpan) {
+                emailCountSpan.textContent = `${filteredEmails.length} email${filteredEmails.length !== 1 ? 's' : ''}`;
+            }
+            
+            // Update the stored filtered emails
+            window.extractedEmails = filteredEmails;
+            
+            console.log(`📧 Email filtering complete: ${window.allExtractedEmails.length} total → ${filteredEmails.length} filtered`);
         }
 
         // Note: parseCSV function is now available from js/list.js
@@ -3141,8 +3323,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         let selectedStatuses = new Set(getHash().status ? getHash().status.split(',') : JSON.parse(localStorage.getItem(getListStorageKey('participantsStatusFilter')) || '["All"]'));
         let availableStatuses = [];
         
-        // Group participants toggle state
-        let showOnlyGroup = JSON.parse(localStorage.getItem(getListStorageKey('showOnlyGroup')) || 'false');
+        // Group participants toggle state - only load from cache if snapshots exist
+        function getInitialGroupToggleState() {
+            const snapshots = JSON.parse(localStorage.getItem(getSnapshotsStorageKey()) || '{}');
+            const hasSnapshots = Object.keys(snapshots).length > 0;
+            
+            // If no snapshots exist, default to false regardless of cache
+            if (!hasSnapshots) {
+                return false;
+            }
+            
+            return JSON.parse(localStorage.getItem(getListStorageKey('showOnlyGroup')) || 'false');
+        }
+        let showOnlyGroup = getInitialGroupToggleState();
         
         // Team color mapping
         const teamColors = {
@@ -4390,6 +4583,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 console.log('⏭️ Skipping status filter (All selected or no selection)');
             }
             
+            // Update email list based on filtered data
+            if (window.allExtractedEmails && window.allExtractedEmails.length > 0) {
+                console.log('📧 Updating email list based on filtered data...');
+                updateFilteredEmails(filteredData);
+            }
+            
             // Update results count with pagination
             console.log('📊 Updating results count with pagination...');
             updateResultsCount(filteredData);
@@ -5305,21 +5504,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             applySortToData();
             generateSortDropdown();
             
-            // Apply team filter
-            currentTeamFilter = filterState.teamFilter || null;
+            // Apply team filter - respect hash values over filter state
+            const hashTeam = getHash().team;
+            if (hashTeam) {
+                // Hash value takes priority over filter state
+                currentTeamFilter = hashTeam;
+            } else {
+                currentTeamFilter = filterState.teamFilter || null;
+            }
             if (currentTeamFilter) {
                 localStorage.setItem(getListStorageKey('participantsTeamFilter'), currentTeamFilter);
             } else {
                 localStorage.removeItem(getListStorageKey('participantsTeamFilter'));
             }
             
-            // Apply display mode
-            if (filterState.displayMode && filterState.displayMode !== currentView) {
-                switchView(filterState.displayMode);
+            // Apply display mode - respect hash values over filter state
+            const hashDisplay = getHash().display;
+            const targetDisplayMode = hashDisplay || filterState.displayMode;
+            if (targetDisplayMode && targetDisplayMode !== currentView) {
+                switchView(targetDisplayMode);
             }
             
-            // Apply status filter
-            selectedStatuses = new Set(filterState.statusFilter || ['All']);
+            // Apply status filter - respect hash values over filter state
+            const hashStatus = getHash().status;
+            if (hashStatus) {
+                // Hash value takes priority over filter state
+                selectedStatuses = new Set(hashStatus.split(','));
+            } else {
+                selectedStatuses = new Set(filterState.statusFilter || ['All']);
+            }
             localStorage.setItem(getListStorageKey('participantsStatusFilter'), JSON.stringify(Array.from(selectedStatuses)));
             updateStatusButtonText();
             generateStatusDropdown();
