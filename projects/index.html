@@ -3538,6 +3538,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (!row) return; // Skip null/undefined rows
                 const tr = document.createElement('tr');
                 tr.dataset.participantName = getParticipantName(row);
+
+                // No row-level href navigation: links will be created only for @mentions and https:// URLs inside cells
                 
                 // Add row-level click handling variables
                 let mouseDownTime = 0;
@@ -3589,6 +3591,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     if (timeDiff > 200 || distance > 5) {
                         return;
                     }
+
+                    // No row-level navigation here; anchors inside cells handle navigation.
                     
                     // Toggle expanded class for all cells in this row
                     const allCellsInRow = tr.querySelectorAll('td');
@@ -3655,8 +3659,86 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Add data columns
                 headers.forEach(header => {
                     const td = document.createElement('td');
-                    td.textContent = row[header] || '';
+                    const rawVal = row[header] || '';
+
+                    // If the value already contains an anchor tag, render it as HTML
+                    if (typeof rawVal === 'string' && /<a\s+href=/i.test(rawVal)) {
+                        td.innerHTML = rawVal;
+                        // If there are anchors inside, prevent their clicks from bubbling to the row
+                        td.querySelectorAll('a').forEach(a => {
+                            a.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                            });
+                        });
+                    } else if (typeof rawVal === 'string') {
+                        // Tokenize the string and only convert @mentions and https:// URLs into anchors
+                        const tokens = rawVal.split(/(\s+)/); // keep whitespace tokens
+                        tokens.forEach(token => {
+                            if (!token) return;
+                            // URL starting with https://
+                            const httpsMatch = token.match(/^(https:\/\/[^\s"'<>]+)/i);
+                            const atMatch = token.match(/^@([a-zA-Z0-9_\-\.]+)/);
+
+                            if (httpsMatch) {
+                                const a = document.createElement('a');
+                                a.href = httpsMatch[0];
+                                a.textContent = token;
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else if (atMatch) {
+                                const handle = atMatch[1];
+                                const a = document.createElement('a');
+                                // Link @handles to a search or profile page if desired; for now, link to bsky profile pattern
+                                a.href = `https://bsky.app/profile/${encodeURIComponent(handle)}`;
+                                a.textContent = token;
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else {
+                                // Regular text (including whitespace)
+                                td.appendChild(document.createTextNode(token));
+                            }
+                        });
+                    } else {
+                        // Non-string values (numbers, null, etc.)
+                        td.textContent = rawVal;
+                    }
+
                     tr.appendChild(td);
+
+                    // If this is the Title/Name column, prefer its anchor as the preview source
+                    try {
+                        const headerLower = (header || '').toString().toLowerCase();
+                        if (headerLower === 'title' || headerLower === 'name' || headerLower === 'headline') {
+                            // Find first http(s) anchor inside this cell
+                            const firstAnchor = td.querySelector('a[href^="http"]');
+                            if (firstAnchor) {
+                                // Create a small placeholder div for the preview
+                                const previewId = 'rowPreview-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+                                const previewDiv = document.createElement('div');
+                                previewDiv.id = previewId;
+                                previewDiv.className = 'row-preview';
+                                previewDiv.style.marginTop = '6px';
+                                previewDiv.style.maxWidth = '160px';
+                                previewDiv.style.overflow = 'hidden';
+                                td.appendChild(previewDiv);
+
+                                // Use the anchor href for site preview (this will populate the preview div)
+                                if (typeof getSitePreview === 'function') {
+                                    try {
+                                        getSitePreview(firstAnchor.href, previewId);
+                                    } catch (err) {
+                                        // ignore preview errors
+                                    }
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        // ignore any errors in preview wiring
+                    }
                 });
                 
                 // Add menu column last (using same approach as column/gallery views)
