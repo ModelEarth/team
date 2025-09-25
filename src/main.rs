@@ -1555,7 +1555,8 @@ async fn proxy_external_request(req: web::Json<ProxyRequest>) -> Result<HttpResp
 // Get list of tables with row counts - returns real database tables with accurate counts
 async fn get_tables(data: web::Data<Arc<ApiState>>, query: web::Query<std::collections::HashMap<String, String>>) -> Result<HttpResponse> {
     // Check if a specific connection is requested
-    let pool = if let Some(connection_name) = query.get("connection") {
+    let connection_name = query.get("connection");
+    let pool = if let Some(connection_name) = connection_name {
         // Get the database URL for this connection
         let database_url = if let Ok(url) = std::env::var(connection_name) {
             // Direct URL environment variable
@@ -1606,7 +1607,7 @@ async fn get_tables(data: web::Data<Arc<ApiState>>, query: web::Query<std::colle
         }
     };
     
-    match get_database_tables(&pool, None).await {
+    match get_database_tables(&pool, None, connection_name).await {
         Ok(tables) => {
             let mut table_info = Vec::new();
             
@@ -1781,7 +1782,7 @@ async fn db_list_tables(
     let limit = query.get("limit").and_then(|s| s.parse::<i32>().ok());
     match &data.db {
         Some(db) => {
-            match get_database_tables(db, limit).await {
+            match get_database_tables(db, limit, None).await {
                 Ok(tables) => Ok(HttpResponse::Ok().json(DatabaseResponse {
                     success: true,
                     message: Some(format!("Found {} tables", tables.len())),
@@ -2530,7 +2531,7 @@ async fn test_db_connection(pool: &Pool<Postgres>) -> Result<ConnectionInfo, sql
     })
 }
 
-async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>) -> Result<Vec<TableInfoDetailed>, sqlx::Error> {
+async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>, connection_name: Option<&String>) -> Result<Vec<TableInfoDetailed>, sqlx::Error> {
     let query = if let Some(limit_val) = limit {
         format!(
             r#"
@@ -2572,6 +2573,16 @@ async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>) -> Resul
     for row in rows {
         let table_name: String = row.get("table_name");
         let estimated_rows: Option<i64> = row.get("estimated_rows");
+        
+        // Filter tables for EXIOBASE connection - only include valid tables
+        if let Some(conn_name) = connection_name {
+            if conn_name == "EXIOBASE" {
+                let valid_tables = ["trade", "industry", "factor", "trade_factor"];
+                if !valid_tables.contains(&table_name.as_str()) {
+                    continue; // Skip tables not in the valid list
+                }
+            }
+        }
         
         // Add description based on table name
         let description = get_table_description(&table_name);
@@ -2705,6 +2716,11 @@ fn get_table_description(table_name: &str) -> Option<String> {
         "tags" => Some("Tags for categorization".to_string()),
         "taggables" => Some("Polymorphic tag relationships".to_string()),
         "roles" => Some("User roles and permissions".to_string()),
+        // EXIOBASE tables
+        "trade" => Some("International trade flow data".to_string()),
+        "industry" => Some("Industry sector classifications and data".to_string()),
+        "factor" => Some("Environmental and social impact factors".to_string()),
+        "trade_factor" => Some("Trade flow with environmental factors".to_string()),
         _ => None,
     }
 }

@@ -28,7 +28,7 @@ class AuthModal {
                 width: 100%;
                 height: 100%;
                 background: rgba(0, 0, 0, 0.5);
-                z-index: 10000;
+                z-index: 100000;
                 justify-content: center;
                 align-items: center;
             }
@@ -105,7 +105,80 @@ class AuthModal {
                     gap: 12px;
                 }
             }
+            /* Back to 1-column when also narrow */
+            @media (max-width: 500px) {
+                .auth-buttons {
+                    display: flex;
+                }
+            }
 
+            /* Handle small screens - full screen modal for 500px or less */
+            @media (max-height: 500px) and (max-width: 500px) {
+                .auth-modal {
+                    align-items: flex-start;
+                    padding: 0;
+                    overflow-y: auto;
+                }
+                
+                .auth-modal-content {
+                    width: 100%;
+                    height: 100vh;
+                    max-width: none;
+                    margin: 0;
+                    border-radius: 0;
+                    padding: 20px;
+                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: none;
+                }
+                
+                .auth-modal-header {
+                    margin-bottom: 20px;
+                    flex-shrink: 0;
+                }
+                
+                .auth-modal h3 {
+                    font-size: 1.2rem;
+                }
+                
+                .auth-buttons {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    gap: 12px;
+                }
+                
+                .auth-btn {
+                    padding: 14px 16px;
+                    font-size: 1rem;
+                }
+            }
+
+            /* Extra small screens optimization */
+            @media (max-height: 400px) or (max-width: 400px) {
+                .auth-modal-content {
+                    padding: 16px;
+                }
+                
+                .auth-modal-header {
+                    margin-bottom: 16px;
+                }
+                
+                .auth-modal h3 {
+                    font-size: 1.1rem;
+                }
+                
+                .auth-btn {
+                    padding: 12px 14px;
+                    font-size: 0.9rem;
+                }
+                
+                .auth-buttons {
+                    gap: 10px;
+                }
+            }
             .auth-btn {
                 display: flex;
                 align-items: center;
@@ -199,6 +272,14 @@ class AuthModal {
     }
 
     show() {
+        // Close left side panel if open
+        if (typeof getHash === 'function') {
+            let hash = getHash();
+            if (hash.sidetab) {
+                goHash({'sidetab':''});
+            }
+        }
+        
         const modal = document.getElementById(this.modalId);
         if (modal) {
             modal.classList.add('show');
@@ -255,10 +336,20 @@ class AuthModal {
     }
 }
 
-// Initialize auth modal when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.authModal = new AuthModal();
-});
+// Initialize auth modal when DOM is loaded or immediately if DOM is already loaded
+function initAuthModal() {
+    if (!window.authModal) {
+        window.authModal = new AuthModal();
+    }
+}
+
+// Check if DOM is already loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAuthModal);
+} else {
+    // DOM is already loaded, initialize immediately
+    initAuthModal();
+}
 
 // Global functions for backward compatibility
 window.showAuthModal = () => window.authModal?.show();

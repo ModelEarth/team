@@ -140,7 +140,6 @@ h2 {
     cursor: pointer;
     transition: all 0.2s;
     font-size: 14px;
-    display: inline-flex;
     align-items: center;
     gap: 8px;
 }
