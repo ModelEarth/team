@@ -266,6 +266,40 @@ The following extra repositories are used for specialized functionality and are 
 - Example: `waitForElm('#element-id').then(() => { /* code */ });`
 - waitForElm does not use timeouts and waits indefinitely until element appears
 
+### Hash Management and URL State
+Use these functions from localsite/js/localsite.js for hash-based state management:
+
+#### Hash Reading and Manipulation
+- **getHash()**: Returns hash parameters as an object
+  ```javascript
+  const hash = getHash(); // Returns {param1: 'value1', param2: 'value2'}
+  ```
+
+- **goHash(object)**: Updates hash with new parameters and triggers hashChangeEvent
+  ```javascript
+  goHash({'team': 'Marketing', 'view': 'list'}); // Triggers hash change event
+  ```
+
+- **updateHash(object)**: Updates hash without triggering hashChangeEvent
+  ```javascript  
+  updateHash({'team': 'Marketing'}); // Silent hash update, no event fired
+  ```
+
+#### Hash Change Listening
+- **hashChangeEvent**: Custom event that fires when hash changes via goHash()
+  ```javascript
+  document.addEventListener('hashChangeEvent', function (elem) {
+      const hash = getHash();
+      // Handle hash changes
+  });
+  ```
+
+#### When to Use Each Function
+- **Use goHash()**: When you want other components to react to hash changes
+- **Use updateHash()**: When you want to update the hash without triggering reactions
+- **Use hashChangeEvent**: To listen for hash changes triggered by goHash()
+- **Always check function existence**: `if (typeof getHash === 'function')`
+
 ### Navigation Guidelines
 - **Directory Restrictions**: If the user requests `cd ../`, first check if you are already in the webroot. If so, ignore the request so errors do not appear.
 - **Webroot Detection**: Use `git rev-parse --show-toplevel` or check current working directory against webroot patterns

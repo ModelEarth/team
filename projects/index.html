@@ -6905,7 +6905,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             setTimeout(checkInsightsFromURL, 100);
             
             // Listen for URL changes to handle list parameter changes
-            document.addEventListener('hashChangeEvent', function (elem) { // hashChangeEvent resides in localsite.js
+            // hashChangeEvent and getHash reside in localsite/js/localsite.js
+            document.addEventListener('hashChangeEvent', function (elem) { 
 
                 console.log("team/projects detects hashChangeEvent")
 
