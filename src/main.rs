@@ -493,6 +493,7 @@ async fn get_env_config() -> Result<HttpResponse> {
             let display_name = match prefix {
                 "COMMONS" => "MemberCommons Database (Default)".to_string(),
                 "EXIOBASE" => "ModelEarth Industry Database".to_string(),
+                "LOCATIONS" => "Locations Database".to_string(),
                 _ => format!("{} Database", prefix.replace('_', " ")),
             };
             
@@ -503,7 +504,7 @@ async fn get_env_config() -> Result<HttpResponse> {
     };
     
     // Check for component-based configurations first
-    let component_prefixes = ["COMMONS", "EXIOBASE", "DB"];
+    let component_prefixes = ["COMMONS", "EXIOBASE", "LOCATIONS", "DB"];
     for prefix in component_prefixes.iter() {
         if let Some((display_name, config)) = build_config_from_components(prefix) {
             // Set COMMONS as the default database config
@@ -1721,6 +1722,60 @@ async fn db_test_commons_connection(data: web::Data<Arc<ApiState>>) -> Result<Ht
     }
 }
 
+// Test Locations Database connection specifically
+async fn db_test_location_connection(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    // Check if Locations environment variables are configured
+    let location_host = std::env::var("LOCATIONS_HOST").unwrap_or_default();
+    let location_name = std::env::var("LOCATIONS_NAME").unwrap_or_default();
+    let location_user = std::env::var("LOCATIONS_USER").unwrap_or_default();
+    let location_password = std::env::var("LOCATIONS_PASSWORD").unwrap_or_default();
+    
+    // Check if configuration has placeholder values
+    if location_host.contains("your-server") || location_password == "your_password" || 
+       location_host.is_empty() || location_name.is_empty() || location_user.is_empty() || location_password.is_empty() {
+        return Ok(HttpResponse::Ok().json(json!({
+            "success": false,
+            "message": "Locations Database not configured",
+            "database": "locations_db",
+            "active": false,
+            "error": "Database credentials not configured (placeholder values detected)"
+        })));
+    }
+    
+    // Attempt to create a temporary connection to test
+    let ssl_mode = std::env::var("LOCATIONS_SSL_MODE").unwrap_or_else(|_| "require".to_string());
+    let location_port = std::env::var("LOCATIONS_PORT").unwrap_or_else(|_| "5432".to_string());
+    let database_url = format!("postgres://{location_user}:{location_password}@{location_host}:{location_port}/{location_name}?sslmode={ssl_mode}");
+    
+    match sqlx::postgres::PgPool::connect(&database_url).await {
+        Ok(pool) => {
+            match test_db_connection(&pool).await {
+                Ok(info) => Ok(HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "message": "Locations Database connection successful",
+                    "database": "locations_db",
+                    "active": true,
+                    "info": info
+                }))),
+                Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+                    "success": false,
+                    "message": "Locations Database connection failed",
+                    "database": "locations_db",
+                    "active": false,
+                    "error": e.to_string()
+                }))),
+            }
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "message": "Locations Database connection failed",
+            "database": "locations_db",
+            "active": false,
+            "error": e.to_string()
+        })))
+    }
+}
+
 // Test ModelEarth Industry Database connection specifically
 async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     // Check if Exiobase environment variables are configured
@@ -2795,6 +2850,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/test-connection", web::get().to(db_test_connection))
                             .route("/test-commons-connection", web::get().to(db_test_commons_connection))
                             .route("/test-exiobase-connection", web::get().to(db_test_exiobase_connection))
+                            .route("/test-locations-connection", web::get().to(db_test_location_connection))
                             .route("/tables", web::get().to(db_list_tables))
                             .route("/table/{table_name}", web::get().to(db_get_table_info))
                             .route("/query", web::post().to(db_execute_query))

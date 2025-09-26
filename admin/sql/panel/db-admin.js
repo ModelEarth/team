@@ -171,6 +171,8 @@ class DatabaseAdmin {
                 endpoint = '/db/test-commons-connection';
             } else if (this.selectedConnection === 'EXIOBASE') {
                 endpoint = '/db/test-exiobase-connection';
+            } else if (this.selectedConnection === 'LOCATIONS') {
+                endpoint = '/db/test-locations-connection';
             } else {
                 throw new Error(`Unknown database connection: ${this.selectedConnection}`);
             }
