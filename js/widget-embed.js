@@ -2,8 +2,28 @@
 // Optimized loading strategy: parallel JS batches, non-blocking CSS
 
 (function() {
-    // Configuration - set widgetWebroot to match your deployment path
-    const widgetWebroot = '';
+    // Configuration - automatically determine widgetWebroot from calling page path
+    const widgetWebroot = (() => {
+        // Get the current script element
+        const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
+        if (currentScript) {
+            // Get the script source URL
+            const scriptUrl = new URL(currentScript.src);
+            const scriptPath = scriptUrl.pathname;
+            
+            // Find where 'team/js/widget-embed.js' appears in the path
+            const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
+            if (teamIndex !== -1) {
+                // Extract the webroot path (everything before '/team/js/widget-embed.js')
+                const webroot = scriptPath.substring(0, teamIndex);
+                // Include domain with protocol
+                return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
+            }
+        }
+        
+        // Fallback to empty string if detection fails
+        return '';
+    })();
     
     // Helper function to load script with promise
     function loadScript(src, id) {
