@@ -3678,12 +3678,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Get headers from first row
             const headers = Object.keys(data[0] || {});
+
+            // Filter out columns that are empty for every row (omit empty columns)
+            const visibleHeaders = headers.filter(header => {
+                // If any row has a non-empty value for this header, keep it
+                return data.some(row => {
+                    if (!row) return false;
+                    const v = row[header];
+                    if (v === null || v === undefined) return false;
+                    if (typeof v === 'string') return v.trim().length > 0;
+                    // non-string values (numbers, booleans) count as present
+                    return true;
+                });
+            });
+
+            // Fallback to original headers if filtering removed everything
+            const headersToRender = (visibleHeaders && visibleHeaders.length > 0) ? visibleHeaders : headers;
             
             // Create table header
             tableHeader.innerHTML = '';
             const headerRow = document.createElement('tr');
             
-            headers.forEach(header => {
+            headersToRender.forEach(header => {
                 const th = document.createElement('th');
                 th.style.cursor = 'pointer';
                 th.style.userSelect = 'none';
@@ -3714,6 +3730,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             checkboxTh.style.width = '40px';
             checkboxTh.style.textAlign = 'center';
             headerRow.insertBefore(checkboxTh, headerRow.firstChild);
+
+            // Add image column header (after checkbox)
+            const imgTh = document.createElement('th');
+            imgTh.textContent = 'Preview';
+            imgTh.style.width = '180px';
+            imgTh.style.textAlign = 'center';
+            headerRow.insertBefore(imgTh, headerRow.children[1] || null);
             
             // Add menu column header at the end
             const menuTh = document.createElement('th');
@@ -3848,9 +3871,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 checkboxTd.appendChild(checkbox);
                 tr.appendChild(checkboxTd);
+
+                // Add image column td (empty placeholder). We'll populate it from the Title/Name anchor if available.
+                const imgTd = document.createElement('td');
+                imgTd.style.textAlign = 'center';
+                imgTd.style.verticalAlign = 'middle';
+                imgTd.style.padding = '8px';
+                imgTd.className = 'preview-cell';
+                tr.appendChild(imgTd);
                 
                 // Add data columns
-                headers.forEach(header => {
+                headersToRender.forEach(header => {
                     const td = document.createElement('td');
                     const rawVal = row[header] || '';
 
@@ -3901,39 +3932,37 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     }
 
                     tr.appendChild(td);
-
-                    // If this is the Title/Name column, prefer its anchor as the preview source
-                    try {
-                        const headerLower = (header || '').toString().toLowerCase();
-                        if (headerLower === 'title' || headerLower === 'name' || headerLower === 'headline') {
-                            // Find first http(s) anchor inside this cell
-                            const firstAnchor = td.querySelector('a[href^="http"]');
-                            if (firstAnchor) {
-                                // Create a small placeholder div for the preview
+                });
+                
+                // After cells have been added, populate the preview cell from Title/Name anchor if present
+                try {
+                    // find the index of the Title/Name column in headersToRender
+                    const titleIdx = headersToRender.findIndex(h => ['title','name','headline'].includes((h||'').toString().toLowerCase()));
+                    if (titleIdx !== -1) {
+                        // offset: checkbox + preview cell occupy first two cells, so title cell index shifts by +2
+                        const cellIndex = 1 + 1 + titleIdx; // checkbox(0), preview(1), then titleIdx
+                        const titleCell = tr.children[cellIndex];
+                        if (titleCell) {
+                            const anchor = titleCell.querySelector('a[href^="http"]');
+                            if (anchor) {
+                                const previewContainer = document.createElement('div');
                                 const previewId = 'rowPreview-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-                                const previewDiv = document.createElement('div');
-                                previewDiv.id = previewId;
-                                previewDiv.className = 'row-preview';
-                                previewDiv.style.marginTop = '6px';
-                                previewDiv.style.maxWidth = '160px';
-                                previewDiv.style.overflow = 'hidden';
-                                td.appendChild(previewDiv);
-
-                                // Use the anchor href for site preview (this will populate the preview div)
+                                previewContainer.id = previewId;
+                                previewContainer.style.maxWidth = '160px';
+                                previewContainer.style.margin = '0 auto';
+                                // clear any existing content and append container into imgTd
+                                imgTd.innerHTML = '';
+                                imgTd.appendChild(previewContainer);
                                 if (typeof getSitePreview === 'function') {
-                                    try {
-                                        getSitePreview(firstAnchor.href, previewId);
-                                    } catch (err) {
-                                        // ignore preview errors
-                                    }
+                                    try { getSitePreview(anchor.href, previewId); } catch (err) {}
                                 }
                             }
                         }
-                    } catch (err) {
-                        // ignore any errors in preview wiring
                     }
-                });
-                
+                } catch (err) {
+                    // ignore
+                }
+
                 // Add menu column last (using same approach as column/gallery views)
                 const menuTd = document.createElement('td');
                 menuTd.style.textAlign = 'center';
