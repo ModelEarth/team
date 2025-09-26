@@ -3511,12 +3511,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Get headers from first row
             const headers = Object.keys(data[0] || {});
+
+            // Filter out columns that are empty for every row (omit empty columns)
+            const visibleHeaders = headers.filter(header => {
+                // If any row has a non-empty value for this header, keep it
+                return data.some(row => {
+                    if (!row) return false;
+                    const v = row[header];
+                    if (v === null || v === undefined) return false;
+                    if (typeof v === 'string') return v.trim().length > 0;
+                    // non-string values (numbers, booleans) count as present
+                    return true;
+                });
+            });
+
+            // Fallback to original headers if filtering removed everything
+            const headersToRender = (visibleHeaders && visibleHeaders.length > 0) ? visibleHeaders : headers;
             
             // Create table header
             tableHeader.innerHTML = '';
             const headerRow = document.createElement('tr');
             
-            headers.forEach(header => {
+            headersToRender.forEach(header => {
                 const th = document.createElement('th');
                 th.style.cursor = 'pointer';
                 th.style.userSelect = 'none';
@@ -3547,6 +3563,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             checkboxTh.style.width = '40px';
             checkboxTh.style.textAlign = 'center';
             headerRow.insertBefore(checkboxTh, headerRow.firstChild);
+
+            // Add image column header (after checkbox)
+            const imgTh = document.createElement('th');
+            imgTh.textContent = 'Preview';
+            imgTh.style.width = '180px';
+            imgTh.style.textAlign = 'center';
+            headerRow.insertBefore(imgTh, headerRow.children[1] || null);
             
             // Add menu column header at the end
             const menuTh = document.createElement('th');
@@ -3564,6 +3587,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (!row) return; // Skip null/undefined rows
                 const tr = document.createElement('tr');
                 tr.dataset.participantName = getParticipantName(row);
+
+                // No row-level href navigation: links will be created only for @mentions and https:// URLs inside cells
                 
                 // Add row-level click handling variables
                 let mouseDownTime = 0;
@@ -3615,6 +3640,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     if (timeDiff > 200 || distance > 5) {
                         return;
                     }
+
+                    // No row-level navigation here; anchors inside cells handle navigation.
                     
                     // Toggle expanded class for all cells in this row
                     const allCellsInRow = tr.querySelectorAll('td');
@@ -3677,14 +3704,98 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 checkboxTd.appendChild(checkbox);
                 tr.appendChild(checkboxTd);
+
+                // Add image column td (empty placeholder). We'll populate it from the Title/Name anchor if available.
+                const imgTd = document.createElement('td');
+                imgTd.style.textAlign = 'center';
+                imgTd.style.verticalAlign = 'middle';
+                imgTd.style.padding = '8px';
+                imgTd.className = 'preview-cell';
+                tr.appendChild(imgTd);
                 
                 // Add data columns
-                headers.forEach(header => {
+                headersToRender.forEach(header => {
                     const td = document.createElement('td');
-                    td.textContent = row[header] || '';
+                    const rawVal = row[header] || '';
+
+                    // If the value already contains an anchor tag, render it as HTML
+                    if (typeof rawVal === 'string' && /<a\s+href=/i.test(rawVal)) {
+                        td.innerHTML = rawVal;
+                        // If there are anchors inside, prevent their clicks from bubbling to the row
+                        td.querySelectorAll('a').forEach(a => {
+                            a.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                            });
+                        });
+                    } else if (typeof rawVal === 'string') {
+                        // Tokenize the string and only convert @mentions and https:// URLs into anchors
+                        const tokens = rawVal.split(/(\s+)/); // keep whitespace tokens
+                        tokens.forEach(token => {
+                            if (!token) return;
+                            // URL starting with https://
+                            const httpsMatch = token.match(/^(https:\/\/[^\s"'<>]+)/i);
+                            const atMatch = token.match(/^@([a-zA-Z0-9_\-\.]+)/);
+
+                            if (httpsMatch) {
+                                const a = document.createElement('a');
+                                a.href = httpsMatch[0];
+                                a.textContent = token;
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else if (atMatch) {
+                                const handle = atMatch[1];
+                                const a = document.createElement('a');
+                                // Link @handles to a search or profile page if desired; for now, link to bsky profile pattern
+                                a.href = `https://bsky.app/profile/${encodeURIComponent(handle)}`;
+                                a.textContent = token;
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else {
+                                // Regular text (including whitespace)
+                                td.appendChild(document.createTextNode(token));
+                            }
+                        });
+                    } else {
+                        // Non-string values (numbers, null, etc.)
+                        td.textContent = rawVal;
+                    }
+
                     tr.appendChild(td);
                 });
                 
+                // After cells have been added, populate the preview cell from Title/Name anchor if present
+                try {
+                    // find the index of the Title/Name column in headersToRender
+                    const titleIdx = headersToRender.findIndex(h => ['title','name','headline'].includes((h||'').toString().toLowerCase()));
+                    if (titleIdx !== -1) {
+                        // offset: checkbox + preview cell occupy first two cells, so title cell index shifts by +2
+                        const cellIndex = 1 + 1 + titleIdx; // checkbox(0), preview(1), then titleIdx
+                        const titleCell = tr.children[cellIndex];
+                        if (titleCell) {
+                            const anchor = titleCell.querySelector('a[href^="http"]');
+                            if (anchor) {
+                                const previewContainer = document.createElement('div');
+                                const previewId = 'rowPreview-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+                                previewContainer.id = previewId;
+                                previewContainer.style.maxWidth = '160px';
+                                previewContainer.style.margin = '0 auto';
+                                // clear any existing content and append container into imgTd
+                                imgTd.innerHTML = '';
+                                imgTd.appendChild(previewContainer);
+                                if (typeof getSitePreview === 'function') {
+                                    try { getSitePreview(anchor.href, previewId); } catch (err) {}
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // ignore
+                }
+
                 // Add menu column last (using same approach as column/gallery views)
                 const menuTd = document.createElement('td');
                 menuTd.style.textAlign = 'center';
