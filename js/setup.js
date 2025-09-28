@@ -36,8 +36,7 @@ function createWebrootSetupHTML() {
 // HTML content for the trade flow repos section
 function createTradeFlowReposHTML() {
     return `
-        <h2>Extra Repos</h2>
-        
+        <h1>Extra Repos</h1>
         <p>Optional: To contribute to our data-pipeline or industry tradeflow visualizations, run the following to fork and clone:<br>
         data-pipeline, trade-data, nisar, community, evaporation-kits</p>
         
@@ -52,6 +51,14 @@ clone extra repos from [your github account]
     `;
 }
 
+function createBackendInfo() {
+    return `<h1>Rust API Backend</h1>
+  Run "Start Rust" if your backend isn't started yet.<br><br>
+  <a href="http://localhost:8887/team/admin/sql/panel/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: #3B82F6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-right: 12px;">
+    <span>🗄️</span>
+    Rust API and Database
+  </a>`
+}
 // Function to update git account fields and browser storage
 function updateGitAccountFields() {
     const gitAccount = document.getElementById("gitAccount").value;
@@ -211,6 +218,14 @@ function setupTradeFlowRepos(containerId) {
         }, 100);
     }
 }
+function setupBackendInfo(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        const backendInfoHTML = createBackendInfo();
+        container.innerHTML = backendInfoHTML;
+    }
+}
+
 
 // Auto-initialize on DOM load for compatibility with existing code
 document.addEventListener('DOMContentLoaded', function() {

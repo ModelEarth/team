@@ -281,76 +281,76 @@ function createOSDetectionPanel(containerId) {
     }
     
     const panelHTML = `
-        <div class="card" id="os-detection-panel">
-            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px;">
-                <h2 class="card-title" id="cli-tools-title" style="margin: 0;">My Command Line Tool</h2>
-                <div>
-                    <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
-                        <option value="">Select OS...</option>
-                        <option value="Mac">Mac</option>
-                        <option value="PC">PC</option>
-                        <option value="Linux">Linux</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
-                </div>
+<div class="card" id="os-detection-panel">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px;">
+        <h1 class="card-title" id="cli-tools-title" style="margin: 0;">My Command Line Tool</h1>
+        <div>
+            <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
+                <option value="">Select OS...</option>
+                <option value="Mac">Mac</option>
+                <option value="PC">PC</option>
+                <option value="Linux">Linux</option>
+                <option value="Other">Other</option>
+            </select>
+            <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
+        </div>
+    </div>
+    <div>
+
+        <span style="font-weight: 500; margin-right: 12px;">I'll be coding with...</span><br>
+        <div style="margin-bottom: 4px;"></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="claude-code-cli" style="margin: 0;">
+                <span>Claude Code CLI (Recommended)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="gemini-cli" style="margin: 0;">
+                <span>Gemini CLI (Not mature yet)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="vscode-claude" style="margin: 0;">
+                <span>VS Code with Claude</span>
+            </label>
+        </div>
+    </div>
+    <div id="cli-commands" style="display: none;">
+        <div id="claude-code-commands" style="display: none;">
+            <h4 style="margin: 0 0 8px 0;">Claude Code CLI Installation:</h4>
+            <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="radio" name="claude-install-status" value="initial" style="margin: 0;" checked>
+                    <span>Initial install</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="radio" name="claude-install-status" value="already" style="margin: 0;">
+                    <span>Already installed</span>
+                </label>
             </div>
-            <div>
+            <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
+                
+                Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
-                <span style="font-weight: 500; margin-right: 12px;">I'll be coding with...</span><br>
-                <div style="margin-bottom: 4px;"></div>
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="checkbox" id="claude-code-cli" style="margin: 0;">
-                        <span>Claude Code CLI (Recommended)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="checkbox" id="gemini-cli" style="margin: 0;">
-                        <span>Gemini CLI (Not mature yet)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="checkbox" id="vscode-claude" style="margin: 0;">
-                        <span>VS Code with Claude</span>
-                    </label>
-                </div>
+                If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>, then install Claude Code CLI with:<br>
+                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+
+                Run /terminal-setup to set up terminal integration
+
             </div>
-            <div id="cli-commands" style="display: none;">
-                <div id="claude-code-commands" style="display: none;">
-                    <h4 style="margin: 0 0 8px 0;">Claude Code CLI Installation:</h4>
-                    <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
-                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                            <input type="radio" name="claude-install-status" value="initial" style="margin: 0;" checked>
-                            <span>Initial install</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                            <input type="radio" name="claude-install-status" value="already" style="margin: 0;">
-                            <span>Already installed</span>
-                        </label>
-                    </div>
-                    <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
-                        
-                        Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
-                        If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>, then install Claude Code CLI with:<br>
-                        <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
-
-                        Run /terminal-setup to set up terminal integration
-
-                    </div>
-
-                    <div id="cli-instructions" style="margin-bottom: 16px;">
-                        Right-click on your "<span id="repo-name">team</span>" repo, open a New Terminal at Folder, and run a virtual environment with Claude Code CLI.
-                    </div>
-                    
-                    <div id="command-display">python3 -m venv env
+            <div id="cli-instructions" style="margin-bottom: 16px;">
+                Right-click on your "<span id="repo-name">team</span>" repo, open a New Terminal at Folder, and run a virtual environment with Claude Code CLI.
+            </div>
+            
+            <div id="command-display">python3 -m venv env
 source env/bin/activate
 npx @anthropic-ai/claude-code</div>
-                    <div style="font-size: .8em;">
-                        After a large interaction with Claude, if you're changing to a new topic, by starting a fresh terminal session you'll use fewer tokens. Claude Pro reserves the right to throttle you after 50 sessions/month, but if sessions are small we assume Anthropic will avoid throttling a fresh-session approach.
-                    </div>
-                </div>
+            <div style="font-size: .8em;">
+                After a large interaction with Claude, if you're changing to a new topic, by starting a fresh terminal session you'll use fewer tokens. Claude Pro reserves the right to throttle you after 50 sessions/month, but if sessions are small we assume Anthropic will avoid throttling a fresh-session approach.
             </div>
-            </div>
+        </div>
+    </div>
+    </div>
 
         <div class="cardsection" id="gemini-installation" style="display: none;">
                 <h4 style="margin: 0 0 8px 0;">Gemini CLI Installation:</h4>
@@ -429,34 +429,35 @@ choco install gh -y</code></pre>
 
             </div>
 
-            <div class="mac-instructions">
+    <div class="mac-instructions">
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    If you have an error updating the .config fire, run the following to check ownership of the .config directory. 
-                    Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
-                    <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                </div>
-
-                <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
-
-                Add yourself as owner instead of root.
-                <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
-            </div>
-
-            Now retry the Code CLI install above.<br><br>
-
-            <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
-
-            </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            If you have an error updating the .config fire, run the following to check ownership of the .config directory. 
+            Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
+            <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
         </div>
 
-        <div id="gemini-resources" class="card" style="margin-bottom: 16px;">
-            <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
-            <div id="gemini-key-content">
-                You can use a free Gemini key for AI insights.<br>
-                <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
-            </div>
-        </div>
+        <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
+
+        Add yourself as owner instead of root.
+        <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
+    </div>
+
+    Now retry the Code CLI install above.<br><br>
+
+    <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
+
+    </div>
+</div>
+
+<div id="gemini-resources" class="card" style="margin-bottom: 16px;">
+    <h1>Gemini Insights</h1>
+    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+    <div id="gemini-key-content">
+        You can use a free Gemini key for AI insights.<br>
+        <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
+    </div>
+</div>
     `;
     
     container.innerHTML = panelHTML;
@@ -498,7 +499,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
         // Key is available - update to activated state
         titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">✅ Your Gemini Key is Activated</h2>';
         // Calculate correct relative path to projects
-        const projectsPath = fixRelativePath('projects/#list=all');
+        const projectsPath = fixRelativePath('../../team/projects/#list=all');
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
