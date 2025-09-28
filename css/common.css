@@ -98,7 +98,7 @@ h2 {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     
     /* Add these responsive properties */
     overflow-x: auto;
@@ -341,7 +341,7 @@ pre code {
 
 /* ===== CARD SECTIONS ===== */
 .cardsection {
-    margin-top: 16px;
+    margin-bottom: 16px;
     padding: 16px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);

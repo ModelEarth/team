@@ -725,7 +725,7 @@ npx @anthropic-ai/claude-code</code></pre>`;
                 // Check if Initial install radio button is selected
                 const initialInstallRadio = document.querySelector('input[name="claude-install-status"][value="initial"]');
                 const isInitialInstall = initialInstallRadio && initialInstallRadio.checked;
-                newContent = `WindowsOS<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
+                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
             } else {
                 newContent = `# For Unix/Linux/Mac:
 <pre><code>python3 -m venv env
