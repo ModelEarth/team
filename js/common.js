@@ -331,7 +331,7 @@ function createOSDetectionPanel(containerId) {
                         
                         Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
-                        If you haven't installed Claude yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a>, then install Claude Code CLI with:<br>
+                        If you haven't node project manager (npm) yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a> first (Chocolatey is smooth), then install Claude Code CLI with:<br>
                         <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
 
                         Run /terminal-setup to set up terminal integration
@@ -403,39 +403,24 @@ gemini</code></pre>
                 If needed, install Github CLI:<br>
                 <pre><code>winget install --id GitHub.cli</code></pre>
                 
-                Open PowerShell
-
-                If your terminal is PowerShell (check with <pre><code>$PSVersionTable</code></pre>) and you don't have winget, download Microsoft's 
+                If you don't have winget, check that your terminal is PowerShell (with \`$PSVersionTable\`), download Microsoft's 
                 <a href="https://apps.microsoft.com/detail/app-installer/9nblggh4nns1" target="_blank">App Installer</a><br>
+                
+                Run in PowerShell to install App Installer:<br>
+                <pre><code>Add-AppxPackage</code></pre>
+
                 After installing "App Installer", restart PowerShell and check:<br>
                 <pre><code>winget --version</code></pre>
 
-                Run in PowerShell to install App Installer
-                <pre><code>Add-AppxPackage</code></pre>
-
-                <h1>Install Chocolatey for GitHub CLI</h1>
-                <pre><code>
-# Create temp directory if it doesn't exist
-New-Item -ItemType Directory -Path "C:\Temp" -Force
-
-# Download winget to that location
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile "C:\Temp\winget.msixbundle" -UseBasicParsing
-
-# System-wide installation (requires admin PowerShell)
-Add-AppxProvisionedPackage -Online -PackagePath "C:\Temp\winget.msixbundle" -SkipLicense
-
-
-The above didn't work, installed chocolatey instead, and restarted server
-
-# Install Chocolatey package manager
+                <h1>Or install Chocolatey for GitHub CLI</h1>
+                If winget using App Installer above fails, Chocolatey works smoothly:<br>
+                <pre><code># Install Chocolatey package manager
 Set-ExecutionPolicy Bypass -Scope Process -Force
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
 iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # Install GitHub CLI via Chocolatey
-choco install gh -y
-                </code></pre>
+choco install gh -y</code></pre>
 
             </div>
 
@@ -452,6 +437,8 @@ choco install gh -y
                 Add yourself as owner instead of root.
                 <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
             </div>
+
+            Now retry the Code CLI install above.<br><br>
 
             <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
 
@@ -621,7 +608,7 @@ function initializeOSDetectionPanel() {
         // Update title based on number of checked tools
         const cliToolsTitle = document.getElementById('cli-tools-title');
         if (cliToolsTitle) {
-            cliToolsTitle.textContent = 'Start your Command Line Interface (CLI)';
+            cliToolsTitle.textContent = 'Start your Code CLI (Command Line Interface)';
         }
         
         // Handle Claude Code CLI section
