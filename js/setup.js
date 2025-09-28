@@ -29,24 +29,24 @@ function createWebrootSetupHTML() {
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. <a href="${webrootGit}" target="github_webroot">Fork the webroot repo</a><br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
-      4. Choose "To contribute to the parent project" as you clone via Github Desktop.<br>
+      4. Choose "To contribute to the parent project" (ModelEarth/webroot) as you clone via Github Desktop.<br>
       5. Start your Command Line Interface (CLI) using the following commands:<br>`;
 }
 
 // HTML content for the trade flow repos section
 function createTradeFlowReposHTML() {
     return `
-        <h2>Get Trade Flow Repos</h2>
+        <h2>Extra Repos</h2>
         
-        <p>To contribute to our industry tradeflow visualizations, run the following to fork and clone:<br>
-        <a href="https://github.com/ModelEarth/exiobase/tree/main/tradeflow">exiobase</a>, profile, useeio.js and io</p>
+        <p>Optional: To contribute to our data-pipeline or industry tradeflow visualizations, run the following to fork and clone:<br>
+        data-pipeline, trade-data, nisar, community, evaporation-kits</p>
         
         <pre><code id="forkReposCmds">using claude.md
-fork industry repos to [your github account]
-clone industry repos from [your github account]
+fork extra repos to [your github account]
+clone extra repos from [your github account]
 </code></pre>
 
-        <p>The above requires having GitHub CLI (gh) installed locally and authenticated with your GitHub account.</p>
+        <p>The above requires having GitHub CLI (gh) installed locally and authenticated with your GitHub account. (Steps above)</p>
         
         <p><a href="https://model.earth/codechat/">Overview of repos (codechat)</a></p>
     `;

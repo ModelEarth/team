@@ -295,65 +295,7 @@ function createOSDetectionPanel(containerId) {
                     <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
                 </div>
             </div>
-            <div style="margin-bottom: 16px;">
-
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <span>Do you have Github CLI installed?</span>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="radio" name="github-cli-status" value="yes" style="margin: 0;">
-                        <span>Yes</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="radio" name="github-cli-status" value="no" style="margin: 0;" checked>
-                        <span>No</span>
-                    </label>
-                </div>
-                
-                
-
-                <div id="githubCLIinstall">
-
-                In a terminal separate from your Code CLI, check the status:
-                <pre><code>gh auth status</code></pre>
-
-                <div class="mac-instructions">
-
-                    If needed, install <a href="https://brew.sh/" target="_blank">brew</a>
-
-                    <pre><code>brew reinstall gh</code></pre> 
-
-                    choose HTTPS, then run and hit return.
-
-                    <pre><code>gh auth login</code></pre>
-                </div>
-                <div class="pc-instructions" style="display: none;">
-                    Install the Github CLI<br>
-                    <pre><code>winget install --id GitHub.cli</code></pre>
-                    
-                    If your terminal is PowerShell and you don't have winget, download Microsoft's 
-                    <a href="https://apps.microsoft.com/detail/app-installer/9nblggh4nns1" target="_blank">App Installer</a><br>
-                    After installing "App Installer", restart PowerShell and check:<br>
-                    <pre><code>winget --version</code></pre>
-                </div>
-
-                <div class="mac-instructions">
-
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        If you have an error updating the .config fire, run the following to check ownership of the .config directory. 
-                        Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
-                        <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                    </div>
-
-                    <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
-
-                    Add yourself as owner instead of root.
-                    <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
-                </div>
-
-                <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br><hr><br>
-
-                </div>
-
+            <div>
 
                 <span style="font-weight: 500; margin-right: 12px;">I'll be coding with...</span><br>
                 <div style="margin-bottom: 4px;"></div>
@@ -408,27 +350,119 @@ npx @anthropic-ai/claude-code</div>
                     </div>
                 </div>
             </div>
+            </div>
 
-            <div class="cardsection" id="gemini-installation" style="display: none;">
+        <div class="cardsection" id="gemini-installation" style="display: none;">
                 <h4 style="margin: 0 0 8px 0;">Gemini CLI Installation:</h4>
                 <div id="gemini-command-display">
                     <pre><code>python -m venv env
 env\Scripts\activate.bat
 npm install -g @google/generative-ai
 gemini</code></pre>
-                </div>
             </div>
-            <div class="cardsection" id="vscode-cmds" style="display: none;">
-                <h4 style="margin: 0 0 8px 0;">VS Code command</h4>
-                After forking and cloning the webroot repo, initialize the submodules:
-                <pre><code>git submodule update --init --recursive</code></pre>
+        </div>
+        <div class="cardsection" id="vscode-cmds" style="display: none; margin-bottom:16px">
+            <h4 style="margin: 0 0 8px 0;">VS Code command</h4>
+            After forking and cloning the webroot repo, initialize the submodules:
+            <pre><code>git submodule update --init --recursive</code></pre>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+
+            <h1>Prerequisites</h1>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <span>Do you have Github CLI installed?</span>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="radio" name="github-cli-status" value="yes" style="margin: 0;">
+                    <span>Yes</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="radio" name="github-cli-status" value="no" style="margin: 0;" checked>
+                    <span>No</span>
+                </label>
             </div>
-            <div id="gemini-resources">
-                <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
-                <div id="gemini-key-content">
-                    You can use a free Gemini key for AI insights.<br>
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
+            
+            
+
+            <div id="githubCLIinstall">
+
+            In a terminal separate from your Code CLI, check if you have Github CLI installed:
+            <pre><code>gh auth status</code></pre>
+
+            <div class="mac-instructions">
+
+                If needed, install Github CLI using <a href="https://brew.sh/" target="_blank">brew</a>
+
+                <pre><code>brew reinstall gh</code></pre> 
+
+                choose HTTPS, then run and hit return.
+
+                <pre><code>gh auth login</code></pre>
+            </div>
+            <div class="pc-instructions" style="display: none;">
+                If needed, install Github CLI:<br>
+                <pre><code>winget install --id GitHub.cli</code></pre>
+                
+                Open PowerShell
+
+                If your terminal is PowerShell (check with <pre><code>$PSVersionTable</code></pre>) and you don't have winget, download Microsoft's 
+                <a href="https://apps.microsoft.com/detail/app-installer/9nblggh4nns1" target="_blank">App Installer</a><br>
+                After installing "App Installer", restart PowerShell and check:<br>
+                <pre><code>winget --version</code></pre>
+
+                Run in PowerShell to install App Installer
+                <pre><code>Add-AppxPackage</code></pre>
+
+                <h1>Install Chocolatey for GitHub CLI</h1>
+                <pre><code>
+# Create temp directory if it doesn't exist
+New-Item -ItemType Directory -Path "C:\Temp" -Force
+
+# Download winget to that location
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile "C:\Temp\winget.msixbundle" -UseBasicParsing
+
+# System-wide installation (requires admin PowerShell)
+Add-AppxProvisionedPackage -Online -PackagePath "C:\Temp\winget.msixbundle" -SkipLicense
+
+
+The above didn't work, installed chocolatey instead, and restarted server
+
+# Install Chocolatey package manager
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install GitHub CLI via Chocolatey
+choco install gh -y
+                </code></pre>
+
+            </div>
+
+            <div class="mac-instructions">
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    If you have an error updating the .config fire, run the following to check ownership of the .config directory. 
+                    Ownership&nbsp;by&nbsp;"root" indicates it was created by a process running with elevated privileges.
+                    <input type="text" id="userComputer" placeholder="MyUserAcct" class="textInput" style="width: 150px; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
                 </div>
+
+                <pre><code id="MyUser1">ls -la /Users/[MyUserAcct]/.config</code></pre>
+
+                Add yourself as owner instead of root.
+                <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
+            </div>
+
+            <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
+
+            </div>
+        </div>
+
+        <div id="gemini-resources" class="card" style="margin-bottom: 16px;">
+            <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+            <div id="gemini-key-content">
+                You can use a free Gemini key for AI insights.<br>
+                <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
             </div>
         </div>
     `;
