@@ -331,7 +331,7 @@ function createOSDetectionPanel(containerId) {
                         
                         Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
-                        If you haven't node project manager (npm) yet, install <a href="https://nodejs.org/en/download" target="_blank" style="color: var(--accent-blue); text-decoration: none;">NodeJS 18+</a> first (Chocolatey is smooth), then install Claude Code CLI with:<br>
+                        If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>, then install Claude Code CLI with:<br>
                         <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
 
                         Run /terminal-setup to set up terminal integration
@@ -386,6 +386,11 @@ gemini</code></pre>
 
             <div id="githubCLIinstall">
 
+            <!-- move this -->
+
+            Install Claude
+            <pre><code>irm https://claude.ai/install.ps1 | iex</code></pre>
+
             In a terminal separate from your Code CLI, check if you have Github CLI installed:
             <pre><code>gh auth status</code></pre>
 
@@ -413,7 +418,7 @@ gemini</code></pre>
                 <pre><code>winget --version</code></pre>
 
                 <h1>Or install Chocolatey for GitHub CLI</h1>
-                If winget using App Installer above fails, Chocolatey works smoothly:<br>
+                If installing winget with App Installer above fails, Chocolatey works smoothly:<br>
                 <pre><code># Install Chocolatey package manager
 Set-ExecutionPolicy Bypass -Scope Process -Force
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
