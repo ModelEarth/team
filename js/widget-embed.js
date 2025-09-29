@@ -5,6 +5,11 @@
     // Configuration - automatically determine widgetWebroot from calling page path
     const widgetWebroot = (() => {
         // Get the current script element
+
+        // Temp
+        //alert("https://locations.pages.dev")
+        //return "https://locations.pages.dev"
+
         const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
         if (currentScript) {
             // Get the script source URL
@@ -17,6 +22,7 @@
                 // Extract the webroot path (everything before '/team/js/widget-embed.js')
                 const webroot = scriptPath.substring(0, teamIndex);
                 // Include domain with protocol
+                console.log("domain with protocol: " + scriptUrl.protocol + '//' + scriptUrl.host + webroot);
                 return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
             }
         }
