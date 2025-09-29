@@ -334,8 +334,6 @@ function createOSDetectionPanel(containerId) {
                 If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>, then install Claude Code CLI with:<br>
                 <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
 
-                Run /terminal-setup to set up terminal integration
-
             </div>
 
             <div id="cli-instructions" style="margin-bottom: 16px;">
