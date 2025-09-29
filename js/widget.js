@@ -106,6 +106,7 @@ class ListingsDisplay {
         }
         
         console.log(`Loading configuration from: ${this.pathConfig.basePath}${listsJson}`);
+        //alert("this.pathConfig.basePath " + this.pathConfig.basePath)
         const response = await fetch(this.pathConfig.basePath + listsJson);
         
         if (response.ok) {

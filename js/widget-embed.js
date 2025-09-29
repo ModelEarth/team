@@ -25,6 +25,7 @@
                 console.log("domain with protocol: " + scriptUrl.protocol + '//' + scriptUrl.host + webroot);
                 return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
             }
+            
         }
         
         // Fallback to empty string if detection fails
