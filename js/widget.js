@@ -43,7 +43,17 @@ class ListingsDisplay {
     }
     
     detectBasePath() {
-        // Try to detect the correct base path based on current location
+        // Use local_app.web_root() to get the webroot, then append team/projects/map/
+        if (typeof local_app !== 'undefined' && typeof local_app.web_root === 'function') {
+            const web_root = local_app.web_root();
+            if (web_root) {
+                // Ensure trailing slash and append team/projects/map/
+                const baseRoot = web_root.endsWith('/') ? web_root : web_root + '/';
+                return baseRoot + 'team/projects/map/';
+            }
+        }
+        
+        // Fallback to original logic if local_app.web_root() is not available
         const currentPath = window.location.pathname;
         
         // If we're in display/team/test.html, we need to go back to team/projects/map/
@@ -58,6 +68,21 @@ class ListingsDisplay {
         
         // Default fallback - assume we need to reach team/projects/map/ from current location
         return '../../team/projects/map/';
+    }
+
+    getDatasetBasePath() {
+        // Use local_app.web_root() for dataset paths to ensure they work when embedded
+        if (typeof local_app !== 'undefined' && typeof local_app.web_root === 'function') {
+            const web_root = local_app.web_root();
+            if (web_root) {
+                // Ensure trailing slash and append team/projects/map/
+                const baseRoot = web_root.endsWith('/') ? web_root : web_root + '/';
+                return baseRoot + 'team/projects/map/';
+            }
+        }
+        
+        // Fallback to using this.pathConfig.basePath if local_app.web_root() is not available
+        return this.pathConfig.basePath;
     }
 
     async init() {
@@ -222,10 +247,10 @@ class ListingsDisplay {
             //return await this.loadGoogleCSV(config.googleCSV);
             return await this.loadCSVData(config.googleCSV);
         } else if (config.dataset.endsWith('.json') ) {
-            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.pathConfig.basePath + config.dataset;
+            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
             return await this.loadJSONData(datasetUrl);
         } else if (config.dataset) {
-            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.pathConfig.basePath + config.dataset;
+            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
             return await this.loadCSVData(datasetUrl);
         } else {
             return this.createMockData(config);

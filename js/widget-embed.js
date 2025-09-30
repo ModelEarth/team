@@ -2,35 +2,42 @@
 // Optimized loading strategy: parallel JS batches, non-blocking CSS
 
 (function() {
-    // Configuration - automatically determine widgetWebroot from calling page path
-    const widgetWebroot = (() => {
-        // Get the current script element
-
-        // Temp
-        //alert("https://locations.pages.dev")
-        //return "https://locations.pages.dev"
-
-        const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
-        if (currentScript) {
-            // Get the script source URL
-            const scriptUrl = new URL(currentScript.src);
-            const scriptPath = scriptUrl.pathname;
-            
-            // Find where 'team/js/widget-embed.js' appears in the path
-            const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
-            if (teamIndex !== -1) {
-                // Extract the webroot path (everything before '/team/js/widget-embed.js')
-                const webroot = scriptPath.substring(0, teamIndex);
-                // Include domain with protocol
-                console.log("domain with protocol: " + scriptUrl.protocol + '//' + scriptUrl.host + webroot);
-                return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
+    // Create or ensure local_app exists
+    var local_app = local_app || {}; // Same as localsite.js
+    
+    // Check if web_root already exists, if not create it
+    if (typeof local_app.web_root !== 'function') {
+        local_app.web_root = function() {
+            // Get the current script element
+    
+            const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
+            if (currentScript) {
+                // Get the script source URL
+                const scriptUrl = new URL(currentScript.src);
+                const scriptPath = scriptUrl.pathname;
+                
+                // Find where 'team/js/widget-embed.js' appears in the path
+                const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
+                if (teamIndex !== -1) {
+                    // Extract the webroot path (everything before '/team/js/widget-embed.js')
+                    const webroot = scriptPath.substring(0, teamIndex);
+                    // Include domain with protocol
+                    console.log("domain with protocol: " + scriptUrl.protocol + '//' + scriptUrl.host + webroot);
+                    return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
+                }
+                
             }
             
-        }
-        
-        // Fallback to empty string if detection fails
-        return '';
-    })();
+            // Fallback to empty string if detection fails
+            return '';
+        };
+    }
+    
+    // Configuration - use local_app.web_root() (also accessible as widgetWebroot for backward compatibility)
+    const widgetWebroot = local_app.web_root();
+    
+    // Make local_app globally available for localsite.js to use
+    window.local_app = local_app;
     
     // Helper function to load script with promise
     function loadScript(src, id) {
