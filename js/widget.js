@@ -1275,7 +1275,7 @@ class ListingsDisplay {
                     ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <div id="map-print-download-icons"></div>
+                    <div id="map-print-download-icons" style="padding-top:12px"></div>
                 </div>
             </div>
             

@@ -288,7 +288,8 @@ Use these functions from localsite/js/localsite.js for hash-based state manageme
   ```
 
 #### Hash Change Listening
-- **hashChangeEvent**: Custom event that fires when hash changes via goHash()
+- **hashChangeEvent**: Custom event that fires when hash changes via goHash() and when URL hash is changed directly by the user.
+- **Use on multiple page**: Allows multiple widgets in a page to independently responde to changing URL hash values.
   ```javascript
   document.addEventListener('hashChangeEvent', function (elem) {
       const hash = getHash();
