@@ -8,26 +8,53 @@
     // Check if web_root already exists, if not create it
     if (typeof local_app.web_root !== 'function') {
         local_app.web_root = function() {
-            // Get the current script element
-    
-            const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
-            if (currentScript) {
-                // Get the script source URL
-                const scriptUrl = new URL(currentScript.src);
-                const scriptPath = scriptUrl.pathname;
-                
-                // Find where 'team/js/widget-embed.js' appears in the path
-                const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
-                if (teamIndex !== -1) {
-                    // Extract the webroot path (everything before '/team/js/widget-embed.js')
-                    const webroot = scriptPath.substring(0, teamIndex);
-                    // Include domain with protocol
-                    console.log("domain with protocol: " + scriptUrl.protocol + '//' + scriptUrl.host + webroot);
-                    return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
+            // Find the widget-embed.js script using the same approach as localsite.js
+            let scripts = document.getElementsByTagName('script');
+            let widgetScript;
+            
+            // Look for widget-embed.js script
+            for (var i = 0; i < scripts.length; ++i) {
+                if(scripts[i].src && scripts[i].src.indexOf('widget-embed.js') !== -1){
+                    widgetScript = scripts[i];
+                    break;
+                }
+            }
+            
+            if (widgetScript) {
+                // Extract hostname and port from the script src (like localsite.js does)
+                function extractHostnameAndPort(url) {
+                    let hostname;
+                    let protocol = "";
+                    // find & remove protocol (http, ftp, etc.) and get hostname
+                    if (url.indexOf("//") > -1) {
+                        protocol = url.split('//')[0] + "//"; // Retain http or https
+                        hostname = protocol + url.split('/')[2];
+                    } else {
+                        hostname = url.split('/')[0];
+                    }
+                    //find & remove "?" and parameters
+                    hostname = hostname.split('?')[0];
+                    return hostname;
                 }
                 
+                let hostnameAndPort = extractHostnameAndPort(widgetScript.src);
+                console.log("widget-embed.js: script src hostname and port: " + hostnameAndPort);
+                
+                // Extract the path and find the webroot (everything before /team/js/widget-embed.js)
+                const scriptPath = new URL(widgetScript.src).pathname;
+                const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
+                if (teamIndex !== -1) {
+                    const webroot = scriptPath.substring(0, teamIndex);
+                    const fullWebroot = hostnameAndPort + webroot;
+                    console.log("widget-embed.js: final web_root = " + fullWebroot);
+                    return fullWebroot;
+                }
+                
+                // If path parsing fails, just return the hostname
+                console.log("widget-embed.js: path parsing failed, returning hostname: " + hostnameAndPort);
+                return hostnameAndPort;
             } else {
-                console.log('widget-embed.js no currentScript src fetched');
+                console.log('widget-embed.js: no script src found');
             }
             
             // Fallback to empty string if detection fails
