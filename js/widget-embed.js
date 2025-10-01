@@ -26,6 +26,8 @@
                     return scriptUrl.protocol + '//' + scriptUrl.host + webroot;
                 }
                 
+            } else {
+                console.log('widget-embed.js no currentScript src fetched');
             }
             
             // Fallback to empty string if detection fails
@@ -35,6 +37,7 @@
     
     // Configuration - use local_app.web_root() (also accessible as widgetWebroot for backward compatibility)
     const widgetWebroot = local_app.web_root();
+    console.log('widget-embed.js: Final widgetWebroot value =', widgetWebroot);
     
     // Make local_app globally available for localsite.js to use
     window.local_app = local_app;

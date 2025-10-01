@@ -130,6 +130,7 @@ class ListingsDisplay {
             }
         }
         
+        console.log('widget.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
         const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
         
