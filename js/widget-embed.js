@@ -5,14 +5,109 @@
     // Create or ensure local_app exists
     var local_app = local_app || {}; // Same as localsite.js
     
+    // Extract hostname and port from the script src (like localsite.js does)
+    function extractHostnameAndPort(url) {
+        let hostname;
+        let protocol = "";
+        // find & remove protocol (http, ftp, etc.) and get hostname
+        if (url.indexOf("//") > -1) {
+            protocol = url.split('//')[0] + "//"; // Retain http or https
+            hostname = protocol + url.split('/')[2];
+        } else {
+            hostname = url.split('/')[0];
+        }
+        //find & remove "?" and parameters
+        hostname = hostname.split('?')[0];
+        return hostname;
+    }
+
+    // Process widget script to extract web root
+    function processWidgetScript(widgetScript) {
+        let hostnameAndPort = extractHostnameAndPort(widgetScript.src);
+        console.log("widget-embed.js: script src hostname and port: " + hostnameAndPort);
+        
+        // Extract the path and find the webroot (everything before /team/js/widget-embed.js)
+        const scriptPath = new URL(widgetScript.src).pathname;
+        const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
+        if (teamIndex !== -1) {
+            const webroot = scriptPath.substring(0, teamIndex);
+            const fullWebroot = hostnameAndPort + webroot;
+            console.log("widget-embed.js: final web_root = " + fullWebroot);
+            return fullWebroot;
+        }
+        
+        // If path parsing fails, just return the hostname
+        console.log("widget-embed.js: path parsing failed, returning hostname: " + hostnameAndPort);
+        return hostnameAndPort;
+    }
+
+    // Helper function to find widget script with multiple delay attempts
+    function findWidgetScript() {
+        return new Promise((resolve) => {
+            const delays = [100, 500, 1500]; // Multiple delay attempts
+            let attemptIndex = 0;
+            
+            function tryFindScript() {
+                let scripts = document.getElementsByTagName('script');
+                let widgetScript;
+                
+                // Look for widget-embed.js script
+                for (var i = 0; i < scripts.length; ++i) {
+                    if(scripts[i].src && scripts[i].src.indexOf('widget-embed.js') !== -1){
+                        widgetScript = scripts[i];
+                        break;
+                    }
+                }
+                
+                if (widgetScript) {
+                    console.log('widget-embed.js: found script after', attemptIndex === 0 ? 'immediate try' : delays[attemptIndex-1] + 'ms delay');
+                    resolve(widgetScript);
+                } else if (attemptIndex < delays.length) {
+                    console.log('widget-embed.js: script not found, trying again in', delays[attemptIndex] + 'ms');
+                    setTimeout(tryFindScript, delays[attemptIndex]);
+                    attemptIndex++;
+                } else {
+                    console.log('widget-embed.js: script not found after all delay attempts');
+                    resolve(null);
+                }
+            }
+            
+            // Start with immediate try
+            tryFindScript();
+        });
+    }
+
+    // Extract parameters from widget-embed.js URL
+    function getWidgetParameters() {
+        let scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; ++i) {
+            if(scripts[i].src && scripts[i].src.indexOf('widget-embed.js') !== -1){
+                const src = scripts[i].src;
+                const paramIndex = src.indexOf('?');
+                if (paramIndex !== -1) {
+                    const params = src.substring(paramIndex); // includes the '?'
+                    console.log('widget-embed.js: found parameters:', params);
+                    return params;
+                }
+                break;
+            }
+        }
+        return '';
+    }
+
     // Check if web_root already exists, if not create it
     if (typeof local_app.web_root !== 'function') {
+        let cachedWebRoot = null; // Cache the result
+        
         local_app.web_root = function() {
-            // Find the widget-embed.js script using the same approach as localsite.js
+            if (cachedWebRoot) {
+                return cachedWebRoot;
+            }
+            
+            // Try immediate detection first
             let scripts = document.getElementsByTagName('script');
             let widgetScript;
             
-            // Look for widget-embed.js script
             for (var i = 0; i < scripts.length; ++i) {
                 if(scripts[i].src && scripts[i].src.indexOf('widget-embed.js') !== -1){
                     widgetScript = scripts[i];
@@ -20,45 +115,24 @@
                 }
             }
             
-            if (widgetScript) {
-                // Extract hostname and port from the script src (like localsite.js does)
-                function extractHostnameAndPort(url) {
-                    let hostname;
-                    let protocol = "";
-                    // find & remove protocol (http, ftp, etc.) and get hostname
-                    if (url.indexOf("//") > -1) {
-                        protocol = url.split('//')[0] + "//"; // Retain http or https
-                        hostname = protocol + url.split('/')[2];
-                    } else {
-                        hostname = url.split('/')[0];
+            if (!widgetScript) {
+                console.log('widget-embed.js: script not found immediately, async detection in progress');
+                // Start async detection to cache result for future calls
+                findWidgetScript().then(script => {
+                    if (script) {
+                        cachedWebRoot = processWidgetScript(script);
+                        console.log('widget-embed.js: cached web_root =', cachedWebRoot);
                     }
-                    //find & remove "?" and parameters
-                    hostname = hostname.split('?')[0];
-                    return hostname;
-                }
-                
-                let hostnameAndPort = extractHostnameAndPort(widgetScript.src);
-                console.log("widget-embed.js: script src hostname and port: " + hostnameAndPort);
-                
-                // Extract the path and find the webroot (everything before /team/js/widget-embed.js)
-                const scriptPath = new URL(widgetScript.src).pathname;
-                const teamIndex = scriptPath.lastIndexOf('/team/js/widget-embed.js');
-                if (teamIndex !== -1) {
-                    const webroot = scriptPath.substring(0, teamIndex);
-                    const fullWebroot = hostnameAndPort + webroot;
-                    console.log("widget-embed.js: final web_root = " + fullWebroot);
-                    return fullWebroot;
-                }
-                
-                // If path parsing fails, just return the hostname
-                console.log("widget-embed.js: path parsing failed, returning hostname: " + hostnameAndPort);
-                return hostnameAndPort;
-            } else {
-                console.log('widget-embed.js: no script src found');
+                });
+                // Return fallback domain unless current domain matches
+                const currentDomain = window.location.protocol + '//' + window.location.host;
+                const fallbackDomain = 'https://locations.pages.dev';
+                return currentDomain === fallbackDomain ? currentDomain : fallbackDomain;
             }
             
-            // Fallback to empty string if detection fails
-            return '';
+            // Process the script and cache the result
+            cachedWebRoot = processWidgetScript(widgetScript);
+            return cachedWebRoot;
         };
     }
     
@@ -95,9 +169,12 @@
     // Load base.css early (non-blocking)
     loadCSS(widgetWebroot + '/localsite/css/base.css', '/localsite/css/base.css');
     
+    // Get widget parameters to pass to localsite.js
+    const widgetParams = getWidgetParameters();
+    
     // Load essential JS files in parallel (batch 1 - no waiting)
     const essentialScripts = [
-        { src: widgetWebroot + '/localsite/js/localsite.js?showheader=true&showfooter=false' }, // No id for localsite.js
+        { src: widgetWebroot + '/localsite/js/localsite.js' + widgetParams }, // No id for localsite.js, append widget parameters
         { src: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', id: '/leaflet.js', integrity: 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=', crossorigin: 'anonymous' },
         { src: widgetWebroot + '/team/js/leaflet.js', id: '/team/js/leaflet.js' },
         { src: widgetWebroot + '/team/js/common.js', id: '/team/js/common.js' }
