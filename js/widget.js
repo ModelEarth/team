@@ -130,9 +130,8 @@ class ListingsDisplay {
             }
         }
         
-        console.log(`Loading configuration from: ${this.pathConfig.basePath}${listsJson}`);
-        //alert("this.pathConfig.basePath " + this.pathConfig.basePath)
-        const response = await fetch(this.pathConfig.basePath + listsJson);
+        console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
+        const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
         
         if (response.ok) {
             this.showConfigs = await response.json();
