@@ -92,6 +92,16 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
+        /* Snapshot dropdown specific styling */
+        #snapshot {
+            width: auto;
+            max-width: 300px;
+            min-width: fit-content;
+            appearance: menulist;
+            -webkit-appearance: menulist;
+            -moz-appearance: menulist;
+        }
+        
         /* Custom dropdown arrow for fileSelect */
         #fileSelect {
             appearance: none;
@@ -658,6 +668,12 @@
             justify-content: center;
             padding: 0;
             flex-shrink: 0;
+        }
+        
+        #delete-snapshot-btn {
+            font-size: 24px;
+            font-weight: bold;
+            line-height: 1;
         }
         
         .add-snapshot {
@@ -2059,10 +2075,8 @@
                 </div>
             </div>
             
-            <!-- Snapshots Control -->
-            <!-- Group Participants Control -->
-            <!-- Snapshot Selection -->
-            <div class="form-group">
+            <div class="group-control" id="group-control">
+                <!-- Snapshot Selection moved to top -->
                 <label class="form-label">Snapshot</label>
                 <div class="input-button-group">
                     <select id="snapshot" class="form-select">
@@ -2080,11 +2094,8 @@
                         <button class="btn btn-secondary" id="cancel-snapshot-btn">Cancel</button>
                     </div>
                 </div>
-            </div>
-
-            <div class="group-control" id="group-control">
+                
                 <div class="group-header">
-                    <label class="form-label" id="group-participants-label">Group Participants</label>
                     <span id="group-snapshot-info" class="group-snapshot-info"></span>
                 </div>
                 <div class="group-input-group">
@@ -3400,7 +3411,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     const fieldLower = field.toLowerCase();
                     
                     // Skip these specific field names (case insensitive)
-                    if (['edit', 'index', 'preview'].includes(fieldLower)) {
+                    if (['edit', 'index', 'preview', 'order'].includes(fieldLower)) {
                         return false;
                     }
                     
@@ -3724,8 +3735,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Get headers from first row
             const headers = Object.keys(data[0] || {});
 
-            // Filter out columns that are empty for every row (omit empty columns)
+            // Filter out columns that are empty for every row (omit empty columns) and unwanted columns
             const visibleHeaders = headers.filter(header => {
+                // Skip Preview column
+                if (header.toLowerCase() === 'preview') {
+                    return false;
+                }
+                
                 // If any row has a non-empty value for this header, keep it
                 return data.some(row => {
                     if (!row) return false;
@@ -3755,7 +3771,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 // Add header text and sort arrow
                 const headerText = document.createElement('span');
-                headerText.textContent = header;
+                headerText.textContent = formatFieldName(header);
                 th.appendChild(headerText);
                 
                 // Add sort arrow if this is the current sort column
@@ -3776,12 +3792,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             checkboxTh.style.textAlign = 'center';
             headerRow.insertBefore(checkboxTh, headerRow.firstChild);
 
-            // Add image column header (after checkbox)
-            const imgTh = document.createElement('th');
-            imgTh.textContent = 'Preview';
-            imgTh.style.width = '180px';
-            imgTh.style.textAlign = 'center';
-            headerRow.insertBefore(imgTh, headerRow.children[1] || null);
+            // Preview column removed
             
             // Add menu column header at the end
             const menuTh = document.createElement('th');
@@ -3917,13 +3928,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 checkboxTd.appendChild(checkbox);
                 tr.appendChild(checkboxTd);
 
-                // Add image column td (empty placeholder). We'll populate it from the Title/Name anchor if available.
-                const imgTd = document.createElement('td');
-                imgTd.style.textAlign = 'center';
-                imgTd.style.verticalAlign = 'middle';
-                imgTd.style.padding = '8px';
-                imgTd.className = 'preview-cell';
-                tr.appendChild(imgTd);
+                // Preview column removed
                 
                 // Add data columns
                 headersToRender.forEach(header => {
@@ -3979,34 +3984,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     tr.appendChild(td);
                 });
                 
-                // After cells have been added, populate the preview cell from Title/Name anchor if present
-                try {
-                    // find the index of the Title/Name column in headersToRender
-                    const titleIdx = headersToRender.findIndex(h => ['title','name','headline'].includes((h||'').toString().toLowerCase()));
-                    if (titleIdx !== -1) {
-                        // offset: checkbox + preview cell occupy first two cells, so title cell index shifts by +2
-                        const cellIndex = 1 + 1 + titleIdx; // checkbox(0), preview(1), then titleIdx
-                        const titleCell = tr.children[cellIndex];
-                        if (titleCell) {
-                            const anchor = titleCell.querySelector('a[href^="http"]');
-                            if (anchor) {
-                                const previewContainer = document.createElement('div');
-                                const previewId = 'rowPreview-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-                                previewContainer.id = previewId;
-                                previewContainer.style.maxWidth = '160px';
-                                previewContainer.style.margin = '0 auto';
-                                // clear any existing content and append container into imgTd
-                                imgTd.innerHTML = '';
-                                imgTd.appendChild(previewContainer);
-                                if (typeof getSitePreview === 'function') {
-                                    try { getSitePreview(anchor.href, previewId); } catch (err) {}
-                                }
-                            }
-                        }
-                    }
-                } catch (err) {
-                    // ignore
-                }
+                // Preview population code removed
 
                 // Add menu column last (using same approach as column/gallery views)
                 const menuTd = document.createElement('td');
@@ -6028,18 +6006,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             if (currentActiveSnapshot) {
-                // Update label to include snapshot name
-                if (participantsLabel) {
-                    participantsLabel.textContent = `Group Participants - ${currentActiveSnapshot}`;
-                }
-                // Show "Edit Snapshots" link
-                snapshotInfo.innerHTML = `<a href="#" onclick="toggleSnapshots(); return false;">Edit Snapshots</a>`;
+                // Show active snapshot name
+                snapshotInfo.innerHTML = `Active: ${currentActiveSnapshot}`;
                 console.log('✅ Displayed active snapshot in title:', currentActiveSnapshot);
             } else {
-                // Reset label to original text
-                if (participantsLabel) {
-                    participantsLabel.textContent = 'Group Participants';
-                }
                 // Show save snapshot link
                 snapshotInfo.innerHTML = `<a href="#" onclick="promptSaveSnapshot(); return false;">Save Snapshot</a>`;
                 console.log('✅ Displayed save snapshot link');
@@ -8758,7 +8728,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 refreshDisplay();
                 
                 populateSnapshotDropdown();
-                alert(`Snapshot "${currentName}" deleted successfully!`);
             }
         }
         

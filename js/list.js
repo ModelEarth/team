@@ -908,6 +908,13 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
                     continue; // Skip this option for geo sites
                 }
                 
+                // Check if option already exists to prevent duplicates
+                const existingOption = fileSelect.querySelector(`option[value="${feed}"]`);
+                if (existingOption) {
+                    console.log(`Skipping duplicate option: ${feed}`);
+                    continue; // Skip creating duplicate option
+                }
+                
                 const option = document.createElement('option');
                 option.value = feed;
                 option.textContent = title;
@@ -958,21 +965,25 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
         // Add fallback options when Google Sheet loading fails
         const customOption = fileSelect.querySelector('option[value="custom"]');
         if (customOption) {
-            // Add Cities option as primary fallback
-            const citiesOption = document.createElement('option');
-            citiesOption.value = 'cities';
-            citiesOption.textContent = 'Cities';
-            citiesOption.setAttribute('data-url', 'projects/map/cities.csv');
-            citiesOption.setAttribute('data-cors', 'false');
-            fileSelect.insertBefore(citiesOption, customOption);
+            // Add Cities option as primary fallback (check for duplicates)
+            if (!fileSelect.querySelector('option[value="cities"]')) {
+                const citiesOption = document.createElement('option');
+                citiesOption.value = 'cities';
+                citiesOption.textContent = 'Cities';
+                citiesOption.setAttribute('data-url', 'projects/map/cities.csv');
+                citiesOption.setAttribute('data-cors', 'false');
+                fileSelect.insertBefore(citiesOption, customOption);
+            }
             
-            // Add Model Team option as secondary fallback
-            const fallbackOption = document.createElement('option');
-            fallbackOption.value = 'modelteam';
-            fallbackOption.textContent = 'Model Team (list.js)';
-            fallbackOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv');
-            fallbackOption.setAttribute('data-cors', 'false');
-            fileSelect.insertBefore(fallbackOption, customOption);
+            // Add Model Team option as secondary fallback (check for duplicates)
+            if (!fileSelect.querySelector('option[value="modelteam"]')) {
+                const fallbackOption = document.createElement('option');
+                fallbackOption.value = 'modelteam';
+                fallbackOption.textContent = 'Model Team (list.js)';
+                fallbackOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1054734503&single=true&output=csv');
+                fallbackOption.setAttribute('data-cors', 'false');
+                fileSelect.insertBefore(fallbackOption, customOption);
+            }
         }
         
         return false;
