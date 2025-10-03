@@ -207,9 +207,9 @@ function parseCSV(csvText) {
     return rows;
 }
 
-function parseCSVToObjects(csvText) {
+function parseCSVToObjects(csvText, allFields = null) {
     const arrays = parseCSV(csvText);
-    return convertArraysToObjects(arrays);
+    return convertArraysToObjects(arrays, allFields);
 }
 
 function parseRSS(xmlText) {
@@ -872,12 +872,14 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
         const urlIndex = headers.findIndex(h => h.toLowerCase() === 'url');
         const feedIndex = headers.findIndex(h => h.toLowerCase() === 'feed');
         const corsIndex = headers.findIndex(h => h.toLowerCase() === 'cors');
+        const topFieldsIndex = headers.findIndex(h => h.toLowerCase() === 'topfields');
+        const allFieldsIndex = headers.findIndex(h => h.toLowerCase() === 'allfields');
         
         if (titleIndex === -1 || urlIndex === -1 || feedIndex === -1) {
             throw new Error('Required columns (Title, URL, Feed) not found in sheet');
         }
         
-        console.log(`Column indices from ${dataSource} - Title:`, titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex);
+        console.log(`Column indices from ${dataSource} - Title:`, titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex, 'TopFields:', topFieldsIndex, 'AllFields:', allFieldsIndex);
         
         // Check if this is a geo site for filtering
         const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
@@ -897,6 +899,8 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
             const url = row[urlIndex];
             const feed = row[feedIndex];
             const cors = corsIndex !== -1 ? row[corsIndex] : '';
+            const topFields = topFieldsIndex !== -1 ? row[topFieldsIndex] : '';
+            const allFields = allFieldsIndex !== -1 ? row[allFieldsIndex] : '';
             
             if (title && url && feed) {
                 // Filter options for geo sites
@@ -908,7 +912,29 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
                 option.value = feed;
                 option.textContent = title;
                 option.setAttribute('data-url', url);
-                option.setAttribute('data-cors', cors.toLowerCase() === 'true' ? 'true' : 'false');
+                const corsValue = cors.toLowerCase() === 'true' ? 'true' : 'false';
+                option.setAttribute('data-cors', corsValue);
+                
+                // Add TopFields attribute if available
+                if (topFields) {
+                    option.setAttribute('data-top-fields', topFields);
+                }
+                
+                // Add AllFields attribute if available
+                if (allFields) {
+                    option.setAttribute('data-all-fields', allFields);
+                }
+                
+                // Debug logging for us-cities specifically
+                if (feed === 'us-cities') {
+                    console.log('=== US-CITIES OPTION CREATION DEBUG ===');
+                    console.log('Feed:', feed);
+                    console.log('Title:', title);
+                    console.log('URL:', url);
+                    console.log('Raw CORS value from CSV:', cors);
+                    console.log('Processed CORS value:', corsValue);
+                    console.log('Option created with data-cors:', option.getAttribute('data-cors'));
+                }
                 
                 // Add data-projects attribute for democracylab
                 if (feed === 'democracylab') {
@@ -1138,16 +1164,27 @@ function shouldUseFirstRowAsHeaders(data) {
 }
 
 // Function to convert array of arrays to array of objects using first row as headers
-function convertArraysToObjects(data) {
+function convertArraysToObjects(data, allFields = null) {
     if (!data || data.length === 0) {
         return [];
     }
     
     // Check if we should use first row as headers
     if (!shouldUseFirstRowAsHeaders(data)) {
-        // Generate generic headers: Column1, Column2, etc.
-        const maxColumns = Math.max(...data.map(row => Array.isArray(row) ? row.length : 0));
-        const headers = Array.from({length: maxColumns}, (_, i) => `Column${i + 1}`);
+        // Use AllFields if provided, otherwise generate generic headers
+        let headers;
+        if (allFields && typeof allFields === 'string') {
+            headers = allFields.split(',').map(h => h.trim());
+            console.log('Using AllFields for column names:', headers);
+        } else {
+            // Generate generic headers: Column1, Column2, etc.
+            // Use reduce instead of Math.max with spread operator to avoid stack overflow with large datasets
+            const maxColumns = data.reduce((max, row) => {
+                const length = Array.isArray(row) ? row.length : 0;
+                return Math.max(max, length);
+            }, 0);
+            headers = Array.from({length: maxColumns}, (_, i) => `Column${i + 1}`);
+        }
         
         return data.map(row => {
             const obj = {};
@@ -1174,10 +1211,13 @@ function convertArraysToObjects(data) {
 
 // Unified data loading function that handles JSON, RSS, CSV, and Excel formats
 async function loadUnifiedData(url, options = {}) {
-    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api' } = options;
+    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null } = options;
     
     try {
+        console.log('=== LOAD UNIFIED DATA DEBUG ===');
         console.log('Loading unified data from:', url);
+        console.log('forceCorsProxy:', forceCorsProxy);
+        console.log('API_BASE:', API_BASE);
         
         // Determine if this URL needs CSV parsing (Google Sheets or CSV files)
         const isCSVData = url.includes('output=csv') || url.endsWith('.csv') || url.includes('docs.google.com/spreadsheets');
@@ -1186,26 +1226,9 @@ async function loadUnifiedData(url, options = {}) {
             // Handle CSV data (Google Sheets, CSV files)
             let csvText;
             
-            try {
-                // Try direct fetch first (works on static sites like GitHub Pages)
-                console.log('Attempting direct CSV fetch...');
-                const directResponse = await fetch(url, {
-                    cache: 'no-cache',
-                    headers: {
-                        'Accept': 'text/csv'
-                    }
-                });
-                
-                if (directResponse.ok) {
-                    csvText = await directResponse.text();
-                    console.log('Direct CSV fetch successful');
-                } else {
-                    throw new Error(`Direct fetch failed: ${directResponse.status} ${directResponse.statusText}`);
-                }
-            } catch (directError) {
-                console.log('Direct CSV fetch failed, trying backend proxy:', directError.message);
-                
-                // Fallback to backend proxy
+            if (forceCorsProxy) {
+                // CORS is required - go directly to backend proxy
+                console.log('CORS required - using backend proxy for CSV fetch...');
                 try {
                     const proxyResponse = await fetch(`${API_BASE}/google/fetch-csv`, {
                         method: 'POST',
@@ -1227,7 +1250,27 @@ async function loadUnifiedData(url, options = {}) {
                         throw new Error('Backend CSV proxy not available');
                     }
                 } catch (proxyError) {
-                    throw new Error(`Cannot fetch CSV data. Tried both direct fetch and backend proxy.\n\nDirect error: ${directError.message}\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}`);
+                    throw new Error(`Cannot fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}`);
+                }
+            } else {
+                // No CORS restriction - try direct fetch only
+                console.log('No CORS restriction - attempting direct CSV fetch...');
+                try {
+                    const directResponse = await fetch(url, {
+                        cache: 'no-cache',
+                        headers: {
+                            'Accept': 'text/csv'
+                        }
+                    });
+                    
+                    if (directResponse.ok) {
+                        csvText = await directResponse.text();
+                        console.log('Direct CSV fetch successful');
+                    } else {
+                        throw new Error(`Direct fetch failed: ${directResponse.status} ${directResponse.statusText}`);
+                    }
+                } catch (directError) {
+                    throw new Error(`Cannot fetch CSV data via direct fetch.\n\nDirect error: ${directError.message}\n\nPath attempted: ${url}\n\nNote: If this URL requires CORS proxy, set CORS=TRUE in the lists.csv file.`);
                 }
             }
             
@@ -1239,7 +1282,7 @@ async function loadUnifiedData(url, options = {}) {
             }
             
             // Convert arrays to objects with intelligent header detection
-            const parsedData = convertArraysToObjects(parsedArrays);
+            const parsedData = convertArraysToObjects(parsedArrays, allFields);
             
             if (!parsedData || parsedData.length === 0) {
                 throw new Error(`No valid data rows found in the spreadsheet\n\nPath attempted: ${url}`);
@@ -1383,7 +1426,7 @@ async function loadUnifiedData(url, options = {}) {
             if (isArrayOfArrays) {
                 // Handle as array of arrays with header detection
                 console.log('Processing JSON as array of arrays...');
-                finalData = convertArraysToObjects(processedData);
+                finalData = convertArraysToObjects(processedData, allFields);
                 console.log(`JSON array processed: ${processedData.length} total rows, ${finalData.length} data rows, headers detected: ${shouldUseFirstRowAsHeaders(processedData) ? 'YES' : 'NO'}`);
             } else {
                 // Flatten nested objects in the data

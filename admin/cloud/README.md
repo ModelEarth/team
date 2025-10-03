@@ -126,11 +126,11 @@ The `projects/index.html` page provides a user interface for loading and managin
 - When page loads with a hash parameter (e.g., `#list=modelteam`), data loads automatically
 - `getMeetupParticipants()` function handles the data loading process
 - Uses `loadUnifiedData()` from `js/list.js` for consistent data processing
-- Data flows: File Selection → `getMeetupParticipants()` → `loadUnifiedData()` → `displayParticipantsTable()`
+- Data flows: File Selection → `getMeetupParticipants()` → `loadUnifiedData()` → `displayTableLayout()`
 
 **3. Data Storage and Processing**
 - Raw data stored in `originalRawData` variable
-- Processed data stored in `allParticipantsData` global variable
+- Processed data stored in `allRowsData` global variable
 - Data preprocessing includes team classification, status normalization, and field mapping
 - Supports pagination, filtering, and sorting operations
 
@@ -154,7 +154,7 @@ The `projects/index.html` page provides a user interface for loading and managin
 - `generateSortDropdown()`: Populates dropdown with available columns from data
 - `toggleStatusDropdown()`: Shows/hides status filter options  
 - `generateStatusDropdown()`: Populates dropdown with unique status values from data
-- Both functions check for `allParticipantsData` availability before generating content
+- Both functions check for `allRowsData` availability before generating content
 
 **CSS Positioning:**
 - `.button-with-dropdown` containers use `position: relative`
@@ -165,7 +165,7 @@ The `projects/index.html` page provides a user interface for loading and managin
 
 **Problem: Dropdowns not appearing**
 - **Cause:** Incorrect CSS positioning context or missing data
-- **Solution:** Ensure button containers have `position: relative` and data is loaded in `allParticipantsData`
+- **Solution:** Ensure button containers have `position: relative` and data is loaded in `allRowsData`
 
 **Problem: FaviconManager making excessive API calls**
 - **Cause:** Periodic favicon updates running every 30 seconds
@@ -211,10 +211,10 @@ if (isHardcodedSystemPath) {
 **Console Logging:**
 - Add `console.log` statements in dropdown functions to track data availability
 - Monitor network requests to identify data loading issues
-- Check `allParticipantsData` variable in browser console to verify data structure
+- Check `allRowsData` variable in browser console to verify data structure
 
 **Common Debug Points:**
-- `displayParticipantsTable()` - Where `allParticipantsData` gets populated
+- `displayTableLayout()` - Where `allRowsData` gets populated
 - `generateSortDropdown()` / `generateStatusDropdown()` - Where dropdown content is created
 - `getMeetupParticipants()` - Main data loading function
 - `loadUnifiedData()` - Data processing and format detection

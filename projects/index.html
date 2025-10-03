@@ -528,7 +528,7 @@
         }
         
         /* Maintain 3-dot menu spacing in fullscreen mode */
-        .fullscreen-mode .participants-table .participant-menu {
+        .fullscreen-mode .participants-table .columns-menu {
             right: 8px !important;
         }
         
@@ -756,29 +756,29 @@
         }
         
         /* Group participant highlighting */
-        .participant-group {
+        .columns-group {
             border: 3px solid var(--accent-green) !important;
             box-shadow: 0 0 0 1px var(--accent-green) !important;
         }
         
-        .participant-group .participant-name {
+        .columns-group .columns-name {
             color: var(--accent-green) !important;
             font-weight: 700 !important;
         }
         
         /* Keep gallery names white when group border is added */
-        .participant-group .gallery-name {
+        .columns-group .gallery-name {
             color: white !important;
             font-weight: 700 !important;
         }
         
         /* Table row highlighting */
-        .participants-table tr.participant-group {
+        .participants-table tr.columns-group {
             background: rgba(16, 185, 129, 0.1) !important;
             border-left: 4px solid var(--accent-green) !important;
         }
         
-        .participants-table tr.participant-group td:first-child {
+        .participants-table tr.columns-group td:first-child {
             color: var(--accent-green) !important;
             font-weight: 600 !important;
         }
@@ -891,7 +891,7 @@
             margin-top: 16px;
         }
         
-        .participant-card {
+        .columns-card {
             background: var(--bg-tertiary);
             padding: 16px;
             border-radius: var(--radius-md);
@@ -900,12 +900,12 @@
             position: relative;
         }
         
-        .participant-card:hover {
+        .columns-card:hover {
             background: var(--bg-secondary);
             box-shadow: var(--shadow-sm);
         }
         
-        .participant-name {
+        .columns-name {
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 4px;
@@ -914,7 +914,7 @@
             align-items: center;
         }
         
-        .participant-checkbox {
+        .columns-checkbox {
             width: 18px;
             height: 18px;
             margin-right: 8px;
@@ -924,7 +924,7 @@
         }
         
         /* 3-dot menu for participant cards */
-        .participant-menu {
+        .columns-menu {
             position: absolute;
             top: 8px;
             right: 8px;
@@ -940,13 +940,13 @@
             color: var(--text-secondary);
         }
         
-        .participant-menu:hover {
+        .columns-menu:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
         }
         
         
-        .participant-menu-dropdown {
+        .columns-menu-dropdown {
             position: absolute;
             top: 100%;
             right: 26px;
@@ -961,7 +961,7 @@
         }
 
         /* Specific positioning for table view dropdown */
-        .participants-table .participant-menu-dropdown {
+        .participants-table .columns-menu-dropdown {
             right: 32px;
             margin-top: -34px;
         }
@@ -990,7 +990,7 @@
         }
         
         /* 3-dot menu vertical centering only in table view */
-        .participants-table .participant-menu {
+        .participants-table .columns-menu {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -1009,7 +1009,7 @@
         }
 
         /* Hover effect for the menu button */
-        .participants-table .participant-menu:hover {
+        .participants-table .columns-menu:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
         }
@@ -1044,18 +1044,18 @@
             box-shadow: -2px 0 4px rgba(0, 0, 0, 0.3) !important;
         }
 
-        .dark .participants-table .participant-menu {
+        .dark .participants-table .columns-menu {
             background: var(--bg-secondary);
             border-left: 1px solid var(--border-medium);
             box-shadow: -2px 0 4px rgba(0, 0, 0, 0.3);
         }
         
         /* 3-dot menu dark color for gallery view visibility */
-        .gallery-card .participant-menu {
+        .gallery-card .columns-menu {
             color: #000000 !important;
         }
         
-        .gallery-card .participant-menu:hover {
+        .gallery-card .columns-menu:hover {
             color: #000000 !important;
             background: rgba(255, 255, 255, 0.2);
         }
@@ -1095,7 +1095,7 @@
         }
         
         
-        .participant-menu-item {
+        .columns-menu-item {
             padding: 12px 16px;
             cursor: pointer;
             font-size: 14px;
@@ -1107,11 +1107,11 @@
             text-align: center;
         }
         
-        .participant-menu-item:hover {
+        .columns-menu-item:hover {
             background: var(--bg-tertiary);
         }
         
-        .participant-menu-item a {
+        .columns-menu-item a {
             color: inherit;
             text-decoration: none;
             display: flex;
@@ -1124,7 +1124,7 @@
         }
         
         /* Table-specific checkbox styling */
-        table .participant-checkbox {
+        table .columns-checkbox {
             position: relative;
             top: auto;
             right: auto;
@@ -1132,18 +1132,18 @@
             display: inline-block;
         }
         
-        .participant-info {
+        .columns-info {
             font-size: 12px;
             color: var(--text-secondary);
             margin-bottom: 2px;
         }
         
-        .participant-info strong {
+        .columns-info strong {
             color: var(--text-primary);
             font-weight: 500;
         }
         
-        .participant-projects {
+        .columns-projects {
             font-size: 12px;
             color: var(--text-secondary);
             margin-top: 8px;
@@ -1152,7 +1152,7 @@
             padding-top: 8px;
         }
         
-        .participant-projects strong {
+        .columns-projects strong {
             color: var(--text-primary);
             font-weight: 500;
         }
@@ -1543,7 +1543,7 @@
         }
         
         /* Clickable meta list items */
-        .participant-card[style*="cursor: pointer"]:hover,
+        .columns-card[style*="cursor: pointer"]:hover,
         .gallery-card[style*="cursor: pointer"]:hover,
         .participants-table tr[style*="cursor: pointer"]:hover {
             background-color: rgba(59, 130, 246, 0.1) !important;
@@ -1722,7 +1722,7 @@
         }
 
         /* Image Gallery Styles */
-        .participant-image-container {
+        .columns-image-container {
             position: relative;
             width: 100%;
             height: 120px;
@@ -1735,7 +1735,7 @@
             justify-content: center;
         }
 
-        .participant-image {
+        .columns-image {
             width: 100%;
             height: 120px;
             object-fit: cover;
@@ -1743,7 +1743,7 @@
             transition: transform 0.2s ease;
         }
 
-        .participant-image:hover {
+        .columns-image:hover {
             transform: scale(1.02);
         }
 
@@ -1782,13 +1782,13 @@
             min-height: 180px;
         }
 
-        .gallery-card .participant-image-container {
+        .gallery-card .columns-image-container {
             height: 140px;
             margin-bottom: 0;
             border-radius: var(--radius-md) var(--radius-md) 0 0;
         }
 
-        .gallery-card .participant-image {
+        .gallery-card .columns-image {
             height: 140px;
         }
 
@@ -1884,7 +1884,7 @@
         }
 
         /* Image loading placeholder */
-        .participant-image-container.loading {
+        .columns-image-container.loading {
             background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
@@ -2399,13 +2399,13 @@
         
         // Function to get currently filtered and sorted data for AI analysis
         function getCurrentlyDisplayedData() {
-            // Start with the sorted data (allParticipantsData has sort order applied)
-            if (!allParticipantsData || allParticipantsData.length === 0) {
-                console.warn('⚠️ getCurrentlyDisplayedData called but allParticipantsData is empty');
+            // Start with the sorted data (allRowsData has sort order applied)
+            if (!allRowsData || allRowsData.length === 0) {
+                console.warn('⚠️ getCurrentlyDisplayedData called but allRowsData is empty');
                 return [];
             }
             
-            let filteredData = [...allParticipantsData];
+            let filteredData = [...allRowsData];
             
             // Apply status filter (same logic as in applyAllFilters)
             if (!selectedStatuses.has('All') && selectedStatuses.size > 0) {
@@ -2730,7 +2730,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
         }
         
-        async function getMeetupParticipants() {
+        async function getSubsetUsingSnapshot() {
             // Check for admin=1 and list=modelteam in hash
             const hash = getHash();
             const isAdmin = hash.admin === '1';
@@ -2738,6 +2738,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             let meetupLink;
             let isCors;
+            let allFields;
             
             if (isAdmin && isModelTeam) {
                 // Use community/people.csv for admin modelteam
@@ -2750,11 +2751,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
                 meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
                 isCors = selectedOption?.getAttribute('data-cors') === 'true';
+                allFields = selectedOption?.getAttribute('data-all-fields');
                 
-                console.log('=== getMeetupParticipants DEBUG ===');
+                console.log('=== getSubsetUsingSnapshot DEBUG ===');
                 console.log('Current fileSelect value:', currentValue);
                 console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
                 console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
+                console.log('Option data-cors attribute:', selectedOption?.getAttribute('data-cors'));
+                console.log('Option data-all-fields attribute:', selectedOption?.getAttribute('data-all-fields'));
+                console.log('isCors resolved to:', isCors);
                 console.log('selectedFile variable:', selectedFile);
                 console.log('Final meetupLink:', meetupLink);
                 
@@ -2788,7 +2793,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 console.log('API_BASE:', GEMINI_API_BASE);
                 const loadResult = await loadUnifiedData(meetupLink, {
                     forceCorsProxy: isCors,
-                    API_BASE: GEMINI_API_BASE
+                    API_BASE: GEMINI_API_BASE,
+                    allFields: allFields
                 });
                 console.log('Load result status:', loadResult.success, 'data length:', loadResult.data?.length);
                 
@@ -2908,10 +2914,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     rawDataSource.value = meetupLink;
                 }
                 
-                displayParticipantsTable(validData);
+                displayTableLayout(validData);
                 
                 // Extract and display emails if Email column exists
                 extractAndDisplayEmails(validData);
+                
+                // Store the original loaded count for pagination
+                originalLoadedCount = validData.length;
                 
                 appendStatusMessage(`Successfully loaded ${validData.length} records from ${loadResult.format.toUpperCase()} source`, 'success');
                 document.getElementById('loadStatus').style.display = 'block';
@@ -2928,6 +2937,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             } catch (error) {
                 console.error('Full error details:', error);
                 
+                // Enhanced error reporting for call stack issues
+                let errorMessage = error.message;
+                let additionalInfo = '';
+                
+                if (error.message && error.message.includes('Maximum call stack size exceeded')) {
+                    // Get stack trace info and estimate call stack depth
+                    const stackTrace = error.stack || '';
+                    const stackLines = stackTrace.split('\n').filter(line => line.trim().length > 0);
+                    const stackDepth = stackLines.length;
+                    
+                    // Try to get some memory usage info if available
+                    let memoryInfo = '';
+                    if (performance && performance.memory) {
+                        const memory = performance.memory;
+                        const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                        const totalMB = Math.round(memory.totalJSHeapSize / 1024 / 1024);
+                        const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+                        memoryInfo = ` Memory usage: ${usedMB}MB used, ${totalMB}MB total, ${limitMB}MB limit.`;
+                    }
+                    
+                    additionalInfo = ` Stack depth: ~${stackDepth} frames.${memoryInfo}`;
+                    console.error('Call stack overflow details:');
+                    console.error('- Estimated stack depth:', stackDepth, 'frames');
+                    console.error('- Stack trace preview:', stackLines.slice(0, 10));
+                    if (performance && performance.memory) {
+                        console.error('- Memory info:', performance.memory);
+                    }
+                }
+                
                 // Always populate Raw Data Editor with error response for debugging
                 const rawDataEditor = document.getElementById('raw-data-editor');
                 const rawDataSource = document.getElementById('raw-data-source');
@@ -2943,7 +2981,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     rawDataSource.value = error.requestUrl;
                 }
                 
-                appendStatusMessage(`<h4>Error Loading Data</h4><p>${error.message}</p>`, 'error');
+                appendStatusMessage(`<h4>Error Loading Data</h4><p>${errorMessage}${additionalInfo}</p>`, 'error');
                 document.getElementById('loadStatus').style.display = 'block';
                 
                 // Show the table card so the 3-dot menu remains accessible
@@ -3127,7 +3165,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // File selection state
         const STORAGE_KEY = 'listObject';
-        let allParticipantsData = [];
+        let allRowsData = [];
+        let originalLoadedCount = 0; // Track total records loaded from source
         let groupParticipants = new Set();
         
         // Layout state
@@ -3140,7 +3179,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Pagination functionality
         let currentPage = 1;
-        const recordsPerPage = 500;
+        const recordsPerPage = 200;
         let totalRecords = 0;
         let originalDataOrder = [];
         
@@ -3179,17 +3218,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         };
         
         // Display participants in all views
-        function displayParticipantsTable(data) {
-            console.log('displayParticipantsTable called with data:', data);
+        function displayTableLayout(data) {
+            console.log('displayTableLayout called with data:', data);
             if (!data || data.length === 0) {
-                console.log('displayParticipantsTable: No data provided, returning early');
+                console.log('displayTableLayout: No data provided, returning early');
                 return;
             }
             
-            // Preprocess data to clean column names and normalize structure
-            console.log('displayParticipantsTable: Preprocessing data...');
-            const preprocessedData = preprocessParticipantData(data);
-            console.log('displayParticipantsTable: Preprocessed data:', preprocessedData);
+            // For large datasets, only preprocess a sample for initial setup and the first page
+            console.log('displayTableLayout: Processing large dataset with', data.length, 'records');
+            
+            let preprocessedData;
+            if (data.length > 10000) {
+                console.log('📊 Large dataset detected - using chunked preprocessing');
+                // For large datasets, only preprocess first chunk + sample for column detection
+                const sampleSize = Math.min(1000, data.length);
+                const firstChunk = data.slice(0, recordsPerPage * 3); // First 3 pages worth
+                const sampleData = data.slice(0, sampleSize);
+                
+                console.log(`🔄 Preprocessing sample of ${sampleSize} records for column detection`);
+                preprocessParticipantData(sampleData.slice(0, 10)); // Just for column setup
+                
+                console.log(`🔄 Preprocessing first chunk of ${firstChunk.length} records`);
+                preprocessedData = preprocessParticipantData(firstChunk);
+                
+                // Store original data for later pagination
+                window.originalLargeDataset = data;
+                window.isLargeDataset = true;
+                
+                console.log(`✅ Initial chunk processed. Total dataset: ${data.length}, Initial chunk: ${preprocessedData.length}`);
+            } else {
+                console.log('displayTableLayout: Preprocessing all data...');
+                preprocessedData = preprocessParticipantData(data);
+                window.isLargeDataset = false;
+            }
             
             const tableCard = document.getElementById('participants-table-card');
             const resultsCount = document.getElementById('results-count');
@@ -3198,11 +3260,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             currentPage = 1;
             
             // Update results count with pagination
-            updateResultsCount(preprocessedData);
+            if (window.isLargeDataset) {
+                // For large datasets, use original data length for total count
+                totalRecords = data.length;
+                updateResultsCount(data); // Pass original data for count calculation
+            } else {
+                updateResultsCount(preprocessedData);
+            }
             
             // Store preprocessed data globally
             window.participantsData = preprocessedData;
-            allParticipantsData = preprocessedData;
+            allRowsData = preprocessedData;
             originalDataOrder = [...preprocessedData]; // Store original order
             
             // Update Raw Data Editor with preprocessed data if it's currently visible
@@ -3257,9 +3325,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             updateGroupToggleUI();
             
             // Apply all saved filters (team + status + group)
-            console.log('displayParticipantsTable: Scheduling applyAllFilters with setTimeout...');
+            console.log('displayTableLayout: Scheduling applyAllFilters with setTimeout...');
             setTimeout(() => {
-                console.log('displayParticipantsTable: setTimeout callback executing, calling applyAllFilters...');
+                console.log('displayTableLayout: setTimeout callback executing, calling applyAllFilters...');
                 applyAllFilters();
             }, 100);
             
@@ -3268,6 +3336,147 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             switchView(currentView);
         }
         
+        // Helper function to get TopFields for current list
+        function getCurrentTopFields() {
+            const currentValue = document.getElementById('fileSelect')?.value;
+            if (!currentValue) return null;
+            
+            const selectedOption = Array.from(document.getElementById('fileSelect').options).find(opt => opt.value === currentValue);
+            const topFields = selectedOption?.getAttribute('data-top-fields');
+            
+            if (topFields) {
+                console.log('📋 TopFields found for', currentValue, ':', topFields);
+                return topFields.split(',').map(field => field.trim());
+            }
+            
+            console.log('📋 No TopFields found for', currentValue, '- using default display');
+            return null;
+        }
+        
+        // Helper function to format field names for display
+        function formatFieldName(fieldName) {
+            if (!fieldName) return '';
+            
+            // Replace underscores with spaces and capitalize first letter of each word
+            return fieldName
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, char => char.toUpperCase());
+        }
+        
+        // Helper function to determine which field is being used as the title
+        function getTitleFieldName(participant, topFieldsFirstField = null) {
+            if (!participant || typeof participant !== 'object') {
+                return null;
+            }
+            
+            // Check TopFields first field if provided
+            if (topFieldsFirstField && participant[topFieldsFirstField] !== undefined && 
+                participant[topFieldsFirstField] !== null && participant[topFieldsFirstField] !== '') {
+                return topFieldsFirstField;
+            }
+            
+            // Use same logic as getParticipantName to find which field is actually used
+            const nameFields = ['Name', 'name', 'participant_name', 'full_name', 'display_name', 'displayName'];
+            
+            for (const field of nameFields) {
+                if (participant[field] !== undefined && participant[field] !== null && participant[field] !== '') {
+                    return field;
+                }
+            }
+            
+            return null;
+        }
+        
+        // Helper function to create field display HTML for a participant
+        function createFieldDisplayHTML(participant, topFields, isGallery = false, titleFieldName = null) {
+            let fieldsToUse = topFields;
+            
+            // If TopFields is null, find best fields from the dataset with filtering
+            if (!topFields || topFields.length === 0) {
+                const dataKeys = Object.keys(participant || {});
+                
+                // Filter out unwanted fields
+                const filteredKeys = dataKeys.filter(field => {
+                    const fieldLower = field.toLowerCase();
+                    
+                    // Skip these specific field names (case insensitive)
+                    if (['edit', 'index', 'preview'].includes(fieldLower)) {
+                        return false;
+                    }
+                    
+                    // Skip fields ending with _id or ID
+                    if (fieldLower.endsWith('_id') || field.endsWith('ID')) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                fieldsToUse = filteredKeys;
+                console.log('📋 Using filtered dataset columns as TopFields source:', fieldsToUse);
+            }
+            
+            if (!fieldsToUse || fieldsToUse.length === 0) {
+                return ''; // No fields to display
+            }
+            
+            let html = '';
+            let fieldsDisplayed = 0;
+            const maxTotalFields = 5; // Total fields including the name/title field
+            const maxAdditionalFields = maxTotalFields - 1; // Subtract 1 for the name/title field
+            
+            // For TopFields mode, check if more than 5 fields are specified
+            const isTopFieldsMode = topFields && topFields.length > 0;
+            const actualMaxFields = isTopFieldsMode && topFields.length > maxTotalFields ? 
+                topFields.length - 1 : maxAdditionalFields;
+            
+            // Find up to maxAdditionalFields unique fields with non-empty values (4 by default, unless TopFields has more than 5)
+            for (let i = 0; i < fieldsToUse.length && fieldsDisplayed < actualMaxFields; i++) {
+                const field = fieldsToUse[i];
+                const value = participant[field];
+                
+                // Skip the field that's being used as the title
+                if (titleFieldName && field === titleFieldName) {
+                    continue;
+                }
+                
+                // For TopFields mode, also skip the first field if no titleFieldName provided
+                if (!titleFieldName && i === 0) {
+                    continue;
+                }
+                
+                // Skip fields with empty/blank values
+                if (!value || value.toString().trim() === '') {
+                    continue;
+                }
+                
+                const isProjectsField = field.toLowerCase() === 'projects';
+                const isLastField = fieldsDisplayed === (actualMaxFields - 1);
+                
+                // Add line break before Projects field if it's the last field
+                //const lineBreak = (isLastField && isProjectsField) ? '<br>' : '';
+                
+                const formattedFieldName = formatFieldName(field);
+                
+                if (isGallery) {
+                    // All fields (except first) get bold field name with colon
+                    html += `<div class="gallery-info"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                } else {
+                    // All fields (except first) get bold field name with colon
+                    if (isProjectsField) {
+                        html += `<div class="columns-projects"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                    } else if (field.toLowerCase() === 'status') {
+                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> <span class="columns-status">${value}</span></div>`;
+                    } else {
+                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                    }
+                }
+                
+                fieldsDisplayed++;
+            }
+            return html;
+        }
+
         // Render column view (default) - Using table-list style
         function renderColumnView(data) {
             const container = document.getElementById('participants-column-grid');
@@ -3293,52 +3502,55 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (imagePaths.length > 0) imageCount++;
                 
                 const card = document.createElement('div');
-                card.className = 'participant-card';
+                card.className = 'columns-card';
                 
-                const name = getParticipantName(participant);
+                // Get TopFields for dynamic display
+                const topFields = getCurrentTopFields();
+                const firstTopField = topFields && topFields.length > 0 ? topFields[0] : null;
+                
+                const name = getParticipantName(participant, firstTopField);
                 card.dataset.participantName = name;
                 
+                // Get the actual field name being used as title
+                const titleFieldName = getTitleFieldName(participant, firstTopField);
+                
                 // Add clickable functionality for meta list
-                if (isMetaList && participant.Feed) {
+                if (isMetaList && participant.List) {
                     card.style.cursor = 'pointer';
-                    card.title = `Click to view data from: ${participant.Title || participant.Feed}`;
+                    card.title = `Click to view data from: ${participant.Title || participant.List}`;
                     card.addEventListener('click', () => {
-                        setURLHashParam('list', participant.Feed);
-                        updateParticipantListTitle(participant.Title || participant.Feed);
+                        setURLHashParam('list', participant.List);
+                        updateParticipantListTitle(participant.Title || participant.List);
                     });
                 }
-                const team = participant.Team || 'Not specified';
-                const projects = participant.Projects || 'No projects listed';
-                const status = participant.Status || 'Unknown';
-                const location = participant.Location || 'Location not specified';
                 
                 // Create image container if images are found
                 const imageContainer = imagePaths.length > 0 ? createImageContainer(imagePaths, false) : '';
                 
+                // Generate field display HTML using TopFields or fallback
+                const fieldDisplayHTML = createFieldDisplayHTML(participant, topFields, false, titleFieldName);
+                
                 card.innerHTML = `
-                    <div class="participant-menu">
+                    <div class="columns-menu">
                         ⋯
-                        <div class="participant-menu-dropdown">
-                            <div class="participant-menu-item">
+                        <div class="columns-menu-dropdown">
+                            <div class="columns-menu-item">
                                 <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
                     </div>
                     ${imageContainer}
-                    <div class="participant-name">
-                        <input type="checkbox" class="participant-checkbox" data-name="${name}">
+                    <div class="columns-name">
+                        <input type="checkbox" class="columns-checkbox" data-name="${name}">
                         ${name}
                     </div>
-                    <div class="participant-info"><strong>Team:</strong> ${team}</div>
-                    <div class="participant-info"><strong>Status:</strong> <span class="participant-status">${status}</span></div>
-                    <div class="participant-info"><strong>Location:</strong> ${location}</div>
-                    <div class="participant-projects"><strong>Projects:</strong> ${projects}</div>
+                    ${fieldDisplayHTML}
                 `;
                 
                 container.appendChild(card);
                 
                 // Add checkbox event listener
-                const checkbox = card.querySelector('.participant-checkbox');
+                const checkbox = card.querySelector('.columns-checkbox');
                 if (checkbox) {
                     checkbox.addEventListener('change', function() {
                         handleCheckboxChange(this.dataset.name, this.checked);
@@ -3346,13 +3558,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 // Add 3-dot menu event listener
-                const menu = card.querySelector('.participant-menu');
+                const menu = card.querySelector('.columns-menu');
                 if (menu) {
                     menu.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        const dropdown = this.querySelector('.columns-menu-dropdown');
                         // Close other dropdowns
-                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                        document.querySelectorAll('.columns-menu-dropdown').forEach(d => {
                             if (d !== dropdown) d.style.display = 'none';
                         });
                         // Toggle this dropdown
@@ -3360,10 +3572,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     });
                     
                     // Add event listener to menu items to close dropdown when clicked
-                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    const menuItems = menu.querySelectorAll('.columns-menu-item');
                     menuItems.forEach(item => {
                         item.addEventListener('click', function() {
-                            const dropdown = menu.querySelector('.participant-menu-dropdown');
+                            const dropdown = menu.querySelector('.columns-menu-dropdown');
                             if (dropdown) {
                                 dropdown.style.display = 'none';
                             }
@@ -3467,7 +3679,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             const groupList = groupField.value.split(',').map(name => name.trim()).filter(name => name);
             const groupListLower = groupList.map(name => name.toLowerCase());
-            const checkboxes = document.querySelectorAll('.participant-checkbox');
+            const checkboxes = document.querySelectorAll('.columns-checkbox');
             
             checkboxes.forEach(checkbox => {
                 const participantName = checkbox.dataset.name;
@@ -3612,7 +3824,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Add row-level click event to toggle expanded state
                 tr.addEventListener('click', (e) => {
                     // Handle meta list navigation first
-                    if (isMetaList && row.Feed) {
+                    if (isMetaList && row.List) {
                         const clickTime = Date.now();
                         const timeDiff = clickTime - mouseDownTime;
                         const distance = Math.sqrt(
@@ -3622,8 +3834,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         
                         // Only navigate if it's a quick click (not text selection)
                         if (timeDiff <= 200 && distance <= 5) {
-                            setURLHashParam('list', row.Feed);
-                            updateParticipantListTitle(row.Title || row.Feed);
+                            setURLHashParam('list', row.List);
+                            updateParticipantListTitle(row.Title || row.List);
                             return;
                         }
                     }
@@ -3660,9 +3872,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 });
                 
                 // Add clickable functionality for meta list
-                if (isMetaList && row.Feed) {
+                if (isMetaList && row.List) {
                     tr.style.cursor = 'pointer';
-                    tr.title = `Click to view data from: ${row.Title || row.Feed}`;
+                    tr.title = `Click to view data from: ${row.Title || row.List}`;
                 }
                 
                 // Add checkbox column first
@@ -3675,7 +3887,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const name = getParticipantName(row);
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.className = 'participant-checkbox';
+                checkbox.className = 'columns-checkbox';
                 checkbox.dataset.name = name;
                 checkbox.style.width = '18px';
                 checkbox.style.height = '18px';
@@ -3807,10 +4019,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 menuTd.style.zIndex = '100';
                 
                 menuTd.innerHTML = `
-                    <div class="participant-menu">
+                    <div class="columns-menu">
                         ⋯
-                        <div class="participant-menu-dropdown">
-                            <div class="participant-menu-item">
+                        <div class="columns-menu-dropdown">
+                            <div class="columns-menu-item">
                                 <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
@@ -3818,13 +4030,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 `;
                 
                 // Add the same 3-dot menu event listener as column/gallery views
-                const menu = menuTd.querySelector('.participant-menu');
+                const menu = menuTd.querySelector('.columns-menu');
                 if (menu) {
                     menu.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        const dropdown = this.querySelector('.columns-menu-dropdown');
                         // Close other dropdowns
-                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                        document.querySelectorAll('.columns-menu-dropdown').forEach(d => {
                             if (d !== dropdown) d.style.display = 'none';
                         });
                         // Toggle this dropdown
@@ -3832,10 +4044,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     });
                     
                     // Add event listener to menu items to close dropdown when clicked
-                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    const menuItems = menu.querySelectorAll('.columns-menu-item');
                     menuItems.forEach(item => {
                         item.addEventListener('click', function() {
-                            const dropdown = menu.querySelector('.participant-menu-dropdown');
+                            const dropdown = menu.querySelector('.columns-menu-dropdown');
                             if (dropdown) {
                                 dropdown.style.display = 'none';
                             }
@@ -4099,23 +4311,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const teamClass = getTeamClass(participant.Team);
                 card.className = `gallery-card ${teamClass}`;
                 
-                const name = getParticipantName(participant);
+                // Get TopFields for dynamic display
+                const topFields = getCurrentTopFields();
+                const firstTopField = topFields && topFields.length > 0 ? topFields[0] : null;
+                
+                const name = getParticipantName(participant, firstTopField);
                 card.dataset.participantName = name;
                 
+                // Get the actual field name being used as title
+                const titleFieldName = getTitleFieldName(participant, firstTopField);
+                
                 // Add clickable functionality for meta list
-                if (isMetaList && participant.Feed) {
+                if (isMetaList && participant.List) {
                     card.style.cursor = 'pointer';
-                    card.title = `Click to view data from: ${participant.Title || participant.Feed}`;
+                    card.title = `Click to view data from: ${participant.Title || participant.List}`;
                     card.addEventListener('click', () => {
-                        setURLHashParam('list', participant.Feed);
-                        updateParticipantListTitle(participant.Title || participant.Feed);
+                        setURLHashParam('list', participant.List);
+                        updateParticipantListTitle(participant.Title || participant.List);
                     });
                 }
-                
-                const location = participant.Location || 'Location TBD';
-                const status = participant.Status || 'Status TBD';
-                const team = participant.Team || 'Not specified';
-                const projects = participant.Projects || 'No projects listed';
                 
                 // Set background image if available
                 if (imagePaths.length > 0) {
@@ -4126,24 +4340,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     card.classList.add('has-background-image');
                 }
                 
+                // Generate field display HTML using TopFields or fallback
+                const fieldDisplayHTML = createFieldDisplayHTML(participant, topFields, true, titleFieldName);
+                
                 card.innerHTML = `
-                    <div class="participant-menu">
+                    <div class="columns-menu">
                         ⋯
-                        <div class="participant-menu-dropdown">
-                            <div class="participant-menu-item">
+                        <div class="columns-menu-dropdown">
+                            <div class="columns-menu-item">
                                 <a href="https://model.earth/projects/hub/#search=${encodeURIComponent(name)}" target="_blank">View Projects</a>
                             </div>
                         </div>
                     </div>
                     <div class="gallery-content">
                         <div class="gallery-name">
-                            <input type="checkbox" class="participant-checkbox" data-name="${name}">
+                            <input type="checkbox" class="columns-checkbox" data-name="${name}">
                             ${name}
                         </div>
-                        <div class="gallery-info">${location}</div>
-                        <div class="gallery-info">${status}</div>
-                        <div class="gallery-info"><strong>Team:</strong> ${team}</div>
-                        <div class="gallery-info"><strong>Projects:</strong> ${projects}</div>
+                        ${fieldDisplayHTML}
                     </div>
                     <button class="gallery-toggle-btn" onclick="toggleGalleryTextMode(this.parentElement)" title="Show info">
                         <i data-feather="info" style="width: 20px; height: 20px; stroke-width: 2.5px;"></i>
@@ -4153,7 +4367,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 container.appendChild(card);
                 
                 // Add checkbox event listener
-                const checkbox = card.querySelector('.participant-checkbox');
+                const checkbox = card.querySelector('.columns-checkbox');
                 if (checkbox) {
                     checkbox.addEventListener('change', function(e) {
                         e.stopPropagation(); // Prevent card click
@@ -4162,13 +4376,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 // Add 3-dot menu event listener
-                const menu = card.querySelector('.participant-menu');
+                const menu = card.querySelector('.columns-menu');
                 if (menu) {
                     menu.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        const dropdown = this.querySelector('.participant-menu-dropdown');
+                        const dropdown = this.querySelector('.columns-menu-dropdown');
                         // Close other dropdowns
-                        document.querySelectorAll('.participant-menu-dropdown').forEach(d => {
+                        document.querySelectorAll('.columns-menu-dropdown').forEach(d => {
                             if (d !== dropdown) d.style.display = 'none';
                         });
                         // Toggle this dropdown
@@ -4176,10 +4390,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     });
                     
                     // Add event listener to menu items to close dropdown when clicked
-                    const menuItems = menu.querySelectorAll('.participant-menu-item');
+                    const menuItems = menu.querySelectorAll('.columns-menu-item');
                     menuItems.forEach(item => {
                         item.addEventListener('click', function() {
-                            const dropdown = menu.querySelector('.participant-menu-dropdown');
+                            const dropdown = menu.querySelector('.columns-menu-dropdown');
                             if (dropdown) {
                                 dropdown.style.display = 'none';
                             }
@@ -4197,14 +4411,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Sort functionality
         function generateSortDropdown() {
             const sortItems = document.getElementById('sort-items');
-            if (!allParticipantsData || !allParticipantsData.length) {
+            if (!allRowsData || !allRowsData.length) {
                 // Show helpful message when no data is available
                 sortItems.innerHTML = '<div class="no-data-message" style="padding: 10px; text-align: center; color: #666; font-style: italic;">Data is loading, please wait...</div>';
                 return;
             }
             
             // Get available columns from data
-            const columns = Object.keys(allParticipantsData[0]);
+            const columns = Object.keys(allRowsData[0]);
             
             // Add "Rows" as first option (original order)
             const sortOptions = ['Rows', ...columns];
@@ -4261,7 +4475,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         function applySortToData(shouldRerender = true) {
-            let sortedData = [...allParticipantsData];
+            let sortedData = [...allRowsData];
             
             if (currentSortColumn === 'Rows') {
                 // Sort by original row order
@@ -4289,7 +4503,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             // Update global data
-            allParticipantsData = sortedData;
+            allRowsData = sortedData;
             
             // Re-render all views with current filters applied (only if requested)
             if (shouldRerender) {
@@ -4316,7 +4530,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         // Status filtering functionality
         function generateStatusDropdown() {
             const statusItems = document.getElementById('status-items');
-            if (!allParticipantsData || !allParticipantsData.length) {
+            if (!allRowsData || !allRowsData.length) {
                 // Show helpful message when no data is available
                 statusItems.innerHTML = '<div class="no-data-message" style="padding: 10px; text-align: center; color: #666; font-style: italic;">Data is loading, please wait...</div>';
                 return;
@@ -4324,7 +4538,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Get unique status values from data
             const statuses = new Set();
-            allParticipantsData.forEach(participant => {
+            allRowsData.forEach(participant => {
                 const status = participant.Status || 'Unknown';
                 statuses.add(status);
             });
@@ -4457,19 +4671,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function applyAllFilters() {
             console.log('🔄 applyAllFilters called');
-            console.log('📊 allParticipantsData:', allParticipantsData);
-            console.log('📏 allParticipantsData length:', allParticipantsData ? allParticipantsData.length : 'undefined');
+            console.log('📊 allRowsData:', allRowsData);
+            console.log('📏 allRowsData length:', allRowsData ? allRowsData.length : 'undefined');
             
-            if (!allParticipantsData || allParticipantsData.length === 0) {
-                console.warn('⚠️ applyAllFilters called but allParticipantsData is empty or undefined');
+            if (!allRowsData || allRowsData.length === 0) {
+                console.warn('⚠️ applyAllFilters called but allRowsData is empty or undefined');
                 console.log('🔍 Current state - selectedStatuses:', selectedStatuses);
                 console.log('🔍 Current state - currentTeamFilter:', currentTeamFilter);
                 console.log('🔍 Current state - showOnlyGroup:', showOnlyGroup);
                 return;
             }
             
-            console.log('🏁 Starting filter process with', allParticipantsData.length, 'participants');
-            let filteredData = [...allParticipantsData];
+            console.log('🏁 Starting filter process with', allRowsData.length, 'participants');
+            let filteredData = [...allRowsData];
             console.log('📋 Initial filteredData length:', filteredData.length);
             
             // Apply group participants filter first if active
@@ -4552,6 +4766,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             } catch (error) {
                 console.error('❌ Error rendering column view:', error);
                 console.error('Stack trace:', error.stack);
+                
+                // Enhanced error reporting for call stack issues
+                if (error.message && error.message.includes('Maximum call stack size exceeded')) {
+                    const stackTrace = error.stack || '';
+                    const stackLines = stackTrace.split('\n').filter(line => line.trim().length > 0);
+                    const stackDepth = stackLines.length;
+                    
+                    let memoryInfo = '';
+                    if (performance && performance.memory) {
+                        const memory = performance.memory;
+                        const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                        const totalMB = Math.round(memory.totalJSHeapSize / 1024 / 1024);
+                        const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+                        memoryInfo = ` Memory: ${usedMB}MB used, ${totalMB}MB total, ${limitMB}MB limit.`;
+                    }
+                    
+                    console.error('❌ Column view call stack overflow - Stack depth:', stackDepth, 'frames.', memoryInfo);
+                    appendStatusMessage(`<h4>Column View Error</h4><p>Maximum call stack size exceeded. Stack depth: ~${stackDepth} frames.${memoryInfo}</p>`, 'error');
+                }
             }
             
             try {
@@ -4561,6 +4794,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             } catch (error) {
                 console.error('❌ Error rendering table view:', error);
                 console.error('Stack trace:', error.stack);
+                
+                // Enhanced error reporting for call stack issues
+                if (error.message && error.message.includes('Maximum call stack size exceeded')) {
+                    const stackTrace = error.stack || '';
+                    const stackLines = stackTrace.split('\n').filter(line => line.trim().length > 0);
+                    const stackDepth = stackLines.length;
+                    
+                    let memoryInfo = '';
+                    if (performance && performance.memory) {
+                        const memory = performance.memory;
+                        const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                        const totalMB = Math.round(memory.totalJSHeapSize / 1024 / 1024);
+                        const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+                        memoryInfo = ` Memory: ${usedMB}MB used, ${totalMB}MB total, ${limitMB}MB limit.`;
+                    }
+                    
+                    console.error('❌ Table view call stack overflow - Stack depth:', stackDepth, 'frames.', memoryInfo);
+                    appendStatusMessage(`<h4>Table View Error</h4><p>Maximum call stack size exceeded. Stack depth: ~${stackDepth} frames.${memoryInfo}</p>`, 'error');
+                }
             }
             
             try {
@@ -4570,6 +4822,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             } catch (error) {
                 console.error('❌ Error rendering gallery view:', error);
                 console.error('Stack trace:', error.stack);
+                
+                // Enhanced error reporting for call stack issues
+                if (error.message && error.message.includes('Maximum call stack size exceeded')) {
+                    const stackTrace = error.stack || '';
+                    const stackLines = stackTrace.split('\n').filter(line => line.trim().length > 0);
+                    const stackDepth = stackLines.length;
+                    
+                    let memoryInfo = '';
+                    if (performance && performance.memory) {
+                        const memory = performance.memory;
+                        const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                        const totalMB = Math.round(memory.totalJSHeapSize / 1024 / 1024);
+                        const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+                        memoryInfo = ` Memory: ${usedMB}MB used, ${totalMB}MB total, ${limitMB}MB limit.`;
+                    }
+                    
+                    console.error('❌ Gallery view call stack overflow - Stack depth:', stackDepth, 'frames.', memoryInfo);
+                    appendStatusMessage(`<h4>Gallery View Error</h4><p>Maximum call stack size exceeded. Stack depth: ~${stackDepth} frames.${memoryInfo}</p>`, 'error');
+                }
             }
             
             // Reapply group highlighting
@@ -4622,7 +4893,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             setTimeout(() => updateGroupHighlighting(), 100);
             
             // If switching to gallery view and there's a saved team filter, restore it
-            if (viewType === 'gallery' && currentTeamFilter && allParticipantsData.length > 0) {
+            if (viewType === 'gallery' && currentTeamFilter && allRowsData.length > 0) {
                 setTimeout(() => {
                     filterByTeam(currentTeamFilter);
                 }, 150);
@@ -4701,16 +4972,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function updateGroupHighlighting() {
             // Remove existing highlighting
-            document.querySelectorAll('.participant-group').forEach(el => {
-                el.classList.remove('participant-group');
+            document.querySelectorAll('.columns-group').forEach(el => {
+                el.classList.remove('columns-group');
             });
             
             // Apply highlighting to group participants
             groupParticipants.forEach(name => {
-                const elements = document.querySelectorAll(`[data-participant-name]`);
+                const elements = document.querySelectorAll(`[data-columns-name]`);
                 elements.forEach(el => {
                     if (el.dataset.participantName.toLowerCase() === name.toLowerCase()) {
-                        el.classList.add('participant-group');
+                        el.classList.add('columns-group');
                     }
                 });
             });
@@ -4878,7 +5149,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         let currentNotFoundNames = [];
         
         function validateGroupNames(inputNames) {
-            if (!allParticipantsData || allParticipantsData.length === 0) {
+            if (!allRowsData || allRowsData.length === 0) {
                 console.log('⏭️ Skipping group name validation - data not yet available');
                 return;
             }
@@ -4891,7 +5162,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             // Get all participant names from the dataset
-            const datasetNames = allParticipantsData.map(participant => getParticipantName(participant));
+            const datasetNames = allRowsData.map(participant => getParticipantName(participant));
             const datasetNamesLower = datasetNames.map(name => name.toLowerCase());
             
             // Find names that don't exist in the dataset
@@ -5133,12 +5404,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return '';
         }
         
+        // Add safety check to prevent infinite reprocessing
+        let preprocessCallCount = 0;
+        let lastPreprocessTime = 0;
+        
         function preprocessParticipantData(participants) {
             if (!Array.isArray(participants) || participants.length === 0) {
                 return participants;
             }
             
-            return participants.map(participant => {
+            // Safety check to prevent infinite loops
+            const now = Date.now();
+            if (now - lastPreprocessTime < 1000) { // If called within 1 second
+                preprocessCallCount++;
+                if (preprocessCallCount > 5) {
+                    console.error('⚠️ preprocessParticipantData called too many times rapidly. Preventing infinite loop.');
+                    return participants; // Return original data to break the loop
+                }
+            } else {
+                preprocessCallCount = 0;
+            }
+            lastPreprocessTime = now;
+            
+            console.log('🔄 preprocessParticipantData called, count:', preprocessCallCount);
+            console.log('📊 Processing', participants.length, 'participants');
+            console.log('🔍 First participant sample:', participants[0]);
+            console.log('🔍 Second participant sample:', participants[1]);
+            console.log('🔍 Last participant sample:', participants[participants.length - 1]);
+            
+            return participants.map((participant, index) => {
+                // Debug first few and last few rows
+                if (index < 3 || index > participants.length - 3) {
+                    console.log(`🔍 Processing participant ${index}:`, participant);
+                }
+                
                 // Create a new object to maintain original data
                 const processed = {};
                 
@@ -5252,11 +5551,17 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             });
         }
         
-        function getParticipantName(participant) {
+        function getParticipantName(participant, topFieldsFirstField = null) {
             // Helper function to get the appropriate name field from a participant object
-            // Checks for various name field variations and returns the value
+            // Prioritizes TopFields first field if provided, then checks for various name field variations
             if (!participant || typeof participant !== 'object') {
                 return 'Unknown';
+            }
+            
+            // Check TopFields first field if provided
+            if (topFieldsFirstField && participant[topFieldsFirstField] !== undefined && 
+                participant[topFieldsFirstField] !== null && participant[topFieldsFirstField] !== '') {
+                return participant[topFieldsFirstField];
             }
             
             const nameFields = ['Name', 'name', 'participant_name', 'full_name', 'display_name', 'displayName'];
@@ -5309,9 +5614,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const listParam = getHash().list;
             
             if (listParam === 'all') {
-                return 'Meta-list: All Available Feeds';
+                return 'Meta-list: All Available Lists';
             } else if (selectedFile === 'all') {
-                return 'Meta-list: All Available Feeds';
+                return 'Meta-list: All Available Lists';
             } else if (selectedFile && selectedFile.startsWith('http')) {
                 return selectedFile;
             } else if (selectedFile && selectedFile.startsWith('custom_')) {
@@ -5868,13 +6173,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function exportParticipantsCSV() {
             console.log('exportParticipantsCSV called');
             console.log('window.participantsData:', window.participantsData);
-            console.log('allParticipantsData:', allParticipantsData);
+            console.log('allRowsData:', allRowsData);
             
             if (!window.participantsData || window.participantsData.length === 0) {
-                // Try using allParticipantsData as fallback
-                if (allParticipantsData && allParticipantsData.length > 0) {
-                    console.log('Using allParticipantsData as fallback');
-                    window.participantsData = allParticipantsData;
+                // Try using allRowsData as fallback
+                if (allRowsData && allRowsData.length > 0) {
+                    console.log('Using allRowsData as fallback');
+                    window.participantsData = allRowsData;
                 } else {
                     alert('No participant data to export');
                     return;
@@ -6011,8 +6316,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             // Close participant menu dropdowns when clicking outside
-            if (!e.target.closest('.participant-menu')) {
-                document.querySelectorAll('.participant-menu-dropdown').forEach(dropdown => {
+            if (!e.target.closest('.columns-menu')) {
+                document.querySelectorAll('.columns-menu-dropdown').forEach(dropdown => {
                     dropdown.style.display = 'none';
                 });
             }
@@ -6160,7 +6465,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             // Clear data arrays
-            allParticipantsData = [];
+            allRowsData = [];
             filteredData = [];
             
             console.log('List display elements hidden and data cleared');
@@ -6226,7 +6531,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const allFeedsToggle = document.getElementById('list-feeds-toggle');
             
             if (allFeedsToggle) {
-                // Hide "All Feeds" option when already viewing all feeds
+                // Hide "All Lists" option when already viewing all lists
                 if (listParam === 'all' || fileSelect.value === 'all') {
                     allFeedsToggle.style.display = 'none';
                 } else {
@@ -6754,7 +7059,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return rows;
         }
 
-        function showAllFeeds() {
+        function showAllLists() {
             // Show loading status for list of lists
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
             document.getElementById('loadStatus').style.display = 'block';
@@ -6815,7 +7120,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             
                             // Filter entries for geo sites (check the 'feed' field)
                             if (isGeoSiteCheck) {
-                                const feedValue = feedEntry['feed'] || feedEntry['Feed'];
+                                const feedValue = feedEntry['list'] || feedEntry['List'];
                                 if (!allowedGeoOptions.includes(feedValue)) {
                                     continue; // Skip this entry for geo sites
                                 }
@@ -6829,10 +7134,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     currentData = feedsData;
                     // Reset team legend flag for new data
                     initialTeamLegendGenerated = false;
-                    displayParticipantsTable(feedsData, 'All Available Feeds');
+                    displayTableLayout(feedsData, 'All Available Lists');
                     
                     // Update the page title
-                    //document.title = 'All Available Feeds';
+                    //document.title = 'All Available Lists';
                     
                     // Show UI elements after successful feeds load
                     showListDisplayElements();
@@ -6869,10 +7174,91 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const refreshText = refreshItem.querySelector('span');
             const originalText = refreshText.textContent;
             
+            // Function to parse CSV text into array of objects
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length === 0) return [];
+                
+                const headers = lines[0].split(',').map(h => h.trim());
+                return lines.slice(1).map(line => {
+                    const values = line.split(',').map(v => v.trim());
+                    const obj = {};
+                    headers.forEach((header, index) => {
+                        obj[header] = values[index] || '';
+                    });
+                    return obj;
+                });
+            }
+            
+            // Function to compare CSV data and find changes
+            function compareCSVData(oldData, newData) {
+                const changes = {
+                    added: [],
+                    removed: [],
+                    modified: []
+                };
+                
+                // Create maps for easier comparison (using List as unique identifier)
+                const oldMap = new Map(oldData.map(row => [row.List, row]));
+                const newMap = new Map(newData.map(row => [row.List, row]));
+                
+                // Find added rows
+                for (const [list, row] of newMap) {
+                    if (!oldMap.has(list)) {
+                        changes.added.push(row);
+                    }
+                }
+                
+                // Find removed and modified rows
+                for (const [list, oldRow] of oldMap) {
+                    if (!newMap.has(list)) {
+                        changes.removed.push(oldRow);
+                    } else {
+                        const newRow = newMap.get(list);
+                        // Check if any fields changed
+                        const fieldsChanged = Object.keys(oldRow).some(key => 
+                            oldRow[key] !== newRow[key]
+                        );
+                        if (fieldsChanged) {
+                            changes.modified.push({
+                                old: oldRow,
+                                new: newRow,
+                                list: list
+                            });
+                        }
+                    }
+                }
+                
+                return changes;
+            }
+            
             try {
                 // Show loading state
                 refreshText.textContent = 'Refreshing...';
                 refreshItem.style.opacity = '0.6';
+                
+                // Load current cached data for comparison
+                let currentCSVText = '';
+                let currentData = [];
+                
+                try {
+                    // Try to load from local file first
+                    const currentResponse = await fetch('./lists.csv');
+                    if (currentResponse.ok) {
+                        currentCSVText = await currentResponse.text();
+                        currentData = parseCSV(currentCSVText);
+                    }
+                } catch (fileError) {
+                    // Fallback to localStorage if file not accessible
+                    const fallbackCSV = localStorage.getItem('fallbackCSV');
+                    if (fallbackCSV) {
+                        currentCSVText = fallbackCSV;
+                        currentData = parseCSV(currentCSVText);
+                    }
+                }
+                
+                const beforeRowCount = currentData.length;
+                console.log(`Current cached list has ${beforeRowCount} rows`);
                 
                 console.log('Manually refreshing lists.csv from Google Sheets...');
                 const response = await fetch(SHEET_URL);
@@ -6882,7 +7268,52 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 const csvText = await response.text();
+                const newData = parseCSV(csvText);
+                const afterRowCount = newData.length;
                 
+                // Compare data and generate change report
+                const changes = compareCSVData(currentData, newData);
+                const totalChanges = changes.added.length + changes.removed.length + changes.modified.length;
+                
+                // Log detailed comparison results
+                console.log(`\n=== CSV Refresh Results ===`);
+                console.log(`Before: ${beforeRowCount} rows`);
+                console.log(`After: ${afterRowCount} rows`);
+                console.log(`Net change: ${afterRowCount - beforeRowCount > 0 ? '+' : ''}${afterRowCount - beforeRowCount} rows`);
+                console.log(`Total changes: ${totalChanges}`);
+                
+                if (changes.added.length > 0) {
+                    console.log(`\n✅ Added (${changes.added.length}):`);
+                    changes.added.forEach(row => {
+                        console.log(`  + ${row.List}: ${row.Title || 'No title'}`);
+                    });
+                }
+                
+                if (changes.removed.length > 0) {
+                    console.log(`\n❌ Removed (${changes.removed.length}):`);
+                    changes.removed.forEach(row => {
+                        console.log(`  - ${row.List}: ${row.Title || 'No title'}`);
+                    });
+                }
+                
+                if (changes.modified.length > 0) {
+                    console.log(`\n🔄 Modified (${changes.modified.length}):`);
+                    changes.modified.forEach(change => {
+                        console.log(`  ~ ${change.list}: ${change.new.Title || 'No title'}`);
+                        // Log specific field changes
+                        Object.keys(change.old).forEach(key => {
+                            if (change.old[key] !== change.new[key]) {
+                                console.log(`    ${key}: "${change.old[key]}" → "${change.new[key]}"`);
+                            }
+                        });
+                    });
+                }
+                
+                if (totalChanges === 0) {
+                    console.log(`\n✅ No changes detected`);
+                }
+                console.log(`=========================\n`);
+
                 // Save to local file using Rust API endpoint
                 try {
                     const saveResponse = await fetch('http://localhost:8081/api/files/csv', {
@@ -6899,12 +7330,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     if (saveResponse.ok) {
                         const result = await saveResponse.json();
                         console.log('Successfully saved CSV to ./lists.csv:', result);
-                        refreshText.textContent = 'Refreshed ✓';
+                        
+                        // Show detailed success message with change count
+                        const changeText = totalChanges > 0 ? ` (${totalChanges} changes)` : ' (no changes)';
+                        refreshText.textContent = `Refreshed ✓${changeText}`;
                         
                         // Show success feedback briefly
                         setTimeout(() => {
                             refreshText.textContent = originalText;
-                        }, 2000);
+                        }, 4000); // Extended time to read change info
                         
                         // Close menu
                         document.getElementById('menu-dropdown').style.display = 'none';
@@ -6923,11 +7357,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     localStorage.setItem('fallbackCSVTimestamp', Date.now().toString());
                     
                     console.log('Stored CSV in localStorage as fallback');
-                    refreshText.textContent = 'Cached ✓';
+                    
+                    // Show cached message with change count
+                    const changeText = totalChanges > 0 ? ` (${totalChanges} changes)` : ' (no changes)';
+                    refreshText.textContent = `Cached ✓${changeText}`;
                     
                     setTimeout(() => {
                         refreshText.textContent = originalText;
-                    }, 2000);
+                    }, 4000); // Extended time to read change info
                     
                     // Close menu
                     document.getElementById('menu-dropdown').style.display = 'none';
@@ -7019,6 +7456,15 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         // Load README documentation and configuration
         document.addEventListener('DOMContentLoaded', async function() {
+            
+            // Load dropdown options from lists.csv with proper CORS attributes
+            if (typeof loadGoogleSheetConfig === 'function') {
+                const fileSelect = document.getElementById('fileSelect');
+                if (fileSelect) {
+                    console.log('Loading dropdown options from lists.csv...');
+                    await loadGoogleSheetConfig(fileSelect, 'list');
+                }
+            }
             
             // Restore saved view state
             restoreViewState();
@@ -7112,10 +7558,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         // Load the corresponding data
                         if (listParam === 'all') {
                             console.log('HASHCHANGE: Loading all feeds');
-                            showAllFeeds();
+                            showAllLists();
                         } else {
                             console.log('HASHCHANGE: Loading participant data for:', listParam, 'URL:', selectedFile);
-                            getMeetupParticipants();
+                            getSubsetUsingSnapshot();
                         }
                     } else {
                         console.log('HASHCHANGE: List param not found in dropdown options:', listParam);
@@ -7184,10 +7630,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Check for list=all in URL hash to auto-load meta list
             const listParam = getHash().list;
             if (listParam === 'all') {
-                showAllFeeds();
+                showAllLists();
             } else if (listParam === 'geo') {
                 // Auto-load geo data
-                getMeetupParticipants();
+                getSubsetUsingSnapshot();
             } else if (!listParam) {
                 // No list parameter - check if should default to geo
                 const shouldDefaultToGeo = isGeoSite();
@@ -7195,19 +7641,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     window.location.hash = 'list=geo';
                     fileSelect.value = 'geo';
                     selectedFile = 'map/cities.csv';
-                    getMeetupParticipants();
+                    getSubsetUsingSnapshot();
                 } else {
                     // Auto-load data if default option is selected
                     const selectedOption = fileSelect.options[fileSelect.selectedIndex];
                     if (selectedOption && selectedOption.getAttribute('data-url')) {
-                        getMeetupParticipants();
+                        getSubsetUsingSnapshot();
                     }
                 }
             } else {
                 // Auto-load data if default option is selected
                 const selectedOption = fileSelect.options[fileSelect.selectedIndex];
                 if (selectedOption && selectedOption.getAttribute('data-url')) {
-                    getMeetupParticipants();
+                    getSubsetUsingSnapshot();
                 }
             }
             
@@ -7233,7 +7679,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Add event listeners for 3-dot menu
             document.getElementById('menu-toggle').addEventListener('click', toggleMenu);
             
-            document.getElementById('list-feeds-toggle').addEventListener('click', showAllFeeds);
+            document.getElementById('list-feeds-toggle').addEventListener('click', showAllLists);
             document.getElementById('refresh-csv-toggle').addEventListener('click', refreshListsCSV);
             
             document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
@@ -7241,18 +7687,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             document.getElementById('raw-data-toggle').addEventListener('click', toggleRawData);
             document.getElementById('export-csv-menu').addEventListener('click', exportCSVFromMenu);
             document.getElementById('full-url-toggle').addEventListener('click', generateFullURL);
-            document.getElementById('snapshots-toggle').addEventListener('click', toggleSnapshots);
+            const snapshotsToggle = document.getElementById('snapshots-toggle');
+            if (snapshotsToggle) {
+                snapshotsToggle.addEventListener('click', toggleSnapshots);
+            }
             
             // Snapshots event listeners
-            document.getElementById('close-snapshots').addEventListener('click', () => {
-                document.getElementById('snapshots-control').style.display = 'none';
-            });
-            document.getElementById('add-snapshot-btn').addEventListener('click', addNewSnapshot);
-            document.getElementById('new-snapshot-name').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    addNewSnapshot();
-                }
-            });
+            const closeSnapshots = document.getElementById('close-snapshots');
+            if (closeSnapshots) {
+                closeSnapshots.addEventListener('click', () => {
+                    const snapshotsControl = document.getElementById('snapshots-control');
+                    if (snapshotsControl) {
+                        snapshotsControl.style.display = 'none';
+                    }
+                });
+            }
+            
+            const addSnapshotBtn = document.getElementById('add-snapshot-btn');
+            if (addSnapshotBtn) {
+                addSnapshotBtn.addEventListener('click', addNewSnapshot);
+            }
+            
+            const newSnapshotName = document.getElementById('new-snapshot-name');
+            if (newSnapshotName) {
+                newSnapshotName.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        addNewSnapshot();
+                    }
+                });
+            }
             
             // Add event listeners for condensed view controls
             document.getElementById('filters-toggle').addEventListener('click', toggleFiltersDropdown);
@@ -7319,23 +7782,23 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (!resultsCount) return;
             
             totalRecords = filteredData.length;
-            const originalTotal = allParticipantsData ? allParticipantsData.length : totalRecords;
+            const originalTotal = originalLoadedCount || totalRecords;
             const totalPages = Math.ceil(totalRecords / recordsPerPage);
             const startRecord = Math.min((currentPage - 1) * recordsPerPage + 1, totalRecords);
             const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
             
             if (totalRecords === 0) {
-                resultsCount.textContent = `0 results in ${originalTotal} total`;
+                resultsCount.textContent = `0 results in ${totalRecords} (of ${originalTotal})`;
             } else if (totalRecords <= recordsPerPage) {
                 if (totalRecords === originalTotal) {
                     // No filtering applied
                     resultsCount.textContent = `${totalRecords} result${totalRecords !== 1 ? 's' : ''}`;
                 } else {
                     // Filtering applied
-                    resultsCount.textContent = `${totalRecords} result${totalRecords !== 1 ? 's' : ''} in ${originalTotal} total`;
+                    resultsCount.textContent = `${totalRecords} result${totalRecords !== 1 ? 's' : ''} (of ${originalTotal})`;
                 }
             } else {
-                resultsCount.textContent = `${startRecord} to ${endRecord} results in ${originalTotal} total`;
+                resultsCount.textContent = `${startRecord} to ${endRecord} results in ${totalRecords} (of ${originalTotal})`;
             }
             
             updatePaginationControls();
@@ -7344,7 +7807,49 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function paginateData(data) {
             const startIndex = (currentPage - 1) * recordsPerPage;
             const endIndex = Math.min(startIndex + recordsPerPage, data.length);
-            return data.slice(startIndex, endIndex);
+            
+            // For large datasets, check if we need to load more data
+            if (window.isLargeDataset && endIndex >= data.length && window.originalLargeDataset) {
+                const totalNeeded = currentPage * recordsPerPage;
+                const currentAvailable = data.length;
+                
+                if (totalNeeded > currentAvailable && window.originalLargeDataset.length > currentAvailable) {
+                    console.log(`📄 Page ${currentPage} needs more data. Loading additional chunk...`);
+                    
+                    // Calculate how much more data we need
+                    const additionalNeeded = Math.min(
+                        recordsPerPage * 3, // Load 3 pages worth
+                        window.originalLargeDataset.length - currentAvailable
+                    );
+                    
+                    if (additionalNeeded > 0) {
+                        const nextChunk = window.originalLargeDataset.slice(
+                            currentAvailable, 
+                            currentAvailable + additionalNeeded
+                        );
+                        
+                        console.log(`🔄 Processing additional ${nextChunk.length} records (${currentAvailable} to ${currentAvailable + additionalNeeded})`);
+                        const processedChunk = preprocessParticipantData(nextChunk);
+                        
+                        // Add to existing data
+                        if (window.allRowsData) {
+                            window.allRowsData = window.allRowsData.concat(processedChunk);
+                            data = window.allRowsData;
+                        }
+                        
+                        console.log(`✅ Total processed data now: ${data.length} records`);
+                    }
+                }
+            }
+            
+            const finalEndIndex = Math.min(startIndex + recordsPerPage, data.length);
+            const result = data.slice(startIndex, finalEndIndex);
+            
+            if (result.length > 0) {
+                console.log(`📄 Pagination: Showing page ${currentPage}, records ${startIndex + 1}-${startIndex + result.length} of ${window.originalLargeDataset ? window.originalLargeDataset.length : data.length}`);
+            }
+            
+            return result;
         }
         
         function goToPage(page) {
@@ -7402,10 +7907,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const containerId = 'img-' + Math.random().toString(36).substr(2, 9);
             const height = isGalleryView ? 140 : 120;
             
-            let html = `<div class="participant-image-container" id="${containerId}" data-current="0" data-auto-advance="false" data-image-paths='${JSON.stringify(imagePaths)}'>`;
+            let html = `<div class="columns-image-container" id="${containerId}" data-current="0" data-auto-advance="false" data-image-paths='${JSON.stringify(imagePaths)}'>`;
             
             // Add the first image
-            html += `<img class="participant-image" src="${imagePaths[0]}" alt="Project Image" style="height: ${height}px" onclick="openImageInNewTab('${imagePaths[0]}')" onerror="this.style.display='none'; this.nextElementSibling?.style.display='flex';">`;
+            html += `<img class="columns-image" src="${imagePaths[0]}" alt="Project Image" style="height: ${height}px" onclick="openImageInNewTab('${imagePaths[0]}')" onerror="this.style.display='none'; this.nextElementSibling?.style.display='flex';">`;
             
             // Add placeholder for failed images
             html += `<div class="no-image-placeholder" style="display: none;">Image not found</div>`;
@@ -7433,7 +7938,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const imagePaths = container.dataset.imagePaths ? JSON.parse(container.dataset.imagePaths) : [];
             if (index >= imagePaths.length) return;
             
-            const img = container.querySelector('.participant-image');
+            const img = container.querySelector('.columns-image');
             const placeholder = container.querySelector('.no-image-placeholder');
             const dots = container.querySelectorAll('.image-dot');
             
@@ -7547,10 +8052,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
 
         // Add event listeners for hover and keyboard navigation
         document.addEventListener('mouseover', (event) => {
-            const container = event.target.closest('.participant-image-container');
+            const container = event.target.closest('.columns-image-container');
             if (container && container.querySelectorAll('.image-dot').length > 1) {
                 const imagePaths = Array.from(container.querySelectorAll('.image-dot')).map((_, index) => {
-                    return container.querySelector('.participant-image').src.replace(/\/[^\/]*$/, '/image' + index + '.jpg'); // This will be replaced with actual paths
+                    return container.querySelector('.columns-image').src.replace(/\/[^\/]*$/, '/image' + index + '.jpg'); // This will be replaced with actual paths
                 });
                 
                 // Extract actual image paths from the dots' onclick attributes
@@ -7580,7 +8085,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         });
 
         document.addEventListener('mouseout', (event) => {
-            const container = event.target.closest('.participant-image-container');
+            const container = event.target.closest('.columns-image-container');
             if (container && focusedContainer === container.id) {
                 stopAutoAdvance(container.id);
                 focusedContainer = null;
