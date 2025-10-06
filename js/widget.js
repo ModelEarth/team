@@ -1,7 +1,11 @@
 //  1. Stores the int_required filtered data in DOM storage only once on initial load
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
-
+document.addEventListener('hashChangeEvent', function (elem) {
+    console.log("widget.js detects URL hashChangeEvent");
+    alert("widget.js detects URL hashChangeEvent")
+    //hashChanged();
+}, false);
 class ListingsDisplay {
     constructor(options = {}) {
         this.listings = [];
@@ -93,8 +97,8 @@ class ListingsDisplay {
         
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const fromHash = urlParams.has('list');
-        
+        const fromHash = urlParams.has('map'); // True or false
+        //alert("fromHash " + fromHash)
         if (fromHash) {
             await this.loadShowData();
         } else {
@@ -245,13 +249,13 @@ class ListingsDisplay {
     async loadDataFromConfig(config) {
         if (config.googleCSV) {
             //return await this.loadGoogleCSV(config.googleCSV);
-            return await this.loadCSVData(config.googleCSV);
+            return await this.loadCSVData(config.googleCSV, config);
         } else if (config.dataset.endsWith('.json') ) {
             const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
             return await this.loadJSONData(datasetUrl);
         } else if (config.dataset) {
             const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
-            return await this.loadCSVData(datasetUrl);
+            return await this.loadCSVData(datasetUrl, config);
         } else {
             return this.createMockData(config);
         }
@@ -322,7 +326,7 @@ class ListingsDisplay {
         return [];
     }
 
-    async loadGoogleCSV(url) { /* Probably not needed since the same as loadCSVData */
+    async loadGoogleCSV(url, config = null) { /* Probably not needed since the same as loadCSVData */
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -330,10 +334,10 @@ class ListingsDisplay {
         }
         
         const csvText = await response.text();
-        return this.parseCSV(csvText);
+        return this.parseCSV(csvText, config);
     }
 
-    async loadCSVData(url) {
+    async loadCSVData(url, config = null) {
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -341,7 +345,7 @@ class ListingsDisplay {
         }
         
         const csvText = await response.text();
-        return this.parseCSV(csvText);
+        return this.parseCSV(csvText, config);
     }
 
     async loadJSONData(url) {
@@ -361,20 +365,35 @@ class ListingsDisplay {
         return [];
     }
 
-    parseCSV(csvText) {
+    parseCSV(csvText, config = null) {
         const lines = this.splitCSVIntoLines(csvText.trim());
         
-        if (lines.length < 2) {
+        if (lines.length === 0) {
             return [];
         }
         
-        // Parse headers - handle quoted fields
-        const headerLine = lines[0];
-        const headers = this.parseCSVLine(headerLine);
+        let headers;
+        let dataStartIndex = 1;
+        
+        // Check if config has allColumns array (for datasets without header row)
+        if (config && config.allColumns && Array.isArray(config.allColumns)) {
+            headers = config.allColumns;
+            dataStartIndex = 0; // Start from first line since there's no header row
+            console.log('🔧 Using allColumns for headers:', headers);
+            console.log('🔧 Config dataset:', config.dataset);
+        } else {
+            // Traditional parsing - first row contains headers
+            if (lines.length < 2) {
+                return [];
+            }
+            const headerLine = lines[0];
+            headers = this.parseCSVLine(headerLine);
+            dataStartIndex = 1;
+        }
         
         const data = [];
         
-        for (let i = 1; i < lines.length; i++) {
+        for (let i = dataStartIndex; i < lines.length; i++) {
             if (lines[i].trim()) {
                 const values = this.parseCSVLine(lines[i]);
                 
@@ -464,10 +483,37 @@ class ListingsDisplay {
         
     }
 
+    getFieldMapping() {
+        // When allColumns exists, create a mapping from standard field names to allColumns field names
+        if (this.config && this.config.allColumns && Array.isArray(this.config.allColumns)) {
+            const mapping = {};
+            const allColumns = this.config.allColumns;
+            
+            // Map standard geographic coordinate fields
+            allColumns.forEach(field => {
+                const lowerField = field.toLowerCase();
+                if (lowerField.includes('lat')) {
+                    mapping.latitude = field;
+                } else if (lowerField.includes('lng') || lowerField.includes('lon')) {
+                    mapping.longitude = field;
+                }
+            });
+            
+            return mapping;
+        }
+        
+        // Default mapping when no allColumns
+        return {
+            latitude: 'latitude',
+            longitude: 'longitude'
+        };
+    }
+
     getRecognizedFields(listing) {
         if (!this.config) return {};
         
         const recognized = {};
+        const fieldMapping = this.getFieldMapping();
         
         // Name field
         if (this.config.nameColumn && listing[this.config.nameColumn]) {
@@ -701,18 +747,28 @@ class ListingsDisplay {
         
         // Priority 1: Use nameColumn from config if specified
         if (config && config.nameColumn) {
-            // Find the actual field name (case-insensitive)
-            sortField = Object.keys(data[0]).find(key => 
-                key.toLowerCase() === config.nameColumn.toLowerCase()
-            );
+            if (config.allColumns && Array.isArray(config.allColumns)) {
+                // When allColumns exists, use exact field name matching
+                sortField = config.nameColumn;
+            } else {
+                // Traditional case-insensitive lookup for backward compatibility
+                sortField = Object.keys(data[0]).find(key => 
+                    key.toLowerCase() === config.nameColumn.toLowerCase()
+                );
+            }
         }
         
         // Priority 2: Use first featured column if no nameColumn
         if (!sortField && config && config.featuredColumns && config.featuredColumns.length > 0) {
-            // Find the actual field name (case-insensitive)
-            sortField = Object.keys(data[0]).find(key => 
-                key.toLowerCase() === config.featuredColumns[0].toLowerCase()
-            );
+            if (config.allColumns && Array.isArray(config.allColumns)) {
+                // When allColumns exists, use exact field name matching
+                sortField = config.featuredColumns[0];
+            } else {
+                // Traditional case-insensitive lookup for backward compatibility
+                sortField = Object.keys(data[0]).find(key => 
+                    key.toLowerCase() === config.featuredColumns[0].toLowerCase()
+                );
+            }
         }
         
         // Priority 3: Look for common name fields
@@ -781,10 +837,17 @@ class ListingsDisplay {
             }, 0);
         }
         
-        // Update map with filtered results
+        // Update map with filtered results - only send current page data
         if (window.leafletMap) {
             setTimeout(() => {
-                window.leafletMap.updateFromListingsApp(this);
+                // Create a limited version of this object with only current page data
+                const limitedListingsApp = {
+                    ...this,
+                    filteredListings: this.getCurrentPageListings(),
+                    listings: this.getCurrentPageListings(),
+                    getMapListings: () => this.getCurrentPageListings()
+                };
+                window.leafletMap.updateFromListingsApp(limitedListingsApp);
             }, 100);
         }
     }
@@ -921,7 +984,7 @@ class ListingsDisplay {
             });
         }
 
-        const showSelect = document.getElementById('listSelect');
+        const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
                 this.changeShow(e.target.value);
@@ -1015,6 +1078,11 @@ class ListingsDisplay {
         return this.filteredListings.slice(startIndex, endIndex);
     }
 
+    // Get listings for map display - returns only current page to avoid performance issues
+    getMapListings() {
+        return this.getCurrentPageListings();
+    }
+
     renderListings() {
         // Show error inline if there's a data loading error
         if (this.dataLoadError) {
@@ -1038,10 +1106,17 @@ class ListingsDisplay {
             const displayData = this.getDisplayData(listing);
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             
-            // Helper function to check if key is in featured columns (case-insensitive)
+            // Helper function to check if key is in featured columns
             const isInFeaturedColumns = (key) => {
                 const featuredColumns = this.config?.featuredColumns || [];
-                return featuredColumns.some(col => col.toLowerCase() === key.toLowerCase());
+                
+                // When allColumns exists, use exact matching since field names are guaranteed to match
+                if (this.config?.allColumns && Array.isArray(this.config.allColumns)) {
+                    return featuredColumns.includes(key);
+                } else {
+                    // Traditional case-insensitive matching for backward compatibility
+                    return featuredColumns.some(col => col.toLowerCase() === key.toLowerCase());
+                }
             };
             
             // Helper function to check if key is in omit list (case-insensitive)
@@ -1051,6 +1126,7 @@ class ListingsDisplay {
             };
             
             // Count additional details (excluding featured columns, omitted fields, and coordinates)
+            const fieldMapping = this.getFieldMapping();
             const additionalDetailsCount = Object.entries(listing)
                 .filter(([key, value]) => 
                     !isInFeaturedColumns(key) && 
@@ -1058,8 +1134,8 @@ class ListingsDisplay {
                     value && 
                     value.toString().trim() !== '' &&
                     value.toString().trim() !== '-' &&
-                    key !== 'latitude' && 
-                    key !== 'longitude'
+                    key !== fieldMapping.latitude && 
+                    key !== fieldMapping.longitude
                 ).length;
             
             return `
@@ -1068,6 +1144,9 @@ class ListingsDisplay {
                         <div class="listing-name">${displayData.primary || 'No Name'}</div>
                         ${displayData.secondary ? `<div class="listing-info">${displayData.secondary}</div>` : ''}
                         ${displayData.tertiary ? `<div class="listing-info">${displayData.tertiary}</div>` : ''}
+                        ${displayData.quaternary ? `<div class="listing-info">${displayData.quaternary}</div>` : ''}
+                        ${displayData.quinary ? `<div class="listing-info">${displayData.quinary}</div>` : ''}
+                        ${displayData.senary ? `<div class="listing-info">${displayData.senary}</div>` : ''}
                         
                         <div class="details-toggle">
                             <span class="toggle-arrow" id="arrow-${uniqueId}" data-details-id="${uniqueId}">▶</span>
@@ -1082,8 +1161,8 @@ class ListingsDisplay {
                                     value && 
                                     value.toString().trim() !== '' &&
                                     value.toString().trim() !== '-' &&
-                                    key !== 'latitude' && 
-                                    key !== 'longitude'
+                                    key !== fieldMapping.latitude && 
+                                    key !== fieldMapping.longitude
                                 )
                                 .map(([key, value]) => {
                                     const formattedValue = this.formatFieldValue(value);
@@ -1291,8 +1370,8 @@ class ListingsDisplay {
                     <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
                         <div class="search-container">
                             ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
-                            <div class="list-selector">
-                                <select id="listSelect" class="list-select">
+                            <div class="map-selector">
+                                <select id="mapDataSelect" class="map-select">
                                     ${Object.keys(this.showConfigs).map(key => 
                                         `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
                                     ).join('')}
@@ -1447,10 +1526,17 @@ class ListingsDisplay {
                 width: '100%'
             });
             
-            // Update map with current listings data
+            // Update map with current listings data - only send current page data
             if (this.listings && this.listings.length > 0) {
                 setTimeout(() => {
-                    window.leafletMap.updateFromListingsApp(this);
+                    // Create a limited version of this object with only current page data
+                    const limitedListingsApp = {
+                        ...this,
+                        filteredListings: this.getCurrentPageListings(),
+                        listings: this.getCurrentPageListings(),
+                        getMapListings: () => this.getCurrentPageListings()
+                    };
+                    window.leafletMap.updateFromListingsApp(limitedListingsApp);
                 }, 100);
             }
         } catch (error) {
@@ -1462,24 +1548,24 @@ class ListingsDisplay {
     
     // URL Hash and Cache Management
     getInitialShow() {
-        // Check URL hash first
+        // Check URL hash first - prioritize map= parameter
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const hashList = urlParams.get('list');
+        const hashMap = urlParams.get('map');
         
-        if (hashList) {
-            return hashList;
+        if (hashMap) {
+            return hashMap;
         }
         
-        // Check for list parameter in widget.js script URL (from widget-embed.js)
+        // Check for map parameter in widget.js script URL (from widget-embed.js)
         const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
         for (const script of widgetScripts) {
-            if (script.src.includes('?list=')) {
+            if (script.src.includes('?map=')) {
                 const scriptUrl = new URL(script.src);
-                const embedList = scriptUrl.searchParams.get('list');
-                if (embedList) {
+                const embedMap = scriptUrl.searchParams.get('map');
+                if (embedMap) {
                     this.usingEmbeddedList = true;
-                    console.log(`Using embedded list parameter: ${embedList}`);
-                    return embedList;
+                    console.log(`Using embedded map parameter: ${embedMap}`);
+                    return embedMap;
                 }
             }
         }
@@ -1490,15 +1576,15 @@ class ListingsDisplay {
     }
     
     updateUrlHash(showKey) {
-        // Don't update hash when using embedded list parameter
+        // Don't update hash when using embedded map parameter
         if (this.usingEmbeddedList) {
-            console.log(`Skipping hash update - using embedded list parameter: ${showKey}`);
+            console.log(`Skipping hash update - using embedded map parameter: ${showKey}`);
             return;
         }
         
         const currentHash = window.location.hash.substring(1);
         const urlParams = new URLSearchParams(currentHash);
-        urlParams.set('list', showKey);
+        urlParams.set('map', showKey);
         window.location.hash = urlParams.toString();
     }
     
@@ -1533,28 +1619,82 @@ class ListingsDisplay {
         const featuredColumns = this.config.featuredColumns;
         const data = {};
         
-        featuredColumns.forEach((column, index) => {
-            // Find the actual column name (case-insensitive)
-            const actualColumnName = Object.keys(listing).find(key => 
-                key.toLowerCase() === column.toLowerCase()
-            ) || column;
-            const value = listing[actualColumnName];
+        // Skip nameColumn if it's also in featuredColumns to avoid duplication
+        const nameColumn = this.config.nameColumn;
+        const filteredFeaturedColumns = nameColumn ? 
+            featuredColumns.filter(col => col !== nameColumn) : 
+            featuredColumns;
+        
+        // Set primary display from nameColumn if specified, otherwise first featuredColumn
+        if (nameColumn) {
+            let nameValue;
+            if (this.config.allColumns && Array.isArray(this.config.allColumns)) {
+                nameValue = listing[nameColumn];
+            } else {
+                const actualNameColumn = Object.keys(listing).find(key => 
+                    key.toLowerCase() === nameColumn.toLowerCase()
+                ) || nameColumn;
+                nameValue = listing[actualNameColumn];
+            }
+            if (nameValue) {
+                data.primary = nameValue;
+            }
+        } else if (featuredColumns.length > 0) {
+            // Use first featured column as primary if no nameColumn
+            let value;
+            if (this.config.allColumns && Array.isArray(this.config.allColumns)) {
+                value = listing[featuredColumns[0]];
+            } else {
+                const actualColumnName = Object.keys(listing).find(key => 
+                    key.toLowerCase() === featuredColumns[0].toLowerCase()
+                ) || featuredColumns[0];
+                value = listing[actualColumnName];
+            }
             if (value) {
-                if (index === 0) {
-                    data.primary = value;
-                } else if (index === 1) {
-                    // Add "Population: " prefix for population data
-                    data.secondary = column.toLowerCase().includes('population') ? 
-                        `Population: ${this.formatFieldValue(value, 'population')}` : 
-                        `${this.formatKeyName(column)}: ${this.formatFieldValue(value)}`;
-                } else if (index === 2) {
-                    // Add " County" suffix for county data
-                    data.tertiary = column.toLowerCase().includes('county') ? 
-                        `${value} County` : 
-                        `${this.formatKeyName(column)}: ${value}`;
+                data.primary = value;
+            }
+        }
+        
+        // Create array to hold all featured fields (excluding the primary name field)
+        const featuredFields = [];
+        const columnsToShow = nameColumn ? filteredFeaturedColumns : featuredColumns.slice(1);
+        
+        columnsToShow.forEach((column) => {
+            let actualColumnName;
+            let value;
+            
+            // When allColumns exists, use exact field name matching since field names are guaranteed to match allColumns
+            if (this.config.allColumns && Array.isArray(this.config.allColumns)) {
+                actualColumnName = column;
+                value = listing[column];
+            } else {
+                // Traditional case-insensitive lookup for backward compatibility
+                actualColumnName = Object.keys(listing).find(key => 
+                    key.toLowerCase() === column.toLowerCase()
+                ) || column;
+                value = listing[actualColumnName];
+            }
+            
+            if (value && value.toString().trim()) {
+                // Format the field display
+                let formattedDisplay;
+                if (column.toLowerCase().includes('population')) {
+                    formattedDisplay = `Population: ${this.formatFieldValue(value, 'population')}`;
+                } else if (column.toLowerCase().includes('county')) {
+                    formattedDisplay = `${value} County`;
+                } else {
+                    formattedDisplay = `${this.formatKeyName(column)}: ${this.formatFieldValue(value)}`;
                 }
+                featuredFields.push(formattedDisplay);
             }
         });
+        
+        // Assign featured fields to secondary, tertiary, etc.
+        if (featuredFields.length > 0) data.secondary = featuredFields[0];
+        if (featuredFields.length > 1) data.tertiary = featuredFields[1];
+        if (featuredFields.length > 2) data.quaternary = featuredFields[2];
+        if (featuredFields.length > 3) data.quinary = featuredFields[3];
+        if (featuredFields.length > 4) data.senary = featuredFields[4];
         
         return data;
     }
@@ -1734,11 +1874,11 @@ class ListingsDisplay {
         if (typeof PrintDownloadWidget !== 'undefined') {
             const data = this.getDataForDownload();
             
-            // Get list name from current hash or config for filename
+            // Get map name from current hash or config for filename
             let listName = 'listings';
             if (typeof getHash === 'function') {
                 const hashParams = getHash();
-                listName = hashParams.list || listName;
+                listName = hashParams.map || listName;
             }
             
             // If we have config with a title, use that instead

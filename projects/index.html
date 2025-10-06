@@ -13,8 +13,14 @@
     <link rel="stylesheet" href="../css/shared-styles.css">
     
     <!-- Map and list displays -->
+    <!--
+    <link type="text/css" rel="stylesheet" href="../css/widget.css" id="/team/css/widget.css" />
     <script src="../js/widget.js"></script>
+    -->
 
+    <!-- Loads Leaflet map .js and .css -->
+    <script type="text/javascript" src="../js/widget-embed.js?source=show.trade&map=us-cities"></script>
+        
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
 
@@ -1930,6 +1936,8 @@
                 <!--  will eventually pull a list from a Google Meetup to filter the  -->
             </p>
         </div>
+
+        <div id="teamwidget"></div>
 
         <div style="margin-bottom: 20px;">
             <div id="pageControls" class="input-button-group" style="display:flex; width: 100%; align-items: center;">

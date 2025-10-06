@@ -13,5 +13,20 @@
       "In County Name": "County"
     },
     "mapInfo": "Companies in India"
+  },
+  "us-cities": {
+    "shortTitle": "US Cities",
+    "menuTitle": "US Cities",
+    "listTitle": "US Cities",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/kelvins/US-Cities-Database/refs/heads/main/csv/us_cities.csv",
+    "markerType": "google",
+    "nameColumn": "City",
+    "allColumns": ["ID", "StateCode", "State", "City", "County", "Latitude", "Longitude", "Elevation"],
+    "featuredColumns": ["City", "State", "County", "Latitude", "Longitude", "Elevation"],
+    "search": {
+      "By City Name": "City",
+      "By State Name": "State"
+    }
   }
 }

@@ -225,16 +225,30 @@
     Promise.all(scriptPromises).then(() => {
         console.log('Essential scripts loaded, loading widget.js');
         
-        // Get parameters from current script tag
-        let listParam = '';
+        // Get parameters from current script tag and hash
+        let mapParam = '';
         let sourceParam = '';
         const currentScript = document.currentScript || document.querySelector('script[src*="widget-embed.js"]');
         
+        // Check for map= parameter in URL hash first
+        const urlParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashMap = urlParams.get('map');
+        if (hashMap) {
+            // Use map= parameter from hash
+            mapParam = '?map=' + hashMap;
+            console.log('widget-embed.js: Using map parameter from hash:', hashMap);
+        } else if (currentScript && currentScript.src.includes('?')) {
+            // Only if map= is not available in hash, check for list= in script URL and convert to map=
+            const url = new URL(currentScript.src);
+            const listFromScript = urlParams.get('list') || url.searchParams.get('list');
+            if (listFromScript) {
+                mapParam = '?map=' + listFromScript;
+                console.log('widget-embed.js: Converting list parameter to map:', listFromScript);
+            }
+        }
+        
         if (currentScript && currentScript.src.includes('?')) {
             const url = new URL(currentScript.src);
-            if (url.searchParams.get('list')) {
-                listParam = '?list=' + url.searchParams.get('list');
-            }
             if (url.searchParams.get('source')) {
                 sourceParam = '&source=' + url.searchParams.get('source');
             }
@@ -252,7 +266,7 @@
         }
         
         // Load widget.js with optional parameters
-        const fullParams = listParam + sourceParam;
+        const fullParams = mapParam + sourceParam;
         return loadScript(widgetWebroot + '/team/js/widget.js' + fullParams, '/team/js/widget.js');
     }).then(() => {
         console.log('Widget.js loaded successfully');
