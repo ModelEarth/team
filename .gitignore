@@ -81,3 +81,7 @@ target/
 # Backup files
 *.bak
 *.backup
+
+# Prevent nested webroot repositories
+webroot/
+**/webroot/

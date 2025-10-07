@@ -25,6 +25,12 @@ done
 
 # Helper function to check if we're in webroot
 check_webroot() {
+    # Check for nested webroot directories (prevent confusion)
+    if [ -d "webroot" ]; then
+        echo "⚠️ WARNING: Found nested 'webroot' directory in team submodule!"
+        echo "   This can cause confusion. Consider removing: $(pwd)/webroot"
+    fi
+    
     # Check if we're in the parent webroot directory
     if [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
         CURRENT_REMOTE=$(git -C .. remote get-url origin 2>/dev/null || echo "")
