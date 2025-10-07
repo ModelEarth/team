@@ -112,9 +112,20 @@ merge_upstream() {
     git fetch upstream 2>/dev/null || git fetch upstream
     
     # Try main/master first for all repos
-    if git merge upstream/main --no-edit 2>/dev/null; then
+    local merge_output
+    merge_output=$(git merge upstream/main --no-edit 2>&1)
+    if [[ $? -eq 0 ]]; then
+        if [[ "$merge_output" != *"Already up to date"* ]]; then
+            echo "$merge_output"
+        fi
         return 0
-    elif git merge upstream/master --no-edit 2>/dev/null; then
+    fi
+    
+    merge_output=$(git merge upstream/master --no-edit 2>&1)
+    if [[ $? -eq 0 ]]; then
+        if [[ "$merge_output" != *"Already up to date"* ]]; then
+            echo "$merge_output"
+        fi
         return 0
     else
         echo "⚠️ Merge conflicts - manual resolution needed"
@@ -359,7 +370,6 @@ safe_submodule_update() {
     
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ] && [ -d "$sub/.git" ]; then
-            echo "🔍 Checking submodule: $sub"
             cd "$sub"
             
             # Always fetch latest from parent repository first
@@ -751,7 +761,12 @@ pull_command() {
     
     # Pull webroot
     echo "📥 Pulling webroot..."
-    git pull origin main 2>/dev/null || echo "⚠️ Checking for conflicts in webroot"
+    output=$(git pull origin main 2>&1)
+    if [[ $? -ne 0 ]]; then
+        echo "⚠️ Checking for conflicts in webroot"
+    elif [[ "$output" != *"Already up to date"* ]]; then
+        echo "$output"
+    fi
     
     # Update webroot from parent (skip partnertools)
     WEBROOT_REMOTE=$(git remote get-url origin)
@@ -781,7 +796,6 @@ pull_command() {
     safe_submodule_update
     
     # Check for and fix any detached HEAD states after pulls
-    echo "🔍 Checking for detached HEAD states after pull..."
     fix_all_detached_heads
     
     # Pull extra repos
@@ -790,7 +804,12 @@ pull_command() {
     for repo in "${extra_repos[@]}"; do
         [ ! -d "$repo" ] && continue
         cd "$repo"
-        git pull origin main 2>/dev/null || echo "⚠️ Checking for conflicts in $repo"
+        output=$(git pull origin main 2>&1)
+        if [[ $? -ne 0 ]]; then
+            echo "⚠️ Checking for conflicts in $repo"
+        elif [[ "$output" != *"Already up to date"* ]]; then
+            echo "$output"
+        fi
         
         REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
         if [[ "$REMOTE" != *"partnertools"* ]]; then
@@ -813,7 +832,12 @@ pull_specific_repo() {
     # Check if it's webroot
     if [[ "$repo_name" == "webroot" ]]; then
         echo "📥 Pulling webroot..."
-        git pull origin main 2>/dev/null || echo "⚠️ Checking for conflicts in webroot"
+        output=$(git pull origin main 2>&1)
+        if [[ $? -ne 0 ]]; then
+            echo "⚠️ Checking for conflicts in webroot"
+        elif [[ "$output" != *"Already up to date"* ]]; then
+            echo "$output"
+        fi
         
         WEBROOT_REMOTE=$(git remote get-url origin)
         if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
@@ -855,7 +879,12 @@ pull_specific_repo() {
         if [ -d "$repo_name" ]; then
             echo "📥 Pulling extra repo: $repo_name..."
             cd "$repo_name"
-            git pull origin main 2>/dev/null || echo "⚠️ Checking for conflicts in $repo_name"
+            output=$(git pull origin main 2>&1)
+            if [[ $? -ne 0 ]]; then
+                echo "⚠️ Checking for conflicts in $repo_name"
+            elif [[ "$output" != *"Already up to date"* ]]; then
+                echo "$output"
+            fi
             
             REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
             if [[ "$REMOTE" != *"partnertools"* ]]; then
@@ -881,24 +910,20 @@ pull_specific_repo() {
 
 # Check and fix detached HEAD states in all repositories
 fix_all_detached_heads() {
-    echo "🔍 Checking for detached HEAD states in all repositories..."
     cd $(git rev-parse --show-toplevel)
     check_webroot
     
     local fixed_count=0
     
     # Check webroot
-    echo "📁 Checking webroot..."
     if fix_detached_head "webroot"; then
         ((fixed_count++))
     fi
     
     # Check all submodules
-    echo "📁 Checking submodules..."
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
-            echo "📁 Checking $sub..."
             cd "$sub"
             if fix_detached_head "$sub"; then
                 ((fixed_count++))
@@ -908,11 +933,9 @@ fix_all_detached_heads() {
     done
     
     # Check extra repos
-    echo "📁 Checking extra repos..."
     local extra_repos=($(get_extra_repos))
     for repo in "${extra_repos[@]}"; do
         if [ -d "$repo" ]; then
-            echo "📁 Checking $repo..."
             cd "$repo"
             if fix_detached_head "$repo"; then
                 ((fixed_count++))
@@ -923,7 +946,6 @@ fix_all_detached_heads() {
     
     if [ $fixed_count -gt 0 ]; then
         echo "✅ All $fixed_count submodules pointed at main branch"
-        echo "💡 You may want to run './git.sh push' to update submodule references"
     else
         echo "✅ All submodules already on main branch"
     fi
@@ -944,17 +966,14 @@ update_all_remotes_for_user() {
     local updated_count=0
     
     # Check webroot
-    echo "📁 Checking webroot remotes..."
     if check_user_change "webroot"; then
         ((updated_count++))
     fi
     
     # Check all submodules
-    echo "📁 Checking submodule remotes..."
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
-            echo "📁 Checking $sub remotes..."
             cd "$sub"
             if check_user_change "$sub"; then
                 ((updated_count++))
@@ -964,11 +983,9 @@ update_all_remotes_for_user() {
     done
     
     # Check extra repos
-    echo "📁 Checking extra repo remotes..."
     local extra_repos=($(get_extra_repos))
     for repo in "${extra_repos[@]}"; do
         if [ -d "$repo" ]; then
-            echo "📁 Checking $repo remotes..."
             cd "$repo"
             if check_user_change "$repo"; then
                 ((updated_count++))
@@ -1165,7 +1182,7 @@ push_specific_repo() {
     
     # Auto-pull unless nopull/no pull is specified
     if [[ "$skip_pr" != *"nopull"* ]] && [[ "$skip_pr" != *"no pull"* ]]; then
-        echo "🔄 Auto-pulling $name before push..."
+        echo "🔄 Running pulls for $name before we push..."
         pull_command "$name"
         echo "✅ Pull completed for $name, proceeding with push..."
     fi
@@ -1180,7 +1197,6 @@ push_specific_repo() {
             create_webroot_pr "$skip_pr"
         fi
         
-        echo "🔍 Checking for remaining unpushed commits..."
         final_push_completion_check
         return
     fi
@@ -1216,8 +1232,7 @@ push_specific_repo() {
             fi
             
             # Final push completion check
-            echo "🔍 Checking for remaining unpushed commits..."
-            final_push_completion_check
+                final_push_completion_check
         else
             echo "⚠️ Submodule not found: $name"
         fi
@@ -1233,8 +1248,7 @@ push_specific_repo() {
             commit_push "$name" "$skip_pr"
             cd ..
             
-            echo "🔍 Checking for remaining unpushed commits..."
-            final_push_completion_check
+                final_push_completion_check
         else
             echo "⚠️ Extra repo not found: $name"
         fi
@@ -1259,7 +1273,7 @@ push_submodules() {
     
     # Auto-pull unless nopull/no pull is specified
     if [[ "$skip_pr" != *"nopull"* ]] && [[ "$skip_pr" != *"no pull"* ]]; then
-        echo "🔄 Auto-pulling submodules before push..."
+        echo "🔄 Running pulls for submodules before we push..."
         pull_command
         echo "✅ Pull completed for submodules, proceeding with push..."
     fi
@@ -1296,7 +1310,7 @@ push_all() {
     
     # Auto-pull unless nopull/no pull is specified
     if [[ "$skip_pr" != *"nopull"* ]] && [[ "$skip_pr" != *"no pull"* ]]; then
-        echo "🔄 Auto-pulling before push..."
+        echo "🔄 Running pulls before we push..."
         pull_command
         echo "✅ Pull completed, proceeding with push..."
     fi
@@ -1323,7 +1337,6 @@ push_all() {
     done
     
     # Final push completion check for all repositories
-    echo "🔍 Checking for any remaining unpushed commits..."
     final_push_completion_check
     
     echo "✅ Complete push finished!"
