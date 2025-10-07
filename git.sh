@@ -819,7 +819,7 @@ pull_command() {
         cd ..
     done
     
-    echo "✅ Pull completed! Use: ./git.sh push"
+    echo "✅ Pull completed! To send changes enter: ./git.sh push"
 }
 
 # Pull specific repository
