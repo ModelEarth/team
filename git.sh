@@ -824,7 +824,13 @@ pull_command() {
         cd ..
     done
     
-    echo "✅ Pull completed! To send changes enter: ./git.sh push"
+    local submodules=($(get_submodules))
+    local extra_repos=($(get_extra_repos))
+    local submodule_count=${#submodules[@]}
+    local extra_count=${#extra_repos[@]}
+    local total_count=$((1 + submodule_count + extra_count))
+    
+    echo "✅ Pull completed - 1 webroot + ${submodule_count} submodules + ${extra_count} extra repos = ${total_count} repositories"
 }
 
 # Pull specific repository
