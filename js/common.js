@@ -331,8 +331,9 @@ function createOSDetectionPanel(containerId) {
                 
                 Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
 
-                If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>, then install Claude Code CLI with:<br>
-                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+                <div id="os-specific-install">
+                    <!-- OS-specific installation instructions will be populated here -->
+                </div>
 
             </div>
 
@@ -380,14 +381,8 @@ gemini</code></pre>
                 </label>
             </div>
             
-            
 
             <div id="githubCLIinstall">
-
-            <!-- move this -->
-
-            Install Claude
-            <pre><code>irm https://claude.ai/install.ps1 | iex</code></pre>
 
             In a terminal separate from your Code CLI, check if you have Github CLI installed:
             <pre><code>gh auth status</code></pre>
@@ -609,6 +604,9 @@ function initializeOSDetectionPanel() {
         const geminiChecked = geminiCli ? geminiCli.checked : false;
         const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
         
+        // Update OS-specific installation instructions
+        updateOSSpecificInstall(selectedOS);
+        
         // Update title based on number of checked tools
         const cliToolsTitle = document.getElementById('cli-tools-title');
         if (cliToolsTitle) {
@@ -691,6 +689,30 @@ gemini</code></pre>`;
         }
     }
     
+    // Function to update OS-specific installation instructions
+    function updateOSSpecificInstall(selectedOS) {
+        const osSpecificInstall = document.getElementById('os-specific-install');
+        if (osSpecificInstall) {
+            let installContent = `If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>.<br><br>`;
+            
+            if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                installContent += `<strong>For PC users:</strong> Use this PowerShell command first which automatically installs Node.js, npm, and Claude Code CLI in one step:<br>
+                <pre><code>irm https://claude.ai/install.ps1 | iex</code></pre>`;
+            }
+            
+            if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                if (selectedOS === 'PC') {
+                    installContent += '<br>';
+                }
+                const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
+                installContent += `<strong>For ${osLabel} users:</strong> Install Claude Code CLI manually with npm:<br>
+                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>`;
+            }
+            
+            osSpecificInstall.innerHTML = installContent;
+        }
+    }
+
     // Separate function to update commands - called after DOM is ready
     function updateCommandsForOS(selectedOS) {
         // Find the command display div
@@ -718,12 +740,12 @@ npx @anthropic-ai/claude-code</code></pre>`;
                 const isInitialInstall = initialInstallRadio && initialInstallRadio.checked;
                 newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
             } else {
-                newContent = `# For Unix/Linux/Mac:
+                newContent = `<b>For Unix/Linux/Mac:</b>
 <pre><code>python3 -m venv env
 source env/bin/activate
 npx @anthropic-ai/claude-code</code></pre>
 
-# For Windows:
+<b>For Windows:</b>
 <pre><code>python -m venv env
 env\\Scripts\\activate.bat
 npx @anthropic-ai/claude-code</code></pre>`;

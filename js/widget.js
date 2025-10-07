@@ -3,7 +3,7 @@
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("widget.js detects URL hashChangeEvent");
-    alert("widget.js detects URL hashChangeEvent")
+    //alert("widget.js detects URL hashChangeEvent")
     //hashChanged();
 }, false);
 class ListingsDisplay {
