@@ -25,13 +25,12 @@ done
 
 # Helper function to check if we're in webroot
 check_webroot() {
-    local original_dir=$(pwd)
-    # Navigate to parent directory if we're in team submodule
-    if [[ "$(basename $(pwd))" == "team" ]]; then
-        cd ..
+    # Check if we're in the parent webroot directory
+    if [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
+        CURRENT_REMOTE=$(git -C .. remote get-url origin 2>/dev/null || echo "")
+    else
+        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
     fi
-    CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-    cd "$original_dir"
     if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
         echo "⚠️ ERROR: Not in webroot repository."
         exit 1
@@ -767,7 +766,7 @@ pull_command() {
     
     # Pull webroot
     echo "📥 Pulling webroot..."
-    output=$(git pull origin main 2>&1)
+    output=$(git -C .. pull origin main 2>&1)
     if [[ $? -ne 0 ]]; then
         echo "⚠️ Checking for conflicts in webroot"
     elif [[ "$output" != *"Already up to date"* ]]; then
@@ -775,7 +774,7 @@ pull_command() {
     fi
     
     # Update webroot from parent (skip partnertools)
-    WEBROOT_REMOTE=$(git remote get-url origin)
+    WEBROOT_REMOTE=$(git -C .. remote get-url origin)
     if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
         add_upstream "webroot" "true"
         merge_upstream "webroot"
@@ -838,14 +837,14 @@ pull_specific_repo() {
     # Check if it's webroot
     if [[ "$repo_name" == "webroot" ]]; then
         echo "📥 Pulling webroot..."
-        output=$(git pull origin main 2>&1)
+        output=$(git -C .. pull origin main 2>&1)
         if [[ $? -ne 0 ]]; then
             echo "⚠️ Checking for conflicts in webroot"
         elif [[ "$output" != *"Already up to date"* ]]; then
             echo "$output"
         fi
         
-        WEBROOT_REMOTE=$(git remote get-url origin)
+        WEBROOT_REMOTE=$(git -C .. remote get-url origin)
         if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
             add_upstream "webroot" "true"
             merge_upstream "webroot"
