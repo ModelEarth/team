@@ -25,7 +25,13 @@ done
 
 # Helper function to check if we're in webroot
 check_webroot() {
+    local original_dir=$(pwd)
+    # Navigate to parent directory if we're in team submodule
+    if [[ "$(basename $(pwd))" == "team" ]]; then
+        cd ..
+    fi
     CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+    cd "$original_dir"
     if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
         echo "⚠️ ERROR: Not in webroot repository."
         exit 1
@@ -1537,9 +1543,9 @@ case "$1" in
         echo ""
         echo "Supported Repository Names:"
         echo "  Webroot: webroot"
-        local submodules=($(get_submodules))
+        submodules=($(get_submodules))
         echo "  Submodules: ${submodules[*]}"
-        local extra_repos=($(get_extra_repos))
+        extra_repos=($(get_extra_repos))
         echo "  Extra Repos: ${extra_repos[*]}"
         echo ""
         echo "Options:"
