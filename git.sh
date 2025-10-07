@@ -10,15 +10,15 @@
 
 set -e  # Exit on any error
 
-# Global setting for safe submodule updates (can be overridden with --unsafe-submodules)
+# Global setting for safe submodule updates (can be overridden with overwrite-local)
 SAFE_SUBMODULE_UPDATES=true
 
 # Parse command line arguments for global flags
 for arg in "$@"; do
     case $arg in
-        --unsafe-submodules)
+        overwrite-local)
             SAFE_SUBMODULE_UPDATES=false
-            echo "⚠️ WARNING: Safe submodule protection DISABLED"
+            echo "⚠️ WARNING: Will overwrite local commits with parent repository state"
             ;;
     esac
 done
@@ -61,7 +61,8 @@ get_extra_repos() {
         return 0  # Not an error, just no extra repos
     fi
     
-    grep -v "^#" "$extra_file" | grep -v "^$" | cut -d'|' -f1
+    # Skip header line and parse CSV format (Repo,Path)
+    tail -n +2 "$extra_file" | cut -d',' -f1
 }
 
 # Check if repo has capital M (ModelEarth) based on .gitmodules URL
@@ -1508,7 +1509,7 @@ case "$1" in
         exit 1
         ;;
     *)
-        echo "Usage: ./git.sh [pull|push|fix|remotes|auth] [repo_name|submodules|all] [nopr] [--unsafe-submodules]"
+        echo "Usage: ./git.sh [pull|push|fix|remotes|auth] [repo_name|submodules|all] [nopr] [overwrite-local]"
         echo ""
         echo "Commands:"
         echo "  ./git.sh pull                      - Pull all repositories (webroot + submodules + extra repos)"
@@ -1530,7 +1531,7 @@ case "$1" in
         echo ""
         echo "Options:"
         echo "  nopr                               - Skip PR creation on push failures"
-        echo "  --unsafe-submodules                - Disable safe submodule protection (may revert to older commits)"
+        echo "  overwrite-local                    - Overwrite local commits with parent repository state"
         echo ""
         echo "Safety Features:"
         echo "  🛡️ Safe submodule updates enabled by default - preserves newer commits during merges"
