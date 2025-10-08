@@ -36,7 +36,7 @@ check_webroot() {
     
     # Determine context: are we operating on webroot or team?
     local CURRENT_REMOTE=""
-    local OPERATING_ON_WEBROOT=false
+    OPERATING_ON_WEBROOT=false
     
     # Check if we were called from webroot's git.sh (WEBROOT_CONTEXT env var set)
     if [ -n "$WEBROOT_CONTEXT" ]; then
@@ -716,6 +716,16 @@ ensure_push_completion() {
 commit_push() {
     local name="$1"
     local skip_pr="$2"
+    local original_dir=$(pwd)
+    
+    # If operating on webroot from team context, change to webroot directory
+    if [[ "$name" == "webroot" ]] && [[ "$OPERATING_ON_WEBROOT" == "true" ]] && [[ -n "$WEBROOT_CONTEXT" ]]; then
+        cd "$WEBROOT_CONTEXT" || {
+            echo "⚠️ ERROR: Cannot change to webroot directory: $WEBROOT_CONTEXT"
+            cd "$original_dir"
+            return 1
+        }
+    fi
     
     # Fix detached HEAD before committing
     fix_detached_head "$name"
@@ -739,14 +749,17 @@ commit_push() {
             if git push origin HEAD:$target_branch 2>/dev/null; then
                 echo "✅ Successfully pushed $name to $target_branch branch"
                 ensure_push_completion "$name"
+                cd "$original_dir"
                 return 0
             elif git push origin $target_branch 2>/dev/null; then
                 echo "✅ Successfully pushed $name to $target_branch"
                 ensure_push_completion "$name"
+                cd "$original_dir"
                 return 0
             elif push_error=$(git push 2>&1); then
                 echo "✅ Successfully pushed $name"
                 ensure_push_completion "$name"
+                cd "$original_dir"
                 return 0
             else
                 # Check for specific OAuth workflow scope error
@@ -754,6 +767,7 @@ commit_push() {
                     echo "🔒 GitHub OAuth token lacks 'workflow' scope for updating GitHub Actions"
                     echo "💡 To fix this, run: gh auth refresh -h github.com -s workflow"
                     echo "💡 Then retry the commit command"
+                    cd "$original_dir"
                     return 1
                 else
                     echo "⚠️ Push failed for owned repository $name with error:"
@@ -762,9 +776,11 @@ commit_push() {
                     if git push --force-with-lease 2>/dev/null; then
                         echo "✅ Force pushed $name"
                         ensure_push_completion "$name"
+                        cd "$original_dir"
                         return 0
                     else
                         echo "❌ All push strategies failed for owned repo $name"
+                        cd "$original_dir"
                         return 1
                     fi
                 fi
@@ -775,6 +791,7 @@ commit_push() {
             if git push origin HEAD:$target_branch 2>/dev/null; then
                 echo "✅ Successfully pushed $name to $target_branch branch"
                 ensure_push_completion "$name"
+                cd "$original_dir"
                 return 0
             fi
             
@@ -801,6 +818,7 @@ commit_push() {
                             ensure_push_completion "$name"
                         else
                             echo "⚠️ Failed to push $name to fork"
+                            cd "$original_dir"
                             return 1
                         fi
                     fi
@@ -837,6 +855,9 @@ commit_push() {
             fi
         fi
     fi
+    
+    # Return to original directory
+    cd "$original_dir"
 }
 
 # Pull command - streamlined pull workflow  
@@ -1415,7 +1436,17 @@ push_all() {
         local submodule_changes=$(git status --porcelain | grep -E "^\s*M\s+.*" | wc -l)
         if [[ "$submodule_changes" -gt "0" ]]; then
             echo "🔄 Staging modified submodules before webroot commit..."
-            git add .
+            # Get list of modified submodules and commit changes within them first
+            local modified_files=($(git status --porcelain | grep -E "^\s*M\s+" | awk '{print $2}'))
+            for file in "${modified_files[@]}"; do
+                echo "📌 Committing changes in submodule: $file"
+                (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
+            done
+            # Now add the updated submodule references
+            for file in "${modified_files[@]}"; do
+                echo "📌 Adding updated submodule reference: $file"
+                git add "$file"
+            done
         fi
     fi
     commit_push "webroot" "$skip_pr"

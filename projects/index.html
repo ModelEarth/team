@@ -2905,7 +2905,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     bskyIframeContainer.appendChild(label);
                     
                     const iframe = document.createElement('iframe');
-                    iframe.src = `https://cors-anywhere.herokuapp.com/${meetupLink}`;
+                    iframe.src = `https://cors-anywhere.herokuapp.com`;
                     iframe.style.width = '100%';
                     iframe.style.height = '400px';
                     iframe.style.border = '4px solid blue';
@@ -3070,6 +3070,58 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 // Show AI Insights section after successful data load
                 showAIInsightsSection();
+                
+                // Add iframe for bsky list after successful data load
+                if (typeof hash === 'undefined') {
+                    hash = getHash ? getHash() : {};
+                }
+                if (hash.list === 'bsky') {
+                    console.log('Adding bsky iframe after successful data load');
+                    
+                    // Remove any existing iframe container
+                    const existingContainer = document.getElementById('bsky-iframe-container');
+                    if (existingContainer) {
+                        existingContainer.remove();
+                    }
+                    
+                    const bskyIframeContainer = document.createElement('div');
+                    bskyIframeContainer.id = 'bsky-iframe-container';
+                    bskyIframeContainer.style.marginBottom = '20px';
+                    bskyIframeContainer.style.padding = '10px';
+                    bskyIframeContainer.style.border = '1px solid #ddd';
+                    bskyIframeContainer.style.borderRadius = '8px';
+                    bskyIframeContainer.style.backgroundColor = '#f9f9f9';
+                    
+                    const label = document.createElement('div');
+                    label.style.fontSize = '14px';
+                    label.style.fontWeight = 'bold';
+                    label.style.marginBottom = '8px';
+                    label.style.color = '#333';
+                    label.textContent = 'BlueSky RSS Feed (via CORS proxy)';
+                    bskyIframeContainer.appendChild(label);
+                    
+                    const iframe = document.createElement('iframe');
+                    iframe.src = `https://cors-anywhere.herokuapp.com`;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '350px';
+                    iframe.style.minHeight = 'unset';
+                    iframe.style.border = '4px solid blue';
+                    iframe.style.borderRadius = '4px';
+                    bskyIframeContainer.appendChild(iframe);
+                    
+                    const note = document.createElement('div');
+                    note.style.fontSize = '12px';
+                    note.style.color = '#666';
+                    note.style.marginTop = '8px';
+                    note.innerHTML = `RSS feed displayed via <a href="https://cors-anywhere.herokuapp.com" target="_blank">cors-anywhere.herokuapp.com</a> to bypass CORS restrictions`;
+                    bskyIframeContainer.appendChild(note);
+                    
+                    // Insert at the bottom of the main content area
+                    const mainContent = document.getElementById('participants-table-card') || document.getElementById('table-view');
+                    if (mainContent && mainContent.parentNode) {
+                        mainContent.parentNode.appendChild(bskyIframeContainer);
+                    }
+                }
                 
                 // Load most recent snapshot for this list after data is loaded
                 loadSnapshotOnPageLoad();
