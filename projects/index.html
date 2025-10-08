@@ -2272,7 +2272,7 @@
         </div>
         
         <!-- Status Messages (external to card) -->
-        <div id="statusMessages" class="message-log"></div>
+        <div id="statusMessages" class="message-log" style="margin-bottom: 20px;"></div>
         
         <!-- Load Status Panel -->
         <div class="card" id="loadStatus" style="display: none;">
@@ -2940,7 +2940,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Show error in status messages
                     appendStatusMessage(`<h4>No Data Found</h4><p>${errorMessage}</p>`, 'error');
-                    document.getElementById('loadStatus').style.display = 'block';
                     
                     // Populate Raw Data Editor with the load result
                     const rawDataEditor = document.getElementById('raw-data-editor');
@@ -2991,7 +2990,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Show error in status messages
                     appendStatusMessage(`<h4>No Valid Data Found</h4><p>${errorMessage}</p>`, 'error');
-                    document.getElementById('loadStatus').style.display = 'block';
                     
                     // Populate Raw Data Editor with the load result
                     const rawDataEditor = document.getElementById('raw-data-editor');
@@ -3063,7 +3061,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     `CORS-restricted ${loadResult.format.toUpperCase()} source using Rust proxy` : 
                     `${loadResult.format.toUpperCase()} source`;
                 appendStatusMessage(`Successfully loaded ${validData.length} records from ${sourceDescription}`, 'success');
-                document.getElementById('loadStatus').style.display = 'block';
                 
                 // Show UI elements after successful data load
                 showListDisplayElements();
@@ -3075,22 +3072,32 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 if (typeof hash === 'undefined') {
                     hash = getHash ? getHash() : {};
                 }
+                
+                // Hide existing CORS iframe container if switching to non-bsky feed
+                const existingContainer = document.getElementById('cors-iframe-container');
+                if (existingContainer) {
+                    if (hash.list === 'bsky') {
+                        existingContainer.style.display = 'block';
+                    } else {
+                        existingContainer.style.display = 'none';
+                    }
+                }
+                
                 if (hash.list === 'bsky') {
                     console.log('Adding bsky iframe after successful data load');
                     
-                    // Remove any existing iframe container
-                    const existingContainer = document.getElementById('bsky-iframe-container');
+                    // Remove any existing iframe container only if it exists
                     if (existingContainer) {
                         existingContainer.remove();
                     }
                     
-                    const bskyIframeContainer = document.createElement('div');
-                    bskyIframeContainer.id = 'bsky-iframe-container';
-                    bskyIframeContainer.style.marginBottom = '20px';
-                    bskyIframeContainer.style.padding = '10px';
-                    bskyIframeContainer.style.border = '1px solid #ddd';
-                    bskyIframeContainer.style.borderRadius = '8px';
-                    bskyIframeContainer.style.backgroundColor = '#f9f9f9';
+                    const corsIframeContainer = document.createElement('div');
+                    corsIframeContainer.id = 'cors-iframe-container';
+                    corsIframeContainer.style.marginBottom = '20px';
+                    corsIframeContainer.style.padding = '10px';
+                    corsIframeContainer.style.border = '1px solid #ddd';
+                    corsIframeContainer.style.borderRadius = '8px';
+                    corsIframeContainer.style.backgroundColor = '#f9f9f9';
                     
                     const label = document.createElement('div');
                     label.style.fontSize = '14px';
@@ -3098,7 +3105,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     label.style.marginBottom = '8px';
                     label.style.color = '#333';
                     label.textContent = 'BlueSky RSS Feed (via CORS proxy)';
-                    bskyIframeContainer.appendChild(label);
+                    corsIframeContainer.appendChild(label);
                     
                     const iframe = document.createElement('iframe');
                     iframe.src = `https://cors-anywhere.herokuapp.com`;
@@ -3107,19 +3114,19 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     iframe.style.minHeight = 'unset';
                     iframe.style.border = '4px solid blue';
                     iframe.style.borderRadius = '4px';
-                    bskyIframeContainer.appendChild(iframe);
+                    corsIframeContainer.appendChild(iframe);
                     
                     const note = document.createElement('div');
                     note.style.fontSize = '12px';
                     note.style.color = '#666';
                     note.style.marginTop = '8px';
                     note.innerHTML = `RSS feed displayed via <a href="https://cors-anywhere.herokuapp.com" target="_blank">cors-anywhere.herokuapp.com</a> to bypass CORS restrictions`;
-                    bskyIframeContainer.appendChild(note);
+                    corsIframeContainer.appendChild(note);
                     
                     // Insert at the bottom of the main content area
                     const mainContent = document.getElementById('participants-table-card') || document.getElementById('table-view');
                     if (mainContent && mainContent.parentNode) {
-                        mainContent.parentNode.appendChild(bskyIframeContainer);
+                        mainContent.parentNode.appendChild(corsIframeContainer);
                     }
                 }
                 
@@ -3174,7 +3181,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
                 
                 appendStatusMessage(`<h4>Error Loading Data</h4><p>${errorMessage}${additionalInfo}</p>`, 'error');
-                document.getElementById('loadStatus').style.display = 'block';
                 
                 // Show the table card so the 3-dot menu remains accessible
                 document.getElementById('participants-table-card').style.display = 'block';
