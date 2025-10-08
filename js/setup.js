@@ -1,6 +1,12 @@
 // Setup.js - Shared Git account fields and functionality
 // Used by both root index.html and team/admin/server/index.html
 
+// Calculate path to team folder based on current location
+const currentPath = window.location.pathname;
+const teamPathSetup = currentPath.includes('/team/') 
+    ? ('../'.repeat((currentPath.split('/team/')[1] || '').split('/').filter(p => p).length))
+    : 'team/';
+
 // HTML content for the Git account fields
 function createGitAccountFieldsHTML() {
     return `
@@ -278,44 +284,84 @@ function updateGeminiKeyUI(keyIsAvailable) {
         // Key is available - update to activated state
         titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">✅ Your Gemini Key is Activated</h2>';
         
-        // Calculate correct relative path to projects based on current page
-        const currentPath = window.location.pathname;
-        let projectsPath;
-        if (currentPath.includes('/team/')) {
-            // We're in a team subdirectory
-            projectsPath = '../projects/#list=all';
-        } else {
-            // We're in webroot
-            projectsPath = 'team/projects/#list=all';
-        }
+        // Use teamPathSetup to get correct relative path to projects
+        const projectsPath = teamPathSetup + 'projects/#list=all';
         
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
-        `;
-    } else {
-        // Key is not available - keep original state
-        titleElement.textContent = '🔴 Add AI Insights Key:';
-        
-        // Calculate correct relative path to admin server based on current page
-        const currentPath = window.location.pathname;
-        let adminServerPath;
-        if (currentPath.includes('/team/')) {
-            // We're in a team subdirectory
-            adminServerPath = 'admin/server/';
-        } else {
-            // We're in webroot
-            adminServerPath = 'team/admin/server/';
-        }
-        
-        contentElement.innerHTML = `
-            You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 6px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> locally to enable AI insights testing
+            <div style="margin-top: 8px;">
+                <button onclick="toggleGeminiKeyInput()" style="padding: 4px 8px; font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 3px; cursor: pointer;">Change Key</button>
+            </div>
+            <div id="browser-key-input" style="display: none; margin-top: 8px; padding: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;">
+                <label for="browser-gemini-key" style="font-size: 12px; font-weight: 500; color: #374151;">Override with Browser Key:</label><br>
+                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 250px; margin-top: 4px; padding: 4px; font-size: 11px; border: 1px solid #D1D5DB; border-radius: 3px;" oninput="saveBrowserGeminiKey()" value="">
+                <div style="font-size: 10px; color: #6B7280; margin-top: 2px;">
+                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank">Get your Gemini key</a> - Stored only in your browser cache
+                </div>
             </div>
         `;
+    } else {
+        // Check if user has cached key in browser
+        const cachedKey = localStorage.getItem('gemini_api_key');
+        
+        // Use teamPathSetup to get correct relative path to admin server
+        const adminServerPath = teamPathSetup + 'admin/server/';
+        
+        // Determine button text and title based on available keys
+        const buttonText = cachedKey ? 'Change Key' : 'Add Key';
+        const titleText = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add AI Insights Key:';
+        
+        titleElement.textContent = titleText;
+        contentElement.innerHTML = `
+            You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
+            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 6px; font-size: 11px;">
+                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for full AI insights
+            </div>
+            <div style="margin-top: 8px;">
+                <button onclick="toggleGeminiKeyInput()" style="padding: 4px 8px; font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 3px; cursor: pointer;">${buttonText}</button>
+            </div>
+            <div id="browser-key-input" style="display: none; margin-top: 8px; padding: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;">
+                <label for="browser-gemini-key" style="font-size: 12px; font-weight: 500; color: #374151;">Browser Key:</label><br>
+                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 250px; margin-top: 4px; padding: 4px; font-size: 11px; border: 1px solid #D1D5DB; border-radius: 3px;" oninput="saveBrowserGeminiKey()" value="${cachedKey || ''}">
+                <div style="font-size: 10px; color: #6B7280; margin-top: 2px;">
+                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank">Get your Gemini key</a> - Stored only in your browser cache
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Toggle the browser Gemini key input field
+function toggleGeminiKeyInput() {
+    const inputDiv = document.getElementById('browser-key-input');
+    if (inputDiv) {
+        const isVisible = inputDiv.style.display !== 'none';
+        inputDiv.style.display = isVisible ? 'none' : 'block';
+        
+        // Focus the input field when showing
+        if (!isVisible) {
+            const keyInput = document.getElementById('browser-gemini-key');
+            if (keyInput) {
+                setTimeout(() => keyInput.focus(), 100);
+            }
+        }
+    }
+}
+
+// Save browser Gemini key to localStorage
+function saveBrowserGeminiKey() {
+    const keyInput = document.getElementById('browser-gemini-key');
+    if (keyInput) {
+        const key = keyInput.value.trim();
+        if (key) {
+            localStorage.setItem('gemini_api_key', key);
+        } else {
+            localStorage.removeItem('gemini_api_key');
+        }
+        // Update UI to reflect the change
+        checkGeminiKeyStatus();
     }
 }
 

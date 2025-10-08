@@ -2883,6 +2883,48 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     tableContainer.innerHTML = '<div class="loading-state">Loading data...</div>';
                 }
 
+                // Add iframe for bsky list if detected
+                const hash = getHash ? getHash() : {};
+                console.log('Current hash:', hash, 'list value:', hash.list);
+                if (hash.list === 'bsky') {
+                    console.log('Creating bsky iframe container');
+                    const bskyIframeContainer = document.createElement('div');
+                    bskyIframeContainer.id = 'bsky-iframe-container';
+                    bskyIframeContainer.style.marginBottom = '20px';
+                    bskyIframeContainer.style.padding = '10px';
+                    bskyIframeContainer.style.border = '1px solid #ddd';
+                    bskyIframeContainer.style.borderRadius = '8px';
+                    bskyIframeContainer.style.backgroundColor = '#f9f9f9';
+                    
+                    const label = document.createElement('div');
+                    label.style.fontSize = '14px';
+                    label.style.fontWeight = 'bold';
+                    label.style.marginBottom = '8px';
+                    label.style.color = '#333';
+                    label.textContent = 'BlueSky RSS Feed (via CORS proxy)';
+                    bskyIframeContainer.appendChild(label);
+                    
+                    const iframe = document.createElement('iframe');
+                    iframe.src = `https://cors-anywhere.herokuapp.com/${meetupLink}`;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '400px';
+                    iframe.style.border = '1px solid #ccc';
+                    iframe.style.borderRadius = '4px';
+                    bskyIframeContainer.appendChild(iframe);
+                    
+                    const note = document.createElement('div');
+                    note.style.fontSize = '12px';
+                    note.style.color = '#666';
+                    note.style.marginTop = '8px';
+                    note.textContent = 'RSS feed displayed via cors-anywhere.herokuapp.com to bypass CORS restrictions';
+                    bskyIframeContainer.appendChild(note);
+                    
+                    // Insert before the table container
+                    if (tableContainer && tableContainer.parentNode) {
+                        tableContainer.parentNode.insertBefore(bskyIframeContainer, tableContainer);
+                    }
+                }
+
                 // Use unified data loading from js/list.js
                 console.log(`Loading data from: ${meetupLink}, CORS: ${isCors}`);
                 console.log('API_BASE:', GEMINI_API_BASE);
@@ -3502,6 +3544,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (!targetDiv) return;
             
             try {
+                // Always use iframe for bsky list regardless of Rust server status
+                const hash = getHash ? getHash() : {};
+                if (hash.list === 'bsky') {
+                    const iframe = document.createElement('iframe');
+                    iframe.src = `https://cors-anywhere.herokuapp.com/${url}`;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100px';
+                    iframe.style.border = '1px solid #ccc';
+                    iframe.style.borderRadius = '4px';
+                    iframe.style.marginTop = '4px';
+                    targetDiv.appendChild(iframe);
+                    
+                    // Add small label
+                    const label = document.createElement('div');
+                    label.style.fontSize = '9px';
+                    label.style.color = '#999';
+                    label.style.marginTop = '2px';
+                    label.textContent = 'via cors-anywhere.herokuapp.com';
+                    targetDiv.appendChild(label);
+                    return; // Exit early for bsky
+                }
+                
                 const isRustAvailable = await checkRustServer();
                 
                 if (isRustAvailable) {
@@ -3536,26 +3600,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         }
                     }
                 } else {
-                    // Fallback: show cors-anywhere iframe for bsky list
-                    const hash = getHash ? getHash() : {};
-                    if (hash.list === 'bsky') {
-                        const iframe = document.createElement('iframe');
-                        iframe.src = `https://cors-anywhere.herokuapp.com/${url}`;
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100px';
-                        iframe.style.border = '1px solid #ccc';
-                        iframe.style.borderRadius = '4px';
-                        iframe.style.marginTop = '4px';
-                        targetDiv.appendChild(iframe);
-                        
-                        // Add small label
-                        const label = document.createElement('div');
-                        label.style.fontSize = '9px';
-                        label.style.color = '#999';
-                        label.style.marginTop = '2px';
-                        label.textContent = 'via cors-anywhere.herokuapp.com';
-                        targetDiv.appendChild(label);
-                    }
+                    // Rust server not available - no fallback for non-bsky lists
                 }
                 
             } catch (error) {

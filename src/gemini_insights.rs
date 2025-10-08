@@ -124,7 +124,7 @@ pub async fn analyze_with_gemini(
 async fn call_gemini_api(api_key: &str, prompt: &str) -> anyhow::Result<(String, Option<TokenUsage>)> {
     let client = reqwest::Client::new();
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
     );
     
     let request_body = json!({

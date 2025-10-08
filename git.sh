@@ -1409,6 +1409,15 @@ push_all() {
     fi
     
     # Push webroot changes
+    # When operating in webroot context, check for and stage submodule changes before committing
+    if [[ "$OPERATING_ON_WEBROOT" == "true" ]]; then
+        # Check for modified submodules and stage them
+        local submodule_changes=$(git status --porcelain | grep -E "^\s*M\s+.*" | wc -l)
+        if [[ "$submodule_changes" -gt "0" ]]; then
+            echo "🔄 Staging modified submodules before webroot commit..."
+            git add .
+        fi
+    fi
     commit_push "webroot" "$skip_pr"
     
     # Check if webroot needs PR after direct changes
