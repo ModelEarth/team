@@ -2913,6 +2913,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/csv", web::post().to(fetch_csv))
                             .route("/external", web::post().to(proxy_external_request))
                     )
+                    .route("/scrape", web::get().to(scrape_site))
                     .service(
                         web::scope("/recommendations")
                             .route("", web::post().to(get_recommendations_handler))
@@ -3126,6 +3127,144 @@ async fn get_gemini_usage_website() -> Result<HttpResponse> {
         "success": false,
         "error": "Gemini website API not configured"
     })))
+}
+
+// Scrape site for Open Graph data and images
+#[derive(Deserialize)]
+struct ScrapeRequest {
+    url: String,
+}
+
+#[derive(Serialize)]
+struct ScrapeResponse {
+    image: Option<String>,
+    title: Option<String>,
+    description: Option<String>,
+}
+
+async fn scrape_site(req: web::Query<ScrapeRequest>) -> Result<HttpResponse> {
+    let url = &req.url;
+    
+    // Basic URL validation
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Ok(HttpResponse::BadRequest().json(json!({
+            "error": "Invalid URL format"
+        })));
+    }
+    
+    // Build a client with proper headers to mimic a real browser
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to build HTTP client"))?;
+    
+    // Fetch the page content
+    match client.get(url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.text().await {
+                    Ok(html) => {
+                        println!("Successfully fetched URL: {}, HTML length: {}", url, html.len());
+                        
+                        // Parse HTML to extract Open Graph data
+                        let mut image = None;
+                        let mut title = None;
+                        let mut description = None;
+                        
+                        // Simple regex-based parsing for Open Graph tags
+                        if let Some(og_image) = extract_meta_property(&html, "og:image") {
+                            println!("Found og:image: {}", og_image);
+                            // Make sure image URL is absolute
+                            if og_image.starts_with("//") {
+                                image = Some(format!("https:{}", og_image));
+                            } else if og_image.starts_with("/") {
+                                if let Ok(parsed_url) = url::Url::parse(url) {
+                                    if let Some(domain) = parsed_url.domain() {
+                                        let scheme = parsed_url.scheme();
+                                        image = Some(format!("{}://{}{}", scheme, domain, og_image));
+                                    }
+                                }
+                            } else if og_image.starts_with("http") {
+                                image = Some(og_image);
+                            }
+                        }
+                        
+                        // Extract title
+                        if let Some(og_title) = extract_meta_property(&html, "og:title") {
+                            println!("Found og:title: {}", og_title);
+                            title = Some(og_title);
+                        } else if let Some(html_title) = extract_html_title(&html) {
+                            println!("Found HTML title: {}", html_title);
+                            title = Some(html_title);
+                        }
+                        
+                        // Extract description
+                        if let Some(og_desc) = extract_meta_property(&html, "og:description") {
+                            println!("Found og:description: {}", og_desc);
+                            description = Some(og_desc);
+                        }
+                        
+                        let response_json = ScrapeResponse {
+                            image: image.clone(),
+                            title: title.clone(),
+                            description: description.clone(),
+                        };
+                        
+                        println!("Returning scrape response: image={:?}, title={:?}", image, title);
+                        Ok(HttpResponse::Ok().json(response_json))
+                    }
+                    Err(err) => {
+                        println!("Failed to read response content: {}", err);
+                        Ok(HttpResponse::InternalServerError().json(json!({
+                            "error": "Failed to read response content"
+                        })))
+                    }
+                }
+            } else {
+                println!("HTTP error response: {}", response.status());
+                Ok(HttpResponse::BadRequest().json(json!({
+                    "error": format!("HTTP error: {}", response.status())
+                })))
+            }
+        }
+        Err(err) => {
+            println!("Failed to fetch URL {}: {}", url, err);
+            Ok(HttpResponse::InternalServerError().json(json!({
+                "error": format!("Failed to fetch URL: {}", err)
+            })))
+        }
+    }
+}
+
+// Helper function to extract Open Graph meta property content
+fn extract_meta_property(html: &str, property: &str) -> Option<String> {
+    let pattern = format!(r#"<meta\s+property\s*=\s*["']{}["'][^>]*content\s*=\s*["']([^"']+)["']"#, regex::escape(property));
+    if let Ok(re) = regex::Regex::new(&pattern) {
+        if let Some(caps) = re.captures(html) {
+            return caps.get(1).map(|m| m.as_str().to_string());
+        }
+    }
+    
+    // Try alternative format: content first, then property
+    let pattern_alt = format!(r#"<meta\s+content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']{}["']"#, regex::escape(property));
+    if let Ok(re) = regex::Regex::new(&pattern_alt) {
+        if let Some(caps) = re.captures(html) {
+            return caps.get(1).map(|m| m.as_str().to_string());
+        }
+    }
+    
+    None
+}
+
+// Helper function to extract HTML title
+fn extract_html_title(html: &str) -> Option<String> {
+    if let Ok(re) = regex::Regex::new(r"<title[^>]*>([^<]+)</title>") {
+        if let Some(caps) = re.captures(html) {
+            return caps.get(1).map(|m| m.as_str().trim().to_string());
+        }
+    }
+    None
 }
 
 #[actix_web::main]

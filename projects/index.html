@@ -3477,6 +3477,93 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return value;
         }
         
+        // Check if Rust server is available
+        let rustServerAvailable = null;
+        async function checkRustServer() {
+            if (rustServerAvailable !== null) return rustServerAvailable;
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/health', {
+                    method: 'GET',
+                    timeout: 1000
+                });
+                rustServerAvailable = response.ok;
+            } catch (error) {
+                rustServerAvailable = false;
+            }
+            return rustServerAvailable;
+        }
+        
+        // Helper function to generate site previews for URLs
+        async function getSitePreview(url, targetDivId) {
+            if (!url || !targetDivId) return;
+            
+            const targetDiv = document.getElementById(targetDivId);
+            if (!targetDiv) return;
+            
+            try {
+                const isRustAvailable = await checkRustServer();
+                
+                if (isRustAvailable) {
+                    // Use Rust server for scraping
+                    const response = await fetch(`http://localhost:8081/api/scrape?url=${encodeURIComponent(url)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.image) {
+                            const img = document.createElement('img');
+                            img.src = data.image;
+                            img.style.width = '100%';
+                            img.style.height = 'auto';
+                            img.style.maxHeight = '120px';
+                            img.style.objectFit = 'cover';
+                            img.style.borderRadius = '4px';
+                            img.onerror = () => img.remove();
+                            targetDiv.appendChild(img);
+                        }
+                        
+                        if (data.title) {
+                            const titleDiv = document.createElement('div');
+                            titleDiv.style.fontSize = '11px';
+                            titleDiv.style.color = '#666';
+                            titleDiv.style.marginTop = '4px';
+                            titleDiv.style.overflow = 'hidden';
+                            titleDiv.style.textOverflow = 'ellipsis';
+                            titleDiv.style.whiteSpace = 'nowrap';
+                            titleDiv.textContent = data.title.length > 30 ? 
+                                data.title.substring(0, 30) + '...' : data.title;
+                            targetDiv.appendChild(titleDiv);
+                        }
+                    }
+                } else {
+                    // Fallback: show cors-anywhere iframe for bsky list
+                    const hash = getHash ? getHash() : {};
+                    if (hash.list === 'bsky') {
+                        const iframe = document.createElement('iframe');
+                        iframe.src = `https://cors-anywhere.herokuapp.com/${url}`;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100px';
+                        iframe.style.border = '1px solid #ccc';
+                        iframe.style.borderRadius = '4px';
+                        iframe.style.marginTop = '4px';
+                        targetDiv.appendChild(iframe);
+                        
+                        // Add small label
+                        const label = document.createElement('div');
+                        label.style.fontSize = '9px';
+                        label.style.color = '#999';
+                        label.style.marginTop = '2px';
+                        label.textContent = 'via cors-anywhere.herokuapp.com';
+                        targetDiv.appendChild(label);
+                    }
+                }
+                
+            } catch (error) {
+                // Silently fail if preview generation fails
+                console.debug('Preview generation failed:', error);
+            }
+        }
+        
         // Helper function to determine which field is being used as the title
         function getTitleFieldName(participant, topFieldsFirstField = null) {
             if (!participant || typeof participant !== 'object') {
@@ -4069,6 +4156,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                                 a.rel = 'noopener noreferrer';
                                 a.addEventListener('click', (e) => e.stopPropagation());
                                 td.appendChild(a);
+                                
+                                // Add preview for URLs in Name/Title column
+                                if (header.toLowerCase() === 'name' || header.toLowerCase() === 'title') {
+                                    const previewId = 'preview_' + Math.random().toString(36).substr(2, 9);
+                                    const previewDiv = document.createElement('div');
+                                    previewDiv.id = previewId;
+                                    previewDiv.style.marginTop = '6px';
+                                    previewDiv.style.maxWidth = '160px';
+                                    td.appendChild(previewDiv);
+                                    
+                                    // Generate preview if getSitePreview function exists
+                                    if (typeof getSitePreview === 'function') {
+                                        try {
+                                            getSitePreview(urlMatch[0], previewId);
+                                        } catch (err) {
+                                            // ignore preview errors
+                                        }
+                                    }
+                                }
                             } else if (atMatch) {
                                 const handle = atMatch[1];
                                 const a = document.createElement('a');
