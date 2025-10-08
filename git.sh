@@ -34,19 +34,29 @@ check_webroot() {
         echo "   This can cause confusion. Consider removing: $(pwd)/webroot"
     fi
     
-    # Determine webroot context and get remote URL
+    # Determine context: are we operating on webroot or team?
     local CURRENT_REMOTE=""
-    if [ -f ".gitmodules" ] && [ -d ".git" ]; then
-        # We're in webroot directory
+    local OPERATING_ON_WEBROOT=false
+    
+    # Check if we were called from webroot's git.sh (WEBROOT_CONTEXT env var set)
+    if [ -n "$WEBROOT_CONTEXT" ]; then
+        # Called from webroot's git.sh - operate on webroot
+        OPERATING_ON_WEBROOT=true
+        CURRENT_REMOTE=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
+    elif [ -f ".gitmodules" ] && [ -d ".git" ]; then
+        # We're in webroot directory - operate on webroot
+        OPERATING_ON_WEBROOT=true
         CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
     elif [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
-        # We're in team subdirectory
-        CURRENT_REMOTE=$(git -C .. remote get-url origin 2>/dev/null || echo "")
+        # We're in team subdirectory - operate on team
+        OPERATING_ON_WEBROOT=false
+        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
     else
         # Try to find webroot by going up directories
         local current_dir=$(pwd)
         while [ "$current_dir" != "/" ]; do
             if [ -f "$current_dir/.gitmodules" ] && [ -d "$current_dir/.git" ]; then
+                OPERATING_ON_WEBROOT=true
                 CURRENT_REMOTE=$(git -C "$current_dir" remote get-url origin 2>/dev/null || echo "")
                 break
             fi
@@ -54,11 +64,22 @@ check_webroot() {
         done
     fi
     
-    if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
-        echo "⚠️ ERROR: Not in webroot repository context. Remote: $CURRENT_REMOTE"
-        echo "   Current directory: $(pwd)"
-        echo "   Please run this script from the webroot directory or its team subdirectory."
-        exit 1
+    # Validate the context matches the expected repository
+    if [ "$OPERATING_ON_WEBROOT" = true ]; then
+        if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
+            echo "⚠️ ERROR: Expected to operate on webroot but found remote: $CURRENT_REMOTE"
+            echo "   Current directory: $(pwd)"
+            echo "   Context: Webroot operation"
+            exit 1
+        fi
+    else
+        if [[ "$CURRENT_REMOTE" == *"webroot"* ]]; then
+            echo "⚠️ ERROR: Expected to operate on team but found webroot remote: $CURRENT_REMOTE"
+            echo "   Current directory: $(pwd)"
+            echo "   Context: Team operation"
+            echo "   This indicates the team submodule's remote URLs are misconfigured"
+            exit 1
+        fi
     fi
     
     # Store the webroot directory for later use
