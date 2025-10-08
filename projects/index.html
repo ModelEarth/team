@@ -3461,6 +3461,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 .replace(/\b\w/g, char => char.toUpperCase());
         }
         
+        // Helper function to format URLs in display values
+        function formatValueForDisplay(value) {
+            if (!value || typeof value !== 'string') return value;
+            
+            // Check if the value starts with http:// or https://
+            const urlMatch = value.match(/^(https?:\/\/[^\s"'<>]+)/i);
+            if (urlMatch) {
+                const fullUrl = urlMatch[0];
+                // Truncate URL display text to 50 characters with ellipsis
+                const displayText = value.length > 50 ? value.substring(0, 50) + '...' : value;
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${displayText}</a>`;
+            }
+            
+            return value;
+        }
+        
         // Helper function to determine which field is being used as the title
         function getTitleFieldName(participant, topFieldsFirstField = null) {
             if (!participant || typeof participant !== 'object') {
@@ -3556,17 +3572,20 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 const formattedFieldName = formatFieldName(field);
                 
+                // Format URLs in the value
+                const formattedValue = formatValueForDisplay(value);
+                
                 if (isGallery) {
                     // All fields (except first) get bold field name with colon
-                    html += `<div class="gallery-info"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                    html += `<div class="gallery-info"><strong>${formattedFieldName}:</strong> ${formattedValue}</div>`;
                 } else {
                     // All fields (except first) get bold field name with colon
                     if (isProjectsField) {
-                        html += `<div class="columns-projects"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                        html += `<div class="columns-projects"><strong>${formattedFieldName}:</strong> ${formattedValue}</div>`;
                     } else if (field.toLowerCase() === 'status') {
-                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> <span class="columns-status">${value}</span></div>`;
+                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> <span class="columns-status">${formattedValue}</span></div>`;
                     } else {
-                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> ${value}</div>`;
+                        html += `<div class="columns-info"><strong>${formattedFieldName}:</strong> ${formattedValue}</div>`;
                     }
                 }
                 
@@ -4036,14 +4055,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         const tokens = rawVal.split(/(\s+)/); // keep whitespace tokens
                         tokens.forEach(token => {
                             if (!token) return;
-                            // URL starting with https://
-                            const httpsMatch = token.match(/^(https:\/\/[^\s"'<>]+)/i);
+                            // URL starting with https:// or http://
+                            const urlMatch = token.match(/^(https?:\/\/[^\s"'<>]+)/i);
                             const atMatch = token.match(/^@([a-zA-Z0-9_\-\.]+)/);
 
-                            if (httpsMatch) {
+                            if (urlMatch) {
                                 const a = document.createElement('a');
-                                a.href = httpsMatch[0];
-                                a.textContent = token;
+                                a.href = urlMatch[0];
+                                // Truncate URL display text to 50 characters with ellipsis
+                                const displayText = token.length > 50 ? token.substring(0, 50) + '...' : token;
+                                a.textContent = displayText;
                                 a.target = '_blank';
                                 a.rel = 'noopener noreferrer';
                                 a.addEventListener('click', (e) => e.stopPropagation());
