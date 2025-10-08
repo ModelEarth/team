@@ -13,6 +13,9 @@ set -e  # Exit on any error
 # Global setting for safe submodule updates (can be overridden with overwrite-local)
 SAFE_SUBMODULE_UPDATES=true
 
+# Store the webroot directory at script start
+WEBROOT_DIR=""
+
 # Parse command line arguments for global flags
 for arg in "$@"; do
     case $arg in
@@ -25,21 +28,80 @@ done
 
 # Helper function to check if we're in webroot
 check_webroot() {
-    # Check for nested webroot directories (prevent confusion)
-    if [ -d "webroot" ]; then
+    # Check for nested webroot directories (prevent confusion) - but only if we're in team subdirectory
+    if [ -f "../.gitmodules" ] && [ -d "webroot" ]; then
         echo "⚠️ WARNING: Found nested 'webroot' directory in team submodule!"
         echo "   This can cause confusion. Consider removing: $(pwd)/webroot"
     fi
     
-    # Check if we're in the parent webroot directory
-    if [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
+    # Determine webroot context and get remote URL
+    local CURRENT_REMOTE=""
+    if [ -f ".gitmodules" ] && [ -d ".git" ]; then
+        # We're in webroot directory
+        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+    elif [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
+        # We're in team subdirectory
         CURRENT_REMOTE=$(git -C .. remote get-url origin 2>/dev/null || echo "")
     else
-        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+        # Try to find webroot by going up directories
+        local current_dir=$(pwd)
+        while [ "$current_dir" != "/" ]; do
+            if [ -f "$current_dir/.gitmodules" ] && [ -d "$current_dir/.git" ]; then
+                CURRENT_REMOTE=$(git -C "$current_dir" remote get-url origin 2>/dev/null || echo "")
+                break
+            fi
+            current_dir=$(dirname "$current_dir")
+        done
     fi
+    
     if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
-        echo "⚠️ ERROR: Not in webroot repository."
+        echo "⚠️ ERROR: Not in webroot repository context. Remote: $CURRENT_REMOTE"
+        echo "   Current directory: $(pwd)"
+        echo "   Please run this script from the webroot directory or its team subdirectory."
         exit 1
+    fi
+    
+    # Store the webroot directory for later use
+    if [ -z "$WEBROOT_DIR" ]; then
+        if [ -f ".gitmodules" ] && [ -d ".git" ]; then
+            WEBROOT_DIR=$(pwd)
+        elif [ -f "../.gitmodules" ] && [ -d "../.git" ]; then
+            WEBROOT_DIR=$(cd .. && pwd)
+        else
+            # Find webroot by going up directories
+            local current_dir=$(pwd)
+            while [ "$current_dir" != "/" ]; do
+                if [ -f "$current_dir/.gitmodules" ] && [ -d "$current_dir/.git" ]; then
+                    WEBROOT_DIR="$current_dir"
+                    break
+                fi
+                current_dir=$(dirname "$current_dir")
+            done
+        fi
+    fi
+}
+
+# Helper function to return to webroot directory
+cd_webroot() {
+    if [ -n "$WEBROOT_DIR" ]; then
+        cd "$WEBROOT_DIR"
+    else
+        echo "⚠️ ERROR: Webroot directory not set"
+        return 1
+    fi
+}
+
+# Helper function to run git commands in webroot context
+git_webroot() {
+    # If we're in webroot directory (has .gitmodules), run git directly
+    if [ -f ".gitmodules" ]; then
+        git "$@"
+    # If we're in team subdirectory, use git -C ..
+    elif [ -f "../.gitmodules" ]; then
+        git -C .. "$@"
+    else
+        echo "⚠️ ERROR: Cannot determine webroot context"
+        return 1
     fi
 }
 
@@ -351,7 +413,7 @@ update_webroot_submodule_reference() {
     # Update submodule to point to the specific commit
     cd "$name"
     git checkout "$commit_hash" 2>/dev/null
-    cd ..
+    cd_webroot
     
     # Commit the submodule reference update
     if [ -n "$(git status --porcelain | grep -E "($name|\.gitmodules)")" ]; then
@@ -436,7 +498,7 @@ safe_submodule_update() {
             fi
             
             # Check what commit the parent repository wants
-            cd ..
+            cd_webroot
             local expected_commit=$(git ls-tree HEAD "$sub" | awk '{print $3}' || echo "")
             
             if [ -n "$expected_commit" ] && [ -n "$current_commit" ]; then
@@ -450,7 +512,7 @@ safe_submodule_update() {
                     git checkout "$newest_commit" 2>/dev/null || echo "⚠️ Failed to checkout $newest_commit in $sub"
                     
                     # Update parent repo to point to the newest commit
-                    cd ..
+                    cd_webroot
                     git add "$sub"
                     echo "📌 Updated parent repo to use newer $sub commit from $update_source"
                 elif [ "$expected_timestamp" -gt "$current_timestamp" ]; then
@@ -461,16 +523,16 @@ safe_submodule_update() {
                     echo "   ↳ Parent repo wants older commit: $expected_commit ($(git show -s --format='%ci' "$expected_commit" 2>/dev/null || echo 'unknown date'))"
                     
                     # Update parent repo to point to the newer commit
-                    cd ..
+                    cd_webroot
                     git add "$sub"
                     echo "📌 Updated parent repo to preserve newer $sub commit"
                 else
                     echo "✅ $sub is already at the correct commit"
                 fi
-                cd ..
+                cd_webroot
             else
                 echo "⚠️ Could not determine commit information for $sub"
-                cd ..
+                cd_webroot
             fi
         fi
     done
@@ -545,7 +607,7 @@ safe_single_submodule_update() {
         else
             echo "✅ $sub is already up to date"
         fi
-        cd ..
+        cd_webroot
     else
         echo "⚠️ Submodule $sub not found or not initialized"
     fi
@@ -761,7 +823,6 @@ pull_command() {
     local repo_name="$1"
     
     echo "🔄 Starting pull workflow..."
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     # If specific repo name provided, pull only that repo
@@ -772,7 +833,7 @@ pull_command() {
     
     # Pull webroot
     echo "📥 Pulling webroot..."
-    output=$(git -C .. pull origin main 2>&1)
+    output=$(git_webroot pull origin main 2>&1)
     if [[ $? -ne 0 ]]; then
         echo "⚠️ Checking for conflicts in webroot"
     elif [[ "$output" != *"Already up to date"* ]]; then
@@ -780,7 +841,7 @@ pull_command() {
     fi
     
     # Update webroot from parent (skip partnertools)
-    WEBROOT_REMOTE=$(git -C .. remote get-url origin)
+    WEBROOT_REMOTE=$(git_webroot remote get-url origin)
     if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
         add_upstream "webroot" "true"
         merge_upstream "webroot"
@@ -843,20 +904,19 @@ pull_command() {
 pull_specific_repo() {
     local repo_name="$1"
     
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     # Check if it's webroot
     if [[ "$repo_name" == "webroot" ]]; then
         echo "📥 Pulling webroot..."
-        output=$(git -C .. pull origin main 2>&1)
+        output=$(git_webroot pull origin main 2>&1)
         if [[ $? -ne 0 ]]; then
             echo "⚠️ Checking for conflicts in webroot"
         elif [[ "$output" != *"Already up to date"* ]]; then
             echo "$output"
         fi
         
-        WEBROOT_REMOTE=$(git -C .. remote get-url origin)
+        WEBROOT_REMOTE=$(git_webroot remote get-url origin)
         if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
             add_upstream "webroot" "true"
             merge_upstream "webroot"
@@ -927,7 +987,6 @@ pull_specific_repo() {
 
 # Check and fix detached HEAD states in all repositories
 fix_all_detached_heads() {
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     local fixed_count=0
@@ -971,7 +1030,6 @@ fix_all_detached_heads() {
 # Check and update all remotes for current GitHub user
 update_all_remotes_for_user() {
     echo "🔄 Updating all remotes for current GitHub user..."
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     local current_user=$(get_current_user)
@@ -1194,7 +1252,6 @@ push_specific_repo() {
     local name="$1"
     local skip_pr="$2"
     
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     # Auto-pull unless nopull/no pull is specified
@@ -1285,7 +1342,6 @@ push_specific_repo() {
 push_submodules() {
     local skip_pr="$1"
     
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     # Auto-pull unless nopull/no pull is specified
@@ -1322,7 +1378,6 @@ push_submodules() {
 push_all() {
     local skip_pr="$1"
     
-    cd $(git rev-parse --show-toplevel)
     check_webroot
     
     # Auto-pull unless nopull/no pull is specified
