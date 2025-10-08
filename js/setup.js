@@ -277,8 +277,18 @@ function updateGeminiKeyUI(keyIsAvailable) {
     if (keyIsAvailable) {
         // Key is available - update to activated state
         titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">✅ Your Gemini Key is Activated</h2>';
-        // Calculate correct relative path to projects
-        const projectsPath = '../../team/projects/#list=all';
+        
+        // Calculate correct relative path to projects based on current page
+        const currentPath = window.location.pathname;
+        let projectsPath;
+        if (currentPath.includes('/team/')) {
+            // We're in a team subdirectory
+            projectsPath = '../projects/#list=all';
+        } else {
+            // We're in webroot
+            projectsPath = 'team/projects/#list=all';
+        }
+        
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
@@ -287,7 +297,18 @@ function updateGeminiKeyUI(keyIsAvailable) {
     } else {
         // Key is not available - keep original state
         titleElement.textContent = '🔴 Add AI Insights Key:';
-        const adminServerPath = 'admin/server/';
+        
+        // Calculate correct relative path to admin server based on current page
+        const currentPath = window.location.pathname;
+        let adminServerPath;
+        if (currentPath.includes('/team/')) {
+            // We're in a team subdirectory
+            adminServerPath = 'admin/server/';
+        } else {
+            // We're in webroot
+            adminServerPath = 'team/admin/server/';
+        }
+        
         contentElement.innerHTML = `
             You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
