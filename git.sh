@@ -1432,12 +1432,11 @@ push_all() {
     # Push webroot changes
     # When operating in webroot context, check for and stage submodule changes before committing
     if [[ "$OPERATING_ON_WEBROOT" == "true" ]]; then
-        # Check for modified submodules and stage them
-        local submodule_changes=$(git status --porcelain | grep -E "^\s*M\s+.*" | wc -l)
-        if [[ "$submodule_changes" -gt "0" ]]; then
+        # Get list of modified submodules
+        local modified_files=($(git status --porcelain | grep -E "^\s*M\s+" | awk '{print $2}'))
+        if [[ ${#modified_files[@]} -gt 0 ]]; then
             echo "🔄 Staging modified submodules before webroot commit..."
-            # Get list of modified submodules and commit changes within them first
-            local modified_files=($(git status --porcelain | grep -E "^\s*M\s+" | awk '{print $2}'))
+            # Commit changes within each submodule first
             for file in "${modified_files[@]}"; do
                 echo "📌 Committing changes in submodule: $file"
                 (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
