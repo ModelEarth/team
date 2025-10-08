@@ -136,7 +136,9 @@ function updateFaviconPath() {
 }
 
 // API Configuration
-const API_BASE = 'http://localhost:8081/api';
+if (typeof API_BASE === 'undefined') {
+    var API_BASE = 'http://localhost:8081/api';
+}
 
 // OS Detection functionality
 function detectOS() {
@@ -443,74 +445,15 @@ choco install gh -y</code></pre>
     </div>
 </div>
 
-<div id="gemini-resources" class="card" style="margin-bottom: 16px;">
-    <h1>Gemini Insights</h1>
-    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
-    <div id="gemini-key-content">
-        You can use a free Gemini key for AI insights.<br>
-        <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
-    </div>
-</div>
     `;
     
     container.innerHTML = panelHTML;
     
     // Initialize the panel after creating it
     initializeOSDetectionPanel();
-    
-    // Check Gemini key status and update UI
-    checkGeminiKeyStatus();
 }
 
-// Function to check Gemini key status and update UI
-async function checkGeminiKeyStatus() {
-    try {
-        // Call the config/current endpoint to check if Gemini key is available
-        const response = await fetch(`${API_BASE}/config/current`);
-        if (response.ok) {
-            const config = await response.json();
-            updateGeminiKeyUI(config.gemini_api_key_present);
-        } else {
-            // If API call fails, assume key is not available
-            updateGeminiKeyUI(false);
-        }
-    } catch (error) {
-        // If there's an error (e.g., server not running), assume key is not available
-        updateGeminiKeyUI(false);
-    }
-}
 
-// Function to update the Gemini key UI based on availability
-function updateGeminiKeyUI(keyIsAvailable) {
-    const titleElement = document.getElementById('gemini-key-title');
-    const contentElement = document.getElementById('gemini-key-content');
-    const linkElement = document.getElementById('gemini-key-link');
-    
-    if (!titleElement || !contentElement || !linkElement) return;
-    
-    if (keyIsAvailable) {
-        // Key is available - update to activated state
-        titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">✅ Your Gemini Key is Activated</h2>';
-        // Calculate correct relative path to projects
-        const projectsPath = fixRelativePath('../../team/projects/#list=all');
-        contentElement.innerHTML = `
-            You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
-            <div id="gemini-test-result" style="margin-top: 8px;"></div>
-        `;
-    } else {
-        // Key is not available - keep original state
-        titleElement.textContent = '🔴 Add AI Insights Key:';
-        const adminServerPath = fixRelativePath('admin/server/');
-        contentElement.innerHTML = `
-            You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart">Get your Gemini key</a> and add it in team/.env
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 6px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> locally to enable AI insights testing
-            </div>
-        `;
-    }
-}
 
 // Function to initialize OS detection panel functionality
 function initializeOSDetectionPanel() {
@@ -522,7 +465,6 @@ function initializeOSDetectionPanel() {
     const cliCommands = document.getElementById('cli-commands');
     const claudeCodeCommands = document.getElementById('claude-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
-    const geminiResources = document.getElementById('gemini-resources');
     const vscodeCommands = document.getElementById('vscode-cmds');
     const claudeInstallText = document.getElementById('claude-install-text');
     const repoNameSpan = document.getElementById('repo-name');
@@ -938,7 +880,6 @@ npx @anthropic-ai/claude-code</code></pre>`;
     setTimeout(() => {
         makeCollapsible('cli-commands', 'Claude Code CLI Installation');
         makeCollapsible('gemini-installation', 'Gemini CLI Installation');
-        makeCollapsible('gemini-resources', 'Gemini AI Insights Key');
         makeCollapsible('vscode-cmds', 'VS Code Commands');
     }, 100);
 }
@@ -1921,6 +1862,7 @@ async function stopRustServer() {
     }
 }
 
+window.createOSDetectionPanel = createOSDetectionPanel;
 window.createRustApiStatusPanel = createRustApiStatusPanel;
 window.updateRustApiStatusPanel = updateRustApiStatusPanel;
 window.checkBackendStatus = checkBackendStatus;
@@ -1944,62 +1886,7 @@ window.getBasePath = getBasePath;
 window.fixRelativePath = fixRelativePath;
 window.updateFaviconPath = updateFaviconPath;
 window.BASE_PATH = BASE_PATH;
-window.checkGeminiKeyStatus = checkGeminiKeyStatus;
-window.updateGeminiKeyUI = updateGeminiKeyUI;
-window.testGeminiFromPanel = testGeminiFromPanel;
 
-// Test Gemini API from the panel
-async function testGeminiFromPanel() {
-    const resultDiv = document.getElementById('gemini-test-result');
-    if (!resultDiv) return;
-    
-    resultDiv.innerHTML = '<div style="color: var(--text-secondary); font-size: 12px;">Testing Gemini API...</div>';
-    
-    try {
-        const response = await fetch(`${API_BASE}/config/gemini`);
-        const data = await response.json();
-        
-        if (data.success) {
-            resultDiv.innerHTML = `
-                <div style="background: #D1FAE5; border: 1px solid #A7F3D0; color: #065F46; padding: 8px; border-radius: 4px; font-size: 12px; margin-top: 4px;">
-                    ✅ Gemini API connection successful<br>
-                    API Key Present: Yes | API Key Preview: ${data.api_key_preview}<br>
-                    Status: API key is valid and working<br>
-                    Test: Successfully connected to Gemini API<br>
-                    Ready: AI features are available
-                </div>
-            `;
-        } else {
-            resultDiv.innerHTML = `
-                <div style="background: #FEE2E2; border: 1px solid #FECACA; color: #991B1B; padding: 8px; border-radius: 4px; font-size: 12px; margin-top: 4px;">
-                    ❌ ${data.message}<br>
-                    ${data.error ? 'Error: ' + data.error : ''}
-                </div>
-            `;
-        }
-    } catch (error) {
-        // Check if this is likely a connection error (server not running)
-        const isConnectionError = error.message.includes('fetch') || 
-                                error.message.includes('NetworkError') || 
-                                error.message.includes('Failed to fetch');
-        
-        if (isConnectionError) {
-            resultDiv.innerHTML = `
-                <div style="background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; padding: 8px; border-radius: 4px; font-size: 12px; margin-top: 4px;">
-                    ⚠️ Start the Rust API first. Then you can test the Gemini API.<br>
-                    Error: Failed to connect to API server (${error.message})
-                </div>
-            `;
-        } else {
-            resultDiv.innerHTML = `
-                <div style="background: #FEE2E2; border: 1px solid #FECACA; color: #991B1B; padding: 8px; border-radius: 4px; font-size: 12px; margin-top: 4px;">
-                    ❌ Failed to connect to API server<br>
-                    Error: ${error.message}
-                </div>
-            `;
-        }
-    }
-}
 
 // Team Lookup Cache System
 // Global object to store team data by modelsite

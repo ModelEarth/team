@@ -58,7 +58,9 @@
 
         <div id="combined-rust-api-container"></div>
 
+        <div class="card" id="trade-flow-repos-container"></div>
 
+        <div id="gemini-resources-container"></div>
 
         <div class="card">
             <h2 class="card-title">About AI Insights</h2>
@@ -323,6 +325,13 @@
             setupWebrootSetup('webrootSetup');
         } else {
             console.error('setupWebrootSetup function not available');
+        }
+
+        // Setup Trade Flow Repos and Gemini Resources
+        if (typeof setupGeminiResourcesAfterTradeFlow === 'function') {
+            setupGeminiResourcesAfterTradeFlow('trade-flow-repos-container', 'gemini-resources-container');
+        } else {
+            console.error('setupGeminiResourcesAfterTradeFlow function not available');
         }
         
         // Initialize page

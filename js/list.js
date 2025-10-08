@@ -1241,7 +1241,11 @@ async function loadUnifiedData(url, options = {}) {
                 // CORS is required - go directly to backend proxy
                 console.log('CORS required - using backend proxy for CSV fetch...');
                 try {
-                    const proxyResponse = await fetch(`${API_BASE}/google/fetch-csv`, {
+                    // Use appropriate endpoint based on URL type
+                    const isGoogleSheets = url.includes('docs.google.com/spreadsheets');
+                    const endpoint = isGoogleSheets ? '/proxy/csv' : '/proxy/external';
+                    
+                    const proxyResponse = await fetch(`${API_BASE}${endpoint}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1252,7 +1256,8 @@ async function loadUnifiedData(url, options = {}) {
                     if (proxyResponse.ok) {
                         const proxyData = await proxyResponse.json();
                         if (proxyData.success) {
-                            csvText = proxyData.data;
+                            // Handle different response formats
+                            csvText = proxyData.csv || proxyData.data; // Google Sheets uses .csv, external uses .data
                             console.log('Backend CSV proxy successful');
                         } else {
                             throw new Error(proxyData.error || 'Backend CSV proxy failed');
@@ -1261,7 +1266,7 @@ async function loadUnifiedData(url, options = {}) {
                         throw new Error('Backend CSV proxy not available');
                     }
                 } catch (proxyError) {
-                    throw new Error(`Cannot fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}`);
+                    throw new Error(`CORS used but unable to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
                 }
             } else {
                 // No CORS restriction - try direct fetch only

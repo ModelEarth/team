@@ -2253,6 +2253,9 @@
             </div>
         </div>
         
+        <!-- Gemini Setup Container (shown when Gemini key is not available) -->
+        <div id="gemini-setup-container" style="display: none;"></div>
+        
         <!-- Prompt Modal for custom AI prompts -->
         <div class="prompt-modal hidden" id="promptModal">
             <div class="prompt-modal-content">
@@ -2279,6 +2282,7 @@
     </div>
 
     <script src="../js/common.js"></script>
+    <script src="../js/setup.js"></script>
     <script src="../js/list.js"></script>
     <script>
         const GEMINI_API_BASE = 'http://localhost:8081/api';
@@ -3013,7 +3017,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Store the original loaded count for pagination
                 originalLoadedCount = validData.length;
                 
-                appendStatusMessage(`Successfully loaded ${validData.length} records from ${loadResult.format.toUpperCase()} source`, 'success');
+                const sourceDescription = isCors ? 
+                    `CORS-restricted ${loadResult.format.toUpperCase()} source using Rust proxy` : 
+                    `${loadResult.format.toUpperCase()} source`;
+                appendStatusMessage(`Successfully loaded ${validData.length} records from ${sourceDescription}`, 'success');
                 document.getElementById('loadStatus').style.display = 'block';
                 
                 // Show UI elements after successful data load
