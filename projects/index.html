@@ -106,6 +106,8 @@
             appearance: menulist;
             -webkit-appearance: menulist;
             -moz-appearance: menulist;
+            background-image: none !important;
+            padding-right: initial !important;
         }
         
         /* Custom dropdown arrow for fileSelect */
@@ -2113,7 +2115,7 @@
                 <label class="form-label">Snapshot</label>
                 <div class="input-button-group">
                     <select id="snapshot" class="form-select">
-                        <option value="">Add new snapshot</option>
+                        <option value="" disabled selected>Snapshots...</option>
                     </select>
                     <button class="btn btn-secondary" id="edit-snapshot-btn" title="Edit snapshot name" style="display: none;">Edit</button>
                     <button class="btn btn-secondary" id="delete-snapshot-btn" title="Delete snapshot" style="display: none;">×</button>
@@ -2822,10 +2824,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             let config = null; // Declare config in broader scope
             
             if (isAdmin && isModelTeam) {
-                // Use community/people.csv for admin modelteam
-                meetupLink = '../../community/people.csv';
+                // Use community/people.env for admin modelteam (treated as CSV)
+                meetupLink = '../../community/people.env';
                 isCors = false;
-                console.log('Admin mode: Loading from community/people.csv');
+                console.log('Admin mode: Loading from community/people.env (treated as CSV)');
             } else {
                 // Normal processing
                 const currentValue = fileSelect.value;
@@ -3207,11 +3209,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
         }
 
+
         // Extract and display emails from data when Email column exists
         function extractAndDisplayEmails(data) {
             const emailContainer = document.getElementById('emailListContainer');
             const emailTextarea = document.getElementById('emailList');
             const emailCountSpan = document.getElementById('emailCount');
+            
+            // Check if we should show emails (localsite + modelteam)
+            const isLocalsite = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const hash = getHash ? getHash() : {};
+            const isModelteam = hash.list === 'modelteam';
+            
+            if (!isLocalsite || !isModelteam) {
+                if (emailContainer) emailContainer.style.display = 'none';
+                return;
+            }
             
             if (!data || !Array.isArray(data) || data.length === 0) {
                 if (emailContainer) emailContainer.style.display = 'none';
@@ -3227,7 +3240,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             );
             
             if (emailColumns.length === 0) {
-                if (emailContainer) emailContainer.style.display = 'none';
+                // Show message about admin mode and community/people.csv file
+                if (emailContainer) {
+                    emailContainer.style.display = 'block';
+                    
+                    if (emailTextarea) {
+                        emailTextarea.value = '';
+                        emailTextarea.placeholder = 'No email columns found in current data. Use admin mode to load emails from local CSV.';
+                    }
+                    
+                    if (emailCountSpan) {
+                        emailCountSpan.innerHTML = `
+                            <div style="color: var(--text-secondary); font-size: 12px; line-height: 1.4; margin-top: 4px;">
+                                💡 To display emails: Add <code style="background: var(--bg-tertiary); padding: 2px 4px; border-radius: 3px;">&admin=1</code> to URL<br>
+                                📁 Emails loaded from: <code style="background: var(--bg-tertiary); padding: 2px 4px; border-radius: 3px;">community/people.env</code> (treated as CSV, relative to team/projects/)
+                            </div>
+                        `;
+                    }
+                }
                 return;
             }
             
@@ -6157,6 +6187,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const snapshots = loadSnapshots();
             const snapshotsList = document.getElementById('snapshots-list');
             
+            if (!snapshotsList) {
+                console.warn('snapshots-list element not found, skipping render');
+                return;
+            }
+            
             snapshotsList.innerHTML = '';
             
             Object.keys(snapshots).forEach(name => {
@@ -8990,8 +9025,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             if (!snapshotSelect) return;
             
-            // Clear existing options except "Add new snapshot"
-            snapshotSelect.innerHTML = '<option value="">Add new snapshot</option>';
+            // Clear existing options and add blank "Snapshots..." option first
+            snapshotSelect.innerHTML = '<option value="" disabled selected>Snapshots...</option>';
             
             // Add existing snapshots
             Object.keys(snapshots).forEach(name => {
@@ -9000,6 +9035,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 option.textContent = name;
                 snapshotSelect.appendChild(option);
             });
+            
+            // Add "Add new snapshot" at the end
+            const addNewOption = document.createElement('option');
+            addNewOption.value = 'add_new';
+            addNewOption.textContent = 'Add new snapshot';
+            snapshotSelect.appendChild(addNewOption);
             
             // Set current selection if there's an active snapshot
             if (currentActiveSnapshot && snapshots[currentActiveSnapshot]) {
@@ -9016,11 +9057,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const editBtn = document.getElementById('edit-snapshot-btn');
             const deleteBtn = document.getElementById('delete-snapshot-btn');
             
-            if (selectedValue === '') {
+            if (selectedValue === 'add_new') {
                 // "Add new snapshot" selected
                 showSnapshotEditor();
                 clearGroupField();
                 hideEditDeleteButtons();
+            } else if (selectedValue === '') {
+                // "Snapshots..." placeholder selected - do nothing
+                return;
             } else {
                 // Existing snapshot selected
                 loadSnapshot(selectedValue);
@@ -9124,7 +9168,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     updateListTitle();
                 }
                 
-                // Reset dropdown to "Add new snapshot"
+                // Reset dropdown to "Snapshots..." placeholder
                 snapshotSelect.value = '';
                 hideEditDeleteButtons();
                 
