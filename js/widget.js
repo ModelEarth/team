@@ -3,9 +3,17 @@
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("widget.js detects URL hashChangeEvent");
-    //alert("widget.js detects URL hashChangeEvent")
-    //hashChanged();
+    mapWidgetChange();
 }, false);
+function mapWidgetChange() {
+    let hash = getHash();
+    if (hash.map != priorHash.map) {
+        //if (hash.map && window.listingsApp) { // Would rather see an error
+        if (hash.map) {
+            window.listingsApp.changeShow(hash.map);
+        }
+    }
+}
 class ListingsDisplay {
     constructor(options = {}) {
         this.listings = [];
@@ -106,7 +114,7 @@ class ListingsDisplay {
             this.updateUrlHash(this.currentShow);
         }
         
-        this.render();
+        //this.render();
         this.setupEventListeners();
     }
 
@@ -163,6 +171,7 @@ class ListingsDisplay {
     }
 
     async loadShowData() {
+        //alert("loadShowData")
         this.loading = true;
         this.dataLoaded = false;
         
@@ -233,17 +242,19 @@ class ListingsDisplay {
         this.loading = false;
         
         // Force a render after a short delay to ensure UI updates
-        setTimeout(() => {
+        //setTimeout(() => {
             this.render();
-        }, 100);
+        //}, 100);
         
         // AGGRESSIVE: Force render again after longer delay if still stuck
+        /*
         setTimeout(() => {
             if (this.loading && this.listings && this.listings.length > 0) {
                 this.loading = false;
                 this.render();
             }
         }, 2000);
+        */
     }
 
     async loadDataFromConfig(config) {
@@ -955,24 +966,28 @@ class ListingsDisplay {
     }
 
     async changeShow(showKey, updateCache = true) {
+        //alert("changeShow")
         this.currentShow = showKey;
         this.searchPopupOpen = false;
         
         // Update URL hash
-        this.updateUrlHash(showKey);
+        //this.updateUrlHash(showKey); // Avoid because hash is driving
         
         // Only save to cache if this is a user-initiated change
         if (updateCache) {
             this.saveCachedShow(showKey);
         }
         
-        await this.loadShowData();
-        this.render();
+        await this.loadShowData(); // Invokes this.render()
+        //this.render();
         
-        // Update map with new show data - ensure map container exists
+        // Force map reinitialization when changing datasets
+        /*
         setTimeout(() => {
-            this.initializeMap();
+            console.log('🔍 TRACE: initializeMap() called from changeShow()');
+            //this.initializeMap('FROM_CHANGESHOW');
         }, 100);
+        */
     }
 
     setupEventListeners() {
@@ -987,7 +1002,8 @@ class ListingsDisplay {
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
-                this.changeShow(e.target.value);
+                goHash({'map':e.target.value})
+                //this.changeShow(e.target.value); // Triggered by hash change instead
             });
         }
 
@@ -1318,6 +1334,8 @@ class ListingsDisplay {
     }
 
     render() {
+        //alert('🔍 RENDER() called');
+        console.trace('Render call stack:');
         // Force clear loading state if we have data
         if (this.dataLoaded && this.listings && this.listings.length > 0 && this.loading) {
             this.loading = false;
@@ -1493,14 +1511,23 @@ class ListingsDisplay {
         // Apply domain-based sign-in button visibility
         this.applySignInVisibility();
 
-        setTimeout(() => {
+        //setTimeout(() => {
             this.setupEventListeners();
-            this.initializeMap();
+            //this.conditionalMapInit();
+            this.initializeMap('FROM_RENDER conditionalMapInit');
             this.setupPrintDownloadIcons();
-        }, 0);
+        //}, 0);
     }
     
-    initializeMap() {
+    //conditionalMapInit() {
+    //    console.log('🔍 TRACE: conditionalMapInit() called from render()');
+    //    this.initializeMap('FROM_RENDER conditionalMapInit');
+    //}
+    
+    initializeMap(source = 'UNKNOWN') {
+        //alert("initializeMap called from: " + source)
+        console.log('🚨 INITIALIZEMAP CALLED FROM:', source);
+        console.trace('Call stack:');
         // Check if LeafletMapManager is available
         if (typeof LeafletMapManager === 'undefined') {
             console.warn('LeafletMapManager not available');
@@ -1509,41 +1536,68 @@ class ListingsDisplay {
         
         // Prevent multiple simultaneous initializations
         if (this.mapInitializing) {
+            console.log('Map initialization already in progress, skipping...');
             return;
         }
         this.mapInitializing = true;
         
-        try {
-            // Always destroy existing map since DOM container gets recreated
-            if (window.leafletMap && window.leafletMap.map) {
-                window.leafletMap.map.remove();
-                window.leafletMap = null;
+        waitForElm('#widgetmap').then((elm) => {
+            try {
+                // More thorough cleanup of existing map
+                if (window.leafletMap && window.leafletMap.map) {
+                    try {
+                        // Stop any ongoing animations/transitions
+                        window.leafletMap.map.stop();
+                        
+                        // Remove all event listeners
+                        window.leafletMap.map.off();
+                        
+                        // Clear any pending timeouts/animations
+                        window.leafletMap.map._clearPans && window.leafletMap.map._clearPans();
+                        
+                        // Remove the map
+                        window.leafletMap.map.remove();
+                        
+                        // Clean up DOM references
+                        const container = document.getElementById('widgetmap');
+                        if (container && container._leaflet_id) {
+                            delete container._leaflet_id;
+                        }
+                        if (container && container._leaflet) {
+                            delete container._leaflet;
+                        }
+                        
+                    } catch (e) {
+                        console.warn('Error removing existing map:', e);
+                    }
+                    window.leafletMap = null;
+                }
+                
+                // Create new map instance
+                window.leafletMap = new LeafletMapManager('widgetmap', {
+                    height: '500px',
+                    width: '100%'
+                });
+                
+                // Update map with current listings data - only send current page data
+                if (this.listings && this.listings.length > 0) {
+                    setTimeout(() => {
+                        // Create a limited version of this object with only current page data
+                        const limitedListingsApp = {
+                            ...this,
+                            filteredListings: this.getCurrentPageListings(),
+                            listings: this.getCurrentPageListings(),
+                            getMapListings: () => this.getCurrentPageListings()
+                        };
+                        window.leafletMap.updateFromListingsApp(limitedListingsApp);
+                    }, 100);
+                }
+            } catch (error) {
+                console.warn('Failed to initialize map:', error);
+            } finally {
+                this.mapInitializing = false;
             }
-            
-            // Create new map instance
-            window.leafletMap = new LeafletMapManager('widgetmap', {
-                height: '500px',
-                width: '100%'
-            });
-            
-            // Update map with current listings data - only send current page data
-            if (this.listings && this.listings.length > 0) {
-                setTimeout(() => {
-                    // Create a limited version of this object with only current page data
-                    const limitedListingsApp = {
-                        ...this,
-                        filteredListings: this.getCurrentPageListings(),
-                        listings: this.getCurrentPageListings(),
-                        getMapListings: () => this.getCurrentPageListings()
-                    };
-                    window.leafletMap.updateFromListingsApp(limitedListingsApp);
-                }, 100);
-            }
-        } catch (error) {
-            console.warn('Failed to initialize map:', error);
-        } finally {
-            this.mapInitializing = false;
-        }
+        });
     }
     
     // URL Hash and Cache Management
@@ -1820,7 +1874,8 @@ class ListingsDisplay {
                     if (contentDiv.id === 'widgetmapWrapper') {
                         setTimeout(() => {
                             try {
-                                this.initializeMap();
+                                console.log('🔍 TRACE: initializeMap() called from hero collapse');
+                                this.initializeMap('FROM_HERO_COLLAPSE');
                             } catch (error) {
                                 console.warn('Map reinitialization error after collapse:', error);
                             }
@@ -1861,7 +1916,8 @@ class ListingsDisplay {
             if (contentDiv.id === 'widgetmapWrapper') {
                 setTimeout(() => {
                     try {
-                        this.initializeMap();
+                        console.log('🔍 TRACE: initializeMap() called from hero expand');
+                        this.initializeMap('FROM_HERO_EXPAND');
                     } catch (error) {
                         console.warn('Map reinitialization error after expansion:', error);
                     }
