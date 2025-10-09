@@ -110,8 +110,8 @@ class ListingsDisplay {
         if (fromHash) {
             await this.loadShowData();
         } else {
-            await this.loadShowData();
-            this.updateUrlHash(this.currentShow);
+            //await this.loadShowData();
+            //this.updateUrlHash(this.currentShow);
         }
         
         //this.render();
@@ -1002,8 +1002,7 @@ class ListingsDisplay {
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
-                goHash({'map':e.target.value})
-                //this.changeShow(e.target.value); // Triggered by hash change instead
+                goHash({'map':e.target.value});
             });
         }
 
