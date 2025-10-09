@@ -1,20 +1,5 @@
 {
-  "products.india": {
-    "shortTitle": "Products",
-    "menuTitle": "Products Made in India",
-    "listTitle": "Construction Products Made in India",
-    "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/Sirishaupadhyayula/products-data/refs/heads/main/IN.csv",
-    "markerType": "google",
-    "nameColumn": "Name",
-    "featuredColumns": ["Name", "Address", "County", "Zip"],
-    "search": {
-      "In City": "Name",
-      "In County Name": "County"
-    },
-    "mapInfo": "Companies in India"
-  },
-  "us-cities": {
+  "cities.us": {
     "shortTitle": "US Cities",
     "menuTitle": "US Cities",
     "listTitle": "US Cities",
@@ -28,5 +13,50 @@
       "By City Name": "City",
       "By State Name": "State"
     }
+  },
+  "products.in": {
+    "shortTitle": "Made in India",
+    "menuTitle": "Products Made in India",
+    "listTitle": "Construction Products Made in India",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/Sirishaupadhyayula/products-data/refs/heads/main/IN.csv",
+    "markerType": "google",
+    "nameColumn": "Name",
+    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "search": {
+      "In City": "Name",
+      "In County Name": "County"
+    },
+    "mapInfo": "Companies in India"
+  },
+  "products.us": {
+    "shortTitle": "Made in USA",
+    "menuTitle": "Products Made in USA",
+    "listTitle": "Construction Products Made in USA",
+    "datatype": "csv",
+    "dataset": "",
+    "markerType": "google",
+    "nameColumn": "Name",
+    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "search": {
+      "In City": "Name",
+      "In County Name": "County"
+    },
+    "mapInfo": "Companies in USA"
+  },
+  "products.us.ga": {
+    "shortTitle": "Made in Georgia, USA",
+    "menuTitle": "Products Made in Georgia",
+    "listTitle": "Construction Products Made in Georgia, USA",
+    "datatype": "csv",
+    "dataset": "",
+    "markerType": "google",
+    "nameColumn": "Name",
+    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "search": {
+      "In City": "Name",
+      "In County Name": "County"
+    },
+    "mapInfo": "Companies in Georgia, USA"
   }
 }

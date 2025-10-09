@@ -800,8 +800,133 @@ function loadFileSelectionFromStorage(storageKey = 'PartnerTools_selected_file')
 // GOOGLE SHEET CONFIGURATION LOADING
 // =============================================================================
 
-// Load Google Sheet configuration for dynamic dropdown population
+// Load configuration for dynamic dropdown population from CSV or JSON based on site type
 async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
+    // Check if this is a geo site - use existing isGeoSite value if available
+    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
+    
+    // Safely check for global isGeoSite variable
+    let globalIsGeoSite = false;
+    try {
+        globalIsGeoSite = (typeof window.isGeoSite !== 'undefined' && window.isGeoSite === 'geo');
+    } catch (e) {
+        // Ignore reference errors for isGeoSite variable
+        globalIsGeoSite = false;
+    }
+    
+    const isGeoSiteDetected = globalIsGeoSite ||
+                             window.location.hostname.includes('geo') || 
+                             window.location.hostname.includes('location') ||
+                             (modelsite === 'model.georgia');
+
+    if (isGeoSiteDetected) {
+        console.log('Geo site detected - loading from show.json instead of CSV');
+        return await loadShowJsonConfig(fileSelect, hashParam);
+    } else {
+        console.log('Non-geo site - loading from CSV sources');
+        return await loadCsvConfig(fileSelect, hashParam);
+    }
+}
+
+// Load configuration from show.json for geo sites
+async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
+    // Calculate the correct relative path to show.json based on current location
+    let SHOW_JSON_URL;
+    const currentPath = window.location.pathname;
+    
+    if (currentPath.includes('/team/projects')) {
+        // Already in team/projects directory, so show.json is in map/ subdirectory
+        SHOW_JSON_URL = 'map/show.json';
+    } else if (currentPath.includes('/team/')) {
+        // In team directory, so show.json is in projects/map/ subdirectory
+        SHOW_JSON_URL = 'projects/map/show.json';
+    } else {
+        // Outside team directory, use full relative path
+        SHOW_JSON_URL = 'team/projects/map/show.json';
+    }
+    
+    console.log(`Calculated show.json path: ${SHOW_JSON_URL} (from ${currentPath})`);
+    
+    try {
+        console.log('Loading from show.json file...');
+        const response = await fetch(SHOW_JSON_URL);
+        
+        if (!response.ok) {
+            throw new Error(`show.json not available: ${response.status} ${response.statusText}`);
+        }
+        
+        const showConfigs = await response.json();
+        console.log('Successfully loaded show.json');
+        
+        // Process show.json entries and add to dropdown
+        const customOption = fileSelect.querySelector('option[value="custom"]');
+        
+        Object.entries(showConfigs).forEach(([key, config]) => {
+            // Check if option already exists to prevent duplicates
+            const existingOption = fileSelect.querySelector(`option[value="${key}"]`);
+            if (existingOption) {
+                console.log(`Skipping duplicate option: ${key}`);
+                return;
+            }
+            
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = config.shortTitle || config.listTitle || config.dataTitle || key;
+            
+            // Use dataset property from show.json as the URL
+            if (config.dataset) {
+                let datasetUrl = config.dataset;
+                
+                // If dataset is relative (doesn't start with http/https), make it relative to show.json location
+                if (!datasetUrl.startsWith('http')) {
+                    // Get the directory path of show.json and combine with dataset path
+                    const showJsonDir = SHOW_JSON_URL.substring(0, SHOW_JSON_URL.lastIndexOf('/'));
+                    datasetUrl = showJsonDir + '/' + datasetUrl;
+                }
+                
+                option.setAttribute('data-url', datasetUrl);
+                console.log(`Dataset path for ${key}: ${config.dataset} → ${datasetUrl}`);
+            }
+            
+            // Set CORS to false for local files (show.json contains local dataset paths)
+            option.setAttribute('data-cors', 'false');
+            
+            // Use featuredColumns as TopFields for Columns and Gallery layouts
+            if (config.featuredColumns && Array.isArray(config.featuredColumns)) {
+                option.setAttribute('data-top-fields', config.featuredColumns.join(','));
+            }
+            
+            // Use all available fields from first data entry if available
+            // Note: This would need actual data loading to determine, so we'll use featuredColumns for now
+            if (config.featuredColumns) {
+                option.setAttribute('data-all-fields', config.featuredColumns.join(','));
+            }
+            
+            // Store int_required config for filtering
+            if (config.int_required) {
+                option.setAttribute('data-int-required', config.int_required);
+            }
+            
+            // Insert before the "Choose File..." option
+            fileSelect.insertBefore(option, customOption);
+            
+            console.log(`Added show.json option: ${option.textContent} (${key}) - Dataset: ${config.dataset}`);
+        });
+        
+        console.log('show.json configuration loaded successfully');
+        return true;
+        
+    } catch (error) {
+        console.error('Failed to load show.json configuration:', error);
+        showMessage('Failed to load show.json, falling back to CSV configuration', 'warning');
+        
+        // Fallback to CSV configuration if show.json fails
+        return await loadCsvConfig(fileSelect, hashParam);
+    }
+}
+
+// Load configuration from CSV sources (original logic)
+async function loadCsvConfig(fileSelect, hashParam = 'feed') {
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
     const LOCAL_CSV_URL = './lists.csv'; // Local CSV file (now primary source)
     
@@ -932,8 +1057,8 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
                     option.setAttribute('data-all-fields', allFields);
                 }
                 
-                // Debug logging for us-cities specifically
-                if (feed === 'us-cities') {
+                // Debug logging for cities.us specifically
+                if (feed === 'cities.us') {
                     console.log('=== US-CITIES OPTION CREATION DEBUG ===');
                     console.log('Feed:', feed);
                     console.log('Title:', title);
@@ -955,14 +1080,14 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
             }
         }
         
-        console.log('Google Sheet configuration loaded successfully');
+        console.log('CSV configuration loaded successfully');
         return true;
         
     } catch (error) {
-        console.error('Failed to load Google Sheet configuration:', error);
-        showMessage('Failed to load dynamic options from Google Sheet, using fallback options', 'warning');
+        console.error('Failed to load CSV configuration:', error);
+        showMessage('Failed to load dynamic options from CSV, using fallback options', 'warning');
         
-        // Add fallback options when Google Sheet loading fails
+        // Add fallback options when CSV loading fails
         const customOption = fileSelect.querySelector('option[value="custom"]');
         if (customOption) {
             // Add Cities option as primary fallback (check for duplicates)
@@ -1220,9 +1345,29 @@ function convertArraysToObjects(data, allFields = null) {
     });
 }
 
+// Apply int_required filtering to data (same logic as widget.js)
+function applyIntRequiredFilter(data, config) {
+    // Return original data if no config or int_required specified
+    if (!config || !config.int_required || !data || data.length === 0) {
+        return data;
+    }
+    
+    const intRequiredField = config.int_required;
+    const originalCount = data.length;
+    
+    const filteredData = data.filter(row => {
+        const value = row[intRequiredField];
+        return value && !isNaN(parseInt(value)) && parseInt(value).toString() === value.toString();
+    });
+    
+    console.log(`Filtered by int_required (${intRequiredField}): ${filteredData.length} rows remaining from ${originalCount} original rows`);
+    
+    return filteredData;
+}
+
 // Unified data loading function that handles JSON, RSS, CSV, and Excel formats
 async function loadUnifiedData(url, options = {}) {
-    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null } = options;
+    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null, config = null } = options;
     
     try {
         console.log('=== LOAD UNIFIED DATA DEBUG ===');
@@ -1306,10 +1451,13 @@ async function loadUnifiedData(url, options = {}) {
             
             console.log(`CSV parsed: ${parsedArrays.length} total rows, ${parsedData.length} data rows, headers detected: ${shouldUseFirstRowAsHeaders(parsedArrays) ? 'YES' : 'NO'}`);
             
+            // Apply int_required filtering if specified in config
+            const filteredData = applyIntRequiredFilter(parsedData, config);
+            
             return {
-                data: parsedData,
+                data: filteredData,
                 format: 'csv',
-                total_records: parsedData.length,
+                total_records: filteredData.length,
                 source: 'csv'
             };
             
@@ -1453,10 +1601,13 @@ async function loadUnifiedData(url, options = {}) {
                 });
             }
             
+            // Apply int_required filtering if specified in config
+            const filteredData = applyIntRequiredFilter(finalData, config);
+            
             return {
-                data: finalData,
+                data: filteredData,
                 format: 'json',
-                total_records: finalData.length,
+                total_records: filteredData.length,
                 source: 'api'
             };
         }
@@ -1721,6 +1872,7 @@ if (typeof module !== 'undefined' && module.exports) {
         // Unified data loading
         loadUnifiedData,
         formatUnifiedPreviewData,
+        applyIntRequiredFilter,
         
         // Shared AI insights functions
         displaySharedGeminiInsights,

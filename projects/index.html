@@ -19,7 +19,7 @@
     -->
 
     <!-- Loads Leaflet map .js and .css -->
-    <script type="text/javascript" src="../js/widget-embed.js?source=show.trade&map=us-cities"></script>
+    <script type="text/javascript" src="../js/widget-embed.js?source=show.trade&map=cities.us"></script>
         
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
@@ -168,7 +168,7 @@
             border-radius: var(--radius-md);
             padding: 12px;
             margin-top: 16px;
-            max-height: 200px;
+            max-height: 1000px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 13px;
@@ -290,6 +290,29 @@
         
         .dark .status-message.error {
             color: white;
+        }
+
+        /* Button highlighting for cached insights */
+        .btn.cached-insights {
+            background: var(--accent-blue) !important;
+            color: white !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        .dark .btn.cached-insights {
+            background: var(--accent-blue) !important;
+            color: white !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Dark mode styling for insights content */
+        .dark .insights-content {
+            background: var(--bg-tertiary) !important;
+            color: var(--text-primary);
+        }
+
+        .dark .insights-content .ai-insights-content {
+            background: var(--bg-secondary) !important;
         }
         
         
@@ -2055,8 +2078,6 @@
             <!-- AI Insights -->
             <div id="aiInsights" style="display: none;">
                 <div class="insights-header">
-                    <div class="ai-icon">🤖</div>
-                    <h3>AI-Powered Dataset Insights</h3>
                     <div class="insights-status" id="insightsStatus">
                         <div class="insight-button-group">
                             <button id="claudeInsightsBtn" class="btn btn-secondary" onclick="handleClaudeInsightsClick()">
@@ -2073,15 +2094,12 @@
                             <button id="geminiRefreshBtn" class="btn btn-primary refresh-btn" onclick="showRefreshPrompt('gemini')" title="Refresh with custom prompt" style="display: none;">
                                 <span>↻</span>
                             </button>
-                            <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12px;">
-                                <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
-                                <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to Gemini API">
-                            </div>
+                        </div>
+                        <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
+                            <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
+                            <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to Gemini API">
                         </div>
                     </div>
-                </div>
-                <div id="loadingStatus" class="loading-status" style="display: block; padding: 12px; margin-bottom: 16px; background: linear-gradient(135deg, #6B7280, #E5E7EB); border-radius: var(--radius-md); text-align: left; font-style: italic; color: white; font-weight: bold;">
-                    Ready for AI analysis
                 </div>
                 <div id="insightsContent" class="insights-content">
                     <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
@@ -2327,19 +2345,14 @@
                 claudeBtn.disabled = false;
                 claudeText.textContent = hasClaudeCache ? 'Claude Insights (Cached)' : 'Claude Insights';
                 claudeRefresh.style.display = hasClaudeCache ? 'flex' : 'none';
+                // Don't auto-highlight - highlighting only shows the currently displayed insights
             }
             
             if (geminiBtn && geminiText && geminiRefresh) {
                 geminiBtn.disabled = false;
                 geminiText.textContent = hasGeminiCache ? 'Gemini Insights (Cached)' : 'Gemini Insights';
                 geminiRefresh.style.display = hasGeminiCache ? 'flex' : 'none';
-            }
-            
-            // Show ready message
-            const loadingStatus = document.getElementById('loadingStatus');
-            if (loadingStatus) {
-                loadingStatus.textContent = 'Ready for AI analysis';
-                loadingStatus.style.display = 'block';
+                // Don't auto-highlight - highlighting only shows the currently displayed insights
             }
         }
         
@@ -2384,8 +2397,17 @@
             const insights = cache[cacheKey];
             
             if (insights) {
-                const loadingStatus = document.getElementById('loadingStatus');
-                loadingStatus.textContent = `Displaying cached ${aiType} analysis`;
+                // Clear any existing highlighting first
+                const claudeBtn = document.getElementById('claudeInsightsBtn');
+                const geminiBtn = document.getElementById('geminiInsightsBtn');
+                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
+                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
+                
+                // Highlight only the button for the currently displayed insights
+                const button = document.getElementById(aiType === 'claude' ? 'claudeInsightsBtn' : 'geminiInsightsBtn');
+                if (button) {
+                    button.classList.add('cached-insights');
+                }
                 
                 // Use shared display functions
                 if (aiType === 'claude') {
@@ -2475,10 +2497,7 @@
             closePromptModal();
             
             // Show loading state
-            const loadingStatus = document.getElementById('loadingStatus');
             const content = document.getElementById('insightsContent');
-            
-            loadingStatus.textContent = `Analyzing data with ${aiType}...`;
             content.innerHTML = '<div style="padding: 20px; text-align: center;">🔄 Generating insights...</div>';
             
             try {
@@ -2592,19 +2611,18 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         pendingClaudeAnalysis = pendingData;
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedClaudeInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
-                        loadingStatus.textContent = '✅ Claude analysis complete! Choose Save to keep or Cancel to revert.';
+                        showTopMessage('✅ Claude analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
                     } else {
                         pendingGeminiAnalysis = pendingData;
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedGeminiInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
-                        loadingStatus.textContent = '✅ Gemini analysis complete! Choose Save to keep or Cancel to revert.';
+                        showTopMessage('✅ Gemini analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
                     }
                     
                     showAIInsightsButtons(); // Update button states
                     
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${result.error || 'Unknown error'}</div>`;
-                    loadingStatus.textContent = 'Analysis failed';
                 }
                 
             } catch (error) {
@@ -2619,10 +2637,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         ⚠️ Analysis failed: Start the Rust API server first<br>
                         <small style="margin-top: 4px; display: block; opacity: 0.8;">The AI insights require the backend server to be running on port 8081</small>
                     </div>`;
-                    loadingStatus.textContent = 'Server not running';
+                    showTopMessage('⚠️ AI Analysis failed: Rust API server not running on port 8081', 'error', 8000);
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${error.message}</div>`;
-                    loadingStatus.textContent = 'Analysis failed';
                 }
             }
         }
@@ -2644,8 +2661,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const cacheKey = getCurrentDataSource();
                 console.log('Saving Claude analysis to cache with key:', cacheKey);
                 
-                const loadingStatus = document.getElementById('loadingStatus');
-                loadingStatus.textContent = '💾 Saving Claude analysis to cache...';
                 
                 // Save to cache
                 claudeInsightsCache[cacheKey] = pendingClaudeAnalysis;
@@ -2663,7 +2678,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     claudeInsightsCache[cacheKey].customPrompt
                 );
                 
-                loadingStatus.textContent = 'Claude analysis saved successfully';
                 showAIInsightsButtons(); // Update button states
             }
         }
@@ -2678,9 +2692,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     displayCachedInsights(cacheKey, 'claude');
                 } else {
                     const content = document.getElementById('insightsContent');
-                    const loadingStatus = document.getElementById('loadingStatus');
                     content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
-                    loadingStatus.textContent = 'New analysis canceled. No previous analysis found.';
                 }
             }
         }
@@ -2691,8 +2703,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const cacheKey = getCurrentDataSource();
                 console.log('Saving Gemini analysis to cache with key:', cacheKey);
                 
-                const loadingStatus = document.getElementById('loadingStatus');
-                loadingStatus.textContent = '💾 Saving Gemini analysis to cache...';
                 
                 // Save to cache
                 aiInsightsCache[cacheKey] = pendingGeminiAnalysis;
@@ -2710,7 +2720,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     aiInsightsCache[cacheKey].customPrompt
                 );
                 
-                loadingStatus.textContent = 'Gemini analysis saved successfully';
                 showAIInsightsButtons(); // Update button states
             }
         }
@@ -2725,9 +2734,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     displayCachedInsights(cacheKey, 'gemini');
                 } else {
                     const content = document.getElementById('insightsContent');
-                    const loadingStatus = document.getElementById('loadingStatus');
                     content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
-                    loadingStatus.textContent = 'New analysis canceled. No previous analysis found.';
                 }
             }
         }
@@ -2812,6 +2819,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             let meetupLink;
             let isCors;
             let allFields;
+            let config = null; // Declare config in broader scope
             
             if (isAdmin && isModelTeam) {
                 // Use community/people.csv for admin modelteam
@@ -2825,6 +2833,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
                 isCors = selectedOption?.getAttribute('data-cors') === 'true';
                 allFields = selectedOption?.getAttribute('data-all-fields');
+                
+                // Get config for filtering (e.g., int_required)
+                const intRequired = selectedOption?.getAttribute('data-int-required');
+                config = intRequired ? { int_required: intRequired } : null;
                 
                 console.log('=== getSubsetUsingSnapshot DEBUG ===');
                 console.log('Current fileSelect value:', currentValue);
@@ -2928,10 +2940,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Use unified data loading from js/list.js
                 console.log(`Loading data from: ${meetupLink}, CORS: ${isCors}`);
                 console.log('API_BASE:', GEMINI_API_BASE);
+                console.log('Config for filtering:', config);
                 const loadResult = await loadUnifiedData(meetupLink, {
                     forceCorsProxy: isCors,
                     API_BASE: GEMINI_API_BASE,
-                    allFields: allFields
+                    allFields: allFields,
+                    config: config
                 });
                 console.log('Load result status:', loadResult.success, 'data length:', loadResult.data?.length);
                 
@@ -6897,28 +6911,25 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const listParam = getHash().list;
                 if (listParam) {
                     // Special case for geo - use "Location Visits" title
-                    if (listParam === 'geo') {
-                        titleText = 'Location Visits';
-                        participantListTitle.textContent = `📊 Location Visits`;
+ 
+                    // Look for matching option in dropdown to get proper title
+                    const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
+                    if (matchingOption && matchingOption.textContent) {
+                        titleText = matchingOption.textContent;
+                        participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
+                        // Update dropdown selection to match
+                        fileSelect.value = listParam;
                     } else {
-                        // Look for matching option in dropdown to get proper title
-                        const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
-                        if (matchingOption && matchingOption.textContent) {
-                            titleText = matchingOption.textContent;
-                            participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
-                            // Update dropdown selection to match
-                            fileSelect.value = listParam;
-                        } else {
-                            // List parameter not available in this site's fileSelect options
-                            // Just use the parameter as title without changing dropdown
-                            titleText = listParam;
-                            participantListTitle.textContent = `📊 ${listParam}`;
-                            console.log('List param not found in fileSelect options:', listParam, 'keeping original selection');
-                            
-                            // Display user-visible message about unavailable list
-                            appendStatusMessage(`📋 List "${listParam}" is not available in the current dropdown options. Showing default selection instead.`, 'info');
-                        }
+                        // List parameter not available in this site's fileSelect options
+                        // Just use the parameter as title without changing dropdown
+                        titleText = listParam;
+                        participantListTitle.textContent = `📊 ${listParam}`;
+                        console.log('List param not found in fileSelect options:', listParam, 'keeping original selection');
+                        
+                        // Display user-visible message about unavailable list
+                        appendStatusMessage(`📋 List "${listParam}" is not available in the current dropdown options. Showing default selection instead.`, 'info');
                     }
+
                 } else {
                     const selectedOption = fileSelect.options[fileSelect.selectedIndex];
                     if (selectedOption && selectedOption.textContent && selectedOption.value !== 'custom') {
@@ -7024,7 +7035,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             addAllListsOption();
             
             // Add geo option for location visits
-            addGeoOption();
+            // Saving for a sample dataset
+            // addGeoOption();
             
             // Check for geo-related domains or hash parameter
             const listParam = getHash().list;
@@ -7033,13 +7045,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (listParam === 'all') {
                 fileSelect.value = 'all';
                 selectedFile = 'all';
-            } else if (listParam === 'geo' || shouldDefaultToGeo) {
-                fileSelect.value = 'geo';
-                selectedFile = 'map/cities.csv';
-                // Set hash if not already present
-                if (!listParam) {
-                    window.location.hash = 'list=geo';
-                }
             } else {
                 selectedFile = selectedOption.getAttribute('data-url') || selectedOption.value;
             }

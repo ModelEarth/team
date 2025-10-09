@@ -106,12 +106,19 @@ class ListingsDisplay {
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
         const fromHash = urlParams.has('map'); // True or false
+
+        // TEMPORARY - So Location Visits can avoid maps on some pages.
+        // TO DO - This getLoadMapDataParam() is based on file name widget.js  Do we send on localsite.js instead?  And allow for other map too?
+        const loadMapDataParam = this.getLoadMapDataParam(); // Check script URL parameter
+        //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
+
         if (fromHash) {
             await this.loadShowData();
-        } else {
-            //await this.loadShowData();
-            //this.updateUrlHash(this.currentShow);
+        } else if (loadMapDataParam) { // Checks for widget.js?showmap=true
+            await this.loadShowData();
+            
+            //this.updateUrlHash(this.currentShow); // Use updateHash instead to avoid triggering
         }
         
         //this.render();
@@ -141,7 +148,6 @@ class ListingsDisplay {
                 listsJson = 'show.json'
             }
         }
-        
         console.log('widget.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
         const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
@@ -1230,6 +1236,22 @@ class ListingsDisplay {
         return details;
     }
 
+    getLoadMapDataParam() { // loadMapData
+        // Check for loadMapData parameter in widget.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        for (const script of widgetScripts) {
+            if (script.src.includes('showmap=')) {
+                const scriptUrl = new URL(script.src);
+                const loadMapDataParam = scriptUrl.searchParams.get('showmap');
+                if (loadMapDataParam === 'true') {
+                    console.log(`Using loadMapData parameter: ${loadMapDataParam}`);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     getSourceFromScriptUrl() {
         // Check for source parameter in widget.js script URL
         const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
@@ -1341,6 +1363,7 @@ class ListingsDisplay {
         }
         
         const teamwidget = document.getElementById('teamwidget');
+        if (teamwidget) teamwidget.style.display = 'block';
         
         if (this.loading) {
             // FORCE clear loading if we have data but still loading
@@ -1635,10 +1658,15 @@ class ListingsDisplay {
             return;
         }
         
+        console.log("Add #map=" + showKey);
+        updateHash({'map':showKey}); // Avoid triggering hash event, like goHash() would.
+
+        /*
         const currentHash = window.location.hash.substring(1);
         const urlParams = new URLSearchParams(currentHash);
         urlParams.set('map', showKey);
         window.location.hash = urlParams.toString();
+        */
     }
     
     saveCachedShow(showKey) {
