@@ -2825,7 +2825,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             if (isAdmin && isModelTeam) {
                 // Use community/people.env for admin modelteam (treated as CSV)
-                meetupLink = '../../community/people.env';
+                meetupLink = '../../community/people.csv';
                 isCors = false;
                 console.log('Admin mode: Loading from community/people.env (treated as CSV)');
             } else {
@@ -3156,6 +3156,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 let errorMessage = error.message;
                 let additionalInfo = '';
                 
+                // Add file path info when on localhost for debugging
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                if (isLocalhost && meetupLink) {
+                    additionalInfo += `<br><strong>File path attempted:</strong> <code>${meetupLink}</code>`;
+                }
+                
                 if (error.message && error.message.includes('Maximum call stack size exceeded')) {
                     // Get stack trace info and estimate call stack depth
                     const stackTrace = error.stack || '';
@@ -3231,15 +3237,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 return;
             }
             
-            // Find email columns (case-insensitive)
+            // Find the "Email" column specifically (case-insensitive)
             const headers = Object.keys(data[0] || {});
-            const emailColumns = headers.filter(header => 
-                header.toLowerCase().includes('email') || 
-                header.toLowerCase().includes('e-mail') ||
-                header.toLowerCase() === 'mail'
-            );
+            const emailColumn = headers.find(header => header.toLowerCase() === 'email');
             
-            if (emailColumns.length === 0) {
+            if (!emailColumn) {
                 // Show message about admin mode and community/people.csv file
                 if (emailContainer) {
                     emailContainer.style.display = 'block';
@@ -3261,28 +3263,34 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 return;
             }
             
-            // Extract unique emails from all email columns
+            // Find the Status column for filtering out Alumni
+            const statusColumn = headers.find(header => header.toLowerCase() === 'status');
+            
+            // Extract unique emails from the Email column only, excluding Alumni
             const emailSet = new Set();
             
             data.forEach(row => {
-                emailColumns.forEach(column => {
-                    const emailValue = row[column];
-                    if (emailValue && typeof emailValue === 'string') {
-                        // Split by common separators and clean up
-                        const emails = emailValue.split(/[,;|\s]+/)
-                            .map(email => email.trim().toLowerCase())
-                            .filter(email => {
-                                // Basic email validation
-                                return email && 
-                                       email.includes('@') && 
-                                       email.includes('.') && 
-                                       email.length > 5 &&
-                                       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-                            });
-                        
-                        emails.forEach(email => emailSet.add(email));
-                    }
-                });
+                // Skip rows with Status = "Alumni"
+                if (statusColumn && row[statusColumn] === 'Alumni') {
+                    return;
+                }
+                
+                const emailValue = row[emailColumn];
+                if (emailValue && typeof emailValue === 'string') {
+                    // Split by common separators and clean up
+                    const emails = emailValue.split(/[,;|\s]+/)
+                        .map(email => email.trim().toLowerCase())
+                        .filter(email => {
+                            // Basic email validation
+                            return email && 
+                                   email.includes('@') && 
+                                   email.includes('.') && 
+                                   email.length > 5 &&
+                                   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+                        });
+                    
+                    emails.forEach(email => emailSet.add(email));
+                }
             });
             
             // Convert to sorted array
