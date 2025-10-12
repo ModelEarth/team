@@ -5,6 +5,8 @@ It applies to both this "team" submodule and its parent webroot and the webroot'
 
 ## Development Commands
 
+"push" always invokes the "./git.sh push" command.
+
 ### Build and Run
 - `cargo build` - Build the project
 - `cargo run --bin partner_tools -- serve` - Start the REST API server  

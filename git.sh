@@ -26,6 +26,49 @@ for arg in "$@"; do
     esac
 done
 
+# Validate and fix repository remote URLs to prevent corruption
+validate_and_fix_remotes() {
+    echo "🔍 Validating repository remote URLs..."
+    
+    # Check webroot repository
+    local webroot_remote=""
+    if [ -n "$WEBROOT_CONTEXT" ]; then
+        webroot_remote=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
+    elif [ -f ".gitmodules" ]; then
+        webroot_remote=$(git remote get-url origin 2>/dev/null || echo "")
+    fi
+    
+    if [[ -n "$webroot_remote" ]] && [[ "$webroot_remote" == *"team"* ]]; then
+        echo "🚨 CRITICAL: Webroot repository pointing to team URL - fixing..."
+        if [ -n "$WEBROOT_CONTEXT" ]; then
+            git -C "$WEBROOT_CONTEXT" remote set-url origin "https://github.com/ModelEarth/webroot.git"
+        else
+            git remote set-url origin "https://github.com/ModelEarth/webroot.git"
+        fi
+        echo "✅ Fixed webroot remote URL"
+    fi
+    
+    # Check team repository
+    local team_remote=""
+    if [ -f "../.gitmodules" ] && [ -d ".git" ]; then
+        team_remote=$(git remote get-url origin 2>/dev/null || echo "")
+    elif [ -d "team" ]; then
+        team_remote=$(git -C "team" remote get-url origin 2>/dev/null || echo "")
+    fi
+    
+    if [[ -n "$team_remote" ]] && [[ "$team_remote" == *"webroot"* ]]; then
+        echo "🚨 CRITICAL: Team repository pointing to webroot URL - fixing..."
+        if [ -f "../.gitmodules" ] && [ -d ".git" ]; then
+            git remote set-url origin "https://github.com/ModelEarth/team.git"
+        elif [ -d "team" ]; then
+            git -C "team" remote set-url origin "https://github.com/ModelEarth/team.git"
+        fi
+        echo "✅ Fixed team remote URL"
+    fi
+    
+    echo "✅ Repository remote validation completed"
+}
+
 # Helper function to check if we're in webroot
 check_webroot() {
     # Check for nested webroot directories (prevent confusion) - but only if we're in team subdirectory
@@ -318,6 +361,16 @@ USER_CACHE_FILE="/tmp/git_sh_last_user"
 check_user_change() {
     local name="$1"
     
+    # CRITICAL FIX: When operating on webroot from team context, don't update team repo's remote
+    if [[ "$name" == "webroot" ]] && [[ "$OPERATING_ON_WEBROOT" == "true" ]] && [[ -n "$WEBROOT_CONTEXT" ]]; then
+        # We're in team directory but operating on webroot - check current directory's actual repo
+        local current_remote=$(git remote get-url origin 2>/dev/null || echo "")
+        if [[ "$current_remote" == *"team"* ]]; then
+            echo "🛡️ Skipping remote update for team repository (operating on webroot context)"
+            return 0
+        fi
+    fi
+    
     # If user owns the repo, skip GitHub CLI requirement
     if is_repo_owner "$name"; then
         return 0  # User owns the repo, no need to update remotes
@@ -360,6 +413,19 @@ check_user_change() {
     # Check current origin remote
     local current_origin=$(git remote get-url origin 2>/dev/null || echo "")
     local expected_origin="https://github.com/$current_user/$name.git"
+    
+    # ADDITIONAL SAFEGUARD: Verify we're in the correct repository before updating remote
+    if [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"team"* ]]; then
+        echo "⚠️ ERROR: Attempted to update team repository remote to webroot URL - skipping"
+        echo "   Current remote: $current_origin"
+        echo "   Intended remote: $expected_origin"
+        return 1
+    elif [[ "$name" == "team" ]] && [[ "$current_origin" == *"webroot"* ]]; then
+        echo "⚠️ ERROR: Attempted to update webroot repository remote to team URL - skipping"
+        echo "   Current remote: $current_origin" 
+        echo "   Intended remote: $expected_origin"
+        return 1
+    fi
     
     # If origin doesn't match current user, update it
     if [[ "$current_origin" != "$expected_origin" ]]; then
@@ -865,6 +931,7 @@ pull_command() {
     local repo_name="$1"
     
     echo "🔄 Starting pull workflow..."
+    validate_and_fix_remotes
     check_webroot
     
     # If specific repo name provided, pull only that repo
@@ -1420,6 +1487,7 @@ push_submodules() {
 push_all() {
     local skip_pr="$1"
     
+    validate_and_fix_remotes
     check_webroot
     
     # Auto-pull unless nopull/no pull is specified
