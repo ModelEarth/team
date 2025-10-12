@@ -1504,10 +1504,14 @@ push_all() {
         local modified_files=($(git status --porcelain | grep -E "^\s*M\s+" | awk '{print $2}'))
         if [[ ${#modified_files[@]} -gt 0 ]]; then
             echo "🔄 Staging modified submodules before webroot commit..."
-            # Commit changes within each submodule first
+            # Commit changes within each submodule first (skip regular files)
             for file in "${modified_files[@]}"; do
-                echo "📌 Committing changes in submodule: $file"
-                (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
+                if [ -d "$file" ] && [ -f "$file/.git" ]; then
+                    echo "📌 Committing changes in submodule: $file"
+                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
+                else
+                    echo "📌 Skipping non-submodule file: $file"
+                fi
             done
             # Now add the updated submodule references
             for file in "${modified_files[@]}"; do
