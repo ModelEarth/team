@@ -42,28 +42,48 @@ validate_and_fix_remotes() {
         echo "🚨 CRITICAL: Webroot repository pointing to team URL - fixing..."
         if [ -n "$WEBROOT_CONTEXT" ]; then
             git -C "$WEBROOT_CONTEXT" remote set-url origin "https://github.com/ModelEarth/webroot.git"
+            git -C "$WEBROOT_CONTEXT" remote set-url upstream "https://github.com/ModelEarth/webroot.git"
         else
             git remote set-url origin "https://github.com/ModelEarth/webroot.git"
+            git remote set-url upstream "https://github.com/ModelEarth/webroot.git"
         fi
         echo "✅ Fixed webroot remote URL"
     fi
     
-    # Check team repository
+    # Check team repository - Enhanced detection
     local team_remote=""
-    if [ -f "../.gitmodules" ] && [ -d ".git" ]; then
+    local team_upstream=""
+    
+    # Multiple ways to check team repository
+    if [ -f "../.gitmodules" ] && [ -f ".git" ]; then
+        # We're in team submodule directory
         team_remote=$(git remote get-url origin 2>/dev/null || echo "")
-    elif [ -d "team" ]; then
+        team_upstream=$(git remote get-url upstream 2>/dev/null || echo "")
+    elif [ -d "team" ] && [ -f "team/.git" ]; then
+        # We're in webroot, checking team submodule
         team_remote=$(git -C "team" remote get-url origin 2>/dev/null || echo "")
+        team_upstream=$(git -C "team" remote get-url upstream 2>/dev/null || echo "")
     fi
     
+    # Fix team repository if corrupted
     if [[ -n "$team_remote" ]] && [[ "$team_remote" == *"webroot"* ]]; then
-        echo "🚨 CRITICAL: Team repository pointing to webroot URL - fixing..."
-        if [ -f "../.gitmodules" ] && [ -d ".git" ]; then
+        echo "🚨 CRITICAL: Team repository origin pointing to webroot URL - fixing..."
+        if [ -f "../.gitmodules" ] && [ -f ".git" ]; then
             git remote set-url origin "https://github.com/ModelEarth/team.git"
         elif [ -d "team" ]; then
             git -C "team" remote set-url origin "https://github.com/ModelEarth/team.git"
         fi
-        echo "✅ Fixed team remote URL"
+        echo "✅ Fixed team origin remote URL"
+    fi
+    
+    if [[ -n "$team_upstream" ]] && [[ "$team_upstream" == *"webroot"* ]]; then
+        echo "🚨 CRITICAL: Team repository upstream pointing to webroot URL - fixing..."
+        if [ -f "../.gitmodules" ] && [ -f ".git" ]; then
+            git remote set-url upstream "https://github.com/ModelEarth/team.git"
+        elif [ -d "team" ]; then
+            git -C "team" remote set-url upstream "https://github.com/ModelEarth/team.git"
+        fi
+        echo "✅ Fixed team upstream remote URL"
     fi
     
     echo "✅ Repository remote validation completed"
@@ -444,6 +464,16 @@ setup_fork() {
     local name="$1"
     local parent_account="$2"
     
+    # CRITICAL SAFEGUARD: Prevent cross-repository URL corruption
+    local current_remote=$(git remote get-url origin 2>/dev/null || echo "")
+    if [[ "$name" == "webroot" ]] && [[ "$current_remote" == *"team"* ]]; then
+        echo "⚠️ ERROR: Attempted to setup webroot fork while in team repository - aborting"
+        return 1
+    elif [[ "$name" == "team" ]] && [[ "$current_remote" == *"webroot"* ]]; then
+        echo "⚠️ ERROR: Attempted to setup team fork while in webroot repository - aborting"
+        return 1
+    fi
+    
     # If user already owns the repo, no need to fork
     if is_repo_owner "$name"; then
         echo "ℹ️ Already using user's repository, no fork needed"
@@ -783,6 +813,9 @@ commit_push() {
     local name="$1"
     local skip_pr="$2"
     local original_dir=$(pwd)
+    
+    # CRITICAL: Validate remotes before any commit/push operations
+    validate_and_fix_remotes
     
     # If operating on webroot from team context, change to webroot directory
     if [[ "$name" == "webroot" ]] && [[ "$OPERATING_ON_WEBROOT" == "true" ]] && [[ -n "$WEBROOT_CONTEXT" ]]; then
@@ -1688,8 +1721,12 @@ case "$1" in
     "push"|"push-all")
         if [ "$2" = "submodules" ]; then
             push_submodules "$3"
-        elif [ "$2" = "all" ] || [ -z "$2" ]; then
-            push_all "$2$3"  # Handle both 'push' and 'push all [nopr]'
+        elif [ "$2" = "all" ]; then
+            push_all "$3"  # push all with optional parameter
+        elif [ -z "$2" ]; then
+            # SIMPLIFIED FIX: When just "push" with no parameters, use working command
+            echo "🚀 Starting push workflow for all repositories..."
+            push_all "nopull"  # Use the command we know works
         elif [ -n "$2" ]; then
             push_specific_repo "$2" "$3"
         fi
