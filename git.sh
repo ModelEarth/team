@@ -1795,4 +1795,6 @@ case "$1" in
 esac
 
 # Always return to webroot repository root at the end. Webroot may have different names for each user who forks and clones it.
-cd $(git rev-parse --show-toplevel)
+
+# Output blank line to help see where command completed
+echo
