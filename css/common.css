@@ -16,6 +16,8 @@
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --radius-md: 8px;
     --radius-lg: 12px;
+    --line-height: 1.6;
+    
 }
 .dark {
     --bg-secondary: #555;
@@ -346,6 +348,7 @@ pre code {
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-light);
+    line-height: var(--line-height);
 }
 
 #cli-commands {
