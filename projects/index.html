@@ -80,6 +80,66 @@
         .form-control::placeholder {
             color: var(--text-muted);
         }
+
+        /* PR card styles for Contributions panel */
+        .pr-card {
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-secondary);
+        }
+
+        /* Make nested PR cards visually distinct inside submodule cards */
+        .submodule-card .pr-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            box-shadow: none;
+            padding: 10px;
+            margin: 8px 0;
+        }
+
+        /* PR card layout (non-expandable) */
+        .pr-card {
+            display: block;
+        }
+
+        .pr-card .pr-header {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .pr-card .pr-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+
+        .pr-meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .pr-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .pr-body-snippet {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-top: 8px;
+            max-height: 6em;
+            overflow: hidden;
+            word-break: break-word;
+        }
+
+        /* Token control tweaks to avoid small box artifacts and keep alignment */
+        #contributionsContent .form-control { max-width: 420px; }
+        #contributionsContent .btn { height: 36px; padding: 6px 10px; }
+        #contributionsContent label { margin: 0; }
         
         .form-select {
             width: 100%;
@@ -917,6 +977,101 @@
         
         #insights-btn {
             padding: 8px 16px !important;
+        }
+
+        /* Contributions button styling - similar size to insights but distinct color */
+        #contribs-btn {
+            padding: 8px 16px !important;
+            background: linear-gradient(180deg, #7c3aed, #6d28d9) !important; /* purple gradient */
+            color: white !important;
+            border-color: #6d28d9 !important;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+            opacity: 0.95;
+        }
+
+        #contribs-btn:hover {
+            opacity: 1 !important;
+            filter: brightness(0.98);
+        }
+
+        /* Submodule GitHub link icon styling */
+        .submodule-gh-link {
+            color: var(--text-secondary);
+        }
+        .submodule-gh-link:hover {
+            color: var(--accent-blue);
+        }
+
+        /* Local model.earth link on the left of the repo name */
+        .submodule-local-link {
+            color: var(--text-secondary);
+            margin-right: 8px;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .submodule-local-link:hover {
+            color: var(--accent-blue);
+        }
+
+        /* Submodule cards layout */
+        .submodule-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+            align-items: start; /* keep cards top-aligned */
+        }
+
+        .submodule-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 12px;
+            box-sizing: border-box;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            min-height: 160px; /* ensure each card has noticeable size */
+        }
+
+        /* Filter button active state */
+        #prsFilters .btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        /* Make the filter buttons more visible (pill-like) */
+        #prsFilters .btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.06s ease;
+        }
+
+        #prsFilters .btn:hover {
+            background: var(--bg-secondary);
+            transform: translateY(-1px);
+            color: var(--text-primary); /* keep text readable on hover */
+        }
+
+        .submodule-card h4 {
+            margin: 0;
+            font-size: 14px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .submodule-card .card-body {
+            margin-top: 8px;
+            overflow: auto;
+            max-height: 320px; /* avoid overly tall cards; scroll inside */
         }
         
         #list-title {
@@ -2071,6 +2226,7 @@
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
                 <div style="display: flex; gap: 10px;">
                     <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
+                    <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Contributions</button>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
                     <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
@@ -2107,6 +2263,39 @@
                     <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
                         Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
                     </div>
+                </div>
+            </div>
+            
+            <!-- Contributions Panel -->
+            <div id="contributionsPanel" style="display: none; margin-top: 16px;">
+                <div class="insights-header">
+                    <div class="insights-status" id="contribsStatus">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                                <div style="color: var(--text-secondary); font-size: 13px;">Show contributions summary and links for selected members.</div>
+                            </div>
+                    </div>
+                </div>
+                <div id="contributionsContent" class="insights-content">
+                    <div id="githubTokenPrompt" style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 8px 20px 4px 20px;">
+                        Contributions panel — optionally paste a GitHub personal access token to raise API limits for live PR fetches.
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap;">
+                        <div id="githubTokenControls" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <input id="githubTokenInput" type="password" class="form-control" placeholder="Paste GitHub token" style="max-width:420px;" aria-label="GitHub token input">
+                            <button class="btn btn-primary" id="saveGithubTokenBtn" onclick="saveGithubToken()">Save</button>
+                            <button class="btn btn-secondary" id="clearGithubTokenBtn" onclick="clearGithubToken()">Clear</button>
+                        </div>
+                        <div id="githubTokenStatus" style="color:var(--text-secondary); font-size:12px; flex:1; min-width:160px;"></div>
+                    </div>
+                    
+                    <!-- Filter row for submodule cards -->
+                    <div id="prsFilters" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <div style="color:var(--text-secondary); font-size:13px; margin-right:6px;">Show:</div>
+                        <button class="btn" data-pr-filter="all" onclick="applyPrFilter('all')">All Repos</button>
+                        <button class="btn" data-pr-filter="with" onclick="applyPrFilter('with')">With PRs</button>
+                        <button class="btn" data-pr-filter="without" onclick="applyPrFilter('without')">Without PRs</button>
+                    </div>
+                    <div id="prsContainer" style="margin-top:12px;"></div>
                 </div>
             </div>
             
@@ -2329,7 +2518,599 @@
                 showAIInsightsButtons();
             }
         }
-        
+
+        // Contributions panel functions
+        function toggleContributions() {
+            const panel = document.getElementById('contributionsPanel');
+            if (!panel) return;
+            const visible = panel.style.display === 'block';
+            if (visible) {
+                panel.style.display = 'none';
+            } else {
+                panel.style.display = 'block';
+                // Ensure insights panel is hidden when showing contributions
+                const ai = document.getElementById('aiInsights'); if (ai) ai.style.display = 'none';
+                showContributionsSection();
+                // Load aggregated submodule PRs (if available)
+                try { loadSubmodulePRs(); } catch (e) { console.warn('loadSubmodulePRs missing', e); }
+            }
+        }
+
+        // Fetch aggregated PRs file generated by GitHub Action and render them
+        async function loadSubmodulePRs() {
+            const content = document.getElementById('contributionsContent');
+            if (!content) return;
+            // Ensure there's a place for PRs
+            let prsContainer = document.getElementById('prsContainer');
+            if (!prsContainer) {
+                prsContainer = document.createElement('div');
+                prsContainer.id = 'prsContainer';
+                prsContainer.style.marginTop = '12px';
+                content.appendChild(prsContainer);
+            }
+
+            prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">Loading open PRs across submodules...</div>';
+            try {
+                // Try to fetch .gitmodules from site root
+                const gmResp = await fetch('/.gitmodules', { cache: 'no-store' });
+                if (!gmResp.ok) {
+                    prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-secondary);">.gitmodules not available for parsing. Live PR fetch requires the site to serve /.gitmodules or provide a submodule list.</div>`;
+                    return;
+                }
+                const gitmodulesText = await gmResp.text();
+                // Extract GitHub owner/repo pairs
+                const urlRegex = /url = (.*)/g;
+                const repos = [];
+                let m;
+                while ((m = urlRegex.exec(gitmodulesText)) !== null) {
+                    const url = m[1].trim();
+                    const gh = url.match(/github.com[:\\/](.+?)\/(.+?)(?:\.git)?$/);
+                    if (gh) {
+                        const owner = gh[1];
+                        const repo = gh[2];
+                        repos.push({ owner, repo });
+                    }
+                }
+
+
+                if (repos.length === 0) {
+                    prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">No GitHub submodules found in .gitmodules.</div>';
+                    return;
+                }
+
+                prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">Fetching PRs for ' + repos.length + ' repositories...</div>';
+
+                // Attempt proxy for each repo first (no global /api/github/ping). If proxy
+                // returns OK or 403 (auth issue), use its response; otherwise fall back to
+                // the public GitHub API. Include session token when available for both paths.
+                const sessionToken = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+
+                const fetches = repos.map(r => (async () => {
+                    const proxyUrl = `/api/github/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
+                    const publicUrl = `https://api.github.com/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
+                    const acceptHeader = { Accept: 'application/vnd.github.v3+json' };
+                    try {
+                        const proxyHeaders = Object.assign({}, acceptHeader);
+                        if (sessionToken) proxyHeaders.Authorization = `token ${sessionToken}`;
+                        const proxyRes = await fetch(proxyUrl, { headers: proxyHeaders });
+                        if (proxyRes && (proxyRes.ok || proxyRes.status === 403)) {
+                            return { res: proxyRes, r, usedProxy: true };
+                        }
+                    } catch (e) {
+                        // proxy request failed; fall back
+                    }
+                    try {
+                        const publicHeaders = Object.assign({}, acceptHeader);
+                        if (sessionToken) publicHeaders.Authorization = `token ${sessionToken}`;
+                        const pubRes = await fetch(publicUrl, { headers: publicHeaders });
+                        return { res: pubRes, r, usedProxy: false };
+                    } catch (err) {
+                        return { err, r };
+                    }
+                })());
+
+                const responses = await Promise.all(fetches);
+
+                // Build a responsive grid of submodule cards using DOM nodes (safer than string concat)
+                const cardsContainer = document.createElement('div');
+                cardsContainer.className = 'submodule-cards';
+                for (const entry of responses) {
+                    const r = entry.r;
+                    function displayRepo(owner, repo) {
+                        if (!repo) return '';
+                        // Show only the repository name with first letter capitalized
+                        return repo.charAt(0).toUpperCase() + repo.slice(1);
+                    }
+
+                    const ghUrl = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}`;
+
+                    const card = document.createElement('div');
+                    card.className = 'submodule-card';
+
+                    const header = document.createElement('div');
+                    header.style.display = 'flex';
+                    header.style.alignItems = 'center';
+                    header.style.justifyContent = 'space-between';
+                    header.style.gap = '8px';
+
+                    const localUrl = `https://model.earth/${encodeURIComponent(r.repo)}`;
+                    const localLink = document.createElement('a');
+                    localLink.className = 'submodule-local-link';
+                    localLink.href = localUrl;
+                    localLink.target = '_blank';
+                    localLink.rel = 'noopener noreferrer';
+                    localLink.title = `Open model.earth/${r.repo}`;
+                    localLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path d="M14 3h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 21H3V3h7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg>`;
+
+                    const h4 = document.createElement('h4');
+                    h4.style.margin = '0';
+                    h4.style.fontSize = '15px';
+                    h4.textContent = displayRepo(r.owner, r.repo);
+
+                    const ghLink = document.createElement('a');
+                    ghLink.className = 'submodule-gh-link';
+                    ghLink.href = ghUrl;
+                    ghLink.target = '_blank';
+                    ghLink.rel = 'noopener noreferrer';
+                    ghLink.title = `Open ${r.owner}/${r.repo} on GitHub`;
+                    ghLink.setAttribute('aria-label', `Open ${r.owner}/${r.repo} on GitHub`);
+                    ghLink.style.marginLeft = '8px';
+                    ghLink.style.verticalAlign = 'middle';
+                    ghLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>`;
+
+                    header.appendChild(localLink);
+                    header.appendChild(h4);
+                    header.appendChild(ghLink);
+                    card.appendChild(header);
+
+                    if (entry.err) {
+                        const errDiv = document.createElement('div');
+                        errDiv.style.color = 'var(--text-danger)';
+                        errDiv.textContent = 'Network error: ' + String(entry.err);
+                        card.appendChild(errDiv);
+                        cardsContainer.appendChild(card);
+                        continue;
+                    }
+
+                    const res = entry.res;
+                    if (!res.ok) {
+                        const msg = document.createElement('div');
+                        if (res.status === 403) {
+                            msg.style.color = 'var(--text-danger)';
+                            msg.innerHTML = entry.usedProxy ? `Proxy returned HTTP 403 for ${escapeHtml(displayRepo(r.owner, r.repo))}. Check the proxy's GitHub token permissions.` : `GitHub API rate limit or access denied (HTTP 403). To avoid this, run a small authenticated proxy on your server that forwards requests to the GitHub API using a token. Example proxy path used by this page: <code>/api/github/repos/${escapeHtml(r.owner)}/${escapeHtml(r.repo)}/pulls?state=open</code>.`;
+                        } else if (res.status === 404) {
+                            msg.style.color = 'var(--text-secondary)';
+                            msg.textContent = 'Repository not found (404).';
+                        } else {
+                            msg.style.color = 'var(--text-danger)';
+                            msg.textContent = `Error fetching PRs (HTTP ${res.status}).`;
+                        }
+                        card.appendChild(msg);
+                        cardsContainer.appendChild(card);
+                        continue;
+                    }
+
+                    const prs = await res.json();
+                    if (!Array.isArray(prs) || prs.length === 0) {
+                        const bodyEmpty = document.createElement('div');
+                        bodyEmpty.className = 'card-body';
+                        bodyEmpty.style.color = 'var(--text-secondary)';
+                        bodyEmpty.textContent = 'No PRs found.';
+                        card.appendChild(bodyEmpty);
+
+                        // mark card as having zero PRs for filtering
+                        try { card.dataset.prCount = '0'; card.dataset.hasPrs = 'false'; } catch(e){}
+
+                        // Try to fetch repo metadata and commit count to show extra info
+                        try {
+                            const owner = r.owner;
+                            const repo = r.repo;
+                            const acceptHeader = { Accept: 'application/vnd.github.v3+json' };
+                            const repoUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+                            const commitsUrl = `${repoUrl}/commits?per_page=1`;
+                            const headers = Object.assign({}, acceptHeader);
+                            if (sessionToken) headers.Authorization = `token ${sessionToken}`;
+
+                            // Fetch repo info
+                            let repoRes = null;
+                            try {
+                                repoRes = await fetch(repoUrl, { headers });
+                            } catch(e) { repoRes = null; }
+
+                            // Fetch commits (1) to get latest commit and Link header for count (fallback)
+                            let commitsRes = null;
+                            try {
+                                commitsRes = await fetch(commitsUrl, { headers });
+                            } catch(e) { commitsRes = null; }
+
+                            let commitsCount = null;
+                            let updatedAt = null;
+
+                            // If we prefetched repository summaries at page load, prefer those values
+                            try {
+                                const cacheKey = `${owner}/${repo}`;
+                                if (window._repoSummaries && window._repoSummaries[cacheKey]) {
+                                    const pre = window._repoSummaries[cacheKey];
+                                    if (pre && typeof pre === 'object') {
+                                        if (pre.commitsCount != null) commitsCount = pre.commitsCount;
+                                        if (pre.updatedAt) updatedAt = pre.updatedAt;
+                                    }
+                                }
+                            } catch (e) { /* non-fatal */ }
+
+                            // If we have a session token, prefer GraphQL for an accurate commit total on default branch
+                            // but skip GraphQL if the prefetched cache already provided a commitsCount
+                            if (sessionToken && commitsCount == null) {
+                                try {
+                                    const gqlQuery = `query { repository(owner: \"${owner}\", name: \"${repo}\") { defaultBranchRef { target { ... on Commit { history { totalCount } } } } pushedAt updatedAt } }`;
+                                    const gqlRes = await fetch('https://api.github.com/graphql', {
+                                        method: 'POST',
+                                        headers: Object.assign({}, { 'Content-Type': 'application/json', Authorization: `bearer ${sessionToken}` }),
+                                        body: JSON.stringify({ query: gqlQuery })
+                                    });
+                                    if (gqlRes && gqlRes.ok) {
+                                        const gqlJson = await gqlRes.json();
+                                        const repoNode = gqlJson && gqlJson.data && gqlJson.data.repository;
+                                        if (repoNode) {
+                                            const hist = repoNode.defaultBranchRef && repoNode.defaultBranchRef.target && repoNode.defaultBranchRef.target.history;
+                                            if (hist && typeof hist.totalCount === 'number') commitsCount = hist.totalCount;
+                                            updatedAt = repoNode.pushedAt || repoNode.updatedAt || null;
+                                        }
+                                    }
+                                } catch(e) {
+                                    // GraphQL failed - we'll fall back to Link header parsing
+                                }
+                            }
+
+                            // Fallback: try Link header parsing from commitsRes
+                            if (commitsCount == null && commitsRes) {
+                                try {
+                                    const link = commitsRes.headers.get('Link');
+                                    if (link) {
+                                        const m = link.match(/&?page=(\d+)[^>]*>; rel="last"/);
+                                        if (m && m[1]) commitsCount = parseInt(m[1], 10);
+                                    }
+                                } catch(e){}
+                                if (commitsCount == null) {
+                                    try {
+                                        const commitsJson = await commitsRes.json();
+                                        if (Array.isArray(commitsJson)) commitsCount = commitsJson.length;
+                                    } catch(e){}
+                                }
+                            }
+
+                            if (!updatedAt && repoRes && repoRes.ok) {
+                                try {
+                                    const repoJson = await repoRes.json();
+                                    updatedAt = repoJson.pushed_at || repoJson.updated_at || null;
+                                } catch(e){}
+                            }
+
+                            // Format and show the info
+                            const infoParts = [];
+                            if (commitsCount != null) infoParts.push(`<strong>Commits:</strong> ${commitsCount}`);
+                            if (updatedAt) infoParts.push(`${timeAgo(updatedAt)} updated`);
+                            if (infoParts.length > 0) {
+                                const infoDiv = document.createElement('div');
+                                infoDiv.style.marginTop = '8px';
+                                infoDiv.style.color = 'var(--text-secondary)';
+                                infoDiv.style.fontSize = '13px';
+                                infoDiv.innerHTML = infoParts.join(' • ');
+                                bodyEmpty.appendChild(infoDiv);
+                            }
+                        } catch(e) {
+                            // non-fatal; keep the 'No PRs found.' message
+                        }
+
+                        cardsContainer.appendChild(card);
+                        continue;
+                    }
+
+                    const cardBody = document.createElement('div');
+                    cardBody.className = 'card-body';
+                    const strong = document.createElement('strong');
+                    strong.textContent = 'Open PRs';
+                    cardBody.appendChild(strong);
+                    const prListWrap = document.createElement('div');
+                    prListWrap.style.marginTop = '6px';
+
+                    prs.forEach(p => {
+                        const created = new Date(p.created_at).toLocaleString();
+                        const labels = (p.labels || []).map(l => l.name).join(', ');
+                        const bodyText = p.body || '';
+                        const safeBody = escapeHtml(bodyText).replace(/\n/g, '<br>');
+                        const snippet = escapeHtml(bodyText ? (bodyText.slice(0, 400) + (bodyText.length > 400 ? '…' : '')) : '').replace(/\n/g, '<br>');
+
+                        const prTile = document.createElement('div');
+                        prTile.className = 'pr-card';
+
+                        const prHeader = document.createElement('div');
+                        prHeader.className = 'pr-header';
+                        prHeader.style.display = 'flex';
+                        prHeader.style.justifyContent = 'space-between';
+                        prHeader.style.gap = '12px';
+                        prHeader.style.alignItems = 'flex-start';
+
+                        const left = document.createElement('div');
+                        left.style.flex = '1';
+                        left.style.minWidth = '0';
+                        const titleSpan = document.createElement('span');
+                        titleSpan.className = 'pr-title';
+                        titleSpan.textContent = `#${p.number} — ${p.title}`;
+                        const metaDiv = document.createElement('div');
+                        metaDiv.className = 'pr-meta';
+                        metaDiv.textContent = `${p.user?.login || 'unknown'} · ${created}${labels ? ' · ' + labels : ''}`;
+                        left.appendChild(titleSpan);
+                        left.appendChild(metaDiv);
+
+                        const right = document.createElement('div');
+                        right.style.whiteSpace = 'nowrap';
+                        right.style.marginLeft = '8px';
+                        const openLink = document.createElement('a');
+                        openLink.href = p.html_url;
+                        openLink.target = '_blank';
+                        openLink.textContent = 'Open on GitHub';
+                        right.appendChild(openLink);
+
+                        prHeader.appendChild(left);
+                        prHeader.appendChild(right);
+                        prTile.appendChild(prHeader);
+
+                        if (bodyText) {
+                            const snippetDiv = document.createElement('div');
+                            snippetDiv.className = 'pr-body-snippet';
+                            snippetDiv.innerHTML = snippet;
+                            prTile.appendChild(snippetDiv);
+
+                            const fullLabel = document.createElement('div');
+                            fullLabel.style.marginTop = '8px';
+                            fullLabel.style.color = 'var(--text-secondary)';
+                            fullLabel.style.fontSize = '13px';
+                            fullLabel.textContent = 'Full description:';
+                            prTile.appendChild(fullLabel);
+
+                            const fullDiv = document.createElement('div');
+                            fullDiv.style.marginTop = '6px';
+                            fullDiv.innerHTML = safeBody;
+                            prTile.appendChild(fullDiv);
+                        }
+
+                        prListWrap.appendChild(prTile);
+                    });
+
+                    cardBody.appendChild(prListWrap);
+                    card.appendChild(cardBody);
+                    // mark card with PR count for filtering
+                    try { card.dataset.prCount = String(prs.length); card.dataset.hasPrs = prs.length > 0 ? 'true' : 'false'; } catch(e){}
+                    cardsContainer.appendChild(card);
+                }
+                // Replace container content with the constructed nodes
+                prsContainer.innerHTML = '';
+                prsContainer.appendChild(cardsContainer);
+                // initialize filters view after rendering cards
+                try { renderPrFilters(); } catch(e){}
+            } catch (e) {
+                prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-danger);">Error loading PRs: ${escapeHtml(String(e))}</div>`;
+            }
+        }
+
+        function showContributionsSection() {
+            const panel = document.getElementById('contributionsPanel');
+            if (!panel) return;
+            // Only show if participantsData exists
+            if (window.participantsData && window.participantsData.length > 0) {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // Contributions summary is shown automatically when the panel is opened; manual refresh button removed.
+
+        // Basic HTML escape helper
+        function escapeHtml(unsafe) {
+            if (unsafe == null) return '';
+            return String(unsafe)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // human-friendly time ago (accepts ISO string or Date)
+        function timeAgo(iso) {
+            if (!iso) return '';
+            const t = typeof iso === 'string' ? new Date(iso) : new Date(iso);
+            if (isNaN(t)) return '';
+            const seconds = Math.floor((Date.now() - t.getTime()) / 1000);
+            const intervals = [
+                ['year', 31536000],
+                ['month', 2592000],
+                ['week', 604800],
+                ['day', 86400],
+                ['hour', 3600],
+                ['minute', 60],
+                ['second', 1]
+            ];
+            for (const [name, secs] of intervals) {
+                const val = Math.floor(seconds / secs);
+                if (val >= 1) return `${val} ${name}${val > 1 ? 's' : ''} ago`;
+            }
+            return 'just now';
+        }
+
+        // PR filters for submodule cards
+        function applyPrFilter(filter) {
+            const buttons = document.querySelectorAll('#prsFilters .btn');
+            buttons.forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`#prsFilters .btn[data-pr-filter="${filter}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const cards = document.querySelectorAll('.submodule-card');
+            cards.forEach(card => {
+                const hasPrs = (card.dataset.hasPrs === 'true');
+                if (filter === 'all') {
+                    card.style.display = '';
+                } else if (filter === 'with') {
+                    card.style.display = hasPrs ? '' : 'none';
+                } else if (filter === 'without') {
+                    card.style.display = hasPrs ? 'none' : '';
+                }
+            });
+        }
+
+        function renderPrFilters() {
+            // default to 'all' if nothing selected
+            const currentActive = document.querySelector('#prsFilters .btn.active');
+            if (!currentActive) {
+                applyPrFilter('all');
+            }
+        }
+
+        // GitHub token helpers (sessionStorage only)
+        function saveGithubToken() {
+            const input = document.getElementById('githubTokenInput');
+            const status = document.getElementById('githubTokenStatus');
+            if (!input) return;
+            const token = input.value.trim();
+            try {
+                if (!token) {
+                    // clear session store
+                    try { sessionStorage.removeItem('github_token'); } catch(e){}
+                    if (status) status.textContent = 'No token saved.';
+                    try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
+                    try { restoreGithubTokenStatus(); } catch (e) {}
+                    return;
+                }
+                // Always store only in sessionStorage for privacy
+                sessionStorage.setItem('github_token', token);
+                if (status) status.textContent = 'Token saved for this session.';
+                input.value = '';
+                try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
+                try { restoreGithubTokenStatus(); } catch (e) {}
+            } catch (e) {
+                if (status) status.textContent = 'Unable to save token.';
+            }
+        }
+
+        function clearGithubToken() {
+            const status = document.getElementById('githubTokenStatus');
+            try {
+                try { sessionStorage.removeItem('github_token'); } catch(e){}
+                if (status) status.textContent = 'Token cleared.';
+                try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
+                try { restoreGithubTokenStatus(); } catch (e) {}
+            } catch (e) {
+                if (status) status.textContent = 'Unable to clear token.';
+            }
+        }
+
+        // Restore status text on panel open and toggle token UI/prompt
+        function restoreGithubTokenStatus(){
+            try {
+                const status = document.getElementById('githubTokenStatus');
+                const tokenControls = document.getElementById('githubTokenControls');
+                const tokenPrompt = document.getElementById('githubTokenPrompt');
+                let token = null;
+                try { token = sessionStorage.getItem('github_token'); } catch(e){}
+                if (status) {
+                    status.textContent = token ? 'Token present for this session.' : 'No token saved.';
+                }
+                if (tokenControls) {
+                    tokenControls.style.display = token ? 'none' : '';
+                }
+                if (tokenPrompt) {
+                    tokenPrompt.style.display = token ? 'none' : '';
+                }
+            } catch(e){}
+        }
+    // initialize token UI on script load
+    try { restoreGithubTokenStatus(); } catch(e){}
+        // Prefetch minimal repo summaries (commits count and updated time) to avoid
+        // making per-repo API calls when the Contributions panel is opened.
+        // This will try a site-local proxy first (/api/github/html/...), then
+        // fall back to fetching the public GitHub repository page HTML.
+        window._repoSummaries = window._repoSummaries || {};
+
+        async function fetchRepoPageSummary(owner, repo) {
+            const key = `${owner}/${repo}`;
+            // If already fetched, return it
+            if (window._repoSummaries && window._repoSummaries[key]) return window._repoSummaries[key];
+            const proxyUrl = `/api/github/html/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+            const publicUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+            const tryFetch = async (url, useProxy) => {
+                try {
+                    const headers = {};
+                    // include session token if proxy requires it
+                    const token = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+                    if (token && useProxy) headers.Authorization = `token ${token}`;
+                    const resp = await fetch(url, { headers, cache: 'no-store' });
+                    if (!resp || !resp.ok) return null;
+                    const text = await resp.text();
+                    return text;
+                } catch (e) { return null; }
+            };
+
+            // Try proxy first
+            let html = await tryFetch(proxyUrl, true);
+            if (!html) html = await tryFetch(publicUrl, false);
+
+            const result = { commitsCount: null, updatedAt: null };
+            if (!html) {
+                window._repoSummaries[key] = result;
+                return result;
+            }
+
+            try {
+                // Parse simple patterns from GitHub repo page
+                // Look for 'data-component="buttonContent"' sections which include commit counts
+                const commitMatch = html.match(/data-component="buttonContent"[\s\S]*?([0-9,]+) commit/mi) || html.match(/([0-9,]+) commit[s]?/i);
+                if (commitMatch && commitMatch[1]) {
+                    const n = parseInt(commitMatch[1].replace(/,/g, ''), 10);
+                    if (!isNaN(n)) result.commitsCount = n;
+                }
+
+                // Relative time: look for <relative-time datetime="..."> or <relative-time class="..." datetime="...">
+                const timeMatch = html.match(/<relative-time[^>]*datetime="([^"]+)"/i) || html.match(/datetime="([0-9T:\-\.Z]+)"[^>]*>\s*<\/relative-time>/i);
+                if (timeMatch && timeMatch[1]) {
+                    result.updatedAt = timeMatch[1];
+                } else {
+                    // Alternative: look for data-pushed or data-updated attributes or 'pushed' text
+                    const pushedMatch = html.match(/"pushed_at"\s*:\s*"([^"]+)"/i) || html.match(/pushed\s*at\s*<.*?datetime="([^"]+)"/i);
+                    if (pushedMatch && pushedMatch[1]) result.updatedAt = pushedMatch[1];
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
+
+            window._repoSummaries[key] = result;
+            return result;
+        }
+
+        async function prefetchRepoSummaries() {
+            try {
+                const gmResp = await fetch('/.gitmodules', { cache: 'no-store' });
+                if (!gmResp.ok) return;
+                const gitmodulesText = await gmResp.text();
+                const urlRegex = /url = (.*)/g;
+                let m;
+                const repos = [];
+                while ((m = urlRegex.exec(gitmodulesText)) !== null) {
+                    const url = m[1].trim();
+                    const gh = url.match(/github.com[:\\/](.+?)\/(.+?)(?:\.git)?$/);
+                    if (gh) repos.push({ owner: gh[1], repo: gh[2] });
+                }
+                // Limit prefetch to avoid too many requests: max 20 repos
+                const toFetch = repos.slice(0, 20);
+                await Promise.all(toFetch.map(r => fetchRepoPageSummary(r.owner, r.repo)));
+            } catch (e) {
+                // non-fatal
+            }
+        }
+
+        // Start prefetch asynchronously but don't await (non-blocking)
+        try { prefetchRepoSummaries(); } catch(e){}
         function showAIInsightsButtons() {
             const cacheKey = getCurrentDataSource();
             const hasGeminiCache = aiInsightsCache[cacheKey];
@@ -2356,6 +3137,7 @@
                 geminiRefresh.style.display = hasGeminiCache ? 'flex' : 'none';
                 // Don't auto-highlight - highlighting only shows the currently displayed insights
             }
+            // Intentionally do not auto-open contributions panel; user must click to view it
         }
         
         function getCurrentDataSource() {
@@ -7211,6 +7993,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (insightsBtn) {
                 insightsBtn.style.display = 'inline-block';
             }
+            // Also show Contributions button if present
+            const contribsBtn = document.getElementById('contribs-btn');
+            if (contribsBtn) {
+                contribsBtn.style.display = 'inline-block';
+            }
         }
         
         // Insights toggle functionality
@@ -8038,6 +8825,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Initialize file selection
             await initializeFileSelection();
+
+            // Ensure visibility of list-select buttons (Insights, Contributions) after initialization
+            try { updateListSelectVisibility(); } catch (e) { console.warn('updateListSelectVisibility missing', e); }
             
             // Load group participants after file initialization is complete
             // This ensures clearAllFilters() doesn't wipe out localStorage values
