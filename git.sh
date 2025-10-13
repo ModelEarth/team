@@ -28,7 +28,7 @@ done
 
 # Validate and fix repository remote URLs to prevent corruption
 validate_and_fix_remotes() {
-    echo "🔍 Validating repository remote URLs..."
+    # Silent validation - only output if corruption is found
     
     # Check webroot repository
     local webroot_remote=""
@@ -86,7 +86,7 @@ validate_and_fix_remotes() {
         echo "✅ Fixed team upstream remote URL"
     fi
     
-    echo "✅ Repository remote validation completed"
+    # Validation completed silently
 }
 
 # Helper function to check if we're in webroot
@@ -814,9 +814,6 @@ commit_push() {
     local skip_pr="$2"
     local original_dir=$(pwd)
     
-    # CRITICAL: Validate remotes before any commit/push operations
-    validate_and_fix_remotes
-    
     # If operating on webroot from team context, change to webroot directory
     if [[ "$name" == "webroot" ]] && [[ "$OPERATING_ON_WEBROOT" == "true" ]] && [[ -n "$WEBROOT_CONTEXT" ]]; then
         cd "$WEBROOT_CONTEXT" || {
@@ -964,7 +961,6 @@ pull_command() {
     local repo_name="$1"
     
     echo "🔄 Starting pull workflow..."
-    validate_and_fix_remotes
     check_webroot
     
     # If specific repo name provided, pull only that repo
@@ -1520,7 +1516,6 @@ push_submodules() {
 push_all() {
     local skip_pr="$1"
     
-    validate_and_fix_remotes
     check_webroot
     
     # Auto-pull unless nopull/no pull is specified
@@ -1726,6 +1721,7 @@ case "$1" in
         elif [ -z "$2" ]; then
             # SIMPLIFIED FIX: When just "push" with no parameters, use working command
             echo "🚀 Starting push workflow for all repositories..."
+            validate_and_fix_remotes  # Single validation for corruption prevention
             push_all "nopull"  # Use the command we know works
         elif [ -n "$2" ]; then
             push_specific_repo "$2" "$3"
