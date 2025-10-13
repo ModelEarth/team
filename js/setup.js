@@ -292,13 +292,25 @@ function updateGeminiKeyUI(keyIsAvailable) {
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
             <div style="margin-top: 8px;">
-                <button onclick="toggleGeminiKeyInput()" style="padding: 4px 8px; font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 3px; cursor: pointer;">Change Key</button>
+                <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                        <circle cx="12" cy="16" r="1"></circle>
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="16" cy="12" r="1"></circle>
+                    </svg>
+                    Change Key
+                </button>
             </div>
-            <div id="browser-key-input" style="display: none; margin-top: 8px; padding: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;">
-                <label for="browser-gemini-key" style="font-size: 12px; font-weight: 500; color: #374151;">Override with Browser Key:</label><br>
-                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 250px; margin-top: 4px; padding: 4px; font-size: 11px; border: 1px solid #D1D5DB; border-radius: 3px;" oninput="saveBrowserGeminiKey()" value="">
-                <div style="font-size: 10px; color: #6B7280; margin-top: 2px;">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank">Get your Gemini key</a> - Stored only in your browser cache
+            <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Enter your Gemini Key</label>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
+                    <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary);">
+                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
@@ -316,17 +328,29 @@ function updateGeminiKeyUI(keyIsAvailable) {
         titleElement.textContent = titleText;
         contentElement.innerHTML = `
             You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 6px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for full AI insights
+            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 12px; font-size: 11px;">
+                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for your AI insights
             </div>
             <div style="margin-top: 8px;">
-                <button onclick="toggleGeminiKeyInput()" style="padding: 4px 8px; font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 3px; cursor: pointer;">${buttonText}</button>
+                <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                        <circle cx="12" cy="16" r="1"></circle>
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="16" cy="12" r="1"></circle>
+                    </svg>
+                    ${buttonText}
+                </button>
             </div>
-            <div id="browser-key-input" style="display: none; margin-top: 8px; padding: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;">
-                <label for="browser-gemini-key" style="font-size: 12px; font-weight: 500; color: #374151;">Browser Key:</label><br>
-                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 250px; margin-top: 4px; padding: 4px; font-size: 11px; border: 1px solid #D1D5DB; border-radius: 3px;" oninput="saveBrowserGeminiKey()" value="${cachedKey || ''}">
-                <div style="font-size: 10px; color: #6B7280; margin-top: 2px;">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank">Get your Gemini key</a> - Stored only in your browser cache
+            <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Browser Key:</label>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
+                    <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary);">
+                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
@@ -336,17 +360,77 @@ function updateGeminiKeyUI(keyIsAvailable) {
 // Toggle the browser Gemini key input field
 function toggleGeminiKeyInput() {
     const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
     if (inputDiv) {
         const isVisible = inputDiv.style.display !== 'none';
         inputDiv.style.display = isVisible ? 'none' : 'block';
         
-        // Focus the input field when showing
+        // Hide/show Change Key button
+        if (changeKeyBtn) {
+            changeKeyBtn.style.display = isVisible ? 'inline-flex' : 'none';
+        }
+        
+        // Focus the input field and load cached key when showing
         if (!isVisible) {
             const keyInput = document.getElementById('browser-gemini-key');
             if (keyInput) {
+                // Load cached key if available
+                const cachedKey = localStorage.getItem('gemini_api_key');
+                if (cachedKey && !keyInput.value) {
+                    keyInput.value = cachedKey;
+                }
                 setTimeout(() => keyInput.focus(), 100);
             }
         }
+    }
+}
+
+// Save Gemini key and hide input
+function saveGeminiKey() {
+    const keyInput = document.getElementById('browser-gemini-key');
+    const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
+    if (keyInput) {
+        const key = keyInput.value.trim();
+        if (key) {
+            localStorage.setItem('gemini_api_key', key);
+        } else {
+            localStorage.removeItem('gemini_api_key');
+        }
+        
+        // Hide input and show Change Key button
+        if (inputDiv) {
+            inputDiv.style.display = 'none';
+        }
+        if (changeKeyBtn) {
+            changeKeyBtn.style.display = 'inline-flex';
+        }
+        
+        // Update UI to reflect the change
+        checkGeminiKeyStatus();
+    }
+}
+
+// Cancel key input and restore previous state
+function cancelGeminiKey() {
+    const keyInput = document.getElementById('browser-gemini-key');
+    const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
+    if (keyInput) {
+        // Restore previous value from localStorage
+        const cachedKey = localStorage.getItem('gemini_api_key');
+        keyInput.value = cachedKey || '';
+    }
+    
+    // Hide input and show Change Key button
+    if (inputDiv) {
+        inputDiv.style.display = 'none';
+    }
+    if (changeKeyBtn) {
+        changeKeyBtn.style.display = 'inline-flex';
     }
 }
 

@@ -743,12 +743,114 @@
             font-size: 16px;
         }
         
-        /* Snapshot dropdown styling */
-        .snapshot-name-editor {
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius-md);
-            padding: 12px;
-            background: var(--bg-tertiary);
+        
+        /* Snapshot controls layout */
+        .snapshot-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            container-type: inline-size;
+        }
+        
+        .snapshot-dropdown {
+            flex: 1;
+        }
+        
+        .snapshot-input-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .snapshot-input {
+            flex: 1;
+        }
+        
+        .snapshot-buttons {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        @container (max-width: 600px) {
+            /* Default narrow layout: stacked when input is visible */
+            .snapshot-controls.editing {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            
+            .snapshot-controls.editing .snapshot-dropdown {
+                width: 100%;
+                flex: none;
+            }
+            
+            .snapshot-controls.editing .snapshot-input-buttons {
+                width: 100%;
+                flex: none;
+            }
+            
+            .snapshot-controls.editing .snapshot-input {
+                flex: 1;
+                min-width: 0; /* Allow flex item to shrink below content size */
+            }
+            
+            /* When input is hidden, keep everything on same line */
+            .snapshot-controls:not(.editing) {
+                flex-direction: row;
+                align-items: center;
+            }
+            
+            .snapshot-controls:not(.editing) .snapshot-dropdown {
+                flex: 1;
+            }
+            
+            .snapshot-controls:not(.editing) .snapshot-input-buttons {
+                flex: 0 0 auto;
+            }
+        }
+        
+        /* Fallback for browsers without container queries support */
+        @supports not (container-type: inline-size) {
+            @media (max-width: 800px) {
+                /* Default narrow layout: stacked when input is visible */
+                .snapshot-controls.editing {
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 8px;
+                }
+                
+                .snapshot-controls.editing .snapshot-dropdown {
+                    width: 100%;
+                    flex: none;
+                }
+                
+                .snapshot-controls.editing .snapshot-input-buttons {
+                    width: 100%;
+                    flex: none;
+                }
+                
+                .snapshot-controls.editing .snapshot-input {
+                    flex: 1;
+                    min-width: 0; /* Allow flex item to shrink below content size */
+                }
+                
+                /* When input is hidden, keep everything on same line */
+                .snapshot-controls:not(.editing) {
+                    flex-direction: row;
+                    align-items: center;
+                }
+                
+                .snapshot-controls:not(.editing) .snapshot-dropdown {
+                    flex: 1;
+                }
+                
+                .snapshot-controls:not(.editing) .snapshot-input-buttons {
+                    flex: 0 0 auto;
+                }
+            }
         }
         
         #edit-snapshot-btn, #delete-snapshot-btn {
@@ -2302,20 +2404,18 @@
             <div class="group-control" id="group-control">
                 <!-- Snapshot Selection moved to top -->
                 <label class="form-label">Snapshot</label>
-                <div class="input-button-group">
-                    <select id="snapshot" class="form-select">
+                <div class="snapshot-controls">
+                    <select id="snapshot" class="form-select snapshot-dropdown">
                         <option value="" disabled selected>Snapshots...</option>
                     </select>
-                    <button class="btn btn-secondary" id="edit-snapshot-btn" title="Edit snapshot name" style="display: none;">Edit</button>
-                    <button class="btn btn-secondary" id="delete-snapshot-btn" title="Delete snapshot" style="display: none;">×</button>
-                </div>
-                
-                <!-- Hidden snapshot name editor -->
-                <div class="form-group snapshot-name-editor" id="snapshot-name-editor" style="display: none; margin-top: 12px;">
-                    <input type="text" id="snapshot-name-input" class="form-control" placeholder="Enter snapshot name...">
-                    <div style="margin-top: 8px; display: flex; gap: 8px;">
-                        <button class="btn btn-primary" id="save-snapshot-btn">Save</button>
-                        <button class="btn btn-secondary" id="cancel-snapshot-btn">Cancel</button>
+                    <div class="snapshot-input-buttons">
+                        <input type="text" id="snapshot-name-input" class="form-control snapshot-input" placeholder="Enter snapshot name..." style="display: none;">
+                        <div class="snapshot-buttons">
+                            <button class="btn btn-secondary" id="edit-snapshot-btn" title="Edit snapshot name" style="display: none;">Edit</button>
+                            <button class="btn btn-secondary" id="delete-snapshot-btn" title="Delete snapshot" style="display: none;">×</button>
+                            <button class="btn btn-primary" id="save-snapshot-btn" style="display: none;">Save</button>
+                            <button class="btn btn-secondary" id="cancel-snapshot-btn" style="display: none;">Cancel</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -4790,27 +4890,27 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                           'July', 'August', 'September', 'October', 'November', 'December'];
             let snapshotName = `${months[today.getMonth()]} ${String(today.getDate()).padStart(2, '0')}, ${today.getFullYear()}`;
             
-            // Check for duplicates and append incremental number if needed
             const snapshots = loadSnapshots();
-            const originalName = snapshotName;
-            let counter = 1;
             
-            while (snapshots[snapshotName]) {
-                counter++;
-                snapshotName = `${originalName} (${counter})`;
+            // Check if a snapshot with this name already exists and update it, or create new one
+            let snapshotId = Object.keys(snapshots).find(id => snapshots[id].name === snapshotName);
+            
+            if (!snapshotId) {
+                // Create new snapshot with next available ID
+                snapshotId = getNextSnapshotId(snapshots);
             }
             
             // Save as a snapshot
-            const filterState = getCurrentFilterState();
+            const filterState = getCurrentFilterState(snapshotName);
             filterState.groupParticipants = groupList;
-            snapshots[snapshotName] = filterState;
+            snapshots[snapshotId] = filterState;
             saveSnapshots(snapshots);
             
             // Set this snapshot as active
-            currentActiveSnapshot = snapshotName;
+            currentActiveSnapshot = snapshotId;
             updateListTitle();
             
-            console.log(`💾 Auto-saved group selection to snapshot: ${snapshotName}`);
+            console.log(`💾 Auto-saved group selection to snapshot: ${snapshotName} (ID: ${snapshotId})`);
         }
         
         // Sync checkboxes based on group field (case insensitive)
@@ -6854,15 +6954,51 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function loadSnapshots() {
             const snapshots = JSON.parse(localStorage.getItem(getSnapshotsStorageKey()) || '{}');
-            return snapshots;
+            
+            // TEMPORARY: Clean up legacy snapshots with non-numeric keys
+            const cleanedSnapshots = {};
+            let deletedCount = 0;
+            
+            Object.keys(snapshots).forEach(key => {
+                if (!isNaN(parseInt(key)) && parseInt(key).toString() === key) {
+                    // Keep snapshots with numeric keys
+                    cleanedSnapshots[key] = snapshots[key];
+                } else {
+                    // Delete snapshots with non-numeric keys
+                    console.log(`🗑️ Deleting legacy snapshot with non-numeric key: "${key}"`);
+                    deletedCount++;
+                }
+            });
+            
+            // Save cleaned snapshots back to localStorage if any were deleted
+            if (deletedCount > 0) {
+                console.log(`🧹 Cleaned up ${deletedCount} legacy snapshots with non-numeric keys`);
+                localStorage.setItem(getSnapshotsStorageKey(), JSON.stringify(cleanedSnapshots));
+            }
+            
+            return cleanedSnapshots;
         }
         
         function saveSnapshots(snapshots) {
             localStorage.setItem(getSnapshotsStorageKey(), JSON.stringify(snapshots));
         }
         
-        function getCurrentFilterState() {
+        // Get the next available numeric ID for a new snapshot
+        function getNextSnapshotId(snapshots) {
+            const existingIds = Object.keys(snapshots)
+                .map(id => parseInt(id))
+                .filter(id => !isNaN(id));
+            
+            if (existingIds.length === 0) {
+                return 1;
+            }
+            
+            return Math.max(...existingIds) + 1;
+        }
+        
+        function getCurrentFilterState(name = null) {
             return {
+                name: name,
                 sortColumn: currentSortColumn,
                 sortOrder: currentSortOrder,
                 teamFilter: currentTeamFilter,
@@ -6937,28 +7073,58 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             setTimeout(syncCheckboxesWithGroup, 50);
         }
         
-        function saveSnapshot(name) {
+        function saveSnapshot(idOrName, displayName = null) {
             const snapshots = loadSnapshots();
-            const filterState = getCurrentFilterState();
-            snapshots[name] = filterState;
+            
+            // If it's a numeric ID (existing snapshot), use it
+            if (!isNaN(parseInt(idOrName))) {
+                const id = parseInt(idOrName);
+                const filterState = getCurrentFilterState(displayName || snapshots[id]?.name);
+                snapshots[id] = filterState;
+            } else {
+                // It's a name (legacy support or new snapshot)
+                // Check if this is an existing snapshot by name
+                const existingId = Object.keys(snapshots).find(id => snapshots[id]?.name === idOrName);
+                if (existingId) {
+                    const filterState = getCurrentFilterState(idOrName);
+                    snapshots[existingId] = filterState;
+                } else {
+                    // Create new snapshot with next ID
+                    const newId = getNextSnapshotId(snapshots);
+                    const filterState = getCurrentFilterState(idOrName);
+                    snapshots[newId] = filterState;
+                }
+            }
+            
             saveSnapshots(snapshots);
             renderSnapshotsList();
         }
         
-        function loadSnapshot(name) {
+        function loadSnapshot(id) {
             const snapshots = loadSnapshots();
-            console.log(`🔄 Loading snapshot "${name}" for list:`, getHash().list);
+            console.log(`🔄 Loading snapshot "${id}" for list:`, getHash().list);
             console.log('📸 Available snapshots:', Object.keys(snapshots));
             
-            if (snapshots[name]) {
+            const snapshotId = parseInt(id);
+            const snapshotData = snapshots[snapshotId];
+            
+            if (snapshotData) {
                 isLoadingSnapshot = true;
-                currentActiveSnapshot = name;
+                currentActiveSnapshot = snapshotId;
                 console.log('✅ Set currentActiveSnapshot to:', currentActiveSnapshot);
-                applyFilterState(snapshots[name]);
+                
+                // Update the dropdown to reflect the loaded snapshot
+                const snapshotSelect = document.getElementById('snapshot');
+                if (snapshotSelect) {
+                    snapshotSelect.value = snapshotId;
+                    showEditDeleteButtons();
+                }
+                
+                applyFilterState(snapshotData);
                 updateListTitle();
                 isLoadingSnapshot = false;
             } else {
-                console.log('❌ Snapshot not found:', name);
+                console.log('❌ Snapshot not found:', id);
             }
         }
         
@@ -7162,9 +7328,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             if (currentActiveSnapshot) {
-                // Show active snapshot name
-                snapshotInfo.innerHTML = `Active: ${currentActiveSnapshot}`;
-                console.log('✅ Displayed active snapshot in title:', currentActiveSnapshot);
+                // Hide the snapshot info when active snapshot is selected
+                snapshotInfo.innerHTML = '';
+                console.log('✅ Hidden active snapshot info');
             } else {
                 // Show save snapshot link
                 snapshotInfo.innerHTML = `<a href="#" onclick="promptSaveSnapshot(); return false;">Save Snapshot</a>`;
@@ -7210,27 +7376,39 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function loadSnapshotOnPageLoad() {
             const snapshots = loadSnapshots();
             
-            // Find the most recent date-based snapshot
-            const dateSnapshots = Object.keys(snapshots).filter(name => {
+            // Check if there's a snapshot parameter in the hash
+            const hash = typeof getHash === 'function' ? getHash() : {};
+            const hashSnapshotId = hash.snapshot;
+            
+            if (hashSnapshotId && snapshots[hashSnapshotId]) {
+                console.log(`🔄 Loading snapshot from hash: ${hashSnapshotId}`);
+                loadSnapshot(hashSnapshotId);
+                return;
+            }
+            
+            // Find the most recent date-based snapshot (by name pattern)
+            const dateSnapshots = Object.keys(snapshots).filter(id => {
+                const snapshot = snapshots[id];
                 // Check if snapshot name matches date format (Month DD, YYYY)
-                return /^[A-Za-z]+ \d{2}, \d{4}$/.test(name);
+                return snapshot.name && /^[A-Za-z]+ \d{2}, \d{4}/.test(snapshot.name);
             });
             
             if (dateSnapshots.length > 0) {
-                // Sort by date (most recent first)
+                // Sort by date (most recent first) based on the name
                 dateSnapshots.sort((a, b) => {
-                    const dateA = new Date(a);
-                    const dateB = new Date(b);
+                    const dateA = new Date(snapshots[a].name);
+                    const dateB = new Date(snapshots[b].name);
                     return dateB - dateA; // Descending order (newest first)
                 });
                 
-                const mostRecentSnapshot = dateSnapshots[0];
-                console.log(`🔄 Loading most recent snapshot on page load: ${mostRecentSnapshot}`);
-                loadSnapshot(mostRecentSnapshot);
+                const mostRecentSnapshotId = dateSnapshots[0];
+                const mostRecentSnapshotName = snapshots[mostRecentSnapshotId].name;
+                console.log(`🔄 Loading most recent snapshot on page load: ${mostRecentSnapshotName} (ID: ${mostRecentSnapshotId})`);
+                loadSnapshot(mostRecentSnapshotId);
             } else if (snapshots['1']) {
                 // Fallback to snapshot '1' if no date-based snapshots exist
                 console.log('🔄 Loading fallback snapshot "1" on page load');
-                loadSnapshot('1');
+                loadSnapshot(1);
             }
         }
         
@@ -9784,13 +9962,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         // Initialize snapshot dropdown when page loads
         function initializeSnapshotDropdown() {
-            populateSnapshotDropdown();
-            
-            // Event listeners for snapshot dropdown
+            // Use waitForElm to ensure the dropdown is in the DOM before initializing
+            if (typeof waitForElm === 'function') {
+                waitForElm('#snapshot').then(() => {
+                    populateSnapshotDropdown();
+                    setupSnapshotEventListeners();
+                });
+            } else {
+                // Fallback if waitForElm is not available
+                populateSnapshotDropdown();
+                setupSnapshotEventListeners();
+            }
+        }
+        
+        // Setup event listeners for snapshot dropdown elements
+        function setupSnapshotEventListeners() {
             const snapshotSelect = document.getElementById('snapshot');
             const editBtn = document.getElementById('edit-snapshot-btn');
             const deleteBtn = document.getElementById('delete-snapshot-btn');
-            const nameEditor = document.getElementById('snapshot-name-editor');
             const nameInput = document.getElementById('snapshot-name-input');
             const saveBtn = document.getElementById('save-snapshot-btn');
             const cancelBtn = document.getElementById('cancel-snapshot-btn');
@@ -9821,18 +10010,23 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const snapshots = loadSnapshots();
             const snapshotSelect = document.getElementById('snapshot');
             
-            if (!snapshotSelect) return;
+            if (!snapshotSelect) {
+                return;
+            }
             
             // Clear existing options and add blank "Snapshots..." option first
             snapshotSelect.innerHTML = '<option value="" disabled selected>Snapshots...</option>';
             
-            // Add existing snapshots
-            Object.keys(snapshots).forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                snapshotSelect.appendChild(option);
-            });
+            // Add existing snapshots using numeric IDs as values
+            Object.keys(snapshots)
+                .sort((a, b) => parseInt(a) - parseInt(b)) // Sort by numeric ID
+                .forEach(id => {
+                    const snapshot = snapshots[id];
+                    const option = document.createElement('option');
+                    option.value = id; // Use numeric ID as value
+                    option.textContent = snapshot.name || `Snapshot ${id}`; // Use display name
+                    snapshotSelect.appendChild(option);
+                });
             
             // Add "Add new snapshot" at the end
             const addNewOption = document.createElement('option');
@@ -9860,49 +10054,99 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 showSnapshotEditor();
                 clearGroupField();
                 hideEditDeleteButtons();
+                // Clear snapshot from hash
+                if (typeof goHash === 'function') {
+                    goHash({'snapshot': null});
+                }
             } else if (selectedValue === '') {
-                // "Snapshots..." placeholder selected - do nothing
-                return;
+                // "Snapshots..." placeholder selected - clear snapshot filter and show full list
+                clearGroupField();
+                hideEditDeleteButtons();
+                hideSnapshotEditor();
+                // Clear snapshot from hash
+                if (typeof goHash === 'function') {
+                    goHash({'snapshot': null});
+                }
+                // Refresh the view without any snapshot filtering
+                if (window.globalCacheData) {
+                    filterAndRenderData(window.globalCacheData);
+                }
             } else {
                 // Existing snapshot selected
                 loadSnapshot(selectedValue);
                 showEditDeleteButtons();
                 hideSnapshotEditor();
+                // Set snapshot in hash
+                if (typeof goHash === 'function') {
+                    goHash({'snapshot': selectedValue});
+                }
             }
         }
         
         // Show the snapshot name editor
         function showSnapshotEditor() {
-            const nameEditor = document.getElementById('snapshot-name-editor');
             const nameInput = document.getElementById('snapshot-name-input');
+            const editBtn = document.getElementById('edit-snapshot-btn');
+            const deleteBtn = document.getElementById('delete-snapshot-btn');
+            const saveBtn = document.getElementById('save-snapshot-btn');
+            const cancelBtn = document.getElementById('cancel-snapshot-btn');
+            const snapshotControls = document.querySelector('.snapshot-controls');
             
-            if (nameEditor) {
-                nameEditor.style.display = 'block';
-                
-                // Pre-populate with current selection if editing
-                const snapshotSelect = document.getElementById('snapshot');
-                if (snapshotSelect && snapshotSelect.value !== '') {
-                    nameInput.value = snapshotSelect.value;
-                } else {
-                    // Generate default name with today's date
-                    const today = new Date();
-                    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                                  'July', 'August', 'September', 'October', 'November', 'December'];
-                    nameInput.value = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
-                }
-                
-                nameInput.focus();
+            // Add editing class for responsive layout
+            if (snapshotControls) snapshotControls.classList.add('editing');
+            
+            // Show input field and save/cancel buttons
+            if (nameInput) nameInput.style.display = 'block';
+            if (saveBtn) saveBtn.style.display = 'inline-block';
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            
+            // Hide edit and delete buttons
+            if (editBtn) editBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            
+            // Pre-populate with current selection if editing
+            const snapshotSelect = document.getElementById('snapshot');
+            if (snapshotSelect && snapshotSelect.value !== '' && snapshotSelect.value !== 'add_new') {
+                // Editing existing snapshot - get the display name from the snapshots data
+                const snapshots = loadSnapshots();
+                const snapshotData = snapshots[snapshotSelect.value];
+                nameInput.value = snapshotData ? snapshotData.name : '';
+            } else {
+                // Adding new snapshot - generate default name with today's date
+                const today = new Date();
+                const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+                nameInput.value = `${months[today.getMonth()]} ${String(today.getDate()).padStart(2, '0')}, ${today.getFullYear()}`;
             }
+            
+            if (nameInput) nameInput.focus();
         }
         
         // Hide the snapshot name editor
         function hideSnapshotEditor() {
-            const nameEditor = document.getElementById('snapshot-name-editor');
             const nameInput = document.getElementById('snapshot-name-input');
+            const editBtn = document.getElementById('edit-snapshot-btn');
+            const deleteBtn = document.getElementById('delete-snapshot-btn');
+            const saveBtn = document.getElementById('save-snapshot-btn');
+            const cancelBtn = document.getElementById('cancel-snapshot-btn');
+            const snapshotControls = document.querySelector('.snapshot-controls');
             
-            if (nameEditor) {
-                nameEditor.style.display = 'none';
+            // Remove editing class for responsive layout
+            if (snapshotControls) snapshotControls.classList.remove('editing');
+            
+            // Hide input field and save/cancel buttons
+            if (nameInput) {
+                nameInput.style.display = 'none';
                 nameInput.value = '';
+            }
+            if (saveBtn) saveBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            
+            // Show edit and delete buttons if there's a selected snapshot
+            const snapshotSelect = document.getElementById('snapshot');
+            if (snapshotSelect && snapshotSelect.value && snapshotSelect.value !== '' && snapshotSelect.value !== 'add_new') {
+                if (editBtn) editBtn.style.display = 'inline-block';
+                if (deleteBtn) deleteBtn.style.display = 'inline-block';
             }
         }
         
@@ -9918,34 +10162,56 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             
             const snapshots = loadSnapshots();
-            const oldName = snapshotSelect.value;
+            const selectedId = snapshotSelect.value;
             
-            // Check if name already exists (and it's not the same snapshot being renamed)
-            if (snapshots[newName] && newName !== oldName) {
+            // Check if name already exists in any other snapshot
+            const existingIdWithName = Object.keys(snapshots).find(id => 
+                snapshots[id].name === newName && id !== selectedId
+            );
+            
+            if (existingIdWithName) {
                 if (!confirm(`Snapshot "${newName}" already exists. Overwrite?`)) {
                     return;
                 }
             }
             
-            // If renaming, delete old snapshot
-            if (oldName && oldName !== newName) {
-                delete snapshots[oldName];
+            let snapshotId;
+            
+            if (selectedId && selectedId !== 'add_new' && selectedId !== '') {
+                // Editing existing snapshot
+                snapshotId = selectedId;
+            } else {
+                // Creating new snapshot
+                snapshotId = getNextSnapshotId(snapshots);
             }
             
             // Save current filter state to the new/renamed snapshot
-            const filterState = getCurrentFilterState();
-            snapshots[newName] = filterState;
+            const filterState = getCurrentFilterState(newName);
+            snapshots[snapshotId] = filterState;
             saveSnapshots(snapshots);
             
             // Update current active snapshot
-            currentActiveSnapshot = newName;
+            currentActiveSnapshot = snapshotId;
             
             // Refresh dropdown and update UI
             populateSnapshotDropdown();
+            
+            // Set the dropdown to the saved snapshot
+            const snapshotSelectElement = document.getElementById('snapshot');
+            if (snapshotSelectElement) {
+                snapshotSelectElement.value = snapshotId;
+            }
+            
             updateListTitle();
             hideSnapshotEditor();
+            showEditDeleteButtons();
             
-            alert(`Snapshot "${newName}" saved successfully!`);
+            // Update hash
+            if (typeof goHash === 'function') {
+                goHash({'snapshot': snapshotId});
+            }
+            
+            console.log(`Snapshot "${newName}" saved successfully with ID: ${snapshotId}`);
         }
         
         // Delete current snapshot
@@ -9984,18 +10250,44 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function showEditDeleteButtons() {
             const editBtn = document.getElementById('edit-snapshot-btn');
             const deleteBtn = document.getElementById('delete-snapshot-btn');
+            const saveBtn = document.getElementById('save-snapshot-btn');
+            const cancelBtn = document.getElementById('cancel-snapshot-btn');
+            const nameInput = document.getElementById('snapshot-name-input');
+            const snapshotControls = document.querySelector('.snapshot-controls');
             
-            if (editBtn) editBtn.style.display = 'flex';
-            if (deleteBtn) deleteBtn.style.display = 'flex';
+            // Remove editing class for responsive layout
+            if (snapshotControls) snapshotControls.classList.remove('editing');
+            
+            // Show edit and delete buttons
+            if (editBtn) editBtn.style.display = 'inline-block';
+            if (deleteBtn) deleteBtn.style.display = 'inline-block';
+            
+            // Hide save/cancel buttons and input field
+            if (saveBtn) saveBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            if (nameInput) nameInput.style.display = 'none';
         }
         
         // Hide edit and delete buttons
         function hideEditDeleteButtons() {
             const editBtn = document.getElementById('edit-snapshot-btn');
             const deleteBtn = document.getElementById('delete-snapshot-btn');
+            const saveBtn = document.getElementById('save-snapshot-btn');
+            const cancelBtn = document.getElementById('cancel-snapshot-btn');
+            const nameInput = document.getElementById('snapshot-name-input');
+            const snapshotControls = document.querySelector('.snapshot-controls');
             
+            // Remove editing class for responsive layout
+            if (snapshotControls) snapshotControls.classList.remove('editing');
+            
+            // Hide edit and delete buttons
             if (editBtn) editBtn.style.display = 'none';
             if (deleteBtn) deleteBtn.style.display = 'none';
+            
+            // Also hide save/cancel buttons and input field
+            if (saveBtn) saveBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            if (nameInput) nameInput.style.display = 'none';
         }
         
         // Clear the group field

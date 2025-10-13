@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/projects.css">
     <link rel="stylesheet" href="css/people-teams.css">
     <link rel="stylesheet" href="css/account.css">
@@ -120,6 +121,7 @@
             font-size: 14px;
         }
 
+        /*
         .btn-primary {
             background: var(--accent-green);
             color: white;
@@ -128,6 +130,7 @@
         .btn-primary:hover {
             background: #059669;
         }
+        */
 
         .btn-secondary {
             background: var(--bg-tertiary);
@@ -235,7 +238,6 @@
         .hero-subtitle {
             font-size: 18px;
             opacity: 0.9;
-            margin-bottom: 32px;
         }
 
         .feature-grid {
@@ -426,12 +428,9 @@
                          -->
                         <div style="overflow:auto">
                             <h1 class="hero-title">Collaborative Parter Tools</h1>
-                            <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused&nbsp;team&nbsp;projects</p>
-
-                            <!--
+                            <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused&nbsp;team&nbsp;projects</p><!--
                             <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
                             -->
-
                             <!--
                             <button class="btn btn-secondary" onclick="goPreferences()">Preferences</button>
                             -->
@@ -555,6 +554,10 @@
                         </div>
                         
                         <div style="margin-top: 24px;">
+                            <a href="https://github.com/modelearth/projects/issues/" class="btn btn-info" style="text-decoration: none;" target="_blank">
+                                <i data-feather="folder"></i>
+                                View Projects
+                            </a>
                             <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
                                 <i data-feather="settings"></i>
                                 Partner Tools
@@ -1493,6 +1496,7 @@
     
     <!-- Load Projects Module -->
     <script src="js/common.js"></script>
+    <script src="js/setup.js"></script>
     <script src="js/projects.js"></script>
     
     <!-- Load Survey Module -->
