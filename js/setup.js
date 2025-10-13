@@ -304,8 +304,12 @@ function updateGeminiKeyUI(keyIsAvailable) {
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
                 <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Enter your Gemini Key</label>
-                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 100%; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" oninput="saveBrowserGeminiKey()" value="">
-                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
+                    <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary);">
                     <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
@@ -324,8 +328,8 @@ function updateGeminiKeyUI(keyIsAvailable) {
         titleElement.textContent = titleText;
         contentElement.innerHTML = `
             You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 6px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for full AI insights
+            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 12px; font-size: 11px;">
+                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for your AI insights
             </div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -340,8 +344,12 @@ function updateGeminiKeyUI(keyIsAvailable) {
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
                 <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Browser Key:</label>
-                <input type="password" id="browser-gemini-key" placeholder="AIza..." style="width: 100%; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" oninput="saveBrowserGeminiKey()" value="${cachedKey || ''}">
-                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
+                    <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary);">
                     <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
@@ -352,17 +360,77 @@ function updateGeminiKeyUI(keyIsAvailable) {
 // Toggle the browser Gemini key input field
 function toggleGeminiKeyInput() {
     const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
     if (inputDiv) {
         const isVisible = inputDiv.style.display !== 'none';
         inputDiv.style.display = isVisible ? 'none' : 'block';
         
-        // Focus the input field when showing
+        // Hide/show Change Key button
+        if (changeKeyBtn) {
+            changeKeyBtn.style.display = isVisible ? 'inline-flex' : 'none';
+        }
+        
+        // Focus the input field and load cached key when showing
         if (!isVisible) {
             const keyInput = document.getElementById('browser-gemini-key');
             if (keyInput) {
+                // Load cached key if available
+                const cachedKey = localStorage.getItem('gemini_api_key');
+                if (cachedKey && !keyInput.value) {
+                    keyInput.value = cachedKey;
+                }
                 setTimeout(() => keyInput.focus(), 100);
             }
         }
+    }
+}
+
+// Save Gemini key and hide input
+function saveGeminiKey() {
+    const keyInput = document.getElementById('browser-gemini-key');
+    const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
+    if (keyInput) {
+        const key = keyInput.value.trim();
+        if (key) {
+            localStorage.setItem('gemini_api_key', key);
+        } else {
+            localStorage.removeItem('gemini_api_key');
+        }
+        
+        // Hide input and show Change Key button
+        if (inputDiv) {
+            inputDiv.style.display = 'none';
+        }
+        if (changeKeyBtn) {
+            changeKeyBtn.style.display = 'inline-flex';
+        }
+        
+        // Update UI to reflect the change
+        checkGeminiKeyStatus();
+    }
+}
+
+// Cancel key input and restore previous state
+function cancelGeminiKey() {
+    const keyInput = document.getElementById('browser-gemini-key');
+    const inputDiv = document.getElementById('browser-key-input');
+    const changeKeyBtn = document.querySelector('button[onclick="toggleGeminiKeyInput()"]');
+    
+    if (keyInput) {
+        // Restore previous value from localStorage
+        const cachedKey = localStorage.getItem('gemini_api_key');
+        keyInput.value = cachedKey || '';
+    }
+    
+    // Hide input and show Change Key button
+    if (inputDiv) {
+        inputDiv.style.display = 'none';
+    }
+    if (changeKeyBtn) {
+        changeKeyBtn.style.display = 'inline-flex';
     }
 }
 
