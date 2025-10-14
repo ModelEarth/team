@@ -933,6 +933,36 @@ class ListingsDisplay {
     toggleSearchPopup() {
         this.searchPopupOpen = !this.searchPopupOpen;
         this.render();
+        
+        // Position the popup after it's rendered
+        if (this.searchPopupOpen) {
+            setTimeout(() => this.positionSearchPopup(), 0);
+        }
+    }
+    
+    positionSearchPopup() {
+        return;
+        
+        const button = document.getElementById('searchFieldsBtn');
+        const popup = document.querySelector('.search-fields-popup');
+        
+        if (button && popup) {
+            const buttonRect = button.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const popupHeight = popup.offsetHeight || 300; // fallback height
+            
+            // Position popup below button, or above if not enough space below
+            let top = buttonRect.bottom + 4;
+            if (top + popupHeight > viewportHeight) {
+                top = buttonRect.top - popupHeight - 4;
+            }
+            
+            // Align right edge of popup with right edge of button
+            const left = buttonRect.right - popup.offsetWidth;
+            
+            popup.style.top = Math.max(4, top) + 'px';
+            popup.style.left = Math.max(4, left) + 'px';
+        }
     }
 
     closeSearchPopup() {
@@ -1080,6 +1110,19 @@ class ListingsDisplay {
                     }
                 }
                 return;
+            }
+        });
+
+        // Handle window resize and scroll to reposition popup
+        window.addEventListener('resize', () => {
+            if (this.searchPopupOpen) {
+                this.positionSearchPopup();
+            }
+        });
+
+        window.addEventListener('scroll', () => {
+            if (this.searchPopupOpen) {
+                this.positionSearchPopup();
             }
         });
     }
@@ -1438,7 +1481,6 @@ class ListingsDisplay {
                                             <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
                                         </svg>
                                     </button>
-                                    ${this.searchPopupOpen ? this.renderSearchPopup() : ''}
                                 </div>
                                 <!-- Expand Icon for Details -->
                                 <div class="fullscreen-toggle-container">
@@ -1457,6 +1499,7 @@ class ListingsDisplay {
                     
                     <!-- Listings Grid -->
                     <div class="listings-scroll-container">
+                        ${this.searchPopupOpen ? this.renderSearchPopup() : ''}
                         <div class="listings-grid basePanelPadding" style="padding-top:0px">
                             ${this.renderListings()}
                         </div>

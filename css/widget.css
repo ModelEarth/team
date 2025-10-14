@@ -38,7 +38,7 @@ body {
 #widgetDetailsControls {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 1000;
     overflow: visible;
 }
 .search-container {
@@ -47,6 +47,7 @@ body {
     align-items: flex-start;
     margin-bottom: 12px;
     overflow: visible;
+    position: relative;
 }
 
 .map-selector {
@@ -110,6 +111,7 @@ body {
     position: relative;
     min-width: 150px;
     overflow: visible;
+    z-index: 1001;
 }
 
 .search-fields-btn {
@@ -243,15 +245,14 @@ body {
 }
 
 .search-fields-popup {
-    position: sticky;
-    top: 100%;
-    left: 0;
+    position: absolute;
+    top: 0;
+    right: 0;
     background: white;
     border: 1px solid #ddd;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 9999;
-    margin-top: 4px;
     min-width: 280px;
     max-width: 400px;
     width: max-content;
@@ -448,6 +449,7 @@ body {
 }
 
 .listings-scroll-container {
+    position: relative;
     overflow-y: auto;
     max-height: calc(100vh - 100px);
     min-height: 300px;
@@ -713,6 +715,7 @@ body {
     min-height: 400px;
     gap: 16px;
     margin-bottom: 20px;
+    overflow: visible;
 }
 
 #pageGallery {
@@ -736,8 +739,10 @@ body {
     min-heightX: 400px;
     heightX:100%;
     margin-bottom: 15px;
+    overflow: visible;
 }
 #widgetDetails {
+    position: relative;
     overflow: visible;
 }
 #pageMap {
