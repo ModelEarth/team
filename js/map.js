@@ -2,7 +2,7 @@
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 document.addEventListener('hashChangeEvent', function (elem) {
-    console.log("widget.js detects URL hashChangeEvent");
+    console.log("team/js/map.js detects URL hashChangeEvent");
     mapWidgetChange();
 }, false);
 function mapWidgetChange() {
@@ -108,14 +108,14 @@ class ListingsDisplay {
         const fromHash = urlParams.has('map'); // True or false
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
-        // TO DO - This getLoadMapDataParam() is based on file name widget.js  Do we send on localsite.js instead?  And allow for other map too?
+        // TO DO - This getLoadMapDataParam() is based on file name map.js  Do we send on localsite.js instead?  And allow for other map too?
         const loadMapDataParam = this.getLoadMapDataParam(); // Check script URL parameter
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
         if (fromHash) {
             await this.loadShowData();
-        } else if (loadMapDataParam) { // Checks for widget.js?showmap=true
+        } else if (loadMapDataParam) { // Checks for map.js?showmap=true
             await this.loadShowData();
             
             //this.updateUrlHash(this.currentShow); // Use updateHash instead to avoid triggering
@@ -136,7 +136,7 @@ class ListingsDisplay {
     }
 
     async loadShowConfigs() {
-        // Check for source parameter in widget.js script URL
+        // Check for source parameter in map.js script URL
         let listsJson = this.getSourceFromScriptUrl();
         
         // If no source parameter, use default logic
@@ -148,7 +148,7 @@ class ListingsDisplay {
                 listsJson = 'show.json'
             }
         }
-        console.log('widget.js: local_app.web_root() =', local_app.web_root());
+        console.log('map.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
         const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
         
@@ -1299,8 +1299,8 @@ class ListingsDisplay {
     }
 
     getLoadMapDataParam() { // loadMapData
-        // Check for loadMapData parameter in widget.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for loadMapData parameter in map.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('showmap=')) {
                 const scriptUrl = new URL(script.src);
@@ -1315,8 +1315,8 @@ class ListingsDisplay {
     }
 
     getSourceFromScriptUrl() {
-        // Check for source parameter in widget.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for source parameter in map.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('source=')) {
                 const scriptUrl = new URL(script.src);
@@ -1693,8 +1693,8 @@ class ListingsDisplay {
             return hashMap;
         }
         
-        // Check for map parameter in widget.js script URL (from widget-embed.js)
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for map parameter in map.js script URL (from embed.js)
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('?map=')) {
                 const scriptUrl = new URL(script.src);
