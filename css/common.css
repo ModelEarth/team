@@ -446,7 +446,6 @@ pre code {
 }
 .page-tab:hover {
     background: #218838;
-    transform: translateY(-1px);
 }
 .page-tab.active {
     background: #007bff;
