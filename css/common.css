@@ -140,7 +140,7 @@ h2 {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 14px;
+    /* font-size: 14px; */
     align-items: center;
     gap: 8px;
 }
@@ -460,6 +460,9 @@ pre code {
     margin-top: -1px;
     border-radius: 0 0 4px 4px;
     transition: background-color 0.3s ease;
+}
+.page-tab-align {
+    margin: 15px 0 10px 13px;
 }
 .dark .page-tab {
     background: #374151;

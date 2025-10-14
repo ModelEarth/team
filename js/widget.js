@@ -975,7 +975,7 @@ class ListingsDisplay {
         return `
             <div class="search-fields-popup">
                 <div class="search-fields-header">
-                    <span>Filter by columns:</span>
+                    <span style="padding-right:10px">Filter by:</span>
                     <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">Select All</button>
                 </div>
                 <div class="search-fields-list">

@@ -1571,7 +1571,7 @@ push_all() {
     # Final push completion check for all repositories
     final_push_completion_check
     
-    echo "✅ Complete push finished! [$(date +'%a, %b %-d at %-I:%M %p ET')]"
+    echo "✅ Complete push finished! - $(date +'%A, %b %-d at %-I:%M %p ET')"
     
     # Check extra repos for uncommitted changes
     check_extra_repos_for_changes

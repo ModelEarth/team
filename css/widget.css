@@ -253,7 +253,6 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 9999;
-    min-width: 280px;
     max-width: 400px;
     width: max-content;
 }
@@ -277,8 +276,6 @@ body {
 }
 
 .select-all-btn {
-    background: #007bff;
-    color: white;
     border: none;
     padding: 4px 8px;
     border-radius: 4px;
@@ -288,6 +285,7 @@ body {
 
 .select-all-btn:hover {
     background: #0056b3;
+    color: #fff;
 }
 
 .search-fields-list {
