@@ -932,11 +932,30 @@ class ListingsDisplay {
 
     toggleSearchPopup() {
         this.searchPopupOpen = !this.searchPopupOpen;
-        this.render();
         
-        // Position the popup after it's rendered
         if (this.searchPopupOpen) {
-            setTimeout(() => this.positionSearchPopup(), 0);
+            this.showSearchPopup();
+        } else {
+            this.hideSearchPopup();
+        }
+    }
+    
+    showSearchPopup() {
+        // Remove any existing popup
+        this.hideSearchPopup();
+        
+        // Create and insert the popup
+        const container = document.querySelector('.listings-scroll-container');
+        if (container && this.availableFields.size > 0) {
+            const popupHTML = this.renderSearchPopup();
+            container.insertAdjacentHTML('afterbegin', popupHTML);
+        }
+    }
+    
+    hideSearchPopup() {
+        const existingPopup = document.querySelector('.search-fields-popup');
+        if (existingPopup) {
+            existingPopup.remove();
         }
     }
     
@@ -967,7 +986,7 @@ class ListingsDisplay {
 
     closeSearchPopup() {
         this.searchPopupOpen = false;
-        this.render();
+        this.hideSearchPopup();
     }
 
     renderSearchPopup() {
@@ -1499,7 +1518,6 @@ class ListingsDisplay {
                     
                     <!-- Listings Grid -->
                     <div class="listings-scroll-container">
-                        ${this.searchPopupOpen ? this.renderSearchPopup() : ''}
                         <div class="listings-grid basePanelPadding" style="padding-top:0px">
                             ${this.renderListings()}
                         </div>
