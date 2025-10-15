@@ -140,7 +140,7 @@ h2 {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 14px;
+    /* font-size: 14px; */
     align-items: center;
     gap: 8px;
 }
@@ -409,67 +409,85 @@ pre code {
 }
 
 /* Team tabs styling */
-.team-tabs-container {
-    margin-bottom: 20px;
-}
-.team-tabs {
+.page-tab-container {
+    background: #eee;
+    padding: 12px;
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
     margin-bottom: 0;
     position: relative;
+    border-radius: 8px 8px 0 0;
 }
-.team-tab {
-    background: #28a745;
+.page-tab-container:hover  {
+    background: #ddd;
+    transform: translateY(-1px);
+}
+.dark .page-tab-container {
+    background: #374151;
+}
+.dark .page-tab-container:hover  {
+    background: #444;
+    transform: translateY(-1px);
+}
+.page-tab {
+    /* background: #28a745; */
+    background: #bbb;
     color: white;
     border: none;
     padding: 8px 16px;
     font-size: 14px;
     cursor: pointer;
-    border-radius: 8px 8px 0 0;
+    border-radius: 6px;
     min-width: 80px;
     transition: all 0.3s ease;
     position: relative;
     z-index: 1;
 }
-.team-tab:hover {
+.page-tab:hover {
     background: #218838;
-    transform: translateY(-1px);
 }
-.team-tab.active {
+.page-tab.active {
     background: #007bff;
+    background: #235D39; /* Georgia Pine */
     color: white;
     box-shadow: 0 2px 4px rgba(0,123,255,0.3);
 }
-.team-tabs-line {
-    height: 3px;
-    background: #dee2e6;
+.page-tab-line {
+    height: 5px;
+    background: #4b5563;
+    background: #333;
     margin-top: -1px;
     border-radius: 0 0 4px 4px;
     transition: background-color 0.3s ease;
 }
-.dark .team-tab {
+.page-tab-align {
+    margin: 15px 0 10px 13px;
+}
+.dark .page-tab {
     background: #374151;
     color: #e5e7eb;
 }
 
-.dark .team-tab:hover {
+.dark .page-tab:hover {
     background: #4b5563;
 }
 
-.dark .team-tab.active {
+.dark .page-tab.active {
     background: #3b82f6;
 }
 
-.dark .team-tabs-line {
+/*
+.dark .page-tab-line {
     background: #4b5563;
 }
+*/
 
 /* Generic active tab system */
-.team-tabs-line.active {
+.page-tab-line.active {
     background: #28a745;
 }
 
-.dark .team-tabs-line.active {
+.dark .page-tab-line.active {
     background: #3b82f6;
 }

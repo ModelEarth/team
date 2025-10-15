@@ -27,18 +27,6 @@
     "omit_display": ["geo_json"],
     "int_required": "liaison_id"
   },
-  "cameraready": {
-    "shortTitle": "Locations",
-    "menuTitle": "Camera Ready Locations",
-    "listTitle": "Georgia Camera Ready Locations",
-    "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
-    "markerType": "google",
-    "nameColumn": "name",
-    "featuredColumns": ["Name", "Contact_Name", "Address", "City", "State", "Zip", "Population"],
-    "omit_display": ["geo_json"],
-    "int_required": "listing_id"
-  },
   "recyclers": {
     "shortTitle": "B2B Recyclers",
     "menuTitle": "B2B Recyclers",

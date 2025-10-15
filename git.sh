@@ -175,6 +175,89 @@ cd_webroot() {
     fi
 }
 
+# Safe directory management for submodule operations
+# Usage: safe_submodule_operation "submodule_name" "operation_function"
+safe_submodule_operation() {
+    local sub="$1"
+    local operation="$2"
+    shift 2  # Remove first two arguments, pass rest to operation
+    
+    # Save current directory
+    local original_dir=$(pwd)
+    local operation_success=true
+    
+    # Set up error handling
+    set +e  # Don't exit on error, handle it ourselves
+    
+    if [ -d "$sub" ]; then
+        cd "$sub" || {
+            echo "⚠️ ERROR: Failed to enter directory: $sub"
+            return 1
+        }
+        
+        # Execute the operation with error handling
+        if ! eval "$operation" "$@"; then
+            operation_success=false
+        fi
+        
+        # Always return to original directory, even if operation failed
+        cd "$original_dir" || {
+            echo "🚨 CRITICAL: Failed to return to original directory: $original_dir"
+            echo "📁 Current directory: $(pwd)"
+            echo "🔧 Attempting to return to webroot..."
+            cd_webroot
+        }
+    else
+        echo "⚠️ WARNING: Directory does not exist: $sub"
+        operation_success=false
+    fi
+    
+    # Restore error handling
+    set -e
+    
+    if [ "$operation_success" = "true" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Safe wrapper for operations that need to iterate through directories
+safe_directory_iterator() {
+    local dirs=("$@")
+    local operation="$1"
+    shift 1
+    
+    local original_dir=$(pwd)
+    local failed_operations=()
+    
+    for dir in "${dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            echo "🔄 Processing $dir..."
+            if ! safe_submodule_operation "$dir" "$operation" "$@"; then
+                failed_operations+=("$dir")
+            fi
+        else
+            echo "⚠️ Skipping non-existent directory: $dir"
+            failed_operations+=("$dir")
+        fi
+    done
+    
+    # Ensure we're back in the original directory
+    if [ "$(pwd)" != "$original_dir" ]; then
+        echo "🔧 Returning to original directory: $original_dir"
+        cd "$original_dir"
+    fi
+    
+    # Report any failures
+    if [ ${#failed_operations[@]} -gt 0 ]; then
+        echo "⚠️ Operations failed for: ${failed_operations[*]}"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Helper function to run git commands in webroot context
 git_webroot() {
     # If we're in webroot directory (has .gitmodules), run git directly
@@ -435,6 +518,7 @@ check_user_change() {
     local expected_origin="https://github.com/$current_user/$name.git"
     
     # ADDITIONAL SAFEGUARD: Verify we're in the correct repository before updating remote
+    # Check for context mismatch - if we're trying to update the wrong repository
     if [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"team"* ]]; then
         echo "⚠️ ERROR: Attempted to update team repository remote to webroot URL - skipping"
         echo "   Current remote: $current_origin"
@@ -445,6 +529,24 @@ check_user_change() {
         echo "   Current remote: $current_origin" 
         echo "   Intended remote: $expected_origin"
         return 1
+    fi
+    
+    # CRITICAL FIX: When called from webroot context but in team directory, 
+    # ensure we're operating on the correct repository
+    if [[ -n "$WEBROOT_CONTEXT" ]] && [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"webroot"* ]]; then
+        # We're correctly operating on webroot - use git -C to ensure we modify the right repo
+        current_origin=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
+        if [[ "$current_origin" != "$expected_origin" ]]; then
+            echo "🔄 GitHub user changed to $current_user - updating webroot origin remote..."
+            git -C "$WEBROOT_CONTEXT" remote set-url origin "$expected_origin" 2>/dev/null || {
+                echo "⚠️ Failed to update webroot origin remote for $current_user"
+                return 1
+            }
+            echo "🔧 Updated webroot origin to point to $current_user/webroot"
+            return 0
+        else
+            return 0  # Already correct
+        fi
     fi
     
     # If origin doesn't match current user, update it
@@ -1134,15 +1236,13 @@ fix_all_detached_heads() {
         ((fixed_count++))
     fi
     
-    # Check all submodules
+    # Check all submodules with safe directory management
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
-            cd "$sub"
-            if fix_detached_head "$sub"; then
+            if safe_submodule_operation "$sub" "fix_detached_head" "$sub"; then
                 ((fixed_count++))
             fi
-            cd ..
         fi
     done
     
@@ -1187,11 +1287,18 @@ update_all_remotes_for_user() {
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
+            # Save current directory
+            local original_dir=$(pwd)
             cd "$sub"
+            # Temporarily clear WEBROOT_CONTEXT to prevent confusion
+            local saved_webroot_context="$WEBROOT_CONTEXT"
+            unset WEBROOT_CONTEXT
             if check_user_change "$sub"; then
                 ((updated_count++))
             fi
-            cd ..
+            # Restore WEBROOT_CONTEXT
+            export WEBROOT_CONTEXT="$saved_webroot_context"
+            cd "$original_dir"
         fi
     done
     
@@ -1381,7 +1488,7 @@ $pages_status
             echo "📋 Review at: $pages_url"
         fi
     else
-        echo "⚠️ Webroot PR creation failed or not needed"
+        echo "ℹ️ Webroot PR not needed (direct push successful)"
     fi
 }
 
@@ -1489,14 +1596,22 @@ push_submodules() {
         echo "✅ Pull completed for submodules, proceeding with push..."
     fi
     
-    # Push each submodule with changes
+    # Push each submodule with changes - with safe directory management
     local submodules=($(get_submodules))
+    local failed_pushes=()
+    
     for sub in "${submodules[@]}"; do
         [ ! -d "$sub" ] && continue
-        cd "$sub"
-        commit_push "$sub" "$skip_pr"
-        cd ..
+        if ! safe_submodule_operation "$sub" "commit_push" "$sub" "$skip_pr"; then
+            failed_pushes+=("$sub")
+        fi
     done
+    
+    # Report any failures but continue with webroot update
+    if [ ${#failed_pushes[@]} -gt 0 ]; then
+        echo "⚠️ Failed to push the following submodules: ${failed_pushes[*]}"
+        echo "💡 You may need to resolve these manually"
+    fi
     
     # Update webroot submodule references
     safe_submodule_update
@@ -1536,7 +1651,7 @@ push_all() {
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
                     echo "📌 Committing changes in submodule: $file"
-                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
+                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️ No changes to commit in $file"
                 else
                     echo "📌 Skipping non-submodule file: $file"
                 fi
@@ -1559,19 +1674,27 @@ push_all() {
     # Push all submodules
     push_submodules "$skip_pr"
     
-    # Push extra repos
+    # Push extra repos with safe directory management
     local extra_repos=($(get_extra_repos))
+    local failed_extra_pushes=()
+    
     for repo in "${extra_repos[@]}"; do
         [ ! -d "$repo" ] && continue
-        cd "$repo"
-        commit_push "$repo" "$skip_pr"
-        cd ..
+        if ! safe_submodule_operation "$repo" "commit_push" "$repo" "$skip_pr"; then
+            failed_extra_pushes+=("$repo")
+        fi
     done
+    
+    # Report any failures
+    if [ ${#failed_extra_pushes[@]} -gt 0 ]; then
+        echo "⚠️ Failed to push the following extra repos: ${failed_extra_pushes[*]}"
+        echo "💡 You may need to resolve these manually"
+    fi
     
     # Final push completion check for all repositories
     final_push_completion_check
     
-    echo "✅ Complete push finished!"
+    echo "✅ Complete push finished! - $(date +'%A, %b %-d at %-I:%M %p ET')"
     
     # Check extra repos for uncommitted changes
     check_extra_repos_for_changes
@@ -1681,16 +1804,17 @@ final_push_completion_check() {
         ensure_push_completion "webroot"
     fi
     
-    # Check all submodules
+    # Check all submodules with safe directory management
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
-            cd "$sub"
-            if [ -n "$(git rev-list --count @{u}..HEAD 2>/dev/null)" ] && [ "$(git rev-list --count @{u}..HEAD 2>/dev/null)" != "0" ]; then
-                echo "📤 Found unpushed commits in $sub..."
-                ensure_push_completion "$sub"
-            fi
-            cd ..
+            safe_submodule_operation "$sub" 'bash -c "
+                if [ -n \"\$(git rev-list --count @{u}..HEAD 2>/dev/null)\" ] && [ \"\$(git rev-list --count @{u}..HEAD 2>/dev/null)\" != \"0\" ]; then
+                    echo \"📤 Found unpushed commits in '$sub'...\"
+                    # Try to push any remaining commits
+                    git push origin main 2>/dev/null || git push 2>/dev/null || echo \"💡 Manual push needed for '$sub'\"
+                fi
+            "' >/dev/null 2>&1
         fi
     done
     

@@ -1345,7 +1345,7 @@ function convertArraysToObjects(data, allFields = null) {
     });
 }
 
-// Apply int_required filtering to data (same logic as widget.js)
+// Apply int_required filtering to data (same logic as map.js)
 function applyIntRequiredFilter(data, config) {
     // Return original data if no config or int_required specified
     if (!config || !config.int_required || !data || data.length === 0) {

@@ -2,7 +2,7 @@
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 document.addEventListener('hashChangeEvent', function (elem) {
-    console.log("widget.js detects URL hashChangeEvent");
+    console.log("team/js/map.js detects URL hashChangeEvent");
     mapWidgetChange();
 }, false);
 function mapWidgetChange() {
@@ -108,14 +108,14 @@ class ListingsDisplay {
         const fromHash = urlParams.has('map'); // True or false
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
-        // TO DO - This getLoadMapDataParam() is based on file name widget.js  Do we send on localsite.js instead?  And allow for other map too?
+        // TO DO - This getLoadMapDataParam() is based on file name map.js  Do we send on localsite.js instead?  And allow for other map too?
         const loadMapDataParam = this.getLoadMapDataParam(); // Check script URL parameter
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
         if (fromHash) {
             await this.loadShowData();
-        } else if (loadMapDataParam) { // Checks for widget.js?showmap=true
+        } else if (loadMapDataParam) { // Checks for map.js?showmap=true
             await this.loadShowData();
             
             //this.updateUrlHash(this.currentShow); // Use updateHash instead to avoid triggering
@@ -136,7 +136,7 @@ class ListingsDisplay {
     }
 
     async loadShowConfigs() {
-        // Check for source parameter in widget.js script URL
+        // Check for source parameter in map.js script URL
         let listsJson = this.getSourceFromScriptUrl();
         
         // If no source parameter, use default logic
@@ -148,7 +148,7 @@ class ListingsDisplay {
                 listsJson = 'show.json'
             }
         }
-        console.log('widget.js: local_app.web_root() =', local_app.web_root());
+        console.log('map.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
         const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
         
@@ -870,8 +870,8 @@ class ListingsDisplay {
     }
 
     getSearchFieldsSummary() {
-        if (this.searchFields.size === 0) return 'Select Filters';
-        if (this.searchFields.size === this.availableFields.size) return 'All fields';
+        if (this.searchFields.size === 0) return 'Filters';
+        if (this.searchFields.size === this.availableFields.size) return 'Filters: All';
         
         // Get display names from config if available
         const displayNames = [];
@@ -883,28 +883,18 @@ class ListingsDisplay {
             });
         }
         
-        // If we have display names, use those
-        if (displayNames.length > 0) {
-            if (displayNames.length <= 2) {
-                return displayNames.join(', ');
-            } else {
-                return `${displayNames.slice(0, 2).join(', ')}, +${displayNames.length - 2} more`;
-            }
+        // Fall back to field names if no display names found
+        if (displayNames.length === 0) {
+            this.searchFields.forEach(field => displayNames.push(field));
         }
         
-        // Otherwise use field names
-        const fieldNames = Array.from(this.searchFields).slice(0, 2);
-        let summary = fieldNames.join(', ');
-        
-        if (this.searchFields.size > 2) {
-            summary += `, +${this.searchFields.size - 2} more`;
+        // Show individual filter names for 1-2 filters
+        if (displayNames.length <= 2) {
+            return `Filters: ${displayNames.join(', ')}`;
         }
         
-        if (summary.length > 40) {
-            summary = summary.substring(0, 37) + '...';
-        }
-        
-        return summary;
+        // Show count for 3+ filters
+        return `Filters (${displayNames.length})`;
     }
 
     toggleSearchField(field) {
@@ -932,12 +922,61 @@ class ListingsDisplay {
 
     toggleSearchPopup() {
         this.searchPopupOpen = !this.searchPopupOpen;
-        this.render();
+        
+        if (this.searchPopupOpen) {
+            this.showSearchPopup();
+        } else {
+            this.hideSearchPopup();
+        }
+    }
+    
+    showSearchPopup() {
+        // Remove any existing popup
+        this.hideSearchPopup();
+        
+        // Create and insert the popup
+        const container = document.querySelector('.listings-scroll-container');
+        if (container && this.availableFields.size > 0) {
+            const popupHTML = this.renderSearchPopup();
+            container.insertAdjacentHTML('afterbegin', popupHTML);
+        }
+    }
+    
+    hideSearchPopup() {
+        const existingPopup = document.querySelector('.search-fields-popup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+    }
+    
+    positionSearchPopup() {
+        return;
+        
+        const button = document.getElementById('searchFieldsBtn');
+        const popup = document.querySelector('.search-fields-popup');
+        
+        if (button && popup) {
+            const buttonRect = button.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const popupHeight = popup.offsetHeight || 300; // fallback height
+            
+            // Position popup below button, or above if not enough space below
+            let top = buttonRect.bottom + 4;
+            if (top + popupHeight > viewportHeight) {
+                top = buttonRect.top - popupHeight - 4;
+            }
+            
+            // Align right edge of popup with right edge of button
+            const left = buttonRect.right - popup.offsetWidth;
+            
+            popup.style.top = Math.max(4, top) + 'px';
+            popup.style.left = Math.max(4, left) + 'px';
+        }
     }
 
     closeSearchPopup() {
         this.searchPopupOpen = false;
-        this.render();
+        this.hideSearchPopup();
     }
 
     renderSearchPopup() {
@@ -945,7 +984,7 @@ class ListingsDisplay {
         return `
             <div class="search-fields-popup">
                 <div class="search-fields-header">
-                    <span>Filter by columns:</span>
+                    <span style="padding-right:10px">Filter by:</span>
                     <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">Select All</button>
                 </div>
                 <div class="search-fields-list">
@@ -1080,6 +1119,19 @@ class ListingsDisplay {
                     }
                 }
                 return;
+            }
+        });
+
+        // Handle window resize and scroll to reposition popup
+        window.addEventListener('resize', () => {
+            if (this.searchPopupOpen) {
+                this.positionSearchPopup();
+            }
+        });
+
+        window.addEventListener('scroll', () => {
+            if (this.searchPopupOpen) {
+                this.positionSearchPopup();
             }
         });
     }
@@ -1237,8 +1289,8 @@ class ListingsDisplay {
     }
 
     getLoadMapDataParam() { // loadMapData
-        // Check for loadMapData parameter in widget.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for loadMapData parameter in map.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('showmap=')) {
                 const scriptUrl = new URL(script.src);
@@ -1253,8 +1305,8 @@ class ListingsDisplay {
     }
 
     getSourceFromScriptUrl() {
-        // Check for source parameter in widget.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for source parameter in map.js script URL
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('source=')) {
                 const scriptUrl = new URL(script.src);
@@ -1433,12 +1485,11 @@ class ListingsDisplay {
                                 </div>
                                 <div class="search-fields-control">
                                     <button id="searchFieldsBtn" class="search-fields-btn ${this.searchPopupOpen ? 'active' : ''}">
-                                        <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                         <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
                                         </svg>
+                                        <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                     </button>
-                                    ${this.searchPopupOpen ? this.renderSearchPopup() : ''}
                                 </div>
                                 <!-- Expand Icon for Details -->
                                 <div class="fullscreen-toggle-container">
@@ -1632,8 +1683,8 @@ class ListingsDisplay {
             return hashMap;
         }
         
-        // Check for map parameter in widget.js script URL (from widget-embed.js)
-        const widgetScripts = document.querySelectorAll('script[src*="widget.js"]');
+        // Check for map parameter in map.js script URL (from embed.js)
+        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
         for (const script of widgetScripts) {
             if (script.src.includes('?map=')) {
                 const scriptUrl = new URL(script.src);

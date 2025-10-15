@@ -1553,6 +1553,83 @@ async fn proxy_external_request(req: web::Json<ProxyRequest>) -> Result<HttpResp
     }
 }
 
+// HDF5 request structure
+#[derive(Debug, Deserialize)]
+struct Hdf5Request {
+    url: String,
+}
+
+// Proxy HDF5 files to avoid CORS issues and enable client-side processing
+async fn proxy_hdf5_file(req: web::Json<Hdf5Request>) -> Result<HttpResponse> {
+    println!("HDF5 proxy request to: {}", req.url);
+    
+    // Validate URL for basic security
+    if !req.url.starts_with("http://") && !req.url.starts_with("https://") {
+        return Ok(HttpResponse::BadRequest().json(json!({
+            "error": "Invalid URL: must be HTTP or HTTPS"
+        })));
+    }
+    
+    // Create HTTP client with timeout
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300)) // 5 minute timeout for large files
+        .build()
+        .map_err(|e| {
+            eprintln!("Failed to create HTTP client: {}", e);
+            actix_web::error::ErrorInternalServerError("Client creation failed")
+        })?;
+    
+    // Fetch the HDF5 file
+    match client.get(&req.url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                // Get content length if available
+                let content_length = response.content_length();
+                
+                // Check file size limit (50MB)
+                if let Some(size) = content_length {
+                    if size > 50 * 1024 * 1024 {
+                        return Ok(HttpResponse::BadRequest().json(json!({
+                            "error": format!("File too large: {}MB exceeds 50MB limit", size / 1024 / 1024)
+                        })));
+                    }
+                }
+                
+                // Get the binary data
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        println!("Successfully fetched HDF5 file: {} bytes", bytes.len());
+                        
+                        // Return binary data with appropriate headers
+                        Ok(HttpResponse::Ok()
+                            .insert_header(("Content-Type", "application/octet-stream"))
+                            .insert_header(("Content-Length", bytes.len().to_string()))
+                            .insert_header(("Access-Control-Allow-Origin", "*"))
+                            .body(bytes))
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to read response body: {}", e);
+                        Ok(HttpResponse::InternalServerError().json(json!({
+                            "error": format!("Failed to read file data: {}", e)
+                        })))
+                    }
+                }
+            } else {
+                eprintln!("HTTP error: {}", response.status());
+                Ok(HttpResponse::BadGateway().json(json!({
+                    "error": format!("Upstream server error: {}", response.status())
+                })))
+            }
+        }
+        Err(e) => {
+            eprintln!("Request failed: {}", e);
+            Ok(HttpResponse::InternalServerError().json(json!({
+                "error": format!("Request failed: {}", e)
+            })))
+        }
+    }
+}
+
 // Get list of tables with row counts - returns real database tables with accurate counts
 async fn get_tables(data: web::Data<Arc<ApiState>>, query: web::Query<std::collections::HashMap<String, String>>) -> Result<HttpResponse> {
     // Check if a specific connection is requested
@@ -2912,6 +2989,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                         web::scope("/proxy")
                             .route("/csv", web::post().to(fetch_csv))
                             .route("/external", web::post().to(proxy_external_request))
+                            .route("/hdf5", web::post().to(proxy_hdf5_file))
                     )
                     .route("/scrape", web::get().to(scrape_site))
                     .service(

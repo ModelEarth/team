@@ -673,16 +673,6 @@
             min-width: 150px;
             max-width: 150px; 
         }
-        
-        /* Ensure tabs span full width */
-        .team-tabs-container {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        
-        .team-tabs {
-            width: 100%;
-        }
     </style>
 
 </head>
@@ -701,26 +691,26 @@
         </div>
     </div>
 
-    <div class="team-tabs-container">
-        <div class="team-tabs">
-            <button class="team-tab active" id="form-tab" onclick="switchToView('form')">
+    <div class="page-tab-container">
+
+            <button class="page-tab active" id="form-tab" onclick="switchToView('form')">
                 <span id="add-new-text">Add Project</span>
             </button>
-            <button class="team-tab" id="visits-tab" onclick="switchToView('visits')">
+            <button class="page-tab" id="visits-tab" onclick="switchToView('visits')">
                 <span id="view-projects-text">View Projects</span>
             </button>
-            <button class="team-tab" id="tables-tab" onclick="switchToView('tables')">
+            <button class="page-tab" id="tables-tab" onclick="switchToView('tables')">
                 <span id="tables-btn-text">View Tables</span>
             </button>
-            <button class="team-tab" id="google-tab" onclick="switchToView('google')" style="display:none">
+            <button class="page-tab" id="google-tab" onclick="switchToView('google')" style="display:none">
                 Google Config
             </button>
-            <button class="team-tab" id="map-tab" onclick="switchToView('map')" style="display:none">
+            <button class="page-tab" id="map-tab" onclick="switchToView('map')" style="display:none">
                 View Map
             </button>
-        </div>
-        <div class="team-tabs-line"></div>
+        
     </div>
+    <div class="page-tab-line"></div>
 
     <h1>Project</h1>
     
@@ -768,8 +758,9 @@
                         <option value="Commisioner">Commisioner</option>
                         <option value="Film">Film</option>
                         <option value="Global Commerce">Global Commerce</option>
-                        <option value="IT">IT</option>
-                        <option value="Marketing and Communications">Marketing and Communications</option><option value="Trade">Trade</option>
+                        <option value="Marketing and Communications">Marketing and Communications</option>
+                        <option value="Tourism">Tourism</option>
+                        <option value="Trade">Trade</option>
                         </select>
 
                 </div>
@@ -1990,7 +1981,7 @@
     // Generic active tab system - sets active class on any tab
     function setActiveTab(tabId) {
         // Remove active class from all tabs
-        document.querySelectorAll('.team-tab').forEach(tab => {
+        document.querySelectorAll('.page-tab').forEach(tab => {
             tab.classList.remove('active');
         });
         
@@ -2001,7 +1992,7 @@
         }
         
         // Update line color with generic active class
-        const tabsLine = document.querySelector('.team-tabs-line');
+        const tabsLine = document.querySelector('.page-tab-line');
         if (tabsLine) {
             tabsLine.classList.add('active');
         }
