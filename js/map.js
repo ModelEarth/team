@@ -177,7 +177,7 @@ class ListingsDisplay {
     }
 
     async loadShowData() {
-        //alert("loadShowData")
+        console.log("loadShowData: " + this.currentShow);
         this.loading = true;
         this.dataLoaded = false;
         

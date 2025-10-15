@@ -760,16 +760,8 @@ async fn save_csv_file(req: web::Json<SaveCsvRequest>) -> Result<HttpResponse> {
         })));
     }
     
-    // Ensure projects directory exists
+    // Use existing projects directory
     let projects_dir = Path::new("projects");
-    if !projects_dir.exists() {
-        if let Err(e) = fs::create_dir_all(projects_dir) {
-            return Ok(HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": format!("Failed to create projects directory: {e}")
-            })));
-        }
-    }
     
     // Write CSV content to file
     let file_path = projects_dir.join(&req.filename);

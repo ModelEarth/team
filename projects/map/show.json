@@ -1,6 +1,18 @@
 {
+ "liaisons": {
+    "shortTitle": "Liaisons",
+    "menuTitle": "Camera Ready Liaisons",
+    "listTitle": "Georgia Camera Ready Liaisons",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
+    "markerType": "google",
+    "nameColumn": "name",
+    "featuredColumns": ["Name", "Contact_Name", "Address", "City", "State", "Zip", "Population"],
+    "omit_display": ["geo_json"],
+    "int_required": "liaison_id"
+  },
   "cities": {
-    "shortTitle": "Locations Visits",
+    "shortTitle": "Location Visits",
     "menuTitle": "Location Visits",
     "listTitle": "Location Visits",
     "datatype": "csv",
@@ -14,18 +26,6 @@
     },
     "datastates": ["GA"],
     "mapInfo": "Cities in Georgia"
-  },
- "liaisons": {
-    "shortTitle": "Liaisons",
-    "menuTitle": "Camera Ready Liaisons",
-    "listTitle": "Georgia Camera Ready Liaisons",
-    "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
-    "markerType": "google",
-    "nameColumn": "name",
-    "featuredColumns": ["Name", "Contact_Name", "Address", "City", "State", "Zip", "Population"],
-    "omit_display": ["geo_json"],
-    "int_required": "liaison_id"
   },
   "recyclers": {
     "shortTitle": "B2B Recyclers",
