@@ -170,6 +170,7 @@ body {
     
     .search-fields-btn .filter-icon {
         display: block;
+        margin: 0; /* Reset any margin when narrow */
     }
 }
 

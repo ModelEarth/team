@@ -870,8 +870,8 @@ class ListingsDisplay {
     }
 
     getSearchFieldsSummary() {
-        if (this.searchFields.size === 0) return 'Select Filters';
-        if (this.searchFields.size === this.availableFields.size) return 'All fields';
+        if (this.searchFields.size === 0) return 'Filters';
+        if (this.searchFields.size === this.availableFields.size) return 'Filters: All';
         
         // Get display names from config if available
         const displayNames = [];
@@ -883,28 +883,18 @@ class ListingsDisplay {
             });
         }
         
-        // If we have display names, use those
-        if (displayNames.length > 0) {
-            if (displayNames.length <= 2) {
-                return displayNames.join(', ');
-            } else {
-                return `${displayNames.slice(0, 2).join(', ')}, +${displayNames.length - 2} more`;
-            }
+        // Fall back to field names if no display names found
+        if (displayNames.length === 0) {
+            this.searchFields.forEach(field => displayNames.push(field));
         }
         
-        // Otherwise use field names
-        const fieldNames = Array.from(this.searchFields).slice(0, 2);
-        let summary = fieldNames.join(', ');
-        
-        if (this.searchFields.size > 2) {
-            summary += `, +${this.searchFields.size - 2} more`;
+        // Show individual filter names for 1-2 filters
+        if (displayNames.length <= 2) {
+            return `Filters: ${displayNames.join(', ')}`;
         }
         
-        if (summary.length > 40) {
-            summary = summary.substring(0, 37) + '...';
-        }
-        
-        return summary;
+        // Show count for 3+ filters
+        return `Filters (${displayNames.length})`;
     }
 
     toggleSearchField(field) {
@@ -1495,10 +1485,10 @@ class ListingsDisplay {
                                 </div>
                                 <div class="search-fields-control">
                                     <button id="searchFieldsBtn" class="search-fields-btn ${this.searchPopupOpen ? 'active' : ''}">
-                                        <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                         <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
                                         </svg>
+                                        <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                     </button>
                                 </div>
                                 <!-- Expand Icon for Details -->

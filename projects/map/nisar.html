@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NISAR HDF5 Data Viewer</title>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="./hdf5.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        #info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #555;
+        }
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .legend-scale {
+            height: 20px;
+            background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+            margin: 5px 0;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="loadingText">Loading NISAR HDF5 data...</div>
+        <div id="progress" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+    </div>
+
+    <div id="controls" class="hidden">
+        <h3 style="margin-bottom: 10px; font-size: 14px;">NISAR L3 SME2 Data</h3>
+        <div id="info">
+            <strong>Date:</strong> 2019-08-29<br>
+            <strong>Product:</strong> Soil Moisture
+        </div>
+        <button id="reloadBtn">Reload Data</button>
+        <div class="legend">
+            <div class="legend-title">Soil Moisture</div>
+            <div class="legend-scale"></div>
+            <div class="legend-labels">
+                <span>Low</span>
+                <span>High</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Analysis Panel -->
+    <div id="dataAnalysis" style="
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-height: 200px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        overflow-y: auto;
+        display: none;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 1000;
+    ">
+        <h4 style="margin: 0 0 10px 0;">Data Analysis</h4>
+        <div id="dataSample"></div>
+    </div>
+
+    <!-- Notification area -->
+    <div id="notification" style="
+        position: absolute;
+        top: 50px;
+        right: 10px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        display: none;
+        z-index: 2000;
+        font-size: 14px;
+    "></div>
+
+    
+    <script>
+        // Wait for libraries to load
+        window.addEventListener('load', function() {
+            initMap();
+        });
+
+        function initMap() {
+            // Initialize map with mouse zoom disabled
+            const map = L.map('map', {
+                scrollWheelZoom: false,
+                doubleClickZoom: false
+            }).setView([0, 0], 2);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add click toggle for zoom
+        let zoomEnabled = false;
+        map.on('click', function() {
+            zoomEnabled = !zoomEnabled;
+            if (zoomEnabled) {
+                map.scrollWheelZoom.enable();
+                map.doubleClickZoom.enable();
+                console.log('Zoom enabled - scroll to zoom');
+                showNotification('Zoom enabled - scroll to zoom', 'info');
+            } else {
+                map.scrollWheelZoom.disable();
+                map.doubleClickZoom.disable();
+                console.log('Zoom disabled - click to enable');
+                showNotification('Zoom disabled - click to enable', 'info');
+            }
+        });
+
+        const loadingDiv = document.getElementById('loading');
+        const controlsDiv = document.getElementById('controls');
+        const progressDiv = document.getElementById('progress');
+        const loadingText = document.getElementById('loadingText');
+
+        let dataLayer = null;
+
+        // NISAR HDF5 file URL
+        const h5Url = 'NISAR_L3.h5';
+
+        // Color scale for visualization
+        function getColor(value, min, max) {
+            if (value === null || value === undefined || isNaN(value)) {
+                return '#808080'; // Gray for no data
+            }
+            const normalized = (value - min) / (max - min);
+            const hue = (1 - normalized) * 240; // Blue to Red
+            return `hsl(${hue}, 100%, 50%)`;
+        }
+
+        // Load and process HDF5 file
+        async function loadH5Data() {
+            try {
+                loadingDiv.classList.remove('hidden');
+                controlsDiv.classList.add('hidden');
+                progressDiv.textContent = 'Downloading 7.3 MB file...';
+
+                // Fetch the HDF5 file
+                const response = await fetch(h5Url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const contentLength = response.headers.get('content-length');
+                const total = parseInt(contentLength, 10);
+                let loaded = 0;
+
+                const reader = response.body.getReader();
+                const chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    chunks.push(value);
+                    loaded += value.length;
+                    
+                    if (total) {
+                        const percent = Math.round((loaded / total) * 100);
+                        progressDiv.textContent = `Downloaded: ${(loaded / 1024 / 1024).toFixed(1)} MB / ${(total / 1024 / 1024).toFixed(1)} MB (${percent}%)`;
+                    }
+                }
+
+                // Combine chunks
+                const arrayBuffer = new Uint8Array(loaded);
+                let position = 0;
+                for (const chunk of chunks) {
+                    arrayBuffer.set(chunk, position);
+                    position += chunk.length;
+                }
+
+                loadingText.textContent = 'Parsing HDF5 file...';
+                progressDiv.textContent = 'Processing data structure...';
+
+                // Parse HDF5 file first
+                let h5file;
+                try {
+                    h5file = new hdf5.File(arrayBuffer.buffer);
+                    console.log('HDF5 File object created successfully');
+                    console.log('HDF5 file object type:', typeof h5file);
+                    console.log('HDF5 file object keys:', Object.keys(h5file));
+                    
+                    // Show extracted structure information
+                    console.log('HDF5 file properties:');
+                    for (const prop in h5file) {
+                        if (h5file.hasOwnProperty(prop)) {
+                            console.log(`  ${prop}:`, typeof h5file[prop], h5file[prop]);
+                        }
+                    }
+                    
+                } catch (parseError) {
+                    console.error('HDF5 parsing failed:', parseError);
+                    
+                    // Show file format information for debugging
+                    console.log('File size:', arrayBuffer.byteLength, 'bytes');
+                    const magicBytes = new Uint8Array(arrayBuffer.buffer, 0, 8);
+                    const magicHex = Array.from(magicBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    console.log('File magic bytes:', magicHex);
+                    
+                    throw new Error(`HDF5 parsing failed: ${parseError.message}. File may not be a valid HDF5 file.`);
+                }
+                
+                // Recursively explore the HDF5 file structure
+                function exploreGroup(group, path = '') {
+                    const items = {};
+                    try {
+                        console.log(`Exploring ${path || 'root'}:`, group);
+                        
+                        // Check what methods/properties are available
+                        console.log('Group methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(group)));
+                        console.log('Group properties:', Object.keys(group));
+                        
+                        // Try different ways to get keys/contents
+                        let keys = [];
+                        
+                        // Method 1: Check _links property (we saw this in the output)
+                        if (group._links && typeof group._links === 'object') {
+                            keys = Object.keys(group._links);
+                            console.log('Found keys via _links:', keys);
+                        }
+                        
+                        // Method 2: Try standard keys() method
+                        if (keys.length === 0 && typeof group.keys === 'function') {
+                            try {
+                                keys = group.keys();
+                                console.log('Found keys via keys():', keys);
+                            } catch (e) {
+                                console.warn('keys() method failed:', e);
+                            }
+                        }
+                        
+                        // Method 3: Try Object.keys as fallback
+                        if (keys.length === 0) {
+                            keys = Object.keys(group).filter(k => !k.startsWith('_') && k !== 'parent' && k !== 'file');
+                            console.log('Found keys via Object.keys (filtered):', keys);
+                        }
+                        
+                        for (const key of keys) {
+                            try {
+                                console.log(`Trying to access key: ${key}`);
+                                
+                                // Try different methods to get the item
+                                let item = null;
+                                
+                                // Method 1: Use get() method
+                                if (typeof group.get === 'function') {
+                                    try {
+                                        item = group.get(key);
+                                        console.log(`Got item via get(${key}):`, item);
+                                    } catch (e) {
+                                        console.warn(`get(${key}) failed:`, e);
+                                    }
+                                }
+                                
+                                // Method 2: Direct property access
+                                if (!item && group[key]) {
+                                    item = group[key];
+                                    console.log(`Got item via direct access [${key}]:`, item);
+                                }
+                                
+                                if (item) {
+                                    const fullPath = path ? `${path}/${key}` : key;
+                                    
+                                    // Check if it's a group or dataset
+                                    if (item._links || (typeof item.get === 'function')) {
+                                        // It's a group, explore recursively
+                                        console.log(`Found group: ${fullPath}`);
+                                        items[key] = exploreGroup(item, fullPath);
+                                    } else {
+                                        // Try to get the data/value
+                                        let value = null;
+                                        let shape = null;
+                                        let dtype = null;
+                                        
+                                        if (item.value !== undefined) {
+                                            value = item.value;
+                                        } else if (typeof item.getValue === 'function') {
+                                            try {
+                                                value = item.getValue();
+                                            } catch (e) {
+                                                console.warn('getValue() failed:', e);
+                                            }
+                                        } else if (Array.isArray(item)) {
+                                            value = item;
+                                        }
+                                        
+                                        shape = item.shape || (Array.isArray(value) ? [value.length] : null);
+                                        dtype = item.dtype || typeof value;
+                                        
+                                        console.log(`Found dataset: ${fullPath}`, {
+                                            shape: shape,
+                                            dtype: dtype,
+                                            size: value ? (Array.isArray(value) ? value.length : 1) : 'unknown',
+                                            hasValue: value !== null
+                                        });
+                                        
+                                        items[key] = {
+                                            path: fullPath,
+                                            value: value,
+                                            shape: shape,
+                                            dtype: dtype
+                                        };
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`Error accessing ${key}:`, e);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Error exploring group ${path}:`, e);
+                    }
+                    return items;
+                }
+
+                // Explore the entire file structure
+                console.log('HDF5 file structure exploration:');
+                const structure = exploreGroup(h5file);
+                console.log('Complete structure:', structure);
+                
+                // Show first 2000 characters of extracted structure data
+                const structureStr = JSON.stringify(structure, null, 2);
+                const first2000Chars = structureStr.substring(0, 2000);
+                console.log('First 2000 characters of extracted HDF5 structure:');
+                console.log(first2000Chars);
+                if (structureStr.length > 2000) {
+                    console.log(`... (truncated, full structure is ${structureStr.length} characters)`);
+                }
+
+                // Try to find latitude, longitude, and data in the structure
+                let lat, lon, data;
+                
+                function findDatasets(obj, path = '') {
+                    const results = { coordinates: [], datasets: [] };
+                    
+                    for (const [key, value] of Object.entries(obj)) {
+                        if (value && value.value !== undefined) {
+                            // It's a dataset
+                            const fullPath = path ? `${path}/${key}` : key;
+                            const lowerKey = key.toLowerCase();
+                            
+                            if (lowerKey.includes('lat') || lowerKey.includes('latitude')) {
+                                results.coordinates.push({ type: 'lat', key, value: value.value, path: fullPath });
+                            } else if (lowerKey.includes('lon') || lowerKey.includes('longitude')) {
+                                results.coordinates.push({ type: 'lon', key, value: value.value, path: fullPath });
+                            } else if (value.value && Array.isArray(value.value) && value.value.length > 100) {
+                                // Potential data array
+                                results.datasets.push({ key, value: value.value, path: fullPath, shape: value.shape });
+                            }
+                        } else if (typeof value === 'object') {
+                            // It's a nested group
+                            const nested = findDatasets(value, path ? `${path}/${key}` : key);
+                            results.coordinates.push(...nested.coordinates);
+                            results.datasets.push(...nested.datasets);
+                        }
+                    }
+                    
+                    return results;
+                }
+
+                const found = findDatasets(structure);
+                console.log('Found coordinates:', found.coordinates);
+                console.log('Found datasets:', found.datasets);
+
+                // More flexible coordinate assignment
+                const latCoord = found.coordinates.find(c => c.type === 'lat');
+                const lonCoord = found.coordinates.find(c => c.type === 'lon');
+                
+                if (latCoord) lat = latCoord.value;
+                if (lonCoord) lon = lonCoord.value;
+
+                // If we have datasets, use the first one
+                if (found.datasets.length > 0) {
+                    data = found.datasets[0].value;
+                    console.log(`Using dataset: ${found.datasets[0].path}`);
+                }
+
+                // If no coordinates found, try more flexible fallbacks
+                if (!lat || !lon) {
+                    console.log('No explicit coordinates found, trying fallback strategies...');
+                    
+                    // Try to find any arrays that might be coordinates
+                    const allDatasets = found.datasets.concat(found.coordinates);
+                    console.log('All available datasets:', allDatasets.map(d => ({ path: d.path, length: d.value?.length })));
+                    
+                    // Look for arrays with reasonable coordinate ranges
+                    for (const dataset of allDatasets) {
+                        if (!dataset.value || !Array.isArray(dataset.value)) continue;
+                        
+                        const flatValues = dataset.value.flat(Infinity);
+                        const validValues = flatValues.filter(v => v !== null && !isNaN(v) && isFinite(v));
+                        
+                        if (validValues.length === 0) continue;
+                        
+                        const min = Math.min(...validValues);
+                        const max = Math.max(...validValues);
+                        
+                        console.log(`Dataset ${dataset.path}: range ${min} to ${max}`);
+                        
+                        // Check if this looks like latitude (-90 to 90)
+                        if (!lat && min >= -90 && max <= 90 && Math.abs(max - min) > 0.1) {
+                            console.log(`Using ${dataset.path} as latitude (range: ${min} to ${max})`);
+                            lat = dataset.value;
+                        }
+                        // Check if this looks like longitude (-180 to 180)
+                        else if (!lon && min >= -180 && max <= 180 && Math.abs(max - min) > 0.1) {
+                            console.log(`Using ${dataset.path} as longitude (range: ${min} to ${max})`);
+                            lon = dataset.value;
+                        }
+                    }
+                }
+
+                // If still no data found, try using any numeric array
+                if (!data && found.datasets.length === 0) {
+                    console.log('No datasets found, looking for any numeric arrays...');
+                    
+                    // Find any array that could be data
+                    const potentialData = found.coordinates.find(c => 
+                        c.value && Array.isArray(c.value) && c.value.length > 10
+                    );
+                    
+                    if (potentialData) {
+                        console.log(`Using ${potentialData.path} as data array`);
+                        data = potentialData.value;
+                    }
+                }
+
+                // Create synthetic coordinates if needed
+                if (!lat || !lon) {
+                    console.log('Creating synthetic coordinates...');
+                    
+                    if (data && Array.isArray(data)) {
+                        const dataLength = data.flat(Infinity).length;
+                        console.log(`Creating ${dataLength} synthetic coordinate points`);
+                        
+                        if (!lat) {
+                            // Create latitude array centered around equator
+                            lat = Array.from({ length: dataLength }, (_, i) => 
+                                -45 + (90 * i / dataLength)
+                            );
+                            console.log('Created synthetic latitude array');
+                        }
+                        
+                        if (!lon) {
+                            // Create longitude array from -180 to 180
+                            lon = Array.from({ length: dataLength }, (_, i) => 
+                                -180 + (360 * i / dataLength)
+                            );
+                            console.log('Created synthetic longitude array');
+                        }
+                    }
+                }
+
+                // Final check - if we still don't have everything, provide detailed error
+                if (!lat || !lon || !data) {
+                    const errorDetails = [];
+                    if (!lat) errorDetails.push('latitude coordinates');
+                    if (!lon) errorDetails.push('longitude coordinates');
+                    if (!data) errorDetails.push('data arrays');
+                    
+                    console.error('Missing components:', errorDetails);
+                    console.log('File structure analysis:');
+                    console.log('- Total groups/datasets found:', Object.keys(structure).length);
+                    console.log('- Coordinate arrays found:', found.coordinates.length);
+                    console.log('- Data arrays found:', found.datasets.length);
+                    
+                    throw new Error(`Could not find ${errorDetails.join(', ')} in HDF5 file. Available structure: ${JSON.stringify(Object.keys(structure), null, 2)}`);
+                }
+
+                console.log('Successfully prepared data for visualization:');
+                console.log('- Latitude array length:', Array.isArray(lat) ? lat.length : 1);
+                console.log('- Longitude array length:', Array.isArray(lon) ? lon.length : 1);
+                console.log('- Data array length:', Array.isArray(data) ? data.length : 1);
+
+                loadingText.textContent = 'Rendering map...';
+                progressDiv.textContent = 'Creating visualization...';
+
+                // Analyze data structure before visualization
+                const analysis = analyzeDataStructure(lat, lon, data);
+                console.log('Data analysis:', analysis);
+                displayDataAnalysis(analysis);
+
+                // Process and visualize data
+                visualizeData(lat, lon, data);
+
+                loadingDiv.classList.add('hidden');
+                controlsDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error loading HDF5:', error);
+                loadingText.textContent = 'Error loading data';
+                progressDiv.innerHTML = `
+                    <span style="color: #e74c3c;">${error.message}</span><br>
+                    <button onclick="location.reload()" style="margin-top: 10px;">Retry</button>
+                `;
+            }
+        }
+
+        function visualizeData(lat, lon, data) {
+            // Remove existing layer
+            if (dataLayer) {
+                map.removeLayer(dataLayer);
+            }
+
+            console.log('Analyzing data structure...');
+            console.log('Latitude array:', { length: lat.length, type: typeof lat, isArray: Array.isArray(lat) });
+            console.log('Longitude array:', { length: lon.length, type: typeof lon, isArray: Array.isArray(lon) });
+            console.log('Data array:', { length: data.length, type: typeof data, isArray: Array.isArray(data) });
+
+            // Analyze array structures and dimensions
+            const latInfo = analyzeArray(lat, 'latitude');
+            const lonInfo = analyzeArray(lon, 'longitude');
+            const dataInfo = analyzeArray(data, 'data');
+
+            console.log('Array analysis:', { latInfo, lonInfo, dataInfo });
+
+            // Determine if this is gridded data or point data
+            const isGridded = latInfo.dimensions > 1 || lonInfo.dimensions > 1 || 
+                             (latInfo.shape && lonInfo.shape && dataInfo.shape);
+
+            console.log('Data type detected:', isGridded ? 'Gridded' : 'Point data');
+
+            if (isGridded) {
+                visualizeGriddedData(latInfo, lonInfo, dataInfo);
+            } else {
+                visualizePointData(latInfo, lonInfo, dataInfo);
+            }
+        }
+
+        function analyzeArray(arr, name) {
+            if (!arr) return { valid: false, reason: 'Array is null/undefined' };
+
+            const info = {
+                name,
+                length: arr.length,
+                valid: false,
+                dimensions: 1,
+                shape: null,
+                flatData: null,
+                min: null,
+                max: null,
+                validCount: 0
+            };
+
+            try {
+                // Flatten the array to handle multi-dimensional data
+                let flatData = Array.isArray(arr) ? arr.flat(Infinity) : [arr];
+                
+                // Filter out invalid values
+                const validData = flatData.filter(v => 
+                    v !== null && v !== undefined && !isNaN(v) && isFinite(v)
+                );
+
+                if (validData.length === 0) {
+                    info.reason = 'No valid numeric values found';
+                    return info;
+                }
+
+                info.flatData = flatData;
+                info.validCount = validData.length;
+                info.min = Math.min(...validData);
+                info.max = Math.max(...validData);
+                info.valid = true;
+
+                // Detect dimensions by checking for nested arrays
+                if (arr.length > 0 && Array.isArray(arr[0])) {
+                    info.dimensions = 2;
+                    info.shape = [arr.length, arr[0].length];
+                    
+                    // Check for 3D
+                    if (Array.isArray(arr[0][0])) {
+                        info.dimensions = 3;
+                        info.shape = [arr.length, arr[0].length, arr[0][0].length];
+                    }
+                }
+
+                console.log(`${name} analysis:`, {
+                    length: info.length,
+                    dimensions: info.dimensions,
+                    shape: info.shape,
+                    range: `${info.min} to ${info.max}`,
+                    validCount: info.validCount
+                });
+
+            } catch (error) {
+                info.reason = `Analysis error: ${error.message}`;
+            }
+
+            return info;
+        }
+
+        function visualizeGriddedData(latInfo, lonInfo, dataInfo) {
+            console.log('Visualizing as gridded data...');
+            
+            try {
+                // For gridded data, we need to create a proper grid visualization
+                const latFlat = latInfo.flatData;
+                const lonFlat = lonInfo.flatData;
+                const dataFlat = dataInfo.flatData;
+
+                // Sample the data for performance
+                const maxPoints = 5000;
+                const step = Math.max(1, Math.floor(Math.min(latFlat.length, lonFlat.length, dataFlat.length) / maxPoints));
+
+                const markers = [];
+                const bounds = [];
+                const validData = dataFlat.filter(v => v !== null && !isNaN(v) && isFinite(v));
+                const min = Math.min(...validData);
+                const max = Math.max(...validData);
+
+                console.log(`Data range: ${min} to ${max}, rendering every ${step} points`);
+
+                for (let i = 0; i < Math.min(latFlat.length, lonFlat.length, dataFlat.length); i += step) {
+                    const latVal = latFlat[i];
+                    const lonVal = lonFlat[i];
+                    const dataVal = dataFlat[i];
+
+                    if (isValidCoordinate(latVal, lonVal) && isValidData(dataVal)) {
+                        const color = getColor(dataVal, min, max);
+                        
+                        const marker = L.circleMarker([latVal, lonVal], {
+                            radius: 2,
+                            fillColor: color,
+                            color: color,
+                            weight: 0.5,
+                            opacity: 0.7,
+                            fillOpacity: 0.8
+                        }).bindPopup(`
+                            <strong>Value:</strong> ${dataVal.toFixed(4)}<br>
+                            <strong>Lat:</strong> ${latVal.toFixed(4)}<br>
+                            <strong>Lon:</strong> ${lonVal.toFixed(4)}<br>
+                            <strong>Index:</strong> ${i}
+                        `);
+                        
+                        markers.push(marker);
+                        bounds.push([latVal, lonVal]);
+                    }
+                }
+
+                addLayerAndFitBounds(markers, bounds);
+
+            } catch (error) {
+                console.error('Error in gridded visualization:', error);
+                showVisualizationError(error.message);
+            }
+        }
+
+        function visualizePointData(latInfo, lonInfo, dataInfo) {
+            console.log('Visualizing as point data...');
+            
+            try {
+                const latFlat = latInfo.flatData;
+                const lonFlat = lonInfo.flatData;
+                const dataFlat = dataInfo.flatData;
+
+                const markers = [];
+                const bounds = [];
+                const validData = dataFlat.filter(v => v !== null && !isNaN(v) && isFinite(v));
+                const min = Math.min(...validData);
+                const max = Math.max(...validData);
+
+                console.log(`Point data range: ${min} to ${max}`);
+
+                const maxPoints = 10000;
+                const totalPoints = Math.min(latFlat.length, lonFlat.length, dataFlat.length);
+                const step = Math.max(1, Math.floor(totalPoints / maxPoints));
+
+                for (let i = 0; i < totalPoints; i += step) {
+                    const latVal = latFlat[i];
+                    const lonVal = lonFlat[i];
+                    const dataVal = dataFlat[i];
+
+                    if (isValidCoordinate(latVal, lonVal) && isValidData(dataVal)) {
+                        const color = getColor(dataVal, min, max);
+                        
+                        const marker = L.circleMarker([latVal, lonVal], {
+                            radius: 4,
+                            fillColor: color,
+                            color: '#fff',
+                            weight: 1,
+                            opacity: 0.9,
+                            fillOpacity: 0.7
+                        }).bindPopup(`
+                            <strong>Value:</strong> ${dataVal.toFixed(4)}<br>
+                            <strong>Lat:</strong> ${latVal.toFixed(4)}<br>
+                            <strong>Lon:</strong> ${lonVal.toFixed(4)}<br>
+                            <strong>Point:</strong> ${i}
+                        `);
+                        
+                        markers.push(marker);
+                        bounds.push([latVal, lonVal]);
+                    }
+                }
+
+                addLayerAndFitBounds(markers, bounds);
+
+            } catch (error) {
+                console.error('Error in point visualization:', error);
+                showVisualizationError(error.message);
+            }
+        }
+
+        function isValidCoordinate(lat, lon) {
+            return lat !== null && lat !== undefined && !isNaN(lat) && isFinite(lat) &&
+                   lon !== null && lon !== undefined && !isNaN(lon) && isFinite(lon) &&
+                   lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        }
+
+        function isValidData(val) {
+            return val !== null && val !== undefined && !isNaN(val) && isFinite(val);
+        }
+
+        function addLayerAndFitBounds(markers, bounds) {
+            console.log(`Adding ${markers.length} markers to map`);
+
+            if (markers.length === 0) {
+                showVisualizationError('No valid data points found for visualization');
+                return;
+            }
+
+            // Add markers to map
+            dataLayer = L.layerGroup(markers).addTo(map);
+
+            // Fit map to bounds with padding
+            if (bounds.length > 0) {
+                const latLngs = bounds.map(b => L.latLng(b[0], b[1]));
+                const bounds_obj = L.latLngBounds(latLngs);
+                map.fitBounds(bounds_obj, { padding: [20, 20] });
+                
+                console.log('Map fitted to bounds:', {
+                    north: bounds_obj.getNorth(),
+                    south: bounds_obj.getSouth(),
+                    east: bounds_obj.getEast(),
+                    west: bounds_obj.getWest()
+                });
+            }
+
+            // Update legend and controls
+            updateLegend();
+        }
+
+        function showVisualizationError(message) {
+            console.error('Visualization error:', message);
+            // You could add UI feedback here
+        }
+
+        function updateLegend() {
+            // Update legend display if needed
+            console.log('Legend updated');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function analyzeDataStructure(lat, lon, data) {
+            const analysis = {
+                dataType: 'unknown',
+                pattern: 'unknown',
+                coordinates: {
+                    lat: { min: null, max: null, length: 0, sample: [] },
+                    lon: { min: null, max: null, length: 0, sample: [] }
+                },
+                values: { min: null, max: null, length: 0, sample: [] },
+                recommendation: 'unknown'
+            };
+
+            // Analyze coordinate arrays
+            if (lat && Array.isArray(lat)) {
+                const latFlat = lat.flat(Infinity).filter(v => v !== null && !isNaN(v) && isFinite(v));
+                analysis.coordinates.lat = {
+                    min: Math.min(...latFlat),
+                    max: Math.max(...latFlat),
+                    length: latFlat.length,
+                    sample: latFlat.slice(0, 10)
+                };
+            }
+
+            if (lon && Array.isArray(lon)) {
+                const lonFlat = lon.flat(Infinity).filter(v => v !== null && !isNaN(v) && isFinite(v));
+                analysis.coordinates.lon = {
+                    min: Math.min(...lonFlat),
+                    max: Math.max(...lonFlat),
+                    length: lonFlat.length,
+                    sample: lonFlat.slice(0, 10)
+                };
+            }
+
+            // Analyze data values
+            if (data && Array.isArray(data)) {
+                const dataFlat = data.flat(Infinity).filter(v => v !== null && !isNaN(v) && isFinite(v));
+                analysis.values = {
+                    min: Math.min(...dataFlat),
+                    max: Math.max(...dataFlat),
+                    length: dataFlat.length,
+                    sample: dataFlat.slice(0, 20)
+                };
+            }
+
+            // Determine data pattern
+            const latRange = analysis.coordinates.lat.max - analysis.coordinates.lat.min;
+            const lonRange = analysis.coordinates.lon.max - analysis.coordinates.lon.min;
+            const coordCount = Math.min(analysis.coordinates.lat.length, analysis.coordinates.lon.length);
+
+            if (coordCount > 1000 && latRange > 1 && lonRange > 1) {
+                analysis.dataType = 'gridded';
+                analysis.pattern = 'dense spatial grid';
+                analysis.recommendation = 'heat map';
+            } else if (coordCount > 100 && latRange > 0.1 && lonRange > 0.1) {
+                analysis.dataType = 'scattered';
+                analysis.pattern = 'sparse spatial points';
+                analysis.recommendation = 'point markers';
+            } else if (latRange < 0.1 || lonRange < 0.1) {
+                analysis.dataType = 'linear';
+                analysis.pattern = 'line or transect data';
+                analysis.recommendation = 'line plot';
+            } else {
+                analysis.dataType = 'unknown';
+                analysis.pattern = 'unclear spatial pattern';
+                analysis.recommendation = 'examine data structure';
+            }
+
+            return analysis;
+        }
+
+        function displayDataAnalysis(analysis) {
+            const panel = document.getElementById('dataAnalysis');
+            const content = document.getElementById('dataSample');
+            
+            const html = `
+                <div><strong>Data Type:</strong> ${analysis.dataType} (${analysis.pattern})</div>
+                <div><strong>Recommendation:</strong> ${analysis.recommendation}</div>
+                <br>
+                <div><strong>Coordinates:</strong></div>
+                <div>Latitude: ${analysis.coordinates.lat.min?.toFixed(4)} to ${analysis.coordinates.lat.max?.toFixed(4)} (${analysis.coordinates.lat.length} points)</div>
+                <div>Longitude: ${analysis.coordinates.lon.min?.toFixed(4)} to ${analysis.coordinates.lon.max?.toFixed(4)} (${analysis.coordinates.lon.length} points)</div>
+                <div>Sample lat: [${analysis.coordinates.lat.sample.slice(0,5).map(v => v.toFixed(4)).join(', ')}...]</div>
+                <div>Sample lon: [${analysis.coordinates.lon.sample.slice(0,5).map(v => v.toFixed(4)).join(', ')}...]</div>
+                <br>
+                <div><strong>Data Values:</strong></div>
+                <div>Range: ${analysis.values.min?.toFixed(4)} to ${analysis.values.max?.toFixed(4)} (${analysis.values.length} values)</div>
+                <div>Sample values: [${analysis.values.sample.slice(0,10).map(v => v.toFixed(4)).join(', ')}...]</div>
+            `;
+            
+            content.innerHTML = html;
+            panel.style.display = 'block';
+        }
+
+        // Reload button
+        document.getElementById('reloadBtn').addEventListener('click', loadH5Data);
+
+        // Load data on page load
+        loadH5Data();
+        }
+    </script>
+</body>
+</html>

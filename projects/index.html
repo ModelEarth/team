@@ -2961,11 +2961,26 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
             }
 
-            // Check if the URL points to a binary file that would overwhelm CPU
-            const binaryExtensions = ['.tiff', '.tif', '.hdf5', '.h5', '.pdf', '.png', '.jpg', '.jpeg', '.zip', '.tar', '.gz'];
-            const isBinaryFile = binaryExtensions.some(ext => meetupLink.toLowerCase().includes(ext));
+            // Check file size and handle different binary file types
+            async function checkFileSize(url) {
+                try {
+                    const headResponse = await fetch(url, { method: 'HEAD' });
+                    const contentLength = headResponse.headers.get('content-length');
+                    return contentLength ? parseInt(contentLength) : null;
+                } catch (error) {
+                    console.warn('Could not check file size:', error);
+                    return null;
+                }
+            }
+
+            // Separate handling for .h5 files vs other binary files
+            const h5Extensions = ['.hdf5', '.h5'];
+            const otherBinaryExtensions = ['.tiff', '.tif', '.pdf', '.png', '.jpg', '.jpeg', '.zip', '.tar', '.gz'];
             
-            if (isBinaryFile) {
+            const isH5File = h5Extensions.some(ext => meetupLink.toLowerCase().includes(ext));
+            const isOtherBinaryFile = otherBinaryExtensions.some(ext => meetupLink.toLowerCase().includes(ext));
+            
+            if (isOtherBinaryFile) {
                 const currentList = getHash().list || fileSelect.value || 'Unknown';
                 const currentOption = Array.from(fileSelect.options).find(opt => opt.value === currentList);
                 const listTitle = currentOption?.textContent || currentList;
@@ -2977,6 +2992,86 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     'error',
                     8000
                 );
+                
+                getParticipantsButton.disabled = false;
+                participantsSpinner.style.display = 'none';
+                return;
+            }
+            
+            if (isH5File) {
+                // Check file size before processing HDF5 files
+                const fileSize = await checkFileSize(meetupLink);
+                const currentList = getHash().list || fileSelect.value || 'Unknown';
+                const currentOption = Array.from(fileSelect.options).find(opt => opt.value === currentList);
+                const listTitle = currentOption?.textContent || currentList;
+                
+                if (fileSize && fileSize > 50 * 1024 * 1024) { // 50MB limit
+                    showTopMessage(
+                        `<strong>HDF5 File Too Large</strong><br>` +
+                        `The selected HDF5 file "${listTitle}" is ${(fileSize / 1024 / 1024).toFixed(1)}MB, which exceeds the 50MB processing limit.<br>` +
+                        `<small>Large HDF5 files should be processed locally or through specialized analysis tools.</small>`,
+                        'error',
+                        8000
+                    );
+                    
+                    getParticipantsButton.disabled = false;
+                    participantsSpinner.style.display = 'none';
+                    return;
+                }
+                
+                // Process HDF5 file through Rust CORS proxy
+                showTopMessage(
+                    `<strong>Processing HDF5 File</strong><br>` +
+                    `Loading HDF5 file "${listTitle}" (${fileSize ? (fileSize / 1024 / 1024).toFixed(1) + 'MB' : 'size unknown'}) for client-side processing...`,
+                    'warning',
+                    0 // Don't auto-hide while processing
+                );
+                
+                try {
+                    const proxyResponse = await fetch('http://localhost:8081/api/proxy/hdf5', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            url: meetupLink
+                        })
+                    });
+                    
+                    if (proxyResponse.ok) {
+                        const h5Data = await proxyResponse.arrayBuffer();
+                        
+                        showTopMessage(
+                            `<strong>HDF5 File Ready</strong><br>` +
+                            `File loaded successfully. Processing with client-side HDF5 tools...`,
+                            'success',
+                            3000
+                        );
+                        
+                        // TODO: Process HDF5 data with client-side tools
+                        console.log('HDF5 data received:', h5Data.byteLength, 'bytes');
+                        
+                        // For now, show that we successfully got the data
+                        currentData = [{
+                            'Title': listTitle,
+                            'Type': 'HDF5 File',
+                            'Size': fileSize ? `${(fileSize / 1024 / 1024).toFixed(1)}MB` : 'Unknown',
+                            'URL': meetupLink,
+                            'Status': 'Loaded for client-side processing'
+                        }];
+                        displayTableLayout(currentData, listTitle);
+                        
+                    } else {
+                        throw new Error(`Proxy failed: ${proxyResponse.status}`);
+                    }
+                } catch (error) {
+                    showTopMessage(
+                        `<strong>HDF5 Processing Failed</strong><br>` +
+                        `Could not load HDF5 file through proxy: ${error.message}`,
+                        'error',
+                        8000
+                    );
+                }
                 
                 getParticipantsButton.disabled = false;
                 participantsSpinner.style.display = 'none';
@@ -7643,17 +7738,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                                 }
                             }
                             
-                            // Filter out large binary/non-data files to prevent CPU overload
+                            // Filter out large binary/non-data files to prevent CPU overload (but allow .h5 files)
                             const url = feedEntry['URL'] || '';
-                            const binaryExtensions = ['.tiff', '.tif', '.hdf5', '.h5', '.pdf', '.png', '.jpg', '.jpeg', '.zip', '.tar', '.gz'];
-                            const isBinaryFile = binaryExtensions.some(ext => url.toLowerCase().includes(ext));
+                            const h5Extensions = ['.hdf5', '.h5'];
+                            const otherBinaryExtensions = ['.tiff', '.tif', '.pdf', '.png', '.jpg', '.jpeg', '.zip', '.tar', '.gz'];
                             
-                            if (isBinaryFile) {
+                            const isH5File = h5Extensions.some(ext => url.toLowerCase().includes(ext));
+                            const isOtherBinaryFile = otherBinaryExtensions.some(ext => url.toLowerCase().includes(ext));
+                            
+                            if (isOtherBinaryFile) {
                                 const title = feedEntry['Title'] || feedEntry['List'] || 'Unknown';
                                 skippedBinaryFiles.push({ title, url: url.split('/').pop() });
                                 console.log(`Skipping binary file: ${title} (${url})`);
                                 continue; // Skip binary files to prevent processing overload
                             }
+                            
+                            // Allow .h5 files to proceed (they will be handled by the HDF5 proxy)
                             
                             feedsData.push(feedEntry);
                         }
