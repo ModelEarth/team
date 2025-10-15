@@ -1488,7 +1488,7 @@ $pages_status
             echo "📋 Review at: $pages_url"
         fi
     else
-        echo "ℹ️ Webroot PR not needed (direct push successful)"
+        echo "ℹ️  Direct push of Webroot repo successful"
     fi
 }
 
@@ -1651,7 +1651,7 @@ push_all() {
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
                     echo "📌 Committing changes in submodule: $file"
-                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️ No changes to commit in $file"
+                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️  No changes to commit in $file"
                 else
                     echo "📌 Skipping non-submodule file: $file"
                 fi
