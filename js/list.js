@@ -1411,7 +1411,7 @@ async function loadUnifiedData(url, options = {}) {
                         throw new Error('Backend CSV proxy not available');
                     }
                 } catch (proxyError) {
-                    throw new Error(`CORS used but unable to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
+                    throw new Error(`Rust server not accessible, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
                 }
             } else {
                 // No CORS restriction - try direct fetch only
