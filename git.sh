@@ -435,6 +435,7 @@ check_user_change() {
     local expected_origin="https://github.com/$current_user/$name.git"
     
     # ADDITIONAL SAFEGUARD: Verify we're in the correct repository before updating remote
+    # Check for context mismatch - if we're trying to update the wrong repository
     if [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"team"* ]]; then
         echo "⚠️ ERROR: Attempted to update team repository remote to webroot URL - skipping"
         echo "   Current remote: $current_origin"
@@ -445,6 +446,24 @@ check_user_change() {
         echo "   Current remote: $current_origin" 
         echo "   Intended remote: $expected_origin"
         return 1
+    fi
+    
+    # CRITICAL FIX: When called from webroot context but in team directory, 
+    # ensure we're operating on the correct repository
+    if [[ -n "$WEBROOT_CONTEXT" ]] && [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"webroot"* ]]; then
+        # We're correctly operating on webroot - use git -C to ensure we modify the right repo
+        current_origin=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
+        if [[ "$current_origin" != "$expected_origin" ]]; then
+            echo "🔄 GitHub user changed to $current_user - updating webroot origin remote..."
+            git -C "$WEBROOT_CONTEXT" remote set-url origin "$expected_origin" 2>/dev/null || {
+                echo "⚠️ Failed to update webroot origin remote for $current_user"
+                return 1
+            }
+            echo "🔧 Updated webroot origin to point to $current_user/webroot"
+            return 0
+        else
+            return 0  # Already correct
+        fi
     fi
     
     # If origin doesn't match current user, update it
@@ -1187,11 +1206,18 @@ update_all_remotes_for_user() {
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
+            # Save current directory
+            local original_dir=$(pwd)
             cd "$sub"
+            # Temporarily clear WEBROOT_CONTEXT to prevent confusion
+            local saved_webroot_context="$WEBROOT_CONTEXT"
+            unset WEBROOT_CONTEXT
             if check_user_change "$sub"; then
                 ((updated_count++))
             fi
-            cd ..
+            # Restore WEBROOT_CONTEXT
+            export WEBROOT_CONTEXT="$saved_webroot_context"
+            cd "$original_dir"
         fi
     done
     
