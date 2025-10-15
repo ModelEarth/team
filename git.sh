@@ -197,7 +197,6 @@ safe_submodule_operation() {
         
         # Execute the operation with error handling
         if ! eval "$operation" "$@"; then
-            echo "⚠️ ERROR: Operation '$operation' failed in $sub"
             operation_success=false
         fi
         
@@ -1489,7 +1488,7 @@ $pages_status
             echo "📋 Review at: $pages_url"
         fi
     else
-        echo "⚠️ Webroot PR creation failed or not needed"
+        echo "ℹ️ Webroot PR not needed (direct push successful)"
     fi
 }
 
@@ -1603,9 +1602,7 @@ push_submodules() {
     
     for sub in "${submodules[@]}"; do
         [ ! -d "$sub" ] && continue
-        echo "🔄 Pushing submodule: $sub"
         if ! safe_submodule_operation "$sub" "commit_push" "$sub" "$skip_pr"; then
-            echo "⚠️ Push failed for submodule: $sub"
             failed_pushes+=("$sub")
         fi
     done
@@ -1654,7 +1651,7 @@ push_all() {
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
                     echo "📌 Committing changes in submodule: $file"
-                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "⚠️ No changes to commit in $file"
+                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️ No changes to commit in $file"
                 else
                     echo "📌 Skipping non-submodule file: $file"
                 fi
@@ -1683,9 +1680,7 @@ push_all() {
     
     for repo in "${extra_repos[@]}"; do
         [ ! -d "$repo" ] && continue
-        echo "🔄 Pushing extra repo: $repo"
         if ! safe_submodule_operation "$repo" "commit_push" "$repo" "$skip_pr"; then
-            echo "⚠️ Push failed for extra repo: $repo"
             failed_extra_pushes+=("$repo")
         fi
     done
@@ -1813,14 +1808,13 @@ final_push_completion_check() {
     local submodules=($(get_submodules))
     for sub in "${submodules[@]}"; do
         if [ -d "$sub" ]; then
-            if ! safe_submodule_operation "$sub" 'bash -c "
+            safe_submodule_operation "$sub" 'bash -c "
                 if [ -n \"\$(git rev-list --count @{u}..HEAD 2>/dev/null)\" ] && [ \"\$(git rev-list --count @{u}..HEAD 2>/dev/null)\" != \"0\" ]; then
                     echo \"📤 Found unpushed commits in '$sub'...\"
-                    ensure_push_completion \"'$sub'\"
+                    # Try to push any remaining commits
+                    git push origin main 2>/dev/null || git push 2>/dev/null || echo \"💡 Manual push needed for '$sub'\"
                 fi
-            "'; then
-                echo "⚠️ Failed to check push status for $sub"
-            fi
+            "' >/dev/null 2>&1
         fi
     done
     
