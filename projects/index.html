@@ -13,11 +13,11 @@
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/shared-styles.css">
     <script>
-        // Load submodule names by parsing ../.gitmodules. Exposes a Promise.
+        // Load submodule names by parsing .gitmodules from GitHub.
         if (!window.teamSubmodulesPromise) {
             window.teamSubmodulesPromise = (async function() {
                 try {
-                    const r = await fetch('../.gitmodules');
+                    const r = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules');
                     if (!r.ok) return [];
                     const txt = await r.text();
                     const names = [];
@@ -27,7 +27,7 @@
                     });
                     return names;
                 } catch (err) {
-                    console.warn('team: failed to load ../.gitmodules', err);
+                    console.warn('team: failed to load .gitmodules from GitHub', err);
                     return [];
                 }
             })();
@@ -2770,10 +2770,10 @@
 
             prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">Loading open PRs across submodules...</div>';
             try {
-                // Try to fetch .gitmodules from site root
-                const gmResp = await fetch('/.gitmodules', { cache: 'no-store' });
+                // Fetch .gitmodules from GitHub repository
+                const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
                 if (!gmResp.ok) {
-                    prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-secondary);">.gitmodules not available for parsing. Live PR fetch requires the site to serve /.gitmodules or provide a submodule list.</div>`;
+                    prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-secondary);">.gitmodules not available from GitHub repository. Live PR fetch requires access to the .gitmodules file.</div>`;
                     return;
                 }
                 const gitmodulesText = await gmResp.text();
@@ -2805,19 +2805,8 @@
                 const sessionToken = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
 
                 const fetches = repos.map(r => (async () => {
-                    const proxyUrl = `/api/github/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
                     const publicUrl = `https://api.github.com/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
                     const acceptHeader = { Accept: 'application/vnd.github.v3+json' };
-                    try {
-                        const proxyHeaders = Object.assign({}, acceptHeader);
-                        if (sessionToken) proxyHeaders.Authorization = `token ${sessionToken}`;
-                        const proxyRes = await fetch(proxyUrl, { headers: proxyHeaders });
-                        if (proxyRes && (proxyRes.ok || proxyRes.status === 403)) {
-                            return { res: proxyRes, r, usedProxy: true };
-                        }
-                    } catch (e) {
-                        // proxy request failed; fall back
-                    }
                     try {
                         const publicHeaders = Object.assign({}, acceptHeader);
                         if (sessionToken) publicHeaders.Authorization = `token ${sessionToken}`;
@@ -3360,7 +3349,7 @@
 
         async function prefetchRepoSummaries() {
             try {
-                const gmResp = await fetch('/.gitmodules', { cache: 'no-store' });
+                const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
                 if (!gmResp.ok) return;
                 const gitmodulesText = await gmResp.text();
                 const urlRegex = /url = (.*)/g;
