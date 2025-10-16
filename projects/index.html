@@ -5530,6 +5530,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                                 a.style.fontWeight = '500';
                                 a.addEventListener('click', (e) => e.stopPropagation());
                                 td.appendChild(a);
+                            } else if (token.includes('github.com/') && /github/i.test(header)) {
+                                // Handle values containing github.com/ - extract username and add @ prefix
+                                const githubPathMatch = token.match(/github\.com\/([a-zA-Z0-9_\-\.]+)/i);
+                                if (githubPathMatch) {
+                                    const username = githubPathMatch[1];
+                                    const a = document.createElement('a');
+                                    a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                    a.textContent = `@${username}`; // Add @ prefix to extracted username
+                                    a.target = '_blank';
+                                    a.rel = 'noopener noreferrer';
+                                    a.style.color = '#0969da'; // GitHub blue color
+                                    a.style.fontWeight = '500';
+                                    a.addEventListener('click', (e) => e.stopPropagation());
+                                    td.appendChild(a);
+                                } else {
+                                    // Fallback to regular text if username extraction fails
+                                    td.appendChild(document.createTextNode(token));
+                                }
                             } else if (plainUsernameMatch && 
                                       plainUsernameMatch[1].length >= 3 && 
                                       plainUsernameMatch[1].length <= 39 && 
