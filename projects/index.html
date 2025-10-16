@@ -114,11 +114,32 @@
 
         /* Make nested PR cards visually distinct inside submodule cards */
         .submodule-card .pr-card {
-            background: white;
-            border: 1px solid var(--border-light);
-            box-shadow: none;
-            padding: 10px;
-            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            padding: 14px;
+            margin: 12px 0;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submodule-card .pr-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .submodule-card .pr-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+            opacity: 0.7;
         }
 
         /* PR card layout (non-expandable) */
@@ -1101,21 +1122,37 @@
         
         #insights-btn {
             padding: 8px 16px !important;
-        }
-
-        /* Contributions button styling - similar size to insights but distinct color */
-        #contribs-btn {
-            padding: 8px 16px !important;
             background: linear-gradient(180deg, #7c3aed, #6d28d9) !important; /* purple gradient */
             color: white !important;
             border-color: #6d28d9 !important;
             box-shadow: 0 1px 0 rgba(0,0,0,0.06);
             opacity: 0.95;
+            transition: all 0.2s ease;
+        }
+
+        #insights-btn:hover {
+            opacity: 1 !important;
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(124, 58, 237, 0.3);
+        }
+
+        /* Repos button styling - similar size to insights but distinct color */
+        #contribs-btn {
+            padding: 8px 16px !important;
+            background: linear-gradient(180deg, #10b981, #059669) !important; /* green gradient */
+            color: white !important;
+            border-color: #059669 !important;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+            opacity: 0.95;
+            transition: all 0.2s ease;
         }
 
         #contribs-btn:hover {
             opacity: 1 !important;
-            filter: brightness(0.98);
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
         }
 
         /* Submodule GitHub link icon styling */
@@ -1129,34 +1166,77 @@
         /* Local model.earth link on the left of the repo name */
         .submodule-local-link {
             color: var(--text-secondary);
-            margin-right: 8px;
+            margin-right: 12px;
             display: inline-flex;
             align-items: center;
             text-decoration: none;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: rgba(59, 130, 246, 0.05);
         }
         .submodule-local-link:hover {
             color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+            transform: scale(1.1);
+        }
+
+        .submodule-gh-link {
+            color: var(--text-secondary);
+            margin-left: 8px;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: rgba(100, 116, 139, 0.05);
+        }
+        .submodule-gh-link:hover {
+            color: var(--text-primary);
+            background: rgba(100, 116, 139, 0.1);
+            transform: scale(1.1);
         }
 
         /* Submodule cards layout */
         .submodule-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
             align-items: start; /* keep cards top-aligned */
         }
 
         .submodule-card {
-            background: var(--bg-secondary);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.02) 100%);
             border: 1px solid var(--border-light);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 16px;
+            padding: 20px;
             box-sizing: border-box;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             display: flex;
             flex-direction: column;
-            min-height: 160px; /* ensure each card has noticeable size */
+            min-height: 180px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .submodule-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .submodule-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+            border-radius: 16px 16px 0 0;
         }
 
         /* Filter button active state */
@@ -1187,15 +1267,32 @@
 
         .submodule-card h4 {
             margin: 0;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
             display: inline-block;
             vertical-align: middle;
+            letter-spacing: -0.025em;
         }
 
         .submodule-card .card-body {
-            margin-top: 8px;
+            margin-top: 16px;
             overflow: auto;
-            max-height: 320px; /* avoid overly tall cards; scroll inside */
+            max-height: 380px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .submodule-card .card-body strong {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(59, 130, 246, 0.2);
         }
         
         #list-title {
@@ -2349,8 +2446,8 @@
             <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Repos</button>
                     <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
-                    <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Contributions</button>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
                     <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
@@ -2817,7 +2914,7 @@
                         const bodyEmpty = document.createElement('div');
                         bodyEmpty.className = 'card-body';
                         bodyEmpty.style.color = 'var(--text-secondary)';
-                        bodyEmpty.textContent = 'No PRs found.';
+                        bodyEmpty.textContent = '';
                         card.appendChild(bodyEmpty);
 
                         // mark card as having zero PRs for filtering
@@ -2910,18 +3007,18 @@
 
                             // Format and show the info
                             const infoParts = [];
-                            if (commitsCount != null) infoParts.push(`<strong>Commits:</strong> ${commitsCount}`);
+                            if (commitsCount != null) infoParts.push(`<strong>Commits ${commitsCount}</strong>`);
                             if (updatedAt) infoParts.push(`${timeAgo(updatedAt)} updated`);
                             if (infoParts.length > 0) {
                                 const infoDiv = document.createElement('div');
                                 infoDiv.style.marginTop = '8px';
                                 infoDiv.style.color = 'var(--text-secondary)';
                                 infoDiv.style.fontSize = '13px';
-                                infoDiv.innerHTML = infoParts.join(' • ');
+                                infoDiv.innerHTML = infoParts.join(' ');
                                 bodyEmpty.appendChild(infoDiv);
                             }
                         } catch(e) {
-                            // non-fatal; keep the 'No PRs found.' message
+                            // non-fatal; keep the empty card for repos without PRs
                         }
 
                         cardsContainer.appendChild(card);
@@ -2930,18 +3027,74 @@
 
                     const cardBody = document.createElement('div');
                     cardBody.className = 'card-body';
+                    
+                    // Create header container for Updates title and count badge
+                    const headerContainer = document.createElement('div');
+                    headerContainer.style.display = 'flex';
+                    headerContainer.style.alignItems = 'center';
+                    headerContainer.style.gap = '8px';
+                    headerContainer.style.marginBottom = '12px';
+                    headerContainer.style.paddingBottom = '8px';
+                    headerContainer.style.borderBottom = '2px solid rgba(59, 130, 246, 0.2)';
+                    headerContainer.style.cursor = 'pointer';
+                    headerContainer.style.borderRadius = '6px';
+                    headerContainer.style.padding = '4px 6px';
+                    headerContainer.style.margin = '-4px -6px 8px -6px';
+                    headerContainer.style.transition = 'all 0.2s ease';
+                    
+                    // Add hover effects
+                    headerContainer.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+                        this.style.transform = 'translateX(2px)';
+                    });
+                    
+                    headerContainer.addEventListener('mouseleave', function() {
+                        this.style.backgroundColor = 'transparent';
+                        this.style.transform = 'translateX(0)';
+                    });
+                    
+                    // Add click functionality to open GitHub PRs page
+                    headerContainer.addEventListener('click', function() {
+                        const githubPRsUrl = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls`;
+                        window.open(githubPRsUrl, '_blank');
+                    });
+                    
+                    headerContainer.title = `Click to view all pull requests for ${r.owner}/${r.repo} on GitHub`;
+                    
                     const strong = document.createElement('strong');
-                    strong.textContent = 'Open PRs';
-                    cardBody.appendChild(strong);
+                    strong.textContent = 'Updates';
+                    strong.style.fontSize = '14px';
+                    strong.style.fontWeight = '600';
+                    strong.style.color = 'var(--text-primary)';
+                    strong.style.border = 'none';
+                    strong.style.marginBottom = '0';
+                    strong.style.paddingBottom = '0';
+                    
+                    // Create green circle badge with PR count
+                    const countBadge = document.createElement('span');
+                    countBadge.textContent = prs.length;
+                    countBadge.style.backgroundColor = '#10b981';
+                    countBadge.style.color = 'white';
+                    countBadge.style.borderRadius = '50%';
+                    countBadge.style.width = '20px';
+                    countBadge.style.height = '20px';
+                    countBadge.style.display = 'flex';
+                    countBadge.style.alignItems = 'center';
+                    countBadge.style.justifyContent = 'center';
+                    countBadge.style.fontSize = '11px';
+                    countBadge.style.fontWeight = '600';
+                    countBadge.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.3)';
+                    countBadge.title = `${prs.length} open PR${prs.length !== 1 ? 's' : ''}`;
+                    
+                    headerContainer.appendChild(strong);
+                    headerContainer.appendChild(countBadge);
+                    cardBody.appendChild(headerContainer);
                     const prListWrap = document.createElement('div');
                     prListWrap.style.marginTop = '6px';
 
                     prs.forEach(p => {
                         const created = new Date(p.created_at).toLocaleString();
                         const labels = (p.labels || []).map(l => l.name).join(', ');
-                        const bodyText = p.body || '';
-                        const safeBody = escapeHtml(bodyText).replace(/\n/g, '<br>');
-                        const snippet = escapeHtml(bodyText ? (bodyText.slice(0, 400) + (bodyText.length > 400 ? '…' : '')) : '').replace(/\n/g, '<br>');
 
                         const prTile = document.createElement('div');
                         prTile.className = 'pr-card';
@@ -2956,46 +3109,41 @@
                         const left = document.createElement('div');
                         left.style.flex = '1';
                         left.style.minWidth = '0';
-                        const titleSpan = document.createElement('span');
-                        titleSpan.className = 'pr-title';
-                        titleSpan.textContent = `#${p.number} — ${p.title}`;
+                        const titleLink = document.createElement('a');
+                        titleLink.className = 'pr-title';
+                        titleLink.href = p.html_url;
+                        titleLink.target = '_blank';
+                        titleLink.textContent = `#${p.number} — ${p.title}`;
+                        titleLink.style.textDecoration = 'none';
+                        titleLink.style.color = 'var(--text-primary)';
+                        titleLink.style.display = 'block';
+                        titleLink.style.padding = '6px 8px';
+                        titleLink.style.margin = '-6px -8px';
+                        titleLink.style.borderRadius = '6px';
+                        titleLink.style.transition = 'all 0.2s ease';
+                        titleLink.style.border = '1px solid transparent';
+                        titleLink.addEventListener('mouseenter', function() {
+                            this.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                            this.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                            this.style.color = '#3b82f6';
+                            this.style.transform = 'translateY(-1px)';
+                            this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                        });
+                        titleLink.addEventListener('mouseleave', function() {
+                            this.style.backgroundColor = 'transparent';
+                            this.style.borderColor = 'transparent';
+                            this.style.color = 'var(--text-primary)';
+                            this.style.transform = 'translateY(0)';
+                            this.style.boxShadow = 'none';
+                        });
                         const metaDiv = document.createElement('div');
                         metaDiv.className = 'pr-meta';
                         metaDiv.textContent = `${p.user?.login || 'unknown'} · ${created}${labels ? ' · ' + labels : ''}`;
-                        left.appendChild(titleSpan);
+                        left.appendChild(titleLink);
                         left.appendChild(metaDiv);
 
-                        const right = document.createElement('div');
-                        right.style.whiteSpace = 'nowrap';
-                        right.style.marginLeft = '8px';
-                        const openLink = document.createElement('a');
-                        openLink.href = p.html_url;
-                        openLink.target = '_blank';
-                        openLink.textContent = 'Open on GitHub';
-                        right.appendChild(openLink);
-
                         prHeader.appendChild(left);
-                        prHeader.appendChild(right);
                         prTile.appendChild(prHeader);
-
-                        if (bodyText) {
-                            const snippetDiv = document.createElement('div');
-                            snippetDiv.className = 'pr-body-snippet';
-                            snippetDiv.innerHTML = snippet;
-                            prTile.appendChild(snippetDiv);
-
-                            const fullLabel = document.createElement('div');
-                            fullLabel.style.marginTop = '8px';
-                            fullLabel.style.color = 'var(--text-secondary)';
-                            fullLabel.style.fontSize = '13px';
-                            fullLabel.textContent = 'Full description:';
-                            prTile.appendChild(fullLabel);
-
-                            const fullDiv = document.createElement('div');
-                            fullDiv.style.marginTop = '6px';
-                            fullDiv.innerHTML = safeBody;
-                            prTile.appendChild(fullDiv);
-                        }
 
                         prListWrap.appendChild(prTile);
                     });
@@ -3175,7 +3323,7 @@
             };
 
             // Try proxy first
-            let html = await tryFetch(proxyUrl, true);
+            let html = await tryFetch(htmlProxyUrl, true);
             if (!html) html = await tryFetch(publicUrl, false);
 
             const result = { commitsCount: null, updatedAt: null };
@@ -3715,12 +3863,33 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const modelteamOption = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
         }
+
+        // Show/hide the Repos button only when list=modelteam
+        function updateContribsButtonVisibility() {
+            try {
+                const hash = getHash();
+                const contribBtn = document.getElementById('contribs-btn');
+                if (!contribBtn) return;
+                if (hash.list === 'modelteam') {
+                    contribBtn.style.display = '';
+                } else {
+                    contribBtn.style.display = 'none';
+                    // also hide contributions panel if open
+                    const panel = document.getElementById('contributionsPanel');
+                    if (panel) panel.style.display = 'none';
+                }
+            } catch (e) {
+                console.warn('updateContribsButtonVisibility error', e);
+            }
+        }
         
         async function getSubsetUsingSnapshot() {
             // Check for admin=1 and list=modelteam in hash
             const hash = getHash();
             const isAdmin = hash.admin === '1';
             const isModelTeam = hash.list === 'modelteam';
+            // update Contributions button visibility whenever we check the hash here
+            updateContribsButtonVisibility();
             
             let meetupLink;
             let isCors;
@@ -4225,6 +4394,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const isLocalsite = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const hash = getHash ? getHash() : {};
             const isModelteam = hash.list === 'modelteam';
+            // ensure contributions button visibility follows the hash
+            updateContribsButtonVisibility();
+            // Ensure contribs button visibility reflects current hash
+            updateContribsButtonVisibility();
             
             if (!isLocalsite || !isModelteam) {
                 if (emailContainer) emailContainer.style.display = 'none';
@@ -5299,16 +5472,32 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             // URL starting with https:// or http://
                             const urlMatch = token.match(/^(https?:\/\/[^\s"'<>]+)/i);
                             const atMatch = token.match(/^@([a-zA-Z0-9_\-\.]+)/);
+                            // Check for plain GitHub username pattern (alphanumeric, hyphens, underscores, dots)
+                            const plainUsernameMatch = token.match(/^([a-zA-Z0-9_\-\.]+)$/);
 
                             if (urlMatch) {
+                                const url = urlMatch[0];
                                 const a = document.createElement('a');
-                                a.href = urlMatch[0];
-                                // Truncate URL display text to 50 characters with ellipsis
-                                const displayText = token.length > 50 ? token.substring(0, 50) + '...' : token;
-                                a.textContent = displayText;
+                                a.href = url;
                                 a.target = '_blank';
                                 a.rel = 'noopener noreferrer';
                                 a.addEventListener('click', (e) => e.stopPropagation());
+                                
+                                // Check if this is a GitHub URL and extract username
+                                const githubMatch = url.match(/https?:\/\/github\.com\/([^\/\?\#]+)/i);
+                                if (githubMatch) {
+                                    const username = githubMatch[1];
+                                    // Display as @username format and link to GitHub profile
+                                    a.textContent = `@${username}`;
+                                    a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                    a.style.color = '#0969da'; // GitHub blue color
+                                    a.style.fontWeight = '500';
+                                } else {
+                                    // Regular URL - truncate display text to 50 characters with ellipsis
+                                    const displayText = token.length > 50 ? token.substring(0, 50) + '...' : token;
+                                    a.textContent = displayText;
+                                }
+                                
                                 td.appendChild(a);
                                 
                                 // Add preview for URLs in Name/Title column
@@ -5332,11 +5521,48 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             } else if (atMatch) {
                                 const handle = atMatch[1];
                                 const a = document.createElement('a');
-                                // Link @handles to a search or profile page if desired; for now, link to bsky profile pattern
-                                a.href = `https://bsky.app/profile/${encodeURIComponent(handle)}`;
+                                // Link @handles to GitHub profile (assuming GitHub usernames)
+                                a.href = `https://github.com/${encodeURIComponent(handle)}`;
                                 a.textContent = token;
                                 a.target = '_blank';
                                 a.rel = 'noopener noreferrer';
+                                a.style.color = '#0969da'; // GitHub blue color
+                                a.style.fontWeight = '500';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else if (token.includes('github.com/') && /github/i.test(header)) {
+                                // Handle values containing github.com/ - extract username and add @ prefix
+                                const githubPathMatch = token.match(/github\.com\/([a-zA-Z0-9_\-\.]+)/i);
+                                if (githubPathMatch) {
+                                    const username = githubPathMatch[1];
+                                    const a = document.createElement('a');
+                                    a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                    a.textContent = `@${username}`; // Add @ prefix to extracted username
+                                    a.target = '_blank';
+                                    a.rel = 'noopener noreferrer';
+                                    a.style.color = '#0969da'; // GitHub blue color
+                                    a.style.fontWeight = '500';
+                                    a.addEventListener('click', (e) => e.stopPropagation());
+                                    td.appendChild(a);
+                                } else {
+                                    // Fallback to regular text if username extraction fails
+                                    td.appendChild(document.createTextNode(token));
+                                }
+                            } else if (plainUsernameMatch && 
+                                      plainUsernameMatch[1].length >= 3 && 
+                                      plainUsernameMatch[1].length <= 39 && 
+                                      /^[a-zA-Z0-9]/.test(plainUsernameMatch[1]) && 
+                                      /[a-zA-Z0-9]$/.test(plainUsernameMatch[1]) &&
+                                      /github/i.test(header)) {
+                                // Handle plain GitHub usernames only in GitHub-related columns
+                                const username = plainUsernameMatch[1];
+                                const a = document.createElement('a');
+                                a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                a.textContent = `@${username}`; // Add @ prefix
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.style.color = '#0969da'; // GitHub blue color
+                                a.style.fontWeight = '500';
                                 a.addEventListener('click', (e) => e.stopPropagation());
                                 td.appendChild(a);
                             } else {
@@ -8016,6 +8242,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Save selection to storage
                 saveFileSelectionToStorage(value, STORAGE_KEY);
             }
+            
+            // Update contributions button visibility when selection changes
+            updateContribsButtonVisibility();
         }
         
         function updateParticipantListTitle(customTitle = null) {
@@ -8096,6 +8325,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function updateUIForHashChange() {
             updateHeaderVisibility();
             updateParticipantListTitle();
+            
+            // Update contributions button visibility based on current hash
+            updateContribsButtonVisibility();
             
             // Clear status messages when list changes
             statusMessages.innerHTML = '';
