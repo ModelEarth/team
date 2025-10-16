@@ -3,6 +3,11 @@
  * Extracted from admin/import-data.html for reuse across multiple pages
  */
 
+document.addEventListener('hashChangeEvent', function (elem) {
+    console.log("list.js detects URL hashChangeEvent");
+
+}, false);
+
 // =============================================================================
 // CACHE MANAGEMENT FUNCTIONS
 // =============================================================================

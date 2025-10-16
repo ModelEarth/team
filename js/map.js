@@ -108,8 +108,8 @@ class ListingsDisplay {
         const fromHash = urlParams.has('map'); // True or false
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
-        // TO DO - This getLoadMapDataParam() is based on file name map.js  Do we send on localsite.js instead?  And allow for other map too?
-        const loadMapDataParam = this.getLoadMapDataParam(); // Check script URL parameter
+        // Use param object (set in localsite.js) instead of checking script URL directly
+        const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
@@ -124,7 +124,7 @@ class ListingsDisplay {
         //this.render();
         this.setupEventListeners();
     }
-
+alert("map.js")
     showLoadingState(message) {
         const teamwidget = document.getElementById('teamwidget');
         teamwidget.innerHTML = `
@@ -136,8 +136,8 @@ class ListingsDisplay {
     }
 
     async loadShowConfigs() {
-        // Check for source parameter in map.js script URL
-        let listsJson = this.getSourceFromScriptUrl();
+        // Check for source parameter from param object (set in localsite.js)
+        let listsJson = (typeof param !== 'undefined' && param.source) ? param.source : null;
         
         // If no source parameter, use default logic
         if (!listsJson) {
@@ -304,42 +304,7 @@ class ListingsDisplay {
             }
             
             return cities;
-        } else if (this.currentShow === 'recyclers') {
-            return [
-                {
-                    "organization name": "Atlanta Recycling Center",
-                    "Category": "Paper",
-                    "Materials Accepted": "Cardboard, Office Paper",
-                    address: "123 Recycling Way, Atlanta, GA",
-                    county: "Fulton",
-                    website: "atlantarecycling.com"
-                },
-                {
-                    "organization name": "Savannah Metal Recovery",
-                    "Category": "Metal",
-                    "Materials Accepted": "Aluminum, Steel, Copper",
-                    address: "456 Metal St, Savannah, GA", 
-                    county: "Chatham",
-                    website: "savannahmetal.com"
-                }
-            ];
-        } else if (this.currentShow === 'landfills') {
-            return [
-                {
-                    Name: "Peach County Landfill",
-                    County: "Peach",
-                    latitude: "32.5",
-                    longitude: "-83.8"
-                },
-                {
-                    Name: "Gwinnett County Landfill", 
-                    County: "Gwinnett",
-                    latitude: "33.9",
-                    longitude: "-84.1"
-                }
-            ];
         }
-        
         return [];
     }
 
@@ -1288,37 +1253,6 @@ class ListingsDisplay {
         return details;
     }
 
-    getLoadMapDataParam() { // loadMapData
-        // Check for loadMapData parameter in map.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
-        for (const script of widgetScripts) {
-            if (script.src.includes('showmap=')) {
-                const scriptUrl = new URL(script.src);
-                const loadMapDataParam = scriptUrl.searchParams.get('showmap');
-                if (loadMapDataParam === 'true') {
-                    console.log(`Using loadMapData parameter: ${loadMapDataParam}`);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    getSourceFromScriptUrl() {
-        // Check for source parameter in map.js script URL
-        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
-        for (const script of widgetScripts) {
-            if (script.src.includes('source=')) {
-                const scriptUrl = new URL(script.src);
-                const sourceParam = scriptUrl.searchParams.get('source');
-                if (sourceParam) {
-                    console.log(`Using source parameter: ${sourceParam}`);
-                    return sourceParam;
-                }
-            }
-        }
-        return null;
-    }
 
     renderNoResults() {
         // Show no results message when data is loaded but filtered results are empty
