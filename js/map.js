@@ -124,7 +124,7 @@ class ListingsDisplay {
         //this.render();
         this.setupEventListeners();
     }
-alert("map.js")
+    
     showLoadingState(message) {
         const teamwidget = document.getElementById('teamwidget');
         teamwidget.innerHTML = `
