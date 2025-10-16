@@ -114,11 +114,32 @@
 
         /* Make nested PR cards visually distinct inside submodule cards */
         .submodule-card .pr-card {
-            background: white;
-            border: 1px solid var(--border-light);
-            box-shadow: none;
-            padding: 10px;
-            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            padding: 14px;
+            margin: 12px 0;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submodule-card .pr-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .submodule-card .pr-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+            opacity: 0.7;
         }
 
         /* PR card layout (non-expandable) */
@@ -1145,34 +1166,77 @@
         /* Local model.earth link on the left of the repo name */
         .submodule-local-link {
             color: var(--text-secondary);
-            margin-right: 8px;
+            margin-right: 12px;
             display: inline-flex;
             align-items: center;
             text-decoration: none;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: rgba(59, 130, 246, 0.05);
         }
         .submodule-local-link:hover {
             color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+            transform: scale(1.1);
+        }
+
+        .submodule-gh-link {
+            color: var(--text-secondary);
+            margin-left: 8px;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: rgba(100, 116, 139, 0.05);
+        }
+        .submodule-gh-link:hover {
+            color: var(--text-primary);
+            background: rgba(100, 116, 139, 0.1);
+            transform: scale(1.1);
         }
 
         /* Submodule cards layout */
         .submodule-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
             align-items: start; /* keep cards top-aligned */
         }
 
         .submodule-card {
-            background: var(--bg-secondary);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.02) 100%);
             border: 1px solid var(--border-light);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 16px;
+            padding: 20px;
             box-sizing: border-box;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             display: flex;
             flex-direction: column;
-            min-height: 160px; /* ensure each card has noticeable size */
+            min-height: 180px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .submodule-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .submodule-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+            border-radius: 16px 16px 0 0;
         }
 
         /* Filter button active state */
@@ -1203,15 +1267,32 @@
 
         .submodule-card h4 {
             margin: 0;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
             display: inline-block;
             vertical-align: middle;
+            letter-spacing: -0.025em;
         }
 
         .submodule-card .card-body {
-            margin-top: 8px;
+            margin-top: 16px;
             overflow: auto;
-            max-height: 320px; /* avoid overly tall cards; scroll inside */
+            max-height: 380px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .submodule-card .card-body strong {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(59, 130, 246, 0.2);
         }
         
         #list-title {
@@ -2926,14 +3007,14 @@
 
                             // Format and show the info
                             const infoParts = [];
-                            if (commitsCount != null) infoParts.push(`<strong>Commits:</strong> ${commitsCount}`);
+                            if (commitsCount != null) infoParts.push(`<strong>Commits ${commitsCount}</strong>`);
                             if (updatedAt) infoParts.push(`${timeAgo(updatedAt)} updated`);
                             if (infoParts.length > 0) {
                                 const infoDiv = document.createElement('div');
                                 infoDiv.style.marginTop = '8px';
                                 infoDiv.style.color = 'var(--text-secondary)';
                                 infoDiv.style.fontSize = '13px';
-                                infoDiv.innerHTML = infoParts.join(' • ');
+                                infoDiv.innerHTML = infoParts.join(' ');
                                 bodyEmpty.appendChild(infoDiv);
                             }
                         } catch(e) {
@@ -2946,9 +3027,68 @@
 
                     const cardBody = document.createElement('div');
                     cardBody.className = 'card-body';
+                    
+                    // Create header container for Updates title and count badge
+                    const headerContainer = document.createElement('div');
+                    headerContainer.style.display = 'flex';
+                    headerContainer.style.alignItems = 'center';
+                    headerContainer.style.gap = '8px';
+                    headerContainer.style.marginBottom = '12px';
+                    headerContainer.style.paddingBottom = '8px';
+                    headerContainer.style.borderBottom = '2px solid rgba(59, 130, 246, 0.2)';
+                    headerContainer.style.cursor = 'pointer';
+                    headerContainer.style.borderRadius = '6px';
+                    headerContainer.style.padding = '4px 6px';
+                    headerContainer.style.margin = '-4px -6px 8px -6px';
+                    headerContainer.style.transition = 'all 0.2s ease';
+                    
+                    // Add hover effects
+                    headerContainer.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+                        this.style.transform = 'translateX(2px)';
+                    });
+                    
+                    headerContainer.addEventListener('mouseleave', function() {
+                        this.style.backgroundColor = 'transparent';
+                        this.style.transform = 'translateX(0)';
+                    });
+                    
+                    // Add click functionality to open GitHub PRs page
+                    headerContainer.addEventListener('click', function() {
+                        const githubPRsUrl = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls`;
+                        window.open(githubPRsUrl, '_blank');
+                    });
+                    
+                    headerContainer.title = `Click to view all pull requests for ${r.owner}/${r.repo} on GitHub`;
+                    
                     const strong = document.createElement('strong');
                     strong.textContent = 'Updates';
-                    cardBody.appendChild(strong);
+                    strong.style.fontSize = '14px';
+                    strong.style.fontWeight = '600';
+                    strong.style.color = 'var(--text-primary)';
+                    strong.style.border = 'none';
+                    strong.style.marginBottom = '0';
+                    strong.style.paddingBottom = '0';
+                    
+                    // Create green circle badge with PR count
+                    const countBadge = document.createElement('span');
+                    countBadge.textContent = prs.length;
+                    countBadge.style.backgroundColor = '#10b981';
+                    countBadge.style.color = 'white';
+                    countBadge.style.borderRadius = '50%';
+                    countBadge.style.width = '20px';
+                    countBadge.style.height = '20px';
+                    countBadge.style.display = 'flex';
+                    countBadge.style.alignItems = 'center';
+                    countBadge.style.justifyContent = 'center';
+                    countBadge.style.fontSize = '11px';
+                    countBadge.style.fontWeight = '600';
+                    countBadge.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.3)';
+                    countBadge.title = `${prs.length} open PR${prs.length !== 1 ? 's' : ''}`;
+                    
+                    headerContainer.appendChild(strong);
+                    headerContainer.appendChild(countBadge);
+                    cardBody.appendChild(headerContainer);
                     const prListWrap = document.createElement('div');
                     prListWrap.style.marginTop = '6px';
 
@@ -3183,7 +3323,7 @@
             };
 
             // Try proxy first
-            let html = await tryFetch(proxyUrl, true);
+            let html = await tryFetch(htmlProxyUrl, true);
             if (!html) html = await tryFetch(publicUrl, false);
 
             const result = { commitsCount: null, updatedAt: null };
