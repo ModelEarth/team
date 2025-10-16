@@ -733,7 +733,7 @@ safe_submodule_update() {
                     # Update parent repo to point to the newest commit
                     cd_webroot
                     git add "$sub"
-                    echo "📌 Updated parent repo to use newer $sub commit from $update_source"
+                    echo "🔵 Updated parent repo to use newer $sub commit from $update_source"
                 elif [ "$expected_timestamp" -gt "$current_timestamp" ]; then
                     echo "⬆️ Updating $sub to parent's expected commit: $expected_commit ($(git show -s --format='%ci' "$expected_commit" 2>/dev/null || echo 'unknown date'))"
                     git checkout "$expected_commit" 2>/dev/null || echo "⚠️ Failed to checkout $expected_commit in $sub"
@@ -744,7 +744,7 @@ safe_submodule_update() {
                     # Update parent repo to point to the newer commit
                     cd_webroot
                     git add "$sub"
-                    echo "📌 Updated parent repo to preserve newer $sub commit"
+                    echo "🔵 Updated parent repo to preserve newer $sub commit"
                 else
                     echo "✅ $sub is already at the correct commit"
                 fi
@@ -1650,15 +1650,15 @@ push_all() {
             # Commit changes within each submodule first (skip regular files)
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
-                    echo "📌 Committing changes in submodule: $file"
+                    echo "🔵 Committing changes in submodule: $file"
                     (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️  No changes to commit in $file"
                 else
-                    echo "📌 Skipping non-submodule file: $file"
+                    echo "🔵 Skipping non-submodule file: $file"
                 fi
             done
             # Now add the updated submodule references
             for file in "${modified_files[@]}"; do
-                echo "📌 Adding updated submodule reference: $file"
+                echo "🔵 Adding updated submodule reference: $file"
                 git add "$file"
             done
         fi
