@@ -3715,12 +3715,33 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const modelteamOption = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
         }
+
+        // Show/hide the Contributions button only when list=modelteam
+        function updateContribsButtonVisibility() {
+            try {
+                const hash = getHash();
+                const contribBtn = document.getElementById('contribs-btn');
+                if (!contribBtn) return;
+                if (hash.list === 'modelteam') {
+                    contribBtn.style.display = '';
+                } else {
+                    contribBtn.style.display = 'none';
+                    // also hide contributions panel if open
+                    const panel = document.getElementById('contributionsPanel');
+                    if (panel) panel.style.display = 'none';
+                }
+            } catch (e) {
+                console.warn('updateContribsButtonVisibility error', e);
+            }
+        }
         
         async function getSubsetUsingSnapshot() {
             // Check for admin=1 and list=modelteam in hash
             const hash = getHash();
             const isAdmin = hash.admin === '1';
             const isModelTeam = hash.list === 'modelteam';
+            // update Contributions button visibility whenever we check the hash here
+            updateContribsButtonVisibility();
             
             let meetupLink;
             let isCors;
@@ -4225,6 +4246,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const isLocalsite = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const hash = getHash ? getHash() : {};
             const isModelteam = hash.list === 'modelteam';
+            // ensure contributions button visibility follows the hash
+            updateContribsButtonVisibility();
+            // Ensure contribs button visibility reflects current hash
+            updateContribsButtonVisibility();
             
             if (!isLocalsite || !isModelteam) {
                 if (emailContainer) emailContainer.style.display = 'none';
@@ -8016,6 +8041,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 // Save selection to storage
                 saveFileSelectionToStorage(value, STORAGE_KEY);
             }
+            
+            // Update contributions button visibility when selection changes
+            updateContribsButtonVisibility();
         }
         
         function updateParticipantListTitle(customTitle = null) {
@@ -8096,6 +8124,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function updateUIForHashChange() {
             updateHeaderVisibility();
             updateParticipantListTitle();
+            
+            // Update contributions button visibility based on current hash
+            updateContribsButtonVisibility();
             
             // Clear status messages when list changes
             statusMessages.innerHTML = '';
