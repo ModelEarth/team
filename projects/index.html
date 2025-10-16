@@ -1101,21 +1101,37 @@
         
         #insights-btn {
             padding: 8px 16px !important;
-        }
-
-        /* Contributions button styling - similar size to insights but distinct color */
-        #contribs-btn {
-            padding: 8px 16px !important;
             background: linear-gradient(180deg, #7c3aed, #6d28d9) !important; /* purple gradient */
             color: white !important;
             border-color: #6d28d9 !important;
             box-shadow: 0 1px 0 rgba(0,0,0,0.06);
             opacity: 0.95;
+            transition: all 0.2s ease;
+        }
+
+        #insights-btn:hover {
+            opacity: 1 !important;
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(124, 58, 237, 0.3);
+        }
+
+        /* Repos button styling - similar size to insights but distinct color */
+        #contribs-btn {
+            padding: 8px 16px !important;
+            background: linear-gradient(180deg, #10b981, #059669) !important; /* green gradient */
+            color: white !important;
+            border-color: #059669 !important;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+            opacity: 0.95;
+            transition: all 0.2s ease;
         }
 
         #contribs-btn:hover {
             opacity: 1 !important;
-            filter: brightness(0.98);
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
         }
 
         /* Submodule GitHub link icon styling */
@@ -2349,8 +2365,8 @@
             <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Repos</button>
                     <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
-                    <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Contributions</button>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
                     <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
@@ -3716,7 +3732,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             return modelteamOption ? modelteamOption.getAttribute('data-url') : null;
         }
 
-        // Show/hide the Contributions button only when list=modelteam
+        // Show/hide the Repos button only when list=modelteam
         function updateContribsButtonVisibility() {
             try {
                 const hash = getHash();
