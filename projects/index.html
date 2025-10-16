@@ -12,6 +12,27 @@
 
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/shared-styles.css">
+    <script>
+        // Load submodule names by parsing ../.gitmodules. Exposes a Promise.
+        if (!window.teamSubmodulesPromise) {
+            window.teamSubmodulesPromise = (async function() {
+                try {
+                    const r = await fetch('../.gitmodules');
+                    if (!r.ok) return [];
+                    const txt = await r.text();
+                    const names = [];
+                    txt.split(/\r?\n/).forEach(l => {
+                        const m = l.match(/^\[submodule "(.+)"\]/);
+                        if (m) names.push(m[1]);
+                    });
+                    return names;
+                } catch (err) {
+                    console.warn('team: failed to load ../.gitmodules', err);
+                    return [];
+                }
+            })();
+        }
+    </script>
     
     <!-- Map and list displays -->
 
