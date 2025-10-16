@@ -5472,16 +5472,32 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             // URL starting with https:// or http://
                             const urlMatch = token.match(/^(https?:\/\/[^\s"'<>]+)/i);
                             const atMatch = token.match(/^@([a-zA-Z0-9_\-\.]+)/);
+                            // Check for plain GitHub username pattern (alphanumeric, hyphens, underscores, dots)
+                            const plainUsernameMatch = token.match(/^([a-zA-Z0-9_\-\.]+)$/);
 
                             if (urlMatch) {
+                                const url = urlMatch[0];
                                 const a = document.createElement('a');
-                                a.href = urlMatch[0];
-                                // Truncate URL display text to 50 characters with ellipsis
-                                const displayText = token.length > 50 ? token.substring(0, 50) + '...' : token;
-                                a.textContent = displayText;
+                                a.href = url;
                                 a.target = '_blank';
                                 a.rel = 'noopener noreferrer';
                                 a.addEventListener('click', (e) => e.stopPropagation());
+                                
+                                // Check if this is a GitHub URL and extract username
+                                const githubMatch = url.match(/https?:\/\/github\.com\/([^\/\?\#]+)/i);
+                                if (githubMatch) {
+                                    const username = githubMatch[1];
+                                    // Display as @username format and link to GitHub profile
+                                    a.textContent = `@${username}`;
+                                    a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                    a.style.color = '#0969da'; // GitHub blue color
+                                    a.style.fontWeight = '500';
+                                } else {
+                                    // Regular URL - truncate display text to 50 characters with ellipsis
+                                    const displayText = token.length > 50 ? token.substring(0, 50) + '...' : token;
+                                    a.textContent = displayText;
+                                }
+                                
                                 td.appendChild(a);
                                 
                                 // Add preview for URLs in Name/Title column
@@ -5505,11 +5521,30 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             } else if (atMatch) {
                                 const handle = atMatch[1];
                                 const a = document.createElement('a');
-                                // Link @handles to a search or profile page if desired; for now, link to bsky profile pattern
-                                a.href = `https://bsky.app/profile/${encodeURIComponent(handle)}`;
+                                // Link @handles to GitHub profile (assuming GitHub usernames)
+                                a.href = `https://github.com/${encodeURIComponent(handle)}`;
                                 a.textContent = token;
                                 a.target = '_blank';
                                 a.rel = 'noopener noreferrer';
+                                a.style.color = '#0969da'; // GitHub blue color
+                                a.style.fontWeight = '500';
+                                a.addEventListener('click', (e) => e.stopPropagation());
+                                td.appendChild(a);
+                            } else if (plainUsernameMatch && 
+                                      plainUsernameMatch[1].length >= 3 && 
+                                      plainUsernameMatch[1].length <= 39 && 
+                                      /^[a-zA-Z0-9]/.test(plainUsernameMatch[1]) && 
+                                      /[a-zA-Z0-9]$/.test(plainUsernameMatch[1]) &&
+                                      /github/i.test(header)) {
+                                // Handle plain GitHub usernames only in GitHub-related columns
+                                const username = plainUsernameMatch[1];
+                                const a = document.createElement('a');
+                                a.href = `https://github.com/${encodeURIComponent(username)}`;
+                                a.textContent = `@${username}`; // Add @ prefix
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.style.color = '#0969da'; // GitHub blue color
+                                a.style.fontWeight = '500';
                                 a.addEventListener('click', (e) => e.stopPropagation());
                                 td.appendChild(a);
                             } else {
