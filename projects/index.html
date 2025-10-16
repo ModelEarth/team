@@ -2833,7 +2833,7 @@
                         const bodyEmpty = document.createElement('div');
                         bodyEmpty.className = 'card-body';
                         bodyEmpty.style.color = 'var(--text-secondary)';
-                        bodyEmpty.textContent = 'No PRs found.';
+                        bodyEmpty.textContent = '';
                         card.appendChild(bodyEmpty);
 
                         // mark card as having zero PRs for filtering
@@ -2937,7 +2937,7 @@
                                 bodyEmpty.appendChild(infoDiv);
                             }
                         } catch(e) {
-                            // non-fatal; keep the 'No PRs found.' message
+                            // non-fatal; keep the empty card for repos without PRs
                         }
 
                         cardsContainer.appendChild(card);
@@ -2947,7 +2947,7 @@
                     const cardBody = document.createElement('div');
                     cardBody.className = 'card-body';
                     const strong = document.createElement('strong');
-                    strong.textContent = 'Open PRs';
+                    strong.textContent = 'Updates';
                     cardBody.appendChild(strong);
                     const prListWrap = document.createElement('div');
                     prListWrap.style.marginTop = '6px';
@@ -2955,9 +2955,6 @@
                     prs.forEach(p => {
                         const created = new Date(p.created_at).toLocaleString();
                         const labels = (p.labels || []).map(l => l.name).join(', ');
-                        const bodyText = p.body || '';
-                        const safeBody = escapeHtml(bodyText).replace(/\n/g, '<br>');
-                        const snippet = escapeHtml(bodyText ? (bodyText.slice(0, 400) + (bodyText.length > 400 ? '…' : '')) : '').replace(/\n/g, '<br>');
 
                         const prTile = document.createElement('div');
                         prTile.className = 'pr-card';
@@ -2972,46 +2969,41 @@
                         const left = document.createElement('div');
                         left.style.flex = '1';
                         left.style.minWidth = '0';
-                        const titleSpan = document.createElement('span');
-                        titleSpan.className = 'pr-title';
-                        titleSpan.textContent = `#${p.number} — ${p.title}`;
+                        const titleLink = document.createElement('a');
+                        titleLink.className = 'pr-title';
+                        titleLink.href = p.html_url;
+                        titleLink.target = '_blank';
+                        titleLink.textContent = `#${p.number} — ${p.title}`;
+                        titleLink.style.textDecoration = 'none';
+                        titleLink.style.color = 'var(--text-primary)';
+                        titleLink.style.display = 'block';
+                        titleLink.style.padding = '6px 8px';
+                        titleLink.style.margin = '-6px -8px';
+                        titleLink.style.borderRadius = '6px';
+                        titleLink.style.transition = 'all 0.2s ease';
+                        titleLink.style.border = '1px solid transparent';
+                        titleLink.addEventListener('mouseenter', function() {
+                            this.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                            this.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                            this.style.color = '#3b82f6';
+                            this.style.transform = 'translateY(-1px)';
+                            this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                        });
+                        titleLink.addEventListener('mouseleave', function() {
+                            this.style.backgroundColor = 'transparent';
+                            this.style.borderColor = 'transparent';
+                            this.style.color = 'var(--text-primary)';
+                            this.style.transform = 'translateY(0)';
+                            this.style.boxShadow = 'none';
+                        });
                         const metaDiv = document.createElement('div');
                         metaDiv.className = 'pr-meta';
                         metaDiv.textContent = `${p.user?.login || 'unknown'} · ${created}${labels ? ' · ' + labels : ''}`;
-                        left.appendChild(titleSpan);
+                        left.appendChild(titleLink);
                         left.appendChild(metaDiv);
 
-                        const right = document.createElement('div');
-                        right.style.whiteSpace = 'nowrap';
-                        right.style.marginLeft = '8px';
-                        const openLink = document.createElement('a');
-                        openLink.href = p.html_url;
-                        openLink.target = '_blank';
-                        openLink.textContent = 'Open on GitHub';
-                        right.appendChild(openLink);
-
                         prHeader.appendChild(left);
-                        prHeader.appendChild(right);
                         prTile.appendChild(prHeader);
-
-                        if (bodyText) {
-                            const snippetDiv = document.createElement('div');
-                            snippetDiv.className = 'pr-body-snippet';
-                            snippetDiv.innerHTML = snippet;
-                            prTile.appendChild(snippetDiv);
-
-                            const fullLabel = document.createElement('div');
-                            fullLabel.style.marginTop = '8px';
-                            fullLabel.style.color = 'var(--text-secondary)';
-                            fullLabel.style.fontSize = '13px';
-                            fullLabel.textContent = 'Full description:';
-                            prTile.appendChild(fullLabel);
-
-                            const fullDiv = document.createElement('div');
-                            fullDiv.style.marginTop = '6px';
-                            fullDiv.innerHTML = safeBody;
-                            prTile.appendChild(fullDiv);
-                        }
 
                         prListWrap.appendChild(prTile);
                     });
