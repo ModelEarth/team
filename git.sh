@@ -1071,12 +1071,47 @@ pull_command() {
         return
     fi
     
-    # Pull webroot
+    # Pull webroot with graceful merge handling
     echo "📥 Pulling webroot..."
-    output=$(git_webroot pull origin main 2>&1)
-    if [[ $? -ne 0 ]]; then
-        echo "⚠️ Checking for conflicts in webroot"
-    elif [[ "$output" != *"Already up to date"* ]]; then
+    
+    # First fetch the latest changes
+    git_webroot fetch origin main 2>/dev/null || git_webroot fetch origin master 2>/dev/null
+    
+    # Determine the remote branch
+    local remote_branch="origin/main"
+    git_webroot rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+    
+    # Try graceful merge strategies
+    if git_webroot merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+        # We're behind, can fast-forward
+        output=$(git_webroot merge --ff-only "$remote_branch" 2>&1) || {
+            output=$(git_webroot pull origin main 2>&1) || output=$(git_webroot pull origin master 2>&1) || {
+                echo "⚠️ Fast-forward merge failed for webroot, trying regular merge"
+            }
+        }
+    elif git_webroot merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+        # We're ahead, no merge needed
+        output="Already up to date"
+    else
+        # Branches have diverged, try graceful merge
+        output=$(git_webroot merge --no-edit "$remote_branch" 2>&1) || {
+            # Check if it's a merge conflict
+            if git_webroot status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                echo "🔀 Merge conflicts detected in webroot - requires manual resolution"
+                echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                output="Merge conflicts detected"
+            else
+                # Other merge failure, try traditional pull as fallback
+                output=$(git_webroot pull origin main 2>&1) || output=$(git_webroot pull origin master 2>&1) || {
+                    echo "⚠️ All merge strategies failed for webroot"
+                    output="Pull failed"
+                }
+            fi
+        }
+    fi
+    
+    # Show output if meaningful
+    if [[ "$output" != *"Already up to date"* ]] && [[ "$output" != "" ]]; then
         echo "$output"
     fi
     
@@ -1089,37 +1124,162 @@ pull_command() {
     
     # Pull submodules
     echo "📥 Pulling submodules..."
+    echo
     local submodules=($(get_submodules))
+    local failed_submodules=()
+    
     for sub in "${submodules[@]}"; do
-        [ ! -d "$sub" ] && continue
-        cd "$sub"
+        if [ ! -d "$sub" ]; then
+            echo "⚠️ Submodule directory not found: $sub"
+            continue
+        fi
         
+        echo "🔄 Pulling $sub..."
+        cd "$sub" || {
+            echo "❌ Failed to enter directory: $sub"
+            failed_submodules+=("$sub (directory access)")
+            continue
+        }
+        
+        # Try GitHub CLI merge for graceful conflict handling
+        local pull_output=""
+        local pull_success=true
+        
+        # First fetch the latest changes
+        git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null || {
+            echo "⚠️ Failed to fetch updates for $sub"
+            pull_success=false
+        }
+        
+        if [ "$pull_success" = "true" ]; then
+            # Check if we can do a clean merge
+            local current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "HEAD")
+            local remote_branch="origin/main"
+            git rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+            
+            # Try to merge with GitHub's strategy
+            if git merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+                # We're behind, can fast-forward
+                pull_output=$(git merge --ff-only "$remote_branch" 2>&1) || {
+                    pull_output=$(git pull origin main 2>&1) || pull_output=$(git pull origin master 2>&1) || {
+                        echo "⚠️ Fast-forward merge failed for $sub, trying regular merge"
+                        pull_success=false
+                    }
+                }
+            elif git merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+                # We're ahead, no merge needed
+                pull_output="Already up to date"
+            else
+                # Branches have diverged, try graceful merge
+                pull_output=$(git merge --no-edit "$remote_branch" 2>&1) || {
+                    # Check if it's a merge conflict
+                    if git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                        echo "🔀 Merge conflicts detected in $sub - requires manual resolution"
+                        echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                        pull_success=false
+                    else
+                        # Other merge failure, try traditional pull as fallback
+                        pull_output=$(git pull origin main 2>&1) || pull_output=$(git pull origin master 2>&1) || {
+                            echo "⚠️ All merge strategies failed for $sub: $pull_output"
+                            pull_success=false
+                        }
+                    fi
+                }
+            fi
+        fi
+        
+        # Show pull output if it's not "Already up to date"
+        if [[ "$pull_output" != *"Already up to date"* ]] && [[ "$pull_success" == "true" ]]; then
+            echo "✅ $sub: $pull_output"
+        elif [[ "$pull_success" == "false" ]]; then
+            echo "❌ $sub pull failed: $pull_output"
+            failed_submodules+=("$sub (pull failed)")
+        fi
+        
+        # Try upstream merge if not partnertools
         REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
         if [[ "$REMOTE" != *"partnertools"* ]]; then
             local is_capital=$(is_capital_repo "$sub")
             add_upstream "$sub" "$is_capital"
-            merge_upstream "$sub"
+            if ! merge_upstream "$sub"; then
+                echo "⚠️ Upstream merge failed for $sub"
+                failed_submodules+=("$sub (upstream merge)")
+            fi
         fi
-        cd ..
+        
+        # Always return to webroot
+        cd_webroot || {
+            echo "🚨 CRITICAL: Failed to return to webroot after processing $sub"
+            cd ..
+        }
     done
+    
+    # Report any failures
+    if [ ${#failed_submodules[@]} -gt 0 ]; then
+        echo "⚠️ Some submodules had issues:"
+        for failure in "${failed_submodules[@]}"; do
+            echo "   • $failure"
+        done
+        echo "💡 You may need to resolve these manually in GitHub Desktop"
+    fi
     
     # Update submodule references safely (preserve newer commits)
     echo "🔄 Updating submodule references..."
     safe_submodule_update
+    if [ -n "$(git status --porcelain)" ]; then
+        git add .
+        git commit -m "Update submodule references"
+        echo "✅ Updated submodule references"
+    fi
     
     # Check for and fix any detached HEAD states after pulls
     fix_all_detached_heads
     
-    # Pull extra repos
+    # Pull extra repos with graceful merge handling
     echo "📥 Pulling extra repos..."
     local extra_repos=($(get_extra_repos))
     for repo in "${extra_repos[@]}"; do
         [ ! -d "$repo" ] && continue
         cd "$repo"
-        output=$(git pull origin main 2>&1)
-        if [[ $? -ne 0 ]]; then
-            echo "⚠️ Checking for conflicts in $repo"
-        elif [[ "$output" != *"Already up to date"* ]]; then
+        
+        # First fetch the latest changes
+        git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null
+        
+        # Determine the remote branch
+        local remote_branch="origin/main"
+        git rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+        
+        # Try graceful merge strategies
+        if git merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+            # We're behind, can fast-forward
+            output=$(git merge --ff-only "$remote_branch" 2>&1) || {
+                output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                    echo "⚠️ Fast-forward merge failed for $repo, trying regular merge"
+                }
+            }
+        elif git merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+            # We're ahead, no merge needed
+            output="Already up to date"
+        else
+            # Branches have diverged, try graceful merge
+            output=$(git merge --no-edit "$remote_branch" 2>&1) || {
+                # Check if it's a merge conflict
+                if git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                    echo "🔀 Merge conflicts detected in $repo - requires manual resolution"
+                    echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                    output="Merge conflicts detected"
+                else
+                    # Other merge failure, try traditional pull as fallback
+                    output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                        echo "⚠️ All merge strategies failed for $repo"
+                        output="Pull failed"
+                    }
+                fi
+            }
+        fi
+        
+        # Show output if meaningful
+        if [[ "$output" != *"Already up to date"* ]] && [[ "$output" != "" ]]; then
             echo "$output"
         fi
         
@@ -1128,7 +1288,7 @@ pull_command() {
             add_upstream "$repo" "false"
             merge_upstream "$repo"
         fi
-        cd ..
+        cd_webroot
     done
     
     local submodules=($(get_submodules))
@@ -1149,10 +1309,45 @@ pull_specific_repo() {
     # Check if it's webroot
     if [[ "$repo_name" == "webroot" ]]; then
         echo "📥 Pulling webroot..."
-        output=$(git_webroot pull origin main 2>&1)
-        if [[ $? -ne 0 ]]; then
-            echo "⚠️ Checking for conflicts in webroot"
-        elif [[ "$output" != *"Already up to date"* ]]; then
+        
+        # First fetch the latest changes
+        git_webroot fetch origin main 2>/dev/null || git_webroot fetch origin master 2>/dev/null
+        
+        # Determine the remote branch
+        local remote_branch="origin/main"
+        git_webroot rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+        
+        # Try graceful merge strategies
+        if git_webroot merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+            # We're behind, can fast-forward
+            output=$(git_webroot merge --ff-only "$remote_branch" 2>&1) || {
+                output=$(git_webroot pull origin main 2>&1) || output=$(git_webroot pull origin master 2>&1) || {
+                    echo "⚠️ Fast-forward merge failed for webroot, trying regular merge"
+                }
+            }
+        elif git_webroot merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+            # We're ahead, no merge needed
+            output="Already up to date"
+        else
+            # Branches have diverged, try graceful merge
+            output=$(git_webroot merge --no-edit "$remote_branch" 2>&1) || {
+                # Check if it's a merge conflict
+                if git_webroot status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                    echo "🔀 Merge conflicts detected in webroot - requires manual resolution"
+                    echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                    output="Merge conflicts detected"
+                else
+                    # Other merge failure, try traditional pull as fallback
+                    output=$(git_webroot pull origin main 2>&1) || output=$(git_webroot pull origin master 2>&1) || {
+                        echo "⚠️ All merge strategies failed for webroot"
+                        output="Pull failed"
+                    }
+                fi
+            }
+        fi
+        
+        # Show output if meaningful
+        if [[ "$output" != *"Already up to date"* ]] && [[ "$output" != "" ]]; then
             echo "$output"
         fi
         
@@ -1173,6 +1368,47 @@ pull_specific_repo() {
             echo "📥 Pulling submodule: $repo_name..."
             cd "$repo_name"
             
+            # First fetch the latest changes
+            git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null
+            
+            # Determine the remote branch
+            local remote_branch="origin/main"
+            git rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+            
+            # Try graceful merge strategies
+            if git merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+                # We're behind, can fast-forward
+                output=$(git merge --ff-only "$remote_branch" 2>&1) || {
+                    output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                        echo "⚠️ Fast-forward merge failed for $repo_name, trying regular merge"
+                    }
+                }
+            elif git merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+                # We're ahead, no merge needed
+                output="Already up to date"
+            else
+                # Branches have diverged, try graceful merge
+                output=$(git merge --no-edit "$remote_branch" 2>&1) || {
+                    # Check if it's a merge conflict
+                    if git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                        echo "🔀 Merge conflicts detected in $repo_name - requires manual resolution"
+                        echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                        output="Merge conflicts detected"
+                    else
+                        # Other merge failure, try traditional pull as fallback
+                        output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                            echo "⚠️ All merge strategies failed for $repo_name"
+                            output="Pull failed"
+                        }
+                    fi
+                }
+            fi
+            
+            # Show output if meaningful
+            if [[ "$output" != *"Already up to date"* ]] && [[ "$output" != "" ]]; then
+                echo "$output"
+            fi
+            
             REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
             if [[ "$REMOTE" != *"partnertools"* ]]; then
                 local is_capital=$(is_capital_repo "$repo_name")
@@ -1180,7 +1416,7 @@ pull_specific_repo() {
                 merge_upstream "$repo_name"
             fi
             
-            cd ..
+            cd_webroot
             safe_single_submodule_update "$repo_name"
             echo "✅ $repo_name submodule pull completed!"
         else
@@ -1196,10 +1432,45 @@ pull_specific_repo() {
         if [ -d "$repo_name" ]; then
             echo "📥 Pulling extra repo: $repo_name..."
             cd "$repo_name"
-            output=$(git pull origin main 2>&1)
-            if [[ $? -ne 0 ]]; then
-                echo "⚠️ Checking for conflicts in $repo_name"
-            elif [[ "$output" != *"Already up to date"* ]]; then
+            
+            # First fetch the latest changes
+            git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null
+            
+            # Determine the remote branch
+            local remote_branch="origin/main"
+            git rev-parse origin/master >/dev/null 2>&1 && remote_branch="origin/master"
+            
+            # Try graceful merge strategies
+            if git merge-base --is-ancestor HEAD "$remote_branch" 2>/dev/null; then
+                # We're behind, can fast-forward
+                output=$(git merge --ff-only "$remote_branch" 2>&1) || {
+                    output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                        echo "⚠️ Fast-forward merge failed for $repo_name, trying regular merge"
+                    }
+                }
+            elif git merge-base --is-ancestor "$remote_branch" HEAD 2>/dev/null; then
+                # We're ahead, no merge needed
+                output="Already up to date"
+            else
+                # Branches have diverged, try graceful merge
+                output=$(git merge --no-edit "$remote_branch" 2>&1) || {
+                    # Check if it's a merge conflict
+                    if git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
+                        echo "🔀 Merge conflicts detected in $repo_name - requires manual resolution"
+                        echo "💡 Use GitHub Desktop or resolve conflicts manually"
+                        output="Merge conflicts detected"
+                    else
+                        # Other merge failure, try traditional pull as fallback
+                        output=$(git pull origin main 2>&1) || output=$(git pull origin master 2>&1) || {
+                            echo "⚠️ All merge strategies failed for $repo_name"
+                            output="Pull failed"
+                        }
+                    fi
+                }
+            fi
+            
+            # Show output if meaningful
+            if [[ "$output" != *"Already up to date"* ]] && [[ "$output" != "" ]]; then
                 echo "$output"
             fi
             
@@ -1208,7 +1479,7 @@ pull_specific_repo() {
                 add_upstream "$repo_name" "false"
                 merge_upstream "$repo_name"
             fi
-            cd ..
+            cd_webroot
             echo "✅ $repo_name extra repo pull completed!"
         else
             echo "⚠️ Extra repo not found: $repo_name"
@@ -1254,7 +1525,7 @@ fix_all_detached_heads() {
             if fix_detached_head "$repo"; then
                 ((fixed_count++))
             fi
-            cd ..
+            cd_webroot
         fi
     done
     
@@ -1310,7 +1581,7 @@ update_all_remotes_for_user() {
             if check_user_change "$repo"; then
                 ((updated_count++))
             fi
-            cd ..
+            cd_webroot
         fi
     done
     
@@ -1529,7 +1800,7 @@ push_specific_repo() {
             commit_push "$name" "$skip_pr"
             
             # Update webroot submodule reference
-            cd ..
+            cd_webroot
             safe_single_submodule_update "$name"
             if [ -n "$(git status --porcelain | grep $name)" ]; then
                 git add "$name"
@@ -1565,7 +1836,7 @@ push_specific_repo() {
         if [ -d "$name" ]; then
             cd "$name"
             commit_push "$name" "$skip_pr"
-            cd ..
+            cd_webroot
             
                 final_push_completion_check
         else
@@ -1715,7 +1986,7 @@ check_extra_repos_for_changes() {
             if [ -n "$(git status --porcelain)" ]; then
                 repos_with_changes+=("$repo")
             fi
-            cd ..
+            cd_webroot
         fi
     done
     
@@ -1788,7 +2059,7 @@ push_extra_repo() {
             echo "✅ No changes to push in $repo_name"
         fi
         
-        cd ..
+        cd_webroot
     else
         echo "⚠️ Extra repo not found: $repo_name"
     fi
@@ -1827,7 +2098,7 @@ final_push_completion_check() {
                 echo "📤 Found unpushed commits in $repo..."
                 ensure_push_completion "$repo"
             fi
-            cd ..
+            cd_webroot
         fi
     done
 }
