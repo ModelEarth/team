@@ -492,11 +492,11 @@ class LeafletMapManager {
     
     createPopupContent(data, config = {}) {
         let content = '<div class="popup-content">';
-        
         // Use featuredColumns if available in config
         if (config.featuredColumns && Array.isArray(config.featuredColumns)) {
             config.featuredColumns.forEach((column, index) => {
-                const value = data[column];
+                // Try original case first, then lowercase fallback
+                const value = data[column] || data[column.toLowerCase()];
                 if (value) {
                     if (index === 0) {
                         // First column - bold title
@@ -505,13 +505,13 @@ class LeafletMapManager {
                         // Second column - with appropriate prefix
                         const displayValue = column.toLowerCase().includes('population') ? 
                             `Population: ${this.formatNumber(value)}` : 
-                            `${column}: ${this.escapeHtml(value)}`;
+                            `${this.escapeHtml(value)}`; // `${this.formatColumnName(column)}: ${this.escapeHtml(value)}`
                         content += `<div class="popup-field"><span class="popup-text">${displayValue}</span></div>`;
                     } else if (index === 2) {
                         // Third column - with appropriate suffix
                         const displayValue = column.toLowerCase().includes('county') ? 
                             `${value} County` : 
-                            `${column}: ${value}`;
+                            `${value}`; // ``${this.formatColumnName(column)}: ${value}`;
                         content += `<div class="popup-field"><span class="popup-text">${displayValue}</span></div>`;
                     }
                 }
@@ -605,6 +605,32 @@ class LeafletMapManager {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+    
+    formatColumnName(key) {
+        if (!key) return '';
+        
+        // Words that should not be capitalized unless at the start
+        const lowercaseWords = ['in', 'to', 'of', 'for', 'and', 'or', 'but', 'at', 'by', 'with', 'from', 'on', 'as', 'is', 'the', 'a', 'an'];
+        // Words that should be all caps
+        const uppercaseWords = ['id', 'url'];
+        
+        return key
+            .replace(/_/g, ' ')  // Replace underscores with spaces
+            .split(' ')
+            .map((word, index) => {
+                const lowerWord = word.toLowerCase();
+                // Check if word should be all caps
+                if (uppercaseWords.includes(lowerWord)) {
+                    return word.toUpperCase();
+                }
+                // Always capitalize the first word, or if it's not in the lowercase list
+                if (index === 0 || !lowercaseWords.includes(lowerWord)) {
+                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                }
+                return lowerWord;
+            })
+            .join(' ');
     }
     
     clearMarkers() {

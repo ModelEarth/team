@@ -7,14 +7,14 @@
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
     "nameColumn": "name",
-    "featuredColumns": ["Name", "Contact_Name", "Address", "City", "State", "Zip", "Population"],
+    "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Address", "City", "State", "Zip", "Population"],
     "omit_display": ["geo_json"],
     "int_required": "liaison_id"
   },
   "cities": {
-    "shortTitle": "Location Visits",
-    "menuTitle": "Location Visits",
-    "listTitle": "Location Visits",
+    "shortTitle": "City Visits",
+    "menuTitle": "City Visits",
+    "listTitle": "City Visits",
     "datatype": "csv",
     "dataset": "cities.csv",
     "markerType": "google",

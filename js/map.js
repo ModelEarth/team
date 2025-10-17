@@ -1,20 +1,29 @@
 //  1. Stores the int_required filtered data in DOM storage only once on initial load
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
+
+// Initialize paramMap from param object (set by localsite.js or embed.js)
+let paramMap = {};
+if (typeof window.param !== 'undefined') {
+    //alert("window.param is available in map.js and window.param.map is: " + window.param.map)
+}
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
     mapWidgetChange();
 }, false);
 function mapWidgetChange() {
     let hash = getHash();
-    if (hash.map != priorHash.map) {
-        //if (hash.map && window.listingsApp) { // Would rather see an error
-        if (hash.map) {
-            window.listingsApp.changeShow(hash.map);
+    let currentMap = hash.map || window.param.map || 'cities';
+    if (currentMap != priorHash.map) {
+        //if (currentMap && window.listingsApp) { // Would rather see an error
+        if (currentMap) {
+            window.listingsApp.changeShow(currentMap);
         }
     }
 }
+
 class ListingsDisplay {
+
     constructor(options = {}) {
         this.listings = [];
         this.filteredListings = [];
@@ -26,7 +35,7 @@ class ListingsDisplay {
         this.enableStateFiltering = false;
         this.usingEmbeddedList = false;
         this.showConfigs = {};
-        this.currentShow = this.getInitialShow();
+        this.currentShow = this.getCurrentList();
         this.currentPage = 1;
         this.itemsPerPage = 500;
         this.searchFields = new Set();
@@ -109,18 +118,26 @@ class ListingsDisplay {
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
         // Use param object (set in localsite.js) instead of checking script URL directly
-        const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
+        //const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
+        
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
-        if (fromHash) {
+        if (fromHash || window.param.map) {
             await this.loadShowData();
-        } else if (loadMapDataParam) { // Checks for map.js?showmap=true
+        //} else if (loadMapDataParam) { // Checks for map.js?showmap=true
+        } 
+
+        /*
+        else if (window.param.map) {
+            hash.map = window.param.map;
+            alert("hash.map " + hash.map)
             await this.loadShowData();
             
             //this.updateUrlHash(this.currentShow); // Use updateHash instead to avoid triggering
         }
-        
+        */
+
         //this.render();
         this.setupEventListeners();
     }
@@ -160,9 +177,9 @@ class ListingsDisplay {
         // Fallback to embedded show.json configuration
         this.showConfigs = {
                 "cities": {
-                    "shortTitle": "Team Locations",
-                    "listTitle": "Team Locations",
-                    "dataTitle": "Team Locations",
+                    "shortTitle": "Team Locations (fallback)",
+                    "listTitle": "Team Locations (fallback)",
+                    "dataTitle": "Team Locations (fallback)",
                     "datatype": "csv",
                     "dataset": "cities.csv",
                     "markerType": "google",
@@ -279,7 +296,7 @@ class ListingsDisplay {
     }
 
     createMockData(config) {
-        
+        alert("this.currentShow " + this.currentShow )
         if (this.currentShow === 'cities') {
             // Create more mock data to test pagination
             const cities = [];
@@ -1035,7 +1052,7 @@ class ListingsDisplay {
             }
         });
 
-        // Handle details toggle and pagination
+        // Handle pagination with specific delegation
         document.addEventListener('click', (e) => {
             // Handle pagination
             if (e.target.classList.contains('pagination-btn') && !e.target.disabled) {
@@ -1043,47 +1060,27 @@ class ListingsDisplay {
                 if (!isNaN(page)) {
                     this.changePage(page);
                 }
-                return;
             }
+        });
 
-            // Handle details toggle - check for both the button and arrow
-            const toggleElement = e.target.closest('.details-toggle');
-            const isToggleArrow = e.target.classList.contains('toggle-arrow');
-            const isToggleLabel = e.target.classList.contains('toggle-label');
-            
-            if (toggleElement || isToggleArrow || isToggleLabel) {
-                e.preventDefault();
-                e.stopPropagation();
+        document.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.target.closest(".details-toggle")) {
+                const toggle = e.target.closest('.details-toggle');
+                const content = toggle.nextElementSibling;
+                const arrow = toggle.querySelector('.toggle-arrow');
+                const isExpanded = content.classList.contains('expanded');
                 
-                // Find the toggle container
-                let toggle = toggleElement;
-                if (!toggle && (isToggleArrow || isToggleLabel)) {
-                    toggle = e.target.parentElement;
-                    // Make sure we found a details-toggle element
-                    if (!toggle || !toggle.classList.contains('details-toggle')) {
-                        toggle = e.target.closest('.details-toggle');
-                    }
+                if (isExpanded) {
+                    content.classList.remove('expanded');
+                    arrow.classList.remove('expanded');
+                    arrow.textContent = '▶';
+                } else {
+                    content.classList.add('expanded');
+                    arrow.classList.add('expanded');
+                    arrow.textContent = '▼';
                 }
-                
-                if (toggle && toggle.classList.contains('details-toggle')) {
-                    const content = toggle.nextElementSibling;
-                    const arrow = toggle.querySelector('.toggle-arrow');
-                    
-                    if (content && content.classList.contains('details-content') && arrow) {
-                        const isExpanded = content.classList.contains('expanded');
-                        
-                        if (isExpanded) {
-                            content.classList.remove('expanded');
-                            arrow.classList.remove('expanded');
-                            arrow.textContent = '▶';
-                        } else {
-                            content.classList.add('expanded');
-                            arrow.classList.add('expanded');
-                            arrow.textContent = '▼';
-                        }
-                    }
-                }
-                return;
             }
         });
 
@@ -1398,6 +1395,7 @@ class ListingsDisplay {
                             ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
                             <div class="map-selector">
                                 <select id="mapDataSelect" class="map-select">
+                                    <option value="">Selected map...</option>
                                     ${Object.keys(this.showConfigs).map(key => 
                                         `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
                                     ).join('')}
@@ -1519,7 +1517,16 @@ class ListingsDisplay {
         this.applySignInVisibility();
 
         //setTimeout(() => {
-            this.setupEventListeners();
+            //this.setupEventListeners(); // Avoid here - Invokes clicks multiple times!
+            
+            // Set up essential event listeners that don't cause multiple triggers
+            const showSelect = document.getElementById('mapDataSelect');
+            if (showSelect) {
+                showSelect.addEventListener('change', (e) => {
+                    goHash({'map':e.target.value});
+                });
+            }
+            
             //this.conditionalMapInit();
             this.initializeMap('FROM_RENDER conditionalMapInit');
             this.setupPrintDownloadIcons();
@@ -1587,8 +1594,9 @@ class ListingsDisplay {
                 });
                 
                 // Update map with current listings data - only send current page data
+                console.log("Update map with current listings data - only send current page data")
                 if (this.listings && this.listings.length > 0) {
-                    setTimeout(() => {
+                    //setTimeout(() => {
                         // Create a limited version of this object with only current page data
                         const limitedListingsApp = {
                             ...this,
@@ -1597,7 +1605,7 @@ class ListingsDisplay {
                             getMapListings: () => this.getCurrentPageListings()
                         };
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
-                    }, 100);
+                    //}, 100);
                 }
             } catch (error) {
                 console.warn('Failed to initialize map:', error);
@@ -1605,35 +1613,6 @@ class ListingsDisplay {
                 this.mapInitializing = false;
             }
         });
-    }
-    
-    // URL Hash and Cache Management
-    getInitialShow() {
-        // Check URL hash first - prioritize map= parameter
-        const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const hashMap = urlParams.get('map');
-        
-        if (hashMap) {
-            return hashMap;
-        }
-        
-        // Check for map parameter in map.js script URL (from embed.js)
-        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
-        for (const script of widgetScripts) {
-            if (script.src.includes('?map=')) {
-                const scriptUrl = new URL(script.src);
-                const embedMap = scriptUrl.searchParams.get('map');
-                if (embedMap) {
-                    this.usingEmbeddedList = true;
-                    console.log(`Using embedded map parameter: ${embedMap}`);
-                    return embedMap;
-                }
-            }
-        }
-        
-        // Fall back to cached list
-        const cachedList = this.loadCachedShow();
-        return cachedList || 'cities';
     }
     
     updateUrlHash(showKey) {
@@ -1660,6 +1639,18 @@ class ListingsDisplay {
         } catch (error) {
             console.warn('Failed to save show to cache:', error);
         }
+    }
+    
+    getCurrentList() {
+        let hash = {};
+        if (typeof getHash === 'function') {
+            hash = getHash();
+        }
+        
+        let currentList = hash.map || window.param.map; // || this.loadCachedShow() || 'cities';
+        
+        //console.log('getCurrentList:', { hash: hash.map, paramMap: window.param.map, result: currentShow });
+        return currentList;
     }
     
     loadCachedShow() {
@@ -2001,6 +1992,12 @@ class ListingsDisplay {
         }
         
         console.log(`Stored ${cleanedData.length} rows in DOM for download/print functionality`);
+        
+        // Report data size changes when on localhost
+        let reportDataSize = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (reportDataSize) {
+            console.log(`Source data ${jsonString.length} characters changed to ${encodedData.length} in encode JSON`);
+        }
     }
 
     getDataForDownload() {
