@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA GIBS Tile Grid</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Egyptian+Hieroglyphs&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            gap: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .pause-play-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 16px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        
+        .pause-play-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .pause-play-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .grid-container {
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 1;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .tile {
+            position: relative;
+            overflow: hidden;
+            background: #222;
+        }
+        
+        .tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.6s ease-in-out;
+        }
+        
+        .letter {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4vw;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 10;
+            transition: opacity 0.1s ease-in-out;
+            font-family: 'Noto Sans Egyptian Hieroglyphs', Arial, sans-serif;
+        }
+        
+        .letter.changing {
+            opacity: 0;
+        }
+        
+        .tile.pivoting img {
+            animation: pivot 0.6s ease-in-out;
+        }
+        
+        @keyframes pivot {
+            0% {
+                transform: perspective(600px) rotateY(0deg);
+            }
+            50% {
+                transform: perspective(600px) rotateY(90deg);
+            }
+            100% {
+                transform: perspective(600px) rotateY(0deg);
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .letter {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-container">
+        <div class="grid" id="grid"></div>
+    </div>
+    <div class="controls">
+        <button class="pause-play-btn" id="pausePlayBtn">⏸</button>
+    </div>
+
+    <script>
+        const alphabets = {
+            roman: 'ABCDEFGHIJKLMNOPQRSTUVWXY',
+            greek: 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ',
+            arabic: 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي',
+            hindi: 'अआइईउऊएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभम',
+            egyptian: '𓀀𓀁𓀂𓀃𓀄𓀅𓀆𓀇𓀈𓀉𓀊𓀋𓀌𓀍𓀎𓀏𓀐𓀑𓀒𓀓𓀔𓀕𓀖𓀗𓀘',
+            chinese: '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰',
+            japanese: 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ',
+            runic: 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᛠ'
+        };
+        
+        const alphabetKeys = Object.keys(alphabets);
+        let currentAlphabetIndex = 0;
+        let letterChangeIndex = 0;
+        let isPaused = false;
+        let isFlipping = false;
+        let letterChangeInterval = null;
+        
+        // Interesting locations (zoom level, base col, base row)
+        const locations = [
+            { z: 5, col: 10, row: 12, name: 'Europe' },         // Europe
+            { z: 5, col: 5, row: 13, name: 'North America' },    // North America
+            { z: 5, col: 27, row: 18, name: 'Australia' },       // Australia
+            { z: 5, col: 20, row: 15, name: 'Middle East' },     // Middle East
+            { z: 5, col: 18, row: 10, name: 'Asia' },            // Asia
+            { z: 5, col: 8, row: 18, name: 'South America' },    // South America
+            { z: 4, col: 5, row: 4, name: 'Atlantic' },          // Atlantic Ocean
+            { z: 5, col: 25, row: 16, name: 'India' }            // India
+        ];
+        
+        let currentLocationIndex = 0;
+        const date = '2015-06-07';  // Use a date known to have good coverage
+        
+        function createTileUrl(z, col, row) {
+            return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/${z}/${row}/${col}.jpg`;
+        }
+        
+        function loadTiles() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            
+            const location = locations[currentLocationIndex];
+            const currentAlphabet = alphabets[alphabetKeys[currentAlphabetIndex]];
+            
+            let tileIndex = 0;
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    
+                    const img = document.createElement('img');
+                    const tileCol = location.col + c;
+                    const tileRow = location.row + r;
+                    img.src = createTileUrl(location.z, tileCol, tileRow);
+                    img.alt = `Tile ${tileIndex + 1}`;
+                    img.dataset.z = location.z;
+                    img.dataset.col = tileCol;
+                    img.dataset.row = tileRow;
+                    
+                    const letter = document.createElement('div');
+                    letter.className = 'letter';
+                    letter.textContent = currentAlphabet[tileIndex] || '';
+                    
+                    tile.appendChild(img);
+                    tile.appendChild(letter);
+                    grid.appendChild(tile);
+                    
+                    tileIndex++;
+                }
+            }
+        }
+        
+        function changeOneLetter() {
+            if (isPaused || isFlipping) return;
+            
+            const nextAlphabetIndex = (currentAlphabetIndex + 1) % alphabetKeys.length;
+            const nextAlphabet = alphabets[alphabetKeys[nextAlphabetIndex]];
+            const letters = document.querySelectorAll('.letter');
+            const letterToChange = letters[letterChangeIndex];
+            
+            // Fade out
+            letterToChange.classList.add('changing');
+            
+            // Change letter after fade
+            setTimeout(() => {
+                letterToChange.textContent = nextAlphabet[letterChangeIndex] || '';
+                letterToChange.classList.remove('changing');
+            }, 100);
+            
+            // Move to next letter
+            letterChangeIndex++;
+            
+            // If we've changed all 25 letters, move to next alphabet and reset
+            if (letterChangeIndex >= 25) {
+                letterChangeIndex = 0;
+                currentAlphabetIndex = nextAlphabetIndex;
+                
+                // Change to next location with gradual tile flips
+                isFlipping = true;
+                changeLocation();
+            }
+        }
+        
+        function changeLocation() {
+            currentLocationIndex = (currentLocationIndex + 1) % locations.length;
+            const newLocation = locations[currentLocationIndex];
+            
+            // Flip tiles one at a time over the 3 second period
+            const tiles = document.querySelectorAll('.tile');
+            tiles.forEach((tile, index) => {
+                setTimeout(() => {
+                    const r = Math.floor(index / 5);
+                    const c = index % 5;
+                    const img = tile.querySelector('img');
+                    
+                    tile.classList.add('pivoting');
+                    
+                    // Change image at midpoint
+                    setTimeout(() => {
+                        const tileCol = newLocation.col + c;
+                        const tileRow = newLocation.row + r;
+                        img.src = createTileUrl(newLocation.z, tileCol, tileRow);
+                        img.dataset.z = newLocation.z;
+                        img.dataset.col = tileCol;
+                        img.dataset.row = tileRow;
+                    }, 300);
+                    
+                    // Remove animation
+                    setTimeout(() => {
+                        tile.classList.remove('pivoting');
+                        
+                        // If this is the last tile, wait 5 seconds before resuming
+                        if (index === 24) {
+                            setTimeout(() => {
+                                isFlipping = false;
+                            }, 5000);
+                        }
+                    }, 600);
+                }, index * 120); // Stagger each tile flip by 120ms
+            });
+        }
+        
+        function togglePausePlay() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pausePlayBtn');
+            
+            if (isPaused) {
+                btn.textContent = '▶';
+            } else {
+                btn.textContent = '⏸';
+            }
+        }
+        
+        // Initialize
+        loadTiles();
+        
+        // Set up pause/play button
+        document.getElementById('pausePlayBtn').addEventListener('click', togglePausePlay);
+        
+        // Change one letter every 120ms (3000ms / 25 letters = 120ms per letter)
+        setInterval(changeOneLetter, 120);
+    </script>
+</body>
+</html>

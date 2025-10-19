@@ -2,8 +2,6 @@
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 
-// Initialize paramMap from param object (set by localsite.js or embed.js)
-let paramMap = {};
 if (typeof window.param !== 'undefined') {
     //alert("window.param is available in map.js and window.param.map is: " + window.param.map)
 }
@@ -1647,9 +1645,7 @@ class ListingsDisplay {
             hash = getHash();
         }
         
-        let currentList = hash.map || window.param.map; // || this.loadCachedShow() || 'cities';
-        
-        //console.log('getCurrentList:', { hash: hash.map, paramMap: window.param.map, result: currentShow });
+        let currentList = hash.map || window.param.map;
         return currentList;
     }
     
