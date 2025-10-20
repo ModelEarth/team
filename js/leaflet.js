@@ -1223,6 +1223,9 @@ class LeafletMapManager {
             }
             
             .map-style-select {
+                padding: 0px 3px !important;
+            }
+            .map-style-selectXX {
                 border: none;
                 background: none;
                 font-size: 12px;
