@@ -11,7 +11,7 @@ document.addEventListener('hashChangeEvent', function (elem) {
 }, false);
 function mapWidgetChange() {
     let hash = getHash();
-    let currentMap = hash.map || window.param.map || 'cities';
+    let currentMap = hash.map || window.param.map;
     if (currentMap != priorHash.map) {
         //if (currentMap && window.listingsApp) { // Would rather see an error
         if (currentMap) {
@@ -105,6 +105,7 @@ class ListingsDisplay {
     }
 
     async init() {
+        
         this.showLoadingState("Loading Dataset Choices");
         await this.loadShowConfigs();
         
@@ -141,8 +142,8 @@ class ListingsDisplay {
     }
     
     showLoadingState(message) {
-        const teamwidget = document.getElementById('teamwidget');
-        teamwidget.innerHTML = `
+        const localwidget = document.getElementById('localwidget');
+        localwidget.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
                 <p>${message}</p>
@@ -198,7 +199,9 @@ class ListingsDisplay {
         
         let showConfig = this.showConfigs[this.currentShow];
         
-        if (!showConfig) {
+        let alwaysLoadSomething = false;
+        if (!showConfig && alwaysLoadSomething) { // AVOIDING, ELSE TABS ALWAYS SHOW THE FIRST MAP
+            
             // If requested list not found, use the first available list
             const availableKeys = Object.keys(this.showConfigs);
             if (availableKeys.length > 0) {
@@ -214,6 +217,13 @@ class ListingsDisplay {
                 this.loading = false;
                 return;
             }
+        }
+        
+        // If no showConfig found and alwaysLoadSomething is false, exit early
+        if (!showConfig) {
+            this.error = null;
+            this.loading = false;
+            return;
         }
         
         this.config = showConfig;
@@ -991,7 +1001,6 @@ class ListingsDisplay {
     }
 
     async changeShow(showKey, updateCache = true) {
-        //alert("changeShow")
         this.currentShow = showKey;
         this.searchPopupOpen = false;
         
@@ -1343,8 +1352,8 @@ class ListingsDisplay {
             this.loading = false;
         }
         
-        const teamwidget = document.getElementById('teamwidget');
-        if (teamwidget) teamwidget.style.display = 'block';
+        const localwidget = document.getElementById('localwidget');
+        if (localwidget) localwidget.style.display = 'block';
         
         if (this.loading) {
             // FORCE clear loading if we have data but still loading
@@ -1367,7 +1376,7 @@ class ListingsDisplay {
             return;
         }
 
-        let teamwidgetHeader = `
+        let localwidgetHeader = `
             <!-- Header -->
             <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="flex:1;">
@@ -1379,8 +1388,8 @@ class ListingsDisplay {
                 </div>
             </div>`
 
-        teamwidget.innerHTML = `
-            ${ window.param.showmapselect != "false" ? teamwidgetHeader : '' }
+        localwidget.innerHTML = `
+            ${ window.param.showmapselect != "false" ? localwidgetHeader : '' }
             <!-- Widget Hero Container -->
             <div id="widgetHero"></div>
                 
@@ -2044,9 +2053,9 @@ class ListingsDisplay {
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
-    // Only initialize if the teamwidget element exists
-    const teamwidgetElement = document.getElementById('teamwidget');
-    if (teamwidgetElement && !window.listingsApp) {
+    // Only initialize if the localwidget element exists
+    const localwidgetElement = document.getElementById('localwidget');
+    if (localwidgetElement && !window.listingsApp) {
         window.listingsApp = new ListingsDisplay();
     }
     
@@ -2054,7 +2063,7 @@ function initializeWidget() {
     window.myHero = function(heroDiv, chartTypes) {
         // Default chartTypes based on page type
         if (!chartTypes) {
-            chartTypes = teamwidgetElement ? ['widgetmapWrapper', 'widgetDetails', 'pageGallery'] : ['chart2Wrapper', 'sankeyWrapper'];
+            chartTypes = localwidgetElement ? ['widgetmapWrapper', 'widgetDetails', 'pageGallery'] : ['chart2Wrapper', 'sankeyWrapper'];
         }
         
         // If ListingsDisplay is available, use its method
