@@ -142,8 +142,8 @@ class ListingsDisplay {
     }
     
     showLoadingState(message) {
-        const localwidget = document.getElementById('localwidget');
-        localwidget.innerHTML = `
+        const mapwidget = document.getElementById('mapwidget');
+        mapwidget.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
                 <p>${message}</p>
@@ -1352,8 +1352,8 @@ class ListingsDisplay {
             this.loading = false;
         }
         
-        const localwidget = document.getElementById('localwidget');
-        if (localwidget) localwidget.style.display = 'block';
+        const mapwidget = document.getElementById('mapwidget');
+        if (mapwidget) mapwidget.style.display = 'block';
         
         if (this.loading) {
             // FORCE clear loading if we have data but still loading
@@ -1388,7 +1388,7 @@ class ListingsDisplay {
                 </div>
             </div>`
 
-        localwidget.innerHTML = `
+        mapwidget.innerHTML = `
             ${ window.param.showmapselect != "false" ? localwidgetHeader : '' }
             <!-- Widget Hero Container -->
             <div id="widgetHero"></div>
@@ -2053,8 +2053,8 @@ class ListingsDisplay {
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
-    // Only initialize if the localwidget element exists
-    const localwidgetElement = document.getElementById('localwidget');
+    // Only initialize if the mapwidget element exists
+    const localwidgetElement = document.getElementById('mapwidget');
     if (localwidgetElement && !window.listingsApp) {
         window.listingsApp = new ListingsDisplay();
     }
