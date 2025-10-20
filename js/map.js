@@ -1367,7 +1367,7 @@ class ListingsDisplay {
             return;
         }
 
-        teamwidget.innerHTML = `
+        let teamwidgetHeader = `
             <!-- Header -->
             <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="flex:1;">
@@ -1377,8 +1377,10 @@ class ListingsDisplay {
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div id="map-print-download-icons" style="padding-top:12px"></div>
                 </div>
-            </div>
-            
+            </div>`
+
+        teamwidget.innerHTML = `
+            ${ window.param.showmapselect != "false" ? teamwidgetHeader : '' }
             <!-- Widget Hero Container -->
             <div id="widgetHero"></div>
                 
@@ -1390,7 +1392,7 @@ class ListingsDisplay {
                     <!-- Controls -->
                     <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
                         <div class="search-container">
-                            ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
+                            ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
                             <div class="map-selector">
                                 <select id="mapDataSelect" class="map-select">
                                     <option value="">Selected map...</option>
