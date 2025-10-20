@@ -7,15 +7,23 @@ if (typeof window.param !== 'undefined') {
 }
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
-    mapWidgetChange();
+    waitForElm('#mapwidget').then((elm) => {
+        mapWidgetChange();
+    });
 }, false);
 function mapWidgetChange() {
     let hash = getHash();
-    let currentMap = hash.map || window.param.map;
-    if (currentMap != priorHash.map) {
-        //if (currentMap && window.listingsApp) { // Would rather see an error
-        if (currentMap) {
-            window.listingsApp.changeShow(currentMap);
+    //let currentMap = hash.map || window.param.map;
+    if (hash.map != priorHash.map) {
+        if (!hash.map) {
+            // Hide #mapwidget here. First rename #widgetwidget to something distinct
+        } else {
+            // Check if listingsApp exists before calling changeShow
+            if (hash.map && window.listingsApp && typeof window.listingsApp.changeShow === 'function') {
+                window.listingsApp.changeShow(hash.map);
+            } else {
+                console.log("Maybe no changeShow function yet. currentMap: " + currentMap);
+            }
         }
     }
 }
