@@ -38,6 +38,116 @@
 
     <!-- Loads Leaflet via team/js/map.js and team/css/widget.css -->
 
+    <!-- Leaflet + heatmap (CDN) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script>
+        // Patch leaflet.heat to create its canvas 2D context with
+        // { willReadFrequently: true } to avoid repeated getImageData
+        // readback warnings and improve performance when heatmap does
+        // many pixel reads.
+        (function() {
+            try {
+                if (window.heatLayer && window.heatLayer.HeatCanvas) {
+                    // already loaded with named export (older bundles may differ)
+                }
+                // The plugin registers L.heatLayer which uses a HeatCanvas
+                // implementation. Monkey-patch the prototype _initCanvas
+                // function if present.
+                if (window.L && L.HeatLayer && L.HeatLayer.prototype) {
+                    var proto = L.HeatLayer.prototype;
+                    if (proto._initCanvas && !proto._initCanvas.__patched_willReadFrequently) {
+                        var originalInit = proto._initCanvas;
+                        proto._initCanvas = function() {
+                            // call original to create this._canvas and this._ctx if it does that,
+                            // but if the plugin creates a canvas without the option we recreate
+                            // the context with willReadFrequently for better readback performance.
+                            originalInit.apply(this, arguments);
+                            try {
+                                if (this._canvas && this._canvas.getContext) {
+                                    // If the existing context does not advertise willReadFrequently
+                                    // we attempt to obtain a fresh context with that hint.
+                                    var ctx = this._canvas.getContext('2d');
+                                    // Some browsers ignore willReadFrequently after creation; create a new
+                                    // offscreen canvas and copy the existing one into it.
+                                    var preferOptions = { willReadFrequently: true };
+                                    var newCtx = null;
+                                    try {
+                                        newCtx = this._canvas.getContext('2d', preferOptions);
+                                    } catch (e) {
+                                        // ignore - some browsers disallow re-creating context with options
+                                        newCtx = null;
+                                    }
+                                    if (newCtx && newCtx !== ctx) {
+                                        // Replace stored ctx reference if different
+                                        this._ctx = newCtx;
+                                    } else if (!newCtx) {
+                                        // Try to create an offscreen canvas if environment supports it
+                                        try {
+                                            var off = null;
+                                            if (typeof OffscreenCanvas !== 'undefined') {
+                                                off = new OffscreenCanvas(this._canvas.width, this._canvas.height);
+                                                var offCtx = off.getContext('2d', preferOptions) || off.getContext('2d');
+                                                // draw existing canvas onto offscreen and then swap
+                                                offCtx.drawImage(this._canvas, 0, 0);
+                                                // Replace the backing canvas with the OffscreenCanvas where possible
+                                                // (can't actually swap DOM element) but keep ctx reference for reads
+                                                this._ctx = offCtx;
+                                            }
+                                        } catch (e) {
+                                            // fallback: keep original ctx
+                                        }
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('heatmap: willReadFrequently patch failed', err);
+                            }
+                        };
+                        proto._initCanvas.__patched_willReadFrequently = true;
+                    }
+                }
+            } catch (err) {
+                console.warn('heatmap patch: unexpected error', err);
+            }
+        })();
+    </script>
+    <style>
+        /* Participants heatmap container */
+        #participants-map-container { margin-bottom: 12px; display: none; position: relative; }
+    /* Ensure the map container has an explicit height so Leaflet can size itself */
+    /* Increased height and stronger visual border to match desired look */
+    #participants-map { position: relative; width: 100%; height: 380px; min-height: 320px; border: 3px solid #2563eb; border-radius: 12px; overflow: hidden; box-sizing: border-box; }
+    #participants-map-container { margin-bottom: 12px; display: block; position: relative; padding: 8px; }
+    /* Add a subtle blue inset shadow and thicker rounded outline on focus */
+    #participants-map:focus, #participants-map:focus-within { outline: 3px solid rgba(37,99,235,0.12); box-shadow: 0 6px 20px rgba(37,99,235,0.12); }
+    /* Make Leaflet's generated container absolutely fill our element (some global CSS can accidentally shrink it) */
+    #participants-map > .leaflet-container, #participants-map .leaflet-container { position: absolute !important; left: 0 !important; top: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; box-sizing: border-box !important; }
+    /* Also ensure common internal panes stretch */
+    #participants-map .leaflet-map-pane, #participants-map .leaflet-tile-pane, #participants-map .leaflet-pane { width: 100% !important; height: 100% !important; left: 0 !important; top: 0 !important; }
+        #participants-map-no-data { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; align-items: center; justify-content: center; pointer-events: none; color: var(--text-secondary); background: rgba(255,255,255,0.7); font-size: 14px; border-radius: 8px; }
+        #participants-map-controls { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    </style>
+
+    <style>
+        /* Legend for status colors on the map - improved contrast and z-index */
+        .leaflet-control.status-legend {
+            background: #ffffff;
+            color: #111827;
+            padding: 8px 10px;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+            font-size:13px;
+            border: 1px solid rgba(2,6,23,0.06);
+            z-index: 99999 !important; /* ensure legend sits above other overlays */
+        }
+        .status-legend .item { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+        .status-legend .swatch { width:14px; height:14px; border-radius:4px; box-shadow: 0 0 0 1px rgba(0,0,0,0.04) inset; border: 1px solid rgba(0,0,0,0.04); }
+        .status-legend .label { line-height:1; color:#111827; }
+        /* Hide the 'Show states' control button - not needed when legend is visible */
+        #toggle-state-counts-btn { display: none !important; }
+    </style>
+
     <!--
     Activate after default map turned off
     <script type="text/javascript" src="../../localsite/js/embed.js?source=show.trade&map=cities.us"></script>
@@ -2848,6 +2958,18 @@
             
             
             <!-- Column View (Default) -->
+            <!-- Map (heat) inserted above views -->
+            <div id="participants-map-container">
+                <div id="participants-map-controls">
+                    <div style="font-size:13px; color:var(--text-secondary)">Participants density</div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button id="toggle-heatmap-btn" class="btn btn-sm btn-secondary">Hide map</button>
+                        <button id="toggle-state-counts-btn" class="btn btn-sm btn-secondary">Show states</button>
+                    </div>
+                </div>
+                <div id="participants-map"></div>
+                <div id="participants-map-no-data">No latitude/longitude data available for heatmap.</div>
+            </div>
             <div class="view-container" id="column-view">
                 <div class="participants-grid" id="participants-column-grid"></div>
             </div>
@@ -2916,6 +3038,544 @@
     <script src="../js/setup.js"></script>
     <script src="../js/list.js"></script>
     <script>
+            // Leaflet heatmap helpers
+            let _participantsMap = null;
+            let _participantsHeatLayer = null;
+            let _participantsStateLayer = null;
+            let heatmapVisible = true;
+
+            // Simple state centroids (abbr -> { name, lat, lng }) for US states
+            // Used to render state-count circle markers without needing full GeoJSON.
+            const US_STATE_CENTROIDS = {
+                'AL': { name: 'Alabama', lat: 32.806671, lng: -86.791130 },
+                'AK': { name: 'Alaska', lat: 61.370716, lng: -152.404419 },
+                'AZ': { name: 'Arizona', lat: 33.729759, lng: -111.431221 },
+                'AR': { name: 'Arkansas', lat: 34.969704, lng: -92.373123 },
+                'CA': { name: 'California', lat: 36.116203, lng: -119.681564 },
+                'CO': { name: 'Colorado', lat: 39.059811, lng: -105.311104 },
+                'CT': { name: 'Connecticut', lat: 41.597782, lng: -72.755371 },
+                'DE': { name: 'Delaware', lat: 39.318523, lng: -75.507141 },
+                'FL': { name: 'Florida', lat: 27.766279, lng: -81.686783 },
+                'GA': { name: 'Georgia', lat: 33.040619, lng: -83.643074 },
+                'HI': { name: 'Hawaii', lat: 21.094318, lng: -157.498337 },
+                'ID': { name: 'Idaho', lat: 44.240459, lng: -114.478828 },
+                'IL': { name: 'Illinois', lat: 40.349457, lng: -88.986137 },
+                'IN': { name: 'Indiana', lat: 39.849426, lng: -86.258278 },
+                'IA': { name: 'Iowa', lat: 42.011539, lng: -93.210526 },
+                'KS': { name: 'Kansas', lat: 38.526600, lng: -96.726486 },
+                'KY': { name: 'Kentucky', lat: 37.668140, lng: -84.670067 },
+                'LA': { name: 'Louisiana', lat: 31.169546, lng: -91.867805 },
+                'ME': { name: 'Maine', lat: 44.693947, lng: -69.381927 },
+                'MD': { name: 'Maryland', lat: 39.063946, lng: -76.802101 },
+                'MA': { name: 'Massachusetts', lat: 42.230171, lng: -71.530106 },
+                'MI': { name: 'Michigan', lat: 43.326618, lng: -84.536095 },
+                'MN': { name: 'Minnesota', lat: 45.694454, lng: -93.900192 },
+                'MS': { name: 'Mississippi', lat: 32.741646, lng: -89.678696 },
+                'MO': { name: 'Missouri', lat: 38.456085, lng: -92.288368 },
+                'MT': { name: 'Montana', lat: 46.921925, lng: -110.454353 },
+                'NE': { name: 'Nebraska', lat: 41.125370, lng: -98.268082 },
+                'NV': { name: 'Nevada', lat: 38.313515, lng: -117.055374 },
+                'NH': { name: 'New Hampshire', lat: 43.452492, lng: -71.563896 },
+                'NJ': { name: 'New Jersey', lat: 40.298904, lng: -74.521011 },
+                'NM': { name: 'New Mexico', lat: 34.840515, lng: -106.248482 },
+                'NY': { name: 'New York', lat: 42.165726, lng: -74.948051 },
+                'NC': { name: 'North Carolina', lat: 35.630066, lng: -79.806419 },
+                'ND': { name: 'North Dakota', lat: 47.528912, lng: -99.784012 },
+                'OH': { name: 'Ohio', lat: 40.388783, lng: -82.764915 },
+                'OK': { name: 'Oklahoma', lat: 35.565342, lng: -96.928917 },
+                'OR': { name: 'Oregon', lat: 44.572021, lng: -122.070938 },
+                'PA': { name: 'Pennsylvania', lat: 40.590752, lng: -77.209755 },
+                'RI': { name: 'Rhode Island', lat: 41.680893, lng: -71.511780 },
+                'SC': { name: 'South Carolina', lat: 33.856892, lng: -80.945007 },
+                'SD': { name: 'South Dakota', lat: 44.299782, lng: -99.438828 },
+                'TN': { name: 'Tennessee', lat: 35.747845, lng: -86.692345 },
+                'TX': { name: 'Texas', lat: 31.054487, lng: -97.563461 },
+                'UT': { name: 'Utah', lat: 40.150032, lng: -111.862434 },
+                'VT': { name: 'Vermont', lat: 44.045876, lng: -72.710686 },
+                'VA': { name: 'Virginia', lat: 37.769337, lng: -78.169968 },
+                'WA': { name: 'Washington', lat: 47.400902, lng: -121.490494 },
+                'WV': { name: 'West Virginia', lat: 38.491226, lng: -80.954456 },
+                'WI': { name: 'Wisconsin', lat: 44.268543, lng: -89.616508 },
+                'WY': { name: 'Wyoming', lat: 42.755966, lng: -107.302490 }
+            };
+
+            // Map of lowercased state names to abbr for parsing full names
+            const US_STATE_NAME_TO_ABBR = (function(){
+                const m = {};
+                Object.keys(US_STATE_CENTROIDS).forEach(abbr => { m[US_STATE_CENTROIDS[abbr].name.toLowerCase()] = abbr; });
+                return m;
+            })();
+
+            function initParticipantsHeatmap() {
+                if (_participantsMap) return _participantsMap;
+                const mapEl = document.getElementById('participants-map');
+                if (!mapEl) return null;
+                if (typeof L === 'undefined') {
+                    console.warn('Leaflet (L) is not defined - check that the Leaflet script was loaded');
+                    return null;
+                }
+                // Disable the built-in zoom controls (remove + / - buttons)
+                // and disable other interactive zoom gestures (wheel/double-click/touch).
+                // Initialize the map and later fit bounds to the continental USA so
+                // the map reliably shows the states on first render.
+                _participantsMap = L.map(mapEl, {
+                    zoomControl: false,
+                    attributionControl: false,
+                    scrollWheelZoom: false,
+                    doubleClickZoom: false,
+                    boxZoom: false,
+                    touchZoom: false,
+                    // Restrict zoom to reasonable levels for the heatmap view and allow closer zoom
+                    minZoom: 4,
+                    maxZoom: 6
+                });
+                const tile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                }).addTo(_participantsMap);
+                // Fit the map to the contiguous United States bounds so the states are visible
+                // on initial load. These bounds roughly cover the continental US (lat, lng).
+                try {
+                    // Raise the southern bound further (28.0) to avoid showing Mexican states
+                    // on the initial view while still covering the continental US.
+                    const usaSouthWest = [28.0, -124.848974]; // SW corner (approx, raised lat)
+                    const usaNorthEast = [49.384358, -66.885444];  // NE corner (approx)
+                    const usaBounds = L.latLngBounds(usaSouthWest, usaNorthEast);
+                    // Fit bounds with a tighter padding after tiles load to zoom in more on the continental USA.
+                    tile.on('load', function() {
+                        try {
+                            // Use a slightly larger pad to keep the view comfortably within the US
+                            _participantsMap.fitBounds(usaBounds.pad(0.04));
+                        } catch (e) {
+                            // fallback to setView if fitBounds fails
+                            _participantsMap.setView([39.8283, -98.5795], 5);
+                        }
+                    });
+                    // Also set max bounds so panning stays roughly within the US region
+                    try { _participantsMap.setMaxBounds(usaBounds.pad(0.35)); } catch (e) {}
+                } catch (e) {
+                    // If anything goes wrong, fall back to centered view
+                    try { _participantsMap.setView([39.8283, -98.5795], 4); } catch (err) {}
+                }
+                // Don't create the heat layer immediately if the container hasn't
+                // been laid out yet (canvas width/height 0 can cause getImageData errors).
+                // Defer creation to ensure the map container has non-zero size.
+                function createHeatLayerIfReady() {
+                    try {
+                        const mapElRect = mapEl.getBoundingClientRect();
+                        if (mapElRect.width > 0 && mapElRect.height > 0) {
+                            if (!_participantsHeatLayer) {
+                                _participantsHeatLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 10 }).addTo(_participantsMap);
+                            }
+                            return true;
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                    return false;
+                }
+
+                // Try to create the heat layer now; if not ready, schedule retries.
+                if (!createHeatLayerIfReady()) {
+                    let attempts = 0;
+                    const maxAttempts = 8;
+                    const tryCreate = function() {
+                        attempts++;
+                        if (createHeatLayerIfReady()) return;
+                        if (attempts < maxAttempts) {
+                            setTimeout(tryCreate, 150 * attempts);
+                        }
+                    };
+                    setTimeout(tryCreate, 120);
+                }
+
+                // Add a small status legend control to the map (bottom-right)
+                try {
+                    function addStatusLegendTo(map) {
+                        if (!map || !L) return;
+                        if (map._statusLegendAdded) return;
+                        const legend = L.control({ position: 'topright' });
+                        legend.onAdd = function () {
+                            const div = L.DomUtil.create('div', 'leaflet-control status-legend');
+                            const rows = [
+                                { color: '#22c55e', label: 'Active' },
+                                { color: '#9ca3af', label: 'Inactive' },
+                                { color: '#3b82f6', label: 'New' },
+                                { color: '#8b5cf6', label: 'Lead' }
+                            ];
+                            rows.forEach(r => {
+                                const item = L.DomUtil.create('div', 'item', div);
+                                const sw = L.DomUtil.create('span', 'swatch', item);
+                                sw.style.background = r.color;
+                                const lbl = L.DomUtil.create('span', 'label', item);
+                                lbl.innerText = r.label;
+                            });
+                            L.DomEvent.disableClickPropagation(div);
+                            return div;
+                        };
+                        legend.addTo(map);
+                        map._statusLegendAdded = true;
+                    }
+                    // Try to add immediately (if map already ready) and also when tiles load
+                    addStatusLegendTo(_participantsMap);
+                    try { tile.on('load', function() { addStatusLegendTo(_participantsMap); }); } catch (e) {}
+                } catch (e) { console.debug('status legend add failed', e); }
+
+                return _participantsMap;
+            }
+
+            // Ensure the heat layer exists; returns a Promise that resolves when created or rejects after retries
+            function ensureParticipantsHeatLayer(retries = 6, delay = 150) {
+                return new Promise((resolve, reject) => {
+                    if (_participantsHeatLayer) return resolve(_participantsHeatLayer);
+                    let attempts = 0;
+                    const tryOnce = () => {
+                        attempts++;
+                        try {
+                            const mapEl = document.getElementById('participants-map');
+                            if (mapEl) {
+                                const rect = mapEl.getBoundingClientRect();
+                                if (rect.width > 0 && rect.height > 0) {
+                                    if (!_participantsHeatLayer && _participantsMap) {
+                                        _participantsHeatLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 10 }).addTo(_participantsMap);
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                        if (_participantsHeatLayer) return resolve(_participantsHeatLayer);
+                        if (attempts >= retries) return reject(new Error('heat layer not ready'));
+                        setTimeout(tryOnce, delay);
+                    };
+                    tryOnce();
+                });
+            }
+
+            // Extract a US state abbreviation from a participant row by checking common keys
+            function extractStateFromRow(row) {
+                if (!row || typeof row !== 'object') return null;
+                const keys = Object.keys(row || {});
+                // common columns
+                const stateKey = keys.find(k => ['state','province','region','State','STATE'].includes(k));
+                if (stateKey && row[stateKey]) {
+                    const v = String(row[stateKey]).trim();
+                    const up = v.toUpperCase();
+                    if (US_STATE_CENTROIDS[up]) return up;
+                    // try abbreviation inside string
+                    const abbrMatch = v.match(/\b([A-Z]{2})\b/);
+                    if (abbrMatch && US_STATE_CENTROIDS[abbrMatch[1]]) return abbrMatch[1];
+                    // try full name
+                    const nm = v.toLowerCase();
+                    if (US_STATE_NAME_TO_ABBR[nm]) return US_STATE_NAME_TO_ABBR[nm];
+                }
+                // fallback: try parsing 'location' or address-like fields
+                const locKey = keys.find(k => ['location','Location','address','city'].includes(k));
+                if (locKey && row[locKey]) {
+                    const s = String(row[locKey]).trim();
+                    // look for ', XX' at end like 'City, ST' or 'City, State'
+                    const m = s.match(/,\s*([A-Za-z]{2})\.?\s*$/);
+                    if (m && m[1]) {
+                        const ab = m[1].toUpperCase();
+                        if (US_STATE_CENTROIDS[ab]) return ab;
+                    }
+                    // try full state name somewhere in the string
+                    Object.keys(US_STATE_NAME_TO_ABBR).forEach(nm => {
+                        if (s.toLowerCase().includes(nm) && !US_STATE_CENTROIDS[US_STATE_NAME_TO_ABBR[nm]]) {
+                            // noop - defensive
+                        }
+                    });
+                    for (const nm in US_STATE_NAME_TO_ABBR) {
+                        if (s.toLowerCase().indexOf(nm) !== -1) return US_STATE_NAME_TO_ABBR[nm];
+                    }
+                }
+                return null;
+            }
+
+            function updateStateCountsFromData(data) {
+                if (!_participantsMap) return;
+                if (!Array.isArray(data) || data.length === 0) {
+                    // clear layer
+                    if (_participantsStateLayer) { _participantsStateLayer.clearLayers(); }
+                    return;
+                }
+                // Aggregate counts per state and per status category
+                const counts = {}; // { 'CA': { active: N, inactive: M, new: K, lead: L } }
+                const statusOf = function(row) {
+                    if (!row) return 'inactive';
+                    const keys = Object.keys(row || {});
+                    const statusKey = keys.find(k => ['status','member_status','membership_status','role','type','membership'].includes(k.toLowerCase()));
+                    let v = null;
+                    if (statusKey) v = String(row[statusKey]).trim().toLowerCase();
+                    // fallback heuristics
+                    if (!v && row.title) v = String(row.title).toLowerCase();
+                    if (!v && row.role) v = String(row.role).toLowerCase();
+                    if (!v) return 'inactive';
+                    if (v.indexOf('lead') !== -1 || v.indexOf('owner') !== -1 || v.indexOf('maintain') !== -1 || v.indexOf('admin') !== -1) return 'lead';
+                    if (v.indexOf('new') !== -1 || v.indexOf('joined') !== -1 || v.indexOf('recent') !== -1) return 'new';
+                    if (v.indexOf('inactive') !== -1 || v.indexOf('former') !== -1 || v.indexOf('left') !== -1) return 'inactive';
+                    if (v.indexOf('active') !== -1 || v.indexOf('member') !== -1 || v.indexOf('contributor') !== -1) return 'active';
+                    // default fallback
+                    return 'inactive';
+                };
+                data.forEach(r => {
+                    try {
+                        const s = extractStateFromRow(r);
+                        if (!s) return;
+                        const stat = statusOf(r) || 'inactive';
+                        counts[s] = counts[s] || { active:0, inactive:0, new:0, lead:0 };
+                        if (!counts[s][stat]) counts[s][stat] = 0;
+                        counts[s][stat] += 1;
+                    } catch (e) {}
+                });
+                // Create or clear state layer
+                if (!_participantsStateLayer) {
+                    _participantsStateLayer = L.layerGroup().addTo(_participantsMap);
+                } else {
+                    _participantsStateLayer.clearLayers();
+                }
+
+                // For visualization, render one small colored bubble per status category per state
+                const STATE_STATUS_COLORS = {
+                    active: '#22c55e',    // green
+                    inactive: '#9ca3af',  // gray
+                    new: '#3b82f6',       // blue
+                    lead: '#8b5cf6'       // purple
+                };
+                const stateKeys = Object.keys(counts);
+                if (stateKeys.length === 0) return;
+                // compute max single-status count for sizing
+                let maxSingle = 0;
+                stateKeys.forEach(ab => {
+                    const s = counts[ab];
+                    Object.keys(s).forEach(k => { if (s[k] > maxSingle) maxSingle = s[k]; });
+                });
+                if (maxSingle === 0) maxSingle = 1;
+
+                // small offset generator so multiple bubbles don't overlap exactly
+                const offsetForIndex = function(i, total) {
+                    const angle = (i / total) * Math.PI * 2 - Math.PI/2;
+                    const dist = 0.25; // degrees ~ small offset
+                    return [Math.sin(angle) * dist, Math.cos(angle) * dist];
+                };
+
+                stateKeys.forEach(ab => {
+                    const info = US_STATE_CENTROIDS[ab];
+                    if (!info) return;
+                    const s = counts[ab];
+                    const statusList = Object.keys(s).filter(k => s[k] > 0);
+                    const totalStatuses = statusList.length || 1;
+                    statusList.forEach((status, idx) => {
+                        const cnt = s[status];
+                        const pct = cnt / maxSingle;
+                        const radius = 5 + Math.round(18 * Math.sqrt(pct));
+                        const color = STATE_STATUS_COLORS[status] || '#6b7280';
+                        // offset the marker slightly so multiple statuses form a small cluster
+                        const off = offsetForIndex(idx, totalStatuses);
+                        const lat = info.lat + off[0];
+                        const lng = info.lng + off[1];
+                        const circle = L.circleMarker([lat, lng], {
+                            radius: radius,
+                            fillColor: color,
+                            color: '#111827',
+                            weight: 1,
+                            opacity: 0.6,
+                            fillOpacity: 0.85
+                        });
+                        // Popup shows state + breakdown for clarity
+                        const popupHtml = `<strong>${escapeHtml(info.name)}</strong><br/>${escapeHtml(status)}: <strong>${cnt}</strong>`;
+                        circle.bindPopup(popupHtml);
+                        _participantsStateLayer.addLayer(circle);
+                    });
+                    // Add a hidden marker at centroid to show full breakdown when clicked
+                    const breakdown = Object.keys(s).map(k => `${k}: ${s[k]}`).join('<br/>');
+                    const centerMarker = L.circleMarker([info.lat, info.lng], { radius: 0.5, opacity: 0 });
+                    centerMarker.bindPopup(`<strong>${escapeHtml(info.name)}</strong><br/>${breakdown}`);
+                    _participantsStateLayer.addLayer(centerMarker);
+                });
+            }
+
+            function updateParticipantsHeatmapFromData(data) {
+                // data: array of participant objects. Look for lat/lng fields (case-insensitive)
+                if (!data || !Array.isArray(data) || data.length === 0) {
+                    // No data: still ensure the map is created so tiles load and the
+                    // "no data" overlay can be shown on top of a real map.
+                    const contEl = document.getElementById('participants-map-container');
+                    if (contEl) contEl.style.display = 'block';
+                    initParticipantsHeatmap();
+                    document.getElementById('participants-map-no-data').style.display = 'flex';
+                    return;
+                }
+
+                // Detect lat/lng keys
+                const sample = data.find(d => d && typeof d === 'object');
+                if (!sample) {
+                    const contEl = document.getElementById('participants-map-container');
+                    if (contEl) contEl.style.display = 'block';
+                    initParticipantsHeatmap();
+                    document.getElementById('participants-map-no-data').style.display = 'flex';
+                    return;
+                }
+
+                const keys = Object.keys(sample).map(k => k.toLowerCase());
+                const originalKeys = Object.keys(sample);
+                const latKey = keys.includes('latitude') ? originalKeys.find(k => k.toLowerCase()==='latitude') : (keys.includes('lat') ? originalKeys.find(k => k.toLowerCase()==='lat') : null);
+                const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : null);
+                const locationKey = keys.includes('location') ? originalKeys.find(k => k.toLowerCase()==='location') : null;
+
+                // Helper: try to parse two numeric coords from a location string
+                function parseLatLngFromLocation(val) {
+                    if (val === null || val === undefined) return null;
+                    const s = String(val).trim();
+                    // common: "lat, lng" or "lat;lng" or "lat lng"
+                    const pair = s.match(/([+-]?\d{1,3}(?:\.\d+)?)[^\d+-]+([+-]?\d{1,3}(?:\.\d+)?)/);
+                    if (pair && pair.length >= 3) {
+                        const la = parseFloat(pair[1]);
+                        const lo = parseFloat(pair[2]);
+                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                    }
+                    // try explicit labels: "lat: X ... lon|lng: Y"
+                    const laMatch = s.match(/lat[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
+                    const loMatch = s.match(/(?:lon|lng|long|longitude)[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
+                    if (laMatch && laMatch[1] && loMatch && loMatch[1]) {
+                        const la = parseFloat(laMatch[1]);
+                        const lo = parseFloat(loMatch[1]);
+                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                    }
+                    return null;
+                }
+
+                // Build heat points [lat, lng, weight]
+                const points = [];
+                data.forEach(r => {
+                    try {
+                        if (latKey && lngKey) {
+                            const lat = parseFloat(r[latKey]);
+                            const lng = parseFloat(r[lngKey]);
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                points.push([lat, lng, 0.8]);
+                                return;
+                            }
+                        }
+                        // Fallback: try parsing a combined 'location' column
+                        if (locationKey) {
+                            const parsed = parseLatLngFromLocation(r[locationKey]);
+                            if (parsed && parsed.length === 2) {
+                                points.push([parsed[0], parsed[1], 0.8]);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore malformed rows
+                    }
+                });
+
+                if (points.length === 0) {
+                    // Ensure map exists so tiles are visible even when there are no points
+                    initParticipantsHeatmap();
+                    document.getElementById('participants-map-no-data').style.display = 'flex';
+                    document.getElementById('participants-map-container').style.display = 'block';
+                    try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch(e){}
+                    return;
+                }
+
+                document.getElementById('participants-map-no-data').style.display = 'none';
+                document.getElementById('participants-map-container').style.display = 'block';
+                initParticipantsHeatmap();
+                // Ensure the heat layer exists and the map container has non-zero size
+                ensureParticipantsHeatLayer().then(() => {
+                    try {
+                        _participantsHeatLayer.setLatLngs(points);
+                    } catch (e) {
+                        console.warn('Failed to set heat layer latlngs', e);
+                    }
+                }).catch(err => {
+                    console.warn('Heat layer not ready, skipping setLatLngs', err);
+                });
+                // After making the container visible, invalidate size so Leaflet can render correctly,
+                // then fit bounds to the points. Use a short timeout to allow the DOM to layout.
+                // attempt invalidateSize + fitBounds with retries to handle late layout/styling changes
+                (function tryInvalidate(retriesLeft, delay){
+                    setTimeout(() => {
+                        try {
+                            if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') {
+                                _participantsMap.invalidateSize();
+                            }
+                            // small nudge: panBy then pan back to force repaint of tiles in some browsers
+                            try { if (_participantsMap && typeof _participantsMap.panBy === 'function') { _participantsMap.panBy([1,0]); _participantsMap.panBy([-1,0]); } } catch(e){}
+                            // Use current heat layer latlngs if available
+                            let latLngs = [];
+                            try {
+                                if (_participantsHeatLayer && typeof _participantsHeatLayer.getLatLngs === 'function') {
+                                    latLngs = _participantsHeatLayer.getLatLngs();
+                                    if (!Array.isArray(latLngs) || !latLngs.length || !Array.isArray(latLngs[0])) {
+                                        latLngs = points.map(p => [p[0], p[1]]);
+                                    }
+                                } else {
+                                    latLngs = points.map(p => [p[0], p[1]]);
+                                }
+                            } catch (e) {
+                                latLngs = points.map(p => [p[0], p[1]]);
+                            }
+
+                            if (latLngs && latLngs.length) {
+                                const bounds = L.latLngBounds(latLngs);
+                                _participantsMap.fitBounds(bounds.pad(0.25));
+                            }
+                        } catch (e) {
+                            // ignore
+                        }
+                        if (retriesLeft > 0) tryInvalidate(retriesLeft - 1, Math.min(600, delay * 2));
+                    }, delay || 120);
+                })(4, 100);
+            }
+
+            // Toggle control
+            document.addEventListener('click', function(e){
+                if (e.target && (e.target.id === 'toggle-heatmap-btn' || e.target.id === 'toggle-state-counts-btn')) {
+                        const id = e.target.id;
+                        if (id === 'toggle-heatmap-btn') {
+                            heatmapVisible = !heatmapVisible;
+                            const cont = document.getElementById('participants-map-container');
+                            const mapEl = document.getElementById('participants-map');
+                            const noDataEl = document.getElementById('participants-map-no-data');
+                            if (!cont || !mapEl) return;
+                            // Keep the container and controls visible; hide only the map pane so the toggle button remains accessible
+                            if (heatmapVisible) {
+                                mapEl.style.display = 'block';
+                                if (noDataEl) noDataEl.style.display = 'none';
+                                e.target.textContent = 'Hide map';
+                                setTimeout(() => {
+                                    try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch (err){}
+                                }, 120);
+                            } else {
+                                // hide the map area but keep controls
+                                mapEl.style.display = 'none';
+                                if (noDataEl) noDataEl.style.display = 'none';
+                                e.target.textContent = 'Show map';
+                            }
+                        } else if (id === 'toggle-state-counts-btn') {
+                            // Toggle the state counts overlay visibility
+                            try {
+                                if (!_participantsStateLayer) {
+                                    // If layer not created yet, create it from current data
+                                    updateStateCountsFromData(window.participantsData || []);
+                                }
+                                const btn = e.target;
+                                // If layer exists and has layers, we consider it visible
+                                const isVisible = _participantsStateLayer && _participantsStateLayer.getLayers && _participantsStateLayer.getLayers().length > 0 && _participantsMap && _participantsMap.hasLayer && _participantsMap.hasLayer(_participantsStateLayer);
+                                if (isVisible) {
+                                    try { if (_participantsMap && _participantsStateLayer) _participantsMap.removeLayer(_participantsStateLayer); } catch(e){}
+                                    btn.textContent = 'Show states';
+                                } else {
+                                    try { if (_participantsMap && _participantsStateLayer) _participantsStateLayer.addTo(_participantsMap); } catch(e){}
+                                    btn.textContent = 'Hide states';
+                                    // Ensure map redraw
+                                    setTimeout(() => { try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch(e){} }, 120);
+                                }
+                            } catch (err) {
+                                console.debug('state counts toggle failed', err);
+                            }
+                        }
+                    }
+            });
         const GEMINI_API_BASE = 'http://localhost:8081/api';
         
         // AI Insights variables
@@ -5263,6 +5923,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             window.participantsData = preprocessedData;
             allRowsData = preprocessedData;
             originalDataOrder = [...preprocessedData]; // Store original order
+            // Initialize heatmap if lat/lng fields exist
+            try { updateParticipantsHeatmapFromData(preprocessedData); } catch (e) { console.debug('heatmap init failed', e); }
+            // Also update per-state counts overlay from the same preprocessed data
+            try { updateStateCountsFromData(preprocessedData); } catch (e) { console.debug('state counts init failed', e); }
             
             // Update Raw Data Editor with preprocessed data if it's currently visible
             if (rawDataVisible) {
@@ -6978,6 +7642,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 } catch (error) {
                     console.error('❌ Error updating group highlighting:', error);
                 }
+                // Update heatmap from filtered data (full filtered set, not just paginated)
+                    try { updateParticipantsHeatmapFromData(filteredData); } catch (e) { console.debug('heatmap update failed', e); }
+                    // Update per-state counts overlay as well
+                    try { updateStateCountsFromData(filteredData); } catch (e) { console.debug('state counts update failed', e); }
             }, 100);
             
             console.log('🏁 applyAllFilters completed successfully');
