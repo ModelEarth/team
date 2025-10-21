@@ -1304,6 +1304,11 @@
             padding-top: 0 !important;
             margin-bottom: 12px !important;
             display: none !important; /* Hidden by default */
+
+            background: var(--bg-primary);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border-light);
         }
         
         /* Column View (Default) - Using table-list style */
@@ -2002,7 +2007,7 @@
 
         .insight-button-group {
             display: flex;
-            gap: 8px;
+            gap: 1px;
             align-items: center;
             background: var(--bg-tertiary);
             border-radius: 12px;
@@ -2023,15 +2028,30 @@
             flex: 1;
         }
 
+        /* When refresh button is visible, adjust border radius for tighter connection */
+        .insight-button-group .btn:has(+ .refresh-btn:not([style*="display: none"])),
+        .insight-button-group .btn:has(+ .refresh-btn[style*="display: block"]),
+        .insight-button-group .btn:has(+ .refresh-btn[style=""]) {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .insight-button-group .refresh-btn:not([style*="display: none"]),
+        .insight-button-group .refresh-btn[style*="display: block"],
+        .insight-button-group .refresh-btn[style=""] {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
         .refresh-btn {
             width: 40px;
-            height: 40px;
+            height: 34px;
             min-width: 40px;
             max-width: 40px;
             padding: 0;
             margin: 0;
             border-radius: 6px;
-            background: var(--accent-blue);
+            background: transparent;
             color: white;
             border: 1px solid var(--bg-secondary);
             display: flex;
@@ -2072,13 +2092,6 @@
 
         .ai-icon {
             font-size: 24px;
-        }
-
-        .insights-content {
-            background: var(--bg-primary);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            border: 1px solid var(--border-light);
         }
 
         .loading-status {
