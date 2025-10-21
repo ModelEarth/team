@@ -27,7 +27,6 @@ function mapWidgetChange() {
         }
     }
 }
-
 class ListingsDisplay {
 
     constructor(options = {}) {
@@ -2122,7 +2121,6 @@ function initializeWidget() {
     if (localwidgetElement && !window.listingsApp) {
         window.listingsApp = new ListingsDisplay();
     }
-    
     // Create unified global myHero function for all pages
     window.myHero = function(heroDiv, chartTypes) {
         // Default chartTypes based on page type
