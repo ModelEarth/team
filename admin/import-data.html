@@ -491,12 +491,6 @@
             display: flex;
             gap: 8px;
             align-items: center;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            padding: 8px;
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
         }
 
         .insight-button-group:hover {
@@ -2864,7 +2858,7 @@ Keep the response structured and actionable for a data import workflow.`;
                 `;
                 
                 let html = `
-                    <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
+                    <div class="insight-section" style="padding-bottom:6px; margin-bottom:6px;">
                         <strong>📊 Gemini Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
                         ${isCached ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px; cursor: pointer; text-decoration: underline;" onclick="showRawMarkdown(\'gemini\')">💾 Cached Gemini Analysis</span>' : ''}
                         ${isNewAnalysis ? '<span style="color: var(--accent-green); font-size: 12px; margin-left: 8px;">✨ New Analysis</span>' : ''}

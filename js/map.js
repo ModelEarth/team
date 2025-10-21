@@ -208,6 +208,10 @@ class ListingsDisplay {
         let showConfig = this.showConfigs[this.currentShow];
         
         let alwaysLoadSomething = false;
+        if (window.param.showmap != "false") {
+            alwaysLoadSomething = true;
+        }
+        //alert(alwaysLoadSomething); // Hmm, this is also true for tabs. Figure out if we need alwaysLoadSomething.
         if (!showConfig && alwaysLoadSomething) { // AVOIDING, ELSE TABS ALWAYS SHOW THE FIRST MAP
             
             // If requested list not found, use the first available list
@@ -312,7 +316,7 @@ class ListingsDisplay {
     }
 
     createMockData(config) {
-        alert("this.currentShow " + this.currentShow )
+        console.log("createMockData() this.currentShow " + this.currentShow );
         if (this.currentShow === 'cities') {
             // Create more mock data to test pagination
             const cities = [];
@@ -816,6 +820,14 @@ class ListingsDisplay {
     }
 
     filterListings() {
+        // Check if Leaflet map is currently animating to avoid DOM conflicts
+        if (window.leafletMap && window.leafletMap.map && 
+            (window.leafletMap.map._animatingZoom || window.leafletMap.map._zooming)) {
+            // Defer filtering until animation completes
+            setTimeout(() => this.filterListings(), 100);
+            return;
+        }
+        
         // Store current focus state
         const activeElement = document.activeElement;
         const wasSearchInputFocused = activeElement && activeElement.id === 'searchInput';
@@ -901,21 +913,35 @@ class ListingsDisplay {
         } else {
             this.searchFields.add(field);
         }
+        this.updateSelectAllButtonText();
         this.filterListings();
     }
 
     useConfigSearchFields() {
-        this.searchFields.clear();
-        if (this.config && this.config.search) {
-            Object.values(this.config.search).forEach(field => {
-                this.searchFields.add(field);
-            });
+        // If more than 2 fields are selected, unselect all. Otherwise, select all.
+        if (this.searchFields.size > 2) {
+            this.searchFields.clear();
         } else {
-            this.availableFields.forEach(field => {
-                this.searchFields.add(field);
-            });
+            this.searchFields.clear();
+            if (this.config && this.config.search) {
+                Object.values(this.config.search).forEach(field => {
+                    this.searchFields.add(field);
+                });
+            } else {
+                this.availableFields.forEach(field => {
+                    this.searchFields.add(field);
+                });
+            }
         }
+        this.updateSelectAllButtonText();
         this.filterListings();
+    }
+
+    updateSelectAllButtonText() {
+        const selectAllBtn = document.querySelector('.select-all-btn');
+        if (selectAllBtn) {
+            selectAllBtn.textContent = this.searchFields.size > 2 ? 'Unselect' : 'Select All';
+        }
     }
 
     toggleSearchPopup() {
@@ -983,7 +1009,7 @@ class ListingsDisplay {
             <div class="search-fields-popup">
                 <div class="search-fields-header">
                     <span style="padding-right:10px">Filter by:</span>
-                    <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">Select All</button>
+                    <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">${this.searchFields.size > 2 ? 'Unselect' : 'Select All'}</button>
                 </div>
                 <div class="search-fields-list">
                     ${Array.from(this.availableFields).map(field => `
@@ -1032,14 +1058,40 @@ class ListingsDisplay {
         */
     }
 
-    setupEventListeners() {
+    attachSearchInputListener() {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
+            // Remove any existing listener to avoid duplicates
+            searchInput.removeEventListener('input', this.searchInputHandler);
+            // Create bound handler for removal later
+            this.searchInputHandler = (e) => {
                 this.searchTerm = e.target.value;
-                this.filterListings();
-            });
+                
+                const now = Date.now();
+                const timeSinceLastInput = this.lastInputTime ? now - this.lastInputTime : 1000;
+                this.lastInputTime = now;
+                
+                // Clear any existing timeout
+                if (this.filterTimeout) {
+                    clearTimeout(this.filterTimeout);
+                }
+                
+                // If typing rapidly (less than 100ms since last input), add delay
+                // Otherwise filter immediately
+                if (timeSinceLastInput < 100) {
+                    this.filterTimeout = setTimeout(() => {
+                        this.filterListings();
+                    }, 50);
+                } else {
+                    this.filterListings();
+                }
+            };
+            searchInput.addEventListener('input', this.searchInputHandler);
         }
+    }
+
+    setupEventListeners() {
+        this.attachSearchInputListener();
 
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
@@ -1396,8 +1448,10 @@ class ListingsDisplay {
                 </div>
             </div>`
 
+        // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
+        // X added to temp disable until g.org removes showheader=false
         mapwidget.innerHTML = `
-            ${ window.param.showmapselect != "false" ? localwidgetHeader : '' }
+            ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
             <!-- Widget Hero Container -->
             <div id="widgetHero"></div>
                 
@@ -1538,6 +1592,9 @@ class ListingsDisplay {
             
             // Set up essential event listeners that don't cause multiple triggers
             const showSelect = document.getElementById('mapDataSelect');
+            
+            // Re-attach search input listener after render (lost when DOM updates)
+            this.attachSearchInputListener();
             if (showSelect) {
                 showSelect.addEventListener('change', (e) => {
                     goHash({'map':e.target.value});

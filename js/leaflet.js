@@ -1094,7 +1094,7 @@ class LeafletMapManager {
             .mapPopButton {
                 background: rgba(0, 0, 0, 0.8);
                 color: white;
-                padding: 4px 8px;
+                padding: 4px;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 500;
@@ -1220,18 +1220,6 @@ class LeafletMapManager {
             .zoom-level-item.active {
                 background: rgba(255, 255, 255, 0.3);
                 font-weight: 600;
-            }
-            
-            .map-style-select {
-                padding: 0px 3px !important;
-            }
-            .map-style-selectXX {
-                border: none;
-                background: none;
-                font-size: 12px;
-                padding: 2px;
-                outline: none;
-                cursor: pointer;
             }
             
             /* Custom Marker Styles */

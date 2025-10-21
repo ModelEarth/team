@@ -1300,11 +1300,8 @@
         }
         
         #aiInsights {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-            margin-bottom: 12px !important;
-            display: none !important; /* Hidden by default */
-
+            margin-bottom: 12px;
+            display: none; /* Hidden by default */
             background: var(--bg-primary);
             border-radius: var(--radius-md);
             padding: 16px;
@@ -2009,12 +2006,6 @@
             display: flex;
             gap: 1px;
             align-items: center;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            padding: 8px;
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
         }
 
         .insight-button-group:hover {
@@ -2051,7 +2042,6 @@
             padding: 0;
             margin: 0;
             border-radius: 6px;
-            background: transparent;
             color: white;
             border: 1px solid var(--bg-secondary);
             display: flex;
@@ -2067,7 +2057,6 @@
 
         .refresh-btn:hover {
             background: #2563EB;
-            transform: scale(1.05);
             box-shadow: var(--shadow-md);
         }
 
@@ -3408,6 +3397,28 @@
                 geminiText.textContent = hasGeminiCache ? 'Gemini Insights (Cached)' : 'Gemini Insights';
                 geminiRefresh.style.display = hasGeminiCache ? 'flex' : 'none';
                 // Don't auto-highlight - highlighting only shows the currently displayed insights
+            }
+            
+            // If aiInsights panel is visible and there are cached insights, show one that corresponds to highlighted button
+            const aiInsights = document.getElementById('aiInsights');
+            if (aiInsights && window.getComputedStyle(aiInsights).display === 'block') {
+                // Check which button is currently highlighted (has cached-insights class)
+                const claudeHighlighted = claudeBtn && claudeBtn.classList.contains('cached-insights');
+                const geminiHighlighted = geminiBtn && geminiBtn.classList.contains('cached-insights');
+                
+                if (claudeHighlighted && hasClaudeCache) {
+                    // Claude is highlighted and has cache - display it
+                    displayCachedInsights(cacheKey, 'claude');
+                } else if (geminiHighlighted && hasGeminiCache) {
+                    // Gemini is highlighted and has cache - display it
+                    displayCachedInsights(cacheKey, 'gemini');
+                } else if (hasClaudeCache && !geminiHighlighted) {
+                    // No specific highlight but Claude has cache - display Claude as default
+                    displayCachedInsights(cacheKey, 'claude');
+                } else if (hasGeminiCache && !claudeHighlighted) {
+                    // No specific highlight but Gemini has cache - display Gemini as default
+                    displayCachedInsights(cacheKey, 'gemini');
+                }
             }
             // Intentionally do not auto-open contributions panel; user must click to view it
         }

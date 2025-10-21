@@ -17,16 +17,6 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
             crossorigin="" id="/localsite/js/leaflet.js"></script>
     <style>
-    /*
-    #upIconTrayText {
-        display: none;
-    }
-    .map-style-selector {
-        background: none !important;
-        box-shadow: none !important;
-    }
-    */
-
     .map-style-selectXX {
         padding: 4px 8px !important;
         max-width: 120px !important;
@@ -46,7 +36,7 @@
 
     <script type="text/javascript" src="../../js/common.js" id="/team/js/common.js"></script>
     <script type="text/javascript" src="../../js/print-download.js"></script>
-    <script type="text/javascript" src="../../js/map.js?showmap=true" id="/team/js/map.js"></script><!-- ?loadMapData=true -->
+    <script type="text/javascript" src="../../js/map.js?showmap=true&map=cities.us&source=trade.json" id="/team/js/map.js"></script><!-- ?loadMapData=true -->
     <script>
         //loadTeamDataForLookup();
     </script>
@@ -59,10 +49,12 @@
 <body>
     <div class="container">
         <div id="mapwidget">
+            <!--
             <div class="loading">
                 <div class="spinner"></div>
                 <p>Loading listings....</p>
             </div>
+            -->
         </div>
     </div>
 
