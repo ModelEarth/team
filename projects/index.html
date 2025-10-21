@@ -201,6 +201,41 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
+        /* Contributors row styling for submodule cards
+           Use margin-top: auto so the contributors row sits at the bottom
+           of the card when the card is a column flex container. */
+        .contributors-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: auto;
+            padding-top: 12px; /* visual spacing above the row */
+            flex-wrap: wrap;
+        }
+        .contributors-row img {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            transition: transform 0.12s ease;
+        }
+        .contributors-row a:hover img { transform: translateY(-2px); }
+        .contributors-row .contrib-more {
+            transition: transform 0.12s ease;
+        }
+        .contributors-row a:hover .contrib-more { transform: translateY(-2px); }
+
+        /* Make submodule cards column flex containers so we can pin
+           the contributors row to the bottom of the card. */
+        .submodule-card {
+            display: flex;
+            flex-direction: column;
+        }
+        .submodule-card .card-body {
+            flex: 1 1 auto;
+        }
+        
         /* Snapshot dropdown specific styling */
         #snapshot {
             width: auto;
@@ -2876,6 +2911,14 @@
                         errDiv.style.color = 'var(--text-danger)';
                         errDiv.textContent = 'Network error: ' + String(entry.err);
                         card.appendChild(errDiv);
+                        // Also fetch contributors for repos with zero PRs so the
+                        // contributors row appears on every card.
+                        try {
+                            fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                        } catch (e) {
+                            console.warn('contributors: failed to init fetch', e);
+                        }
+
                         cardsContainer.appendChild(card);
                         continue;
                     }
@@ -3010,6 +3053,14 @@
                             // non-fatal; keep the empty card for repos without PRs
                         }
 
+                        // Also fetch contributors for repos with zero PRs so the
+                        // contributors row appears on every card.
+                        try {
+                            fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                        } catch (e) {
+                            console.warn('contributors: failed to init fetch', e);
+                        }
+
                         cardsContainer.appendChild(card);
                         continue;
                     }
@@ -3139,8 +3190,21 @@
 
                     cardBody.appendChild(prListWrap);
                     card.appendChild(cardBody);
+
                     // mark card with PR count for filtering
                     try { card.dataset.prCount = String(prs.length); card.dataset.hasPrs = prs.length > 0 ? 'true' : 'false'; } catch(e){}
+
+                    // Try to fetch and render contributors for this repository (non-blocking)
+                    // We call this just before appending the card so the contributors
+                    // container becomes the bottom-most element and can be pinned there
+                    // by CSS (using margin-top: auto).
+                    try {
+                        // fire-and-forget; helper will append UI into the card when available
+                        fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                    } catch (e) {
+                        console.warn('contributors: failed to init fetch', e);
+                    }
+
                     cardsContainer.appendChild(card);
                 }
                 // Replace container content with the constructed nodes
@@ -3197,6 +3261,111 @@
                 if (val >= 1) return `${val} ${name}${val > 1 ? 's' : ''} ago`;
             }
             return 'just now';
+        }
+
+        // Fetch and render contributors into the provided card element.
+        // Uses sessionToken (if provided) for authenticated requests to avoid rate limits.
+        async function fetchAndRenderContributors(owner, repo, cardEl, sessionToken) {
+            if (!owner || !repo || !cardEl) return;
+
+            const container = document.createElement('div');
+            container.className = 'contributors-row';
+            container.style.marginTop = '12px';
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.gap = '8px';
+            container.style.flexWrap = 'wrap';
+
+            const label = document.createElement('div');
+            label.textContent = 'Contributors:';
+            label.style.fontSize = '13px';
+            label.style.color = 'var(--text-secondary)';
+            label.style.fontWeight = '600';
+            container.appendChild(label);
+
+            const list = document.createElement('div');
+            list.style.display = 'flex';
+            list.style.gap = '6px';
+            list.style.alignItems = 'center';
+            container.appendChild(list);
+
+            // Append container to card (below existing content)
+            try { cardEl.appendChild(container); } catch(e){}
+
+            const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors?per_page=10`;
+            const headers = Object.assign({}, { Accept: 'application/vnd.github.v3+json' });
+            if (sessionToken) headers.Authorization = `token ${sessionToken}`;
+
+            try {
+                const res = await fetch(apiUrl, { headers });
+                if (!res.ok) {
+                    // Do not show error UI; silently return
+                    return;
+                }
+                const contributors = await res.json();
+                if (!Array.isArray(contributors) || contributors.length === 0) return;
+
+                // Optional debug: set sessionStorage.setItem('debug_contribs','1') to enable
+                try {
+                    if (sessionStorage.getItem && sessionStorage.getItem('debug_contribs') === '1') {
+                        console.debug('[debug_contribs] fetched', owner + '/' + repo, 'contributors:', contributors.length);
+                    }
+                } catch (e) {}
+
+                // Show top 5 contributors with an overflow indicator like GitHub
+                const totalContribs = contributors.length;
+                const topN = 5;
+                contributors.slice(0, topN).forEach(c => {
+                    const a = document.createElement('a');
+                    a.href = c.html_url || `https://github.com/${c.login}`;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.title = `${c.login} — ${c.contributions || ''} contributions`;
+
+                    const avatar = document.createElement('img');
+                    avatar.src = c.avatar_url;
+                    avatar.alt = c.login;
+                    avatar.style.width = '28px';
+                    avatar.style.height = '28px';
+                    avatar.style.borderRadius = '50%';
+                    avatar.style.border = '1px solid rgba(0,0,0,0.05)';
+                    avatar.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+
+                    a.appendChild(avatar);
+                    list.appendChild(a);
+                });
+
+                if (totalContribs > topN) {
+                    const remaining = totalContribs - topN;
+                    const moreLink = document.createElement('a');
+                    moreLink.href = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/graphs/contributors`;
+                    moreLink.target = '_blank';
+                    moreLink.rel = 'noopener noreferrer';
+                    moreLink.title = `${remaining} more contributors`;
+
+                    const more = document.createElement('div');
+                    more.className = 'contrib-more';
+                    more.textContent = `+${remaining}`;
+                    more.style.display = 'inline-flex';
+                    more.style.alignItems = 'center';
+                    more.style.justifyContent = 'center';
+                    more.style.width = '28px';
+                    more.style.height = '28px';
+                    more.style.borderRadius = '50%';
+                    more.style.background = 'linear-gradient(135deg, #eef2ff, #e0f2fe)';
+                    more.style.color = '#0f172a';
+                    more.style.fontSize = '12px';
+                    more.style.fontWeight = '600';
+                    more.style.border = '1px solid rgba(0,0,0,0.06)';
+                    more.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+
+                    moreLink.appendChild(more);
+                    list.appendChild(moreLink);
+                }
+            } catch (e) {
+                // ignore fetch errors
+                console.warn('contributors: fetch error', owner, repo, e);
+            }
         }
 
         // PR filters for submodule cards
@@ -6231,40 +6400,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         function applyAllFilters() {
-            console.log('🔄 applyAllFilters called');
-            console.log('📊 allRowsData:', allRowsData);
-            console.log('📏 allRowsData length:', allRowsData ? allRowsData.length : 'undefined');
             
             if (!allRowsData || allRowsData.length === 0) {
                 console.warn('⚠️ applyAllFilters called but allRowsData is empty or undefined');
-                console.log('🔍 Current state - selectedStatuses:', selectedStatuses);
-                console.log('🔍 Current state - currentTeamFilter:', currentTeamFilter);
-                console.log('🔍 Current state - showOnlyGroup:', showOnlyGroup);
                 return;
             }
-            
-            console.log('🏁 Starting filter process with', allRowsData.length, 'participants');
+
             let filteredData = [...allRowsData];
-            console.log('📋 Initial filteredData length:', filteredData.length);
             
             // Apply group participants filter first if active
             // This ensures team filtering can work on the group subset
             if (showOnlyGroup) {
-                console.log('🔍 Applying group participants filter. Group participants:', Array.from(groupParticipants));
                 const beforeGroupFilter = filteredData.length;
                 filteredData = filteredData.filter(participant => {
                     const name = getParticipantName(participant);
-                    const passes = Array.from(groupParticipants).some(groupName => 
+                    return Array.from(groupParticipants).some(groupName => 
                         groupName.toLowerCase() === name.toLowerCase()
                     );
-                    if (!passes) {
-                        console.log('❌ Participant filtered out by group status:', name);
-                    }
-                    return passes;
                 });
-                console.log('📊 Group filter result:', beforeGroupFilter, '→', filteredData.length);
-            } else {
-                console.log('⏭️ Skipping group participants filter (not active)');
             }
             
             // Apply team filter if active (works on group-filtered results if group filter is active)
@@ -6987,17 +7140,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             lastPreprocessTime = now;
             
-            console.log('🔄 preprocessParticipantData called, count:', preprocessCallCount);
-            console.log('📊 Processing', participants.length, 'participants');
-            console.log('🔍 First participant sample:', participants[0]);
-            console.log('🔍 Second participant sample:', participants[1]);
-            console.log('🔍 Last participant sample:', participants[participants.length - 1]);
-            
+            // preprocessParticipantData called (debug logs removed for production)
             return participants.map((participant, index) => {
-                // Debug first few and last few rows
-                if (index < 3 || index > participants.length - 3) {
-                    console.log(`🔍 Processing participant ${index}:`, participant);
-                }
                 
                 // Create a new object to maintain original data
                 const processed = {};
@@ -7808,7 +7952,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function exportParticipantsCSV() {
             console.log('exportParticipantsCSV called');
-            console.log('window.participantsData:', window.participantsData);
             console.log('allRowsData:', allRowsData);
             
             if (!window.participantsData || window.participantsData.length === 0) {
