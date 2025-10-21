@@ -16,12 +16,12 @@ body {
     background-color: #f5f5f5;
     color: #333;
 }
-
+/* messes with Drupal
 .container {
     max-width: 1200px;
     margin: 0 auto;
 }
-
+*/
 .widgetHeader {
     margin-bottom: 24px;
 }

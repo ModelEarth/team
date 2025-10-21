@@ -114,10 +114,8 @@ class ListingsDisplay {
 
     async init() {
         
-        this.showLoadingState("Loading Dataset Choices");
+        //this.showLoadingState("Loading Dataset Choices");
         await this.loadShowConfigs();
-        
-        this.showLoadingState("Loading listings...");
         
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
@@ -131,6 +129,7 @@ class ListingsDisplay {
         //alert("fromHash " + fromHash)
 
         if (fromHash || window.param.map) {
+            this.showLoadingState("Loading listings...");
             await this.loadShowData();
         //} else if (loadMapDataParam) { // Checks for map.js?showmap=true
         } 
@@ -1131,9 +1130,9 @@ class ListingsDisplay {
         });
 
         document.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
             if (e.target.closest(".details-toggle")) {
+                e.preventDefault();
+                e.stopPropagation();
                 const toggle = e.target.closest('.details-toggle');
                 const content = toggle.nextElementSibling;
                 const arrow = toggle.querySelector('.toggle-arrow');
