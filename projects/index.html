@@ -1335,10 +1335,12 @@
         }
         
         #aiInsights {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-            margin-bottom: 12px !important;
-            display: none !important; /* Hidden by default */
+            margin-bottom: 12px;
+            display: none; /* Hidden by default */
+            background: var(--bg-primary);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border-light);
         }
         
         /* Column View (Default) - Using table-list style */
@@ -2037,14 +2039,8 @@
 
         .insight-button-group {
             display: flex;
-            gap: 8px;
+            gap: 1px;
             align-items: center;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            padding: 8px;
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
         }
 
         .insight-button-group:hover {
@@ -2058,15 +2054,29 @@
             flex: 1;
         }
 
+        /* When refresh button is visible, adjust border radius for tighter connection */
+        .insight-button-group .btn:has(+ .refresh-btn:not([style*="display: none"])),
+        .insight-button-group .btn:has(+ .refresh-btn[style*="display: block"]),
+        .insight-button-group .btn:has(+ .refresh-btn[style=""]) {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .insight-button-group .refresh-btn:not([style*="display: none"]),
+        .insight-button-group .refresh-btn[style*="display: block"],
+        .insight-button-group .refresh-btn[style=""] {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
         .refresh-btn {
             width: 40px;
-            height: 40px;
+            height: 34px;
             min-width: 40px;
             max-width: 40px;
             padding: 0;
             margin: 0;
             border-radius: 6px;
-            background: var(--accent-blue);
             color: white;
             border: 1px solid var(--bg-secondary);
             display: flex;
@@ -2082,7 +2092,6 @@
 
         .refresh-btn:hover {
             background: #2563EB;
-            transform: scale(1.05);
             box-shadow: var(--shadow-md);
         }
 
@@ -2107,13 +2116,6 @@
 
         .ai-icon {
             font-size: 24px;
-        }
-
-        .insights-content {
-            background: var(--bg-primary);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            border: 1px solid var(--border-light);
         }
 
         .loading-status {
@@ -2373,7 +2375,7 @@
             </p>
         </div>
 
-        <div id="teamwidget"></div>
+        <div id="mapwidget"></div>
 
         <!-- Top Message Display Area -->
         <div id="top-message-area" style="display: none; margin-bottom: 20px;">
@@ -3564,6 +3566,28 @@
                 geminiText.textContent = hasGeminiCache ? 'Gemini Insights (Cached)' : 'Gemini Insights';
                 geminiRefresh.style.display = hasGeminiCache ? 'flex' : 'none';
                 // Don't auto-highlight - highlighting only shows the currently displayed insights
+            }
+            
+            // If aiInsights panel is visible and there are cached insights, show one that corresponds to highlighted button
+            const aiInsights = document.getElementById('aiInsights');
+            if (aiInsights && window.getComputedStyle(aiInsights).display === 'block') {
+                // Check which button is currently highlighted (has cached-insights class)
+                const claudeHighlighted = claudeBtn && claudeBtn.classList.contains('cached-insights');
+                const geminiHighlighted = geminiBtn && geminiBtn.classList.contains('cached-insights');
+                
+                if (claudeHighlighted && hasClaudeCache) {
+                    // Claude is highlighted and has cache - display it
+                    displayCachedInsights(cacheKey, 'claude');
+                } else if (geminiHighlighted && hasGeminiCache) {
+                    // Gemini is highlighted and has cache - display it
+                    displayCachedInsights(cacheKey, 'gemini');
+                } else if (hasClaudeCache && !geminiHighlighted) {
+                    // No specific highlight but Claude has cache - display Claude as default
+                    displayCachedInsights(cacheKey, 'claude');
+                } else if (hasGeminiCache && !claudeHighlighted) {
+                    // No specific highlight but Gemini has cache - display Gemini as default
+                    displayCachedInsights(cacheKey, 'gemini');
+                }
             }
             // Intentionally do not auto-open contributions panel; user must click to view it
         }

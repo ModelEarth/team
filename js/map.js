@@ -1,20 +1,35 @@
 //  1. Stores the int_required filtered data in DOM storage only once on initial load
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
+
+if (typeof window.param !== 'undefined') {
+    //alert("window.param is available in map.js and window.param.map is: " + window.param.map)
+}
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
-    mapWidgetChange();
+    waitForElm('#mapwidget').then((elm) => {
+        mapWidgetChange();
+    });
 }, false);
 function mapWidgetChange() {
     let hash = getHash();
+    //let currentMap = hash.map || window.param.map;
     if (hash.map != priorHash.map) {
-        //if (hash.map && window.listingsApp) { // Would rather see an error
-        if (hash.map) {
-            window.listingsApp.changeShow(hash.map);
+        if (!hash.map) {
+            // Hide #mapwidget here. First rename #widgetwidget to something distinct
+        } else {
+            // Check if listingsApp exists before calling changeShow
+            if (hash.map && window.listingsApp && typeof window.listingsApp.changeShow === 'function') {
+                window.listingsApp.changeShow(hash.map);
+            } else {
+                console.log("Maybe no changeShow function yet. currentMap: " + currentMap);
+            }
         }
     }
 }
+
 class ListingsDisplay {
+
     constructor(options = {}) {
         this.listings = [];
         this.filteredListings = [];
@@ -26,7 +41,7 @@ class ListingsDisplay {
         this.enableStateFiltering = false;
         this.usingEmbeddedList = false;
         this.showConfigs = {};
-        this.currentShow = this.getInitialShow();
+        this.currentShow = this.getCurrentList();
         this.currentPage = 1;
         this.itemsPerPage = 500;
         this.searchFields = new Set();
@@ -98,10 +113,9 @@ class ListingsDisplay {
     }
 
     async init() {
-        this.showLoadingState("Loading Dataset Choices");
-        await this.loadShowConfigs();
         
-        this.showLoadingState("Loading listings...");
+        //this.showLoadingState("Loading Dataset Choices");
+        await this.loadShowConfigs();
         
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
@@ -109,25 +123,34 @@ class ListingsDisplay {
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
         // Use param object (set in localsite.js) instead of checking script URL directly
-        const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
+        //const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
+        
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
-        if (fromHash) {
+        if (fromHash || window.param.map) {
+            this.showLoadingState("Loading listings...");
             await this.loadShowData();
-        } else if (loadMapDataParam) { // Checks for map.js?showmap=true
+        //} else if (loadMapDataParam) { // Checks for map.js?showmap=true
+        } 
+
+        /*
+        else if (window.param.map) {
+            hash.map = window.param.map;
+            alert("hash.map " + hash.map)
             await this.loadShowData();
             
             //this.updateUrlHash(this.currentShow); // Use updateHash instead to avoid triggering
         }
-        
+        */
+
         //this.render();
         this.setupEventListeners();
     }
     
     showLoadingState(message) {
-        const teamwidget = document.getElementById('teamwidget');
-        teamwidget.innerHTML = `
+        const mapwidget = document.getElementById('mapwidget');
+        mapwidget.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
                 <p>${message}</p>
@@ -160,9 +183,9 @@ class ListingsDisplay {
         // Fallback to embedded show.json configuration
         this.showConfigs = {
                 "cities": {
-                    "shortTitle": "Team Locations",
-                    "listTitle": "Team Locations",
-                    "dataTitle": "Team Locations",
+                    "shortTitle": "Team Locations (fallback)",
+                    "listTitle": "Team Locations (fallback)",
+                    "dataTitle": "Team Locations (fallback)",
                     "datatype": "csv",
                     "dataset": "cities.csv",
                     "markerType": "google",
@@ -183,7 +206,13 @@ class ListingsDisplay {
         
         let showConfig = this.showConfigs[this.currentShow];
         
-        if (!showConfig) {
+        let alwaysLoadSomething = false;
+        if (window.param.showmap != "false") {
+            alwaysLoadSomething = true;
+        }
+        //alert(alwaysLoadSomething); // Hmm, this is also true for tabs. Figure out if we need alwaysLoadSomething.
+        if (!showConfig && alwaysLoadSomething) { // AVOIDING, ELSE TABS ALWAYS SHOW THE FIRST MAP
+            
             // If requested list not found, use the first available list
             const availableKeys = Object.keys(this.showConfigs);
             if (availableKeys.length > 0) {
@@ -199,6 +228,13 @@ class ListingsDisplay {
                 this.loading = false;
                 return;
             }
+        }
+        
+        // If no showConfig found and alwaysLoadSomething is false, exit early
+        if (!showConfig) {
+            this.error = null;
+            this.loading = false;
+            return;
         }
         
         this.config = showConfig;
@@ -279,7 +315,7 @@ class ListingsDisplay {
     }
 
     createMockData(config) {
-        
+        console.log("createMockData() this.currentShow " + this.currentShow );
         if (this.currentShow === 'cities') {
             // Create more mock data to test pagination
             const cities = [];
@@ -783,6 +819,14 @@ class ListingsDisplay {
     }
 
     filterListings() {
+        // Check if Leaflet map is currently animating to avoid DOM conflicts
+        if (window.leafletMap && window.leafletMap.map && 
+            (window.leafletMap.map._animatingZoom || window.leafletMap.map._zooming)) {
+            // Defer filtering until animation completes
+            setTimeout(() => this.filterListings(), 100);
+            return;
+        }
+        
         // Store current focus state
         const activeElement = document.activeElement;
         const wasSearchInputFocused = activeElement && activeElement.id === 'searchInput';
@@ -868,21 +912,35 @@ class ListingsDisplay {
         } else {
             this.searchFields.add(field);
         }
+        this.updateSelectAllButtonText();
         this.filterListings();
     }
 
     useConfigSearchFields() {
-        this.searchFields.clear();
-        if (this.config && this.config.search) {
-            Object.values(this.config.search).forEach(field => {
-                this.searchFields.add(field);
-            });
+        // If more than 2 fields are selected, unselect all. Otherwise, select all.
+        if (this.searchFields.size > 2) {
+            this.searchFields.clear();
         } else {
-            this.availableFields.forEach(field => {
-                this.searchFields.add(field);
-            });
+            this.searchFields.clear();
+            if (this.config && this.config.search) {
+                Object.values(this.config.search).forEach(field => {
+                    this.searchFields.add(field);
+                });
+            } else {
+                this.availableFields.forEach(field => {
+                    this.searchFields.add(field);
+                });
+            }
         }
+        this.updateSelectAllButtonText();
         this.filterListings();
+    }
+
+    updateSelectAllButtonText() {
+        const selectAllBtn = document.querySelector('.select-all-btn');
+        if (selectAllBtn) {
+            selectAllBtn.textContent = this.searchFields.size > 2 ? 'Unselect' : 'Select All';
+        }
     }
 
     toggleSearchPopup() {
@@ -950,7 +1008,7 @@ class ListingsDisplay {
             <div class="search-fields-popup">
                 <div class="search-fields-header">
                     <span style="padding-right:10px">Filter by:</span>
-                    <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">Select All</button>
+                    <button class="select-all-btn" onclick="window.listingsApp.useConfigSearchFields()">${this.searchFields.size > 2 ? 'Unselect' : 'Select All'}</button>
                 </div>
                 <div class="search-fields-list">
                     ${Array.from(this.availableFields).map(field => `
@@ -976,7 +1034,6 @@ class ListingsDisplay {
     }
 
     async changeShow(showKey, updateCache = true) {
-        //alert("changeShow")
         this.currentShow = showKey;
         this.searchPopupOpen = false;
         
@@ -1000,14 +1057,40 @@ class ListingsDisplay {
         */
     }
 
-    setupEventListeners() {
+    attachSearchInputListener() {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
+            // Remove any existing listener to avoid duplicates
+            searchInput.removeEventListener('input', this.searchInputHandler);
+            // Create bound handler for removal later
+            this.searchInputHandler = (e) => {
                 this.searchTerm = e.target.value;
-                this.filterListings();
-            });
+                
+                const now = Date.now();
+                const timeSinceLastInput = this.lastInputTime ? now - this.lastInputTime : 1000;
+                this.lastInputTime = now;
+                
+                // Clear any existing timeout
+                if (this.filterTimeout) {
+                    clearTimeout(this.filterTimeout);
+                }
+                
+                // If typing rapidly (less than 100ms since last input), add delay
+                // Otherwise filter immediately
+                if (timeSinceLastInput < 100) {
+                    this.filterTimeout = setTimeout(() => {
+                        this.filterListings();
+                    }, 50);
+                } else {
+                    this.filterListings();
+                }
+            };
+            searchInput.addEventListener('input', this.searchInputHandler);
         }
+    }
+
+    setupEventListeners() {
+        this.attachSearchInputListener();
 
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
@@ -1035,7 +1118,7 @@ class ListingsDisplay {
             }
         });
 
-        // Handle details toggle and pagination
+        // Handle pagination with specific delegation
         document.addEventListener('click', (e) => {
             // Handle pagination
             if (e.target.classList.contains('pagination-btn') && !e.target.disabled) {
@@ -1043,47 +1126,27 @@ class ListingsDisplay {
                 if (!isNaN(page)) {
                     this.changePage(page);
                 }
-                return;
             }
+        });
 
-            // Handle details toggle - check for both the button and arrow
-            const toggleElement = e.target.closest('.details-toggle');
-            const isToggleArrow = e.target.classList.contains('toggle-arrow');
-            const isToggleLabel = e.target.classList.contains('toggle-label');
-            
-            if (toggleElement || isToggleArrow || isToggleLabel) {
+        document.addEventListener('click', (e) => {
+            if (e.target.closest(".details-toggle")) {
                 e.preventDefault();
                 e.stopPropagation();
+                const toggle = e.target.closest('.details-toggle');
+                const content = toggle.nextElementSibling;
+                const arrow = toggle.querySelector('.toggle-arrow');
+                const isExpanded = content.classList.contains('expanded');
                 
-                // Find the toggle container
-                let toggle = toggleElement;
-                if (!toggle && (isToggleArrow || isToggleLabel)) {
-                    toggle = e.target.parentElement;
-                    // Make sure we found a details-toggle element
-                    if (!toggle || !toggle.classList.contains('details-toggle')) {
-                        toggle = e.target.closest('.details-toggle');
-                    }
+                if (isExpanded) {
+                    content.classList.remove('expanded');
+                    arrow.classList.remove('expanded');
+                    arrow.textContent = '▶';
+                } else {
+                    content.classList.add('expanded');
+                    arrow.classList.add('expanded');
+                    arrow.textContent = '▼';
                 }
-                
-                if (toggle && toggle.classList.contains('details-toggle')) {
-                    const content = toggle.nextElementSibling;
-                    const arrow = toggle.querySelector('.toggle-arrow');
-                    
-                    if (content && content.classList.contains('details-content') && arrow) {
-                        const isExpanded = content.classList.contains('expanded');
-                        
-                        if (isExpanded) {
-                            content.classList.remove('expanded');
-                            arrow.classList.remove('expanded');
-                            arrow.textContent = '▶';
-                        } else {
-                            content.classList.add('expanded');
-                            arrow.classList.add('expanded');
-                            arrow.textContent = '▼';
-                        }
-                    }
-                }
-                return;
             }
         });
 
@@ -1348,8 +1411,8 @@ class ListingsDisplay {
             this.loading = false;
         }
         
-        const teamwidget = document.getElementById('teamwidget');
-        if (teamwidget) teamwidget.style.display = 'block';
+        const mapwidget = document.getElementById('mapwidget');
+        if (mapwidget) mapwidget.style.display = 'block';
         
         if (this.loading) {
             // FORCE clear loading if we have data but still loading
@@ -1372,7 +1435,7 @@ class ListingsDisplay {
             return;
         }
 
-        teamwidget.innerHTML = `
+        let localwidgetHeader = `
             <!-- Header -->
             <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="flex:1;">
@@ -1382,8 +1445,12 @@ class ListingsDisplay {
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div id="map-print-download-icons" style="padding-top:12px"></div>
                 </div>
-            </div>
-            
+            </div>`
+
+        // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
+        // X added to temp disable until g.org removes showheader=false
+        mapwidget.innerHTML = `
+            ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
             <!-- Widget Hero Container -->
             <div id="widgetHero"></div>
                 
@@ -1395,9 +1462,10 @@ class ListingsDisplay {
                     <!-- Controls -->
                     <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
                         <div class="search-container">
-                            ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
+                            ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
                             <div class="map-selector">
                                 <select id="mapDataSelect" class="map-select">
+                                    <option value="">Selected map...</option>
                                     ${Object.keys(this.showConfigs).map(key => 
                                         `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
                                     ).join('')}
@@ -1519,7 +1587,19 @@ class ListingsDisplay {
         this.applySignInVisibility();
 
         //setTimeout(() => {
-            this.setupEventListeners();
+            //this.setupEventListeners(); // Avoid here - Invokes clicks multiple times!
+            
+            // Set up essential event listeners that don't cause multiple triggers
+            const showSelect = document.getElementById('mapDataSelect');
+            
+            // Re-attach search input listener after render (lost when DOM updates)
+            this.attachSearchInputListener();
+            if (showSelect) {
+                showSelect.addEventListener('change', (e) => {
+                    goHash({'map':e.target.value});
+                });
+            }
+            
             //this.conditionalMapInit();
             this.initializeMap('FROM_RENDER conditionalMapInit');
             this.setupPrintDownloadIcons();
@@ -1587,8 +1667,9 @@ class ListingsDisplay {
                 });
                 
                 // Update map with current listings data - only send current page data
+                console.log("Update map with current listings data - only send current page data")
                 if (this.listings && this.listings.length > 0) {
-                    setTimeout(() => {
+                    //setTimeout(() => {
                         // Create a limited version of this object with only current page data
                         const limitedListingsApp = {
                             ...this,
@@ -1597,7 +1678,7 @@ class ListingsDisplay {
                             getMapListings: () => this.getCurrentPageListings()
                         };
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
-                    }, 100);
+                    //}, 100);
                 }
             } catch (error) {
                 console.warn('Failed to initialize map:', error);
@@ -1605,35 +1686,6 @@ class ListingsDisplay {
                 this.mapInitializing = false;
             }
         });
-    }
-    
-    // URL Hash and Cache Management
-    getInitialShow() {
-        // Check URL hash first - prioritize map= parameter
-        const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const hashMap = urlParams.get('map');
-        
-        if (hashMap) {
-            return hashMap;
-        }
-        
-        // Check for map parameter in map.js script URL (from embed.js)
-        const widgetScripts = document.querySelectorAll('script[src*="map.js"]');
-        for (const script of widgetScripts) {
-            if (script.src.includes('?map=')) {
-                const scriptUrl = new URL(script.src);
-                const embedMap = scriptUrl.searchParams.get('map');
-                if (embedMap) {
-                    this.usingEmbeddedList = true;
-                    console.log(`Using embedded map parameter: ${embedMap}`);
-                    return embedMap;
-                }
-            }
-        }
-        
-        // Fall back to cached list
-        const cachedList = this.loadCachedShow();
-        return cachedList || 'cities';
     }
     
     updateUrlHash(showKey) {
@@ -1660,6 +1712,16 @@ class ListingsDisplay {
         } catch (error) {
             console.warn('Failed to save show to cache:', error);
         }
+    }
+    
+    getCurrentList() {
+        let hash = {};
+        if (typeof getHash === 'function') {
+            hash = getHash();
+        }
+        
+        let currentList = hash.map || window.param.map;
+        return currentList;
     }
     
     loadCachedShow() {
@@ -2001,6 +2063,12 @@ class ListingsDisplay {
         }
         
         console.log(`Stored ${cleanedData.length} rows in DOM for download/print functionality`);
+        
+        // Report data size changes when on localhost
+        let reportDataSize = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (reportDataSize) {
+            console.log(`Source data ${jsonString.length} characters changed to ${encodedData.length} in encode JSON`);
+        }
     }
 
     getDataForDownload() {
@@ -2049,9 +2117,9 @@ class ListingsDisplay {
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
-    // Only initialize if the teamwidget element exists
-    const teamwidgetElement = document.getElementById('teamwidget');
-    if (teamwidgetElement && !window.listingsApp) {
+    // Only initialize if the mapwidget element exists
+    const localwidgetElement = document.getElementById('mapwidget');
+    if (localwidgetElement && !window.listingsApp) {
         window.listingsApp = new ListingsDisplay();
     }
     
@@ -2059,7 +2127,7 @@ function initializeWidget() {
     window.myHero = function(heroDiv, chartTypes) {
         // Default chartTypes based on page type
         if (!chartTypes) {
-            chartTypes = teamwidgetElement ? ['widgetmapWrapper', 'widgetDetails', 'pageGallery'] : ['chart2Wrapper', 'sankeyWrapper'];
+            chartTypes = localwidgetElement ? ['widgetmapWrapper', 'widgetDetails', 'pageGallery'] : ['chart2Wrapper', 'sankeyWrapper'];
         }
         
         // If ListingsDisplay is available, use its method

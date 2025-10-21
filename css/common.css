@@ -40,6 +40,7 @@ h2 {
     margin: 0 auto;
 }
 
+/* messes with Drupal
 @media (min-width: 1201px) {
     .container {
         padding: 0 40px;
@@ -51,6 +52,7 @@ h2 {
     padding: 0 20px;
     width: 100%;
 }
+*/
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */
 .breadcrumb {
@@ -462,7 +464,7 @@ pre code {
     transition: background-color 0.3s ease;
 }
 .page-tab-align {
-    margin: 15px 0 10px 13px;
+    margin: 15px 0 10px 12px;
 }
 .dark .page-tab {
     background: #374151;
