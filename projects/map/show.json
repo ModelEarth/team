@@ -1,8 +1,8 @@
 {
  "liaisons": {
     "shortTitle": "Liaisons",
-    "menuTitle": "Camera Ready Liaisons",
-    "listTitle": "Georgia Camera Ready Liaisons",
+    "menuTitle": "Camera Ready Communities",
+    "listTitle": "Camera Ready Communities",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
