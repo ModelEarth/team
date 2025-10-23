@@ -163,19 +163,23 @@ When Claude Code invokes git.sh push operations, enhanced commit messages should
 #### For ALL push operations:
 1. **Analyze changes in each repository** before invoking git.sh
 2. **Create specific commit messages** for each repository based on its actual changes
-3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format:
+3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format
+4. **ONLY include valid repositories**: webroot, submodules (see Submodule Management section), and site repos (see Site Repositories section)
 
 ```bash
 export CLAUDE_COMMIT_DATA="
 webroot:
   message: 'Add responsive layout and mobile breakpoints'
-  files: ['team/css/widget.css', 'team/js/map.js', 'explore/film/index.html']
+  files: ['team/css/widget.css', 'team/js/map.js', 'localsite/js/localsite.js']
 team:
   message: 'Fix git.sh submodule detection, prevent temp repo commits'
   files: ['git.sh']
 localsite:
   message: 'Add callback validation, fix scroll notification timing'
   files: ['js/localsite.js', 'js/embed.js']
+community:
+  message: 'Update community engagement metrics dashboard'
+  files: ['dashboard.html', 'metrics.js']
 "
 
 # Examples of different push commands:
@@ -185,6 +189,13 @@ localsite:
 ./git.sh push webroot
 ./git.sh push localsite
 ```
+
+#### Valid Repository Names for CLAUDE_COMMIT_DATA:
+- **Webroot**: webroot
+- **Submodules**: Defined in `.gitmodules` file (see Submodule Management section)
+- **Site Repos**: Defined in `.siterepos` file (see Site Repositories section)
+
+**DO NOT include directories that are not managed repositories** (like explore, img, css directories, etc.)
 
 #### Commit Message Requirements:
 - **Repository-specific**: Each commit message describes only that repository's changes
@@ -274,18 +285,15 @@ git remote -v
 
 ### Supported Repository Names
 - **Webroot**: webroot
-- **Submodules**: cloud, comparison, feed, home, localsite, products, projects, realitystream, swiper, team, trade, codechat, exiobase, io, profile, reports, community-forecasting
-- **Extra Repos**: community, nisar, data-pipeline
+- **Submodules**: Defined in `.gitmodules` file
+- **Site Repos**: Defined in `.siterepos` file
 
-## Extra Repositories
+## Site Repositories
 
-### Extra Repo List
-The following extra repositories are used for specialized functionality and are cloned to the webroot root directory (not submodules):
-- **community** - https://github.com/modelearth/community
-- **nisar** - https://github.com/modelearth/nisar
-- **data-pipeline** - https://github.com/modelearth/data-pipeline
+### Site Repo List
+Site repositories are used for specialized functionality and are cloned to the webroot root directory (not submodules). These repositories are defined in the `.siterepos` file in the webroot directory using the same format as `.gitmodules`.
 
-**IMPORTANT**: These extra repos are cloned to the webroot root directory and are NOT submodules. They provide specialized functionality that is not needed for typical site deployments.
+**IMPORTANT**: These site repos are cloned to the webroot root directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of webroot.
 
 ## Development Standards
 
