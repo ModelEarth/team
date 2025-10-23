@@ -2,13 +2,13 @@
  "liaisons": {
     "shortTitle": "Liaisons",
     "menuTitle": "Camera Ready Liaisons",
-    "listTitle": "Georgia Camera Ready Liaisons",
+    "listTitle": "Camera Ready Communities",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
     "markerType": "google",
     "nameColumn": "name",
     "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Address", "City", "State", "Zip", "Population"],
-    "omit_display": ["geo_json"],
+    "omit_display": ["tag","listing_id","liaison_id","geo_json","Photo1","Phototext1","Photo2","Phototext2","Photo3","Phototext3","Photo4","Phototext4","Photo5","Phototext5","Photo6","Phototext6","Photo7","Phototext7","Photo8","Phototext8","Photo9","Phototext9","Photo10","Phototext10","Photo11","Phototext11","Photo12","Phototext12"],
     "int_required": "liaison_id"
   },
   "cities": {

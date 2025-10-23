@@ -1444,6 +1444,11 @@ class LeafletMapManager {
     
     // Show notification for scroll zoom state
     showScrollZoomNotification(enabled) {
+        // Hide scroll zoom notifications on narrow screens
+        if (window.innerWidth <= 768) {
+            return;
+        }
+        
         // Create notification element
         const notification = document.createElement('div');
         notification.className = 'scroll-zoom-notification';

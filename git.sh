@@ -26,6 +26,96 @@ for arg in "$@"; do
     esac
 done
 
+# CLAUDE_COMMIT_DATA parsing and commit message functions
+parse_claude_commit_data() {
+    local repo_name="$1"
+    if [ -z "$CLAUDE_COMMIT_DATA" ]; then
+        return 1
+    fi
+    
+    # Simple YAML parsing for commit data
+    # Extract message for the specific repository
+    local message=$(echo "$CLAUDE_COMMIT_DATA" | grep -A2 "^${repo_name}:" | grep "message:" | sed "s/.*message: *['\"]*//" | sed "s/['\"]* *$//" | head -1)
+    
+    if [ -n "$message" ]; then
+        echo "$message"
+        return 0
+    fi
+    return 1
+}
+
+# Generate enhanced default commit message from modified files
+generate_default_commit_message() {
+    local repo_name="$1"
+    local repo_path="${2:-.}"
+    
+    # Get list of modified files
+    local modified_files=$(cd "$repo_path" && git status --porcelain | grep -E "^(M|A|D|R|C)" | awk '{print $2}' | sort | uniq)
+    
+    if [ -z "$modified_files" ]; then
+        echo "Updated $repo_name"
+        return
+    fi
+    
+    # Convert to array and get unique filenames (not full paths)
+    local unique_files=()
+    local seen_names=()
+    
+    for file in $modified_files; do
+        local filename=$(basename "$file")
+        local already_seen=false
+        
+        for seen in "${seen_names[@]}"; do
+            if [ "$seen" = "$filename" ]; then
+                already_seen=true
+                break
+            fi
+        done
+        
+        if [ "$already_seen" = false ]; then
+            unique_files+=("$filename")
+            seen_names+=("$filename")
+            
+            # Stop at 3 unique files
+            if [ ${#unique_files[@]} -ge 3 ]; then
+                break
+            fi
+        fi
+    done
+    
+    # Build commit message
+    if [ ${#unique_files[@]} -eq 1 ]; then
+        echo "Updated ${unique_files[0]}"
+    elif [ ${#unique_files[@]} -eq 2 ]; then
+        echo "Updated ${unique_files[0]}, ${unique_files[1]}"
+    elif [ ${#unique_files[@]} -eq 3 ]; then
+        local total_files=$(echo "$modified_files" | wc -w)
+        if [ "$total_files" -gt 3 ]; then
+            echo "Updated ${unique_files[0]}, ${unique_files[1]}, ${unique_files[2]}..."
+        else
+            echo "Updated ${unique_files[0]}, ${unique_files[1]}, ${unique_files[2]}"
+        fi
+    else
+        echo "Updated $repo_name"
+    fi
+}
+
+# Get commit message for a repository (Claude or default)
+get_commit_message() {
+    local repo_name="$1"
+    local repo_path="${2:-.}"
+    
+    # Try Claude commit data first
+    local claude_message=$(parse_claude_commit_data "$repo_name")
+    if [ $? -eq 0 ] && [ -n "$claude_message" ]; then
+        echo "$claude_message"
+        return
+    fi
+    
+    # Fall back to enhanced default message
+    generate_default_commit_message "$repo_name" "$repo_path"
+}
+
 # Validate and fix repository remote URLs to prevent corruption
 validate_and_fix_remotes() {
     # Silent validation - only output if corruption is found
@@ -933,7 +1023,8 @@ commit_push() {
         # Only check user change and update remotes when there are actual changes
         check_user_change "$name"
         git add .
-        git commit -m "Update $name"
+        local commit_msg=$(get_commit_message "$name" ".")
+        git commit -m "$commit_msg"
         local commit_hash=$(git rev-parse HEAD)
         
         # Determine target branch
@@ -1025,7 +1116,7 @@ commit_push() {
                     if [[ "$skip_pr" != "nopr" ]]; then
                         echo "📝 Creating pull request..."
                         local pr_url=$(gh pr create \
-                            --title "Update $name" \
+                            --title "$commit_msg" \
                             --body "Automated update from git.sh commit workflow" \
                             --base $target_branch \
                             --head $target_branch \
@@ -1048,7 +1139,7 @@ commit_push() {
             elif [[ "$skip_pr" != "nopr" ]]; then
                 # Other push failure - try feature branch PR
                 git push origin HEAD:feature-$name-updates 2>/dev/null && \
-                gh pr create --title "Update $name" --body "Automated update" --base $target_branch --head feature-$name-updates 2>/dev/null || \
+                gh pr create --title "$commit_msg" --body "Automated update" --base $target_branch --head feature-$name-updates 2>/dev/null || \
                 echo "🔄 PR creation failed for $name"
             fi
         fi
@@ -1227,9 +1318,22 @@ pull_command() {
     echo "🔄 Updating submodule references..."
     safe_submodule_update
     if [ -n "$(git status --porcelain)" ]; then
-        git add .
-        git commit -m "Update submodule references"
-        echo "✅ Updated submodule references"
+        # Only add actual submodules defined in .gitmodules, not temporary repos
+        local submodules=($(get_submodules))
+        local has_changes=false
+        for sub in "${submodules[@]}"; do
+            if [ -n "$(git status --porcelain | grep "^M  $sub")" ]; then
+                git add "$sub"
+                has_changes=true
+                echo "📌 Added submodule reference: $sub"
+            fi
+        done
+        if [ "$has_changes" = true ]; then
+            git commit -m "Update submodule references"
+            echo "✅ Updated submodule references"
+        else
+            echo "ℹ️  No submodule reference changes to commit"
+        fi
     fi
     
     # Check for and fix any detached HEAD states after pulls
@@ -1887,10 +1991,23 @@ push_submodules() {
     # Update webroot submodule references
     safe_submodule_update
     if [ -n "$(git status --porcelain)" ]; then
-        git add .
-        git commit -m "Update submodule references"
-        git push 2>/dev/null || echo "🔄 Webroot push failed"
-        echo "✅ Updated submodule references"
+        # Only add actual submodules defined in .gitmodules, not temporary repos
+        local submodules=($(get_submodules))
+        local has_changes=false
+        for sub in "${submodules[@]}"; do
+            if [ -n "$(git status --porcelain | grep "^M  $sub")" ]; then
+                git add "$sub"
+                has_changes=true
+                echo "📌 Added submodule reference: $sub"
+            fi
+        done
+        if [ "$has_changes" = true ]; then
+            git commit -m "Update submodule references"
+            git push 2>/dev/null || echo "🔄 Webroot push failed"
+            echo "✅ Updated submodule references"
+        else
+            echo "ℹ️  No submodule reference changes to commit"
+        fi
     fi
     
     # Final push completion check
@@ -1922,7 +2039,7 @@ push_all() {
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
                     echo "🔵 Committing changes in submodule: $file"
-                    (cd "$file" && git add -A && git commit -m "Update $file" 2>/dev/null) || echo "ℹ️  No changes to commit in $file"
+                    (cd "$file" && git add -A && local commit_msg=$(get_commit_message "$file" ".") && git commit -m "$commit_msg" 2>/dev/null) || echo "ℹ️  No changes to commit in $file"
                 else
                     echo "🔵 Skipping non-submodule file: $file"
                 fi
@@ -2038,7 +2155,8 @@ push_extra_repo() {
         
         if [ -n "$(git status --porcelain)" ]; then
             git add .
-            git commit -m "Update $repo_name repository"
+            local commit_msg=$(get_commit_message "$repo_name" ".")
+            git commit -m "$commit_msg"
             
             if git push origin main 2>/dev/null; then
                 echo "✅ Successfully pushed $repo_name repository"
