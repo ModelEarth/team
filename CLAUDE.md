@@ -157,6 +157,47 @@ When a user says "push [name]", use the git.sh script:
 - *push webroot - Push changes for webroot only*
 - *push all - Push all repositories with changes"*
 
+### Claude-Enhanced Commit Messages
+When Claude Code invokes git.sh push operations, enhanced commit messages should be provided using environment variables:
+
+#### For ALL push operations:
+1. **Analyze changes in each repository** before invoking git.sh
+2. **Create specific commit messages** for each repository based on its actual changes
+3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format:
+
+```bash
+export CLAUDE_COMMIT_DATA="
+webroot:
+  message: 'Add responsive layout and mobile breakpoints'
+  files: ['team/css/widget.css', 'team/js/map.js', 'explore/film/index.html']
+team:
+  message: 'Fix git.sh submodule detection, prevent temp repo commits'
+  files: ['git.sh']
+localsite:
+  message: 'Add callback validation, fix scroll notification timing'
+  files: ['js/localsite.js', 'js/embed.js']
+"
+
+# Examples of different push commands:
+./git.sh push
+./git.sh push all
+./git.sh push team
+./git.sh push webroot
+./git.sh push localsite
+```
+
+#### Commit Message Requirements:
+- **Repository-specific**: Each commit message describes only that repository's changes
+- **No cross-references**: Don't mention other repositories' changes in individual commits
+- **No Claude attribution**: Never include Claude Code credits or co-authored-by lines
+- **Concise and factual**: Focus on what was changed, not implementation details
+
+#### Default Commit Messages (Non-Claude):
+When git.sh is invoked without Claude, default commit messages follow this format:
+- **Single file**: "Updated filename.ext"
+- **Multiple files**: "Updated file1.ext, file2.ext, file3.ext..." (first 3 unique filenames)
+- **Many files**: "Updated file1.ext, file2.ext, file3.ext..." (shows "..." for 4+ files)
+
 ### Quick Commands for Repositories
 - **"push [name] [nopr]"**: Intelligent push with PR fallback - tries submodule → standalone repo → webroot fallback
 - **"pull [name]"**: Pull changes for specific repository (webroot, submodule, or extra repo)
