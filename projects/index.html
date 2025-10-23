@@ -201,6 +201,207 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
+        /* Contributors row styling for submodule cards
+           Use margin-top: auto so the contributors row sits at the bottom
+           of the card when the card is a column flex container. */
+        .contributors-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: auto;
+            padding-top: 12px; /* visual spacing above the row */
+            flex-wrap: wrap;
+        }
+        .contributors-row img {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+        }
+        /* Modal contributors (header of PR diff modal) */
+        .modal-contributors { display:flex; gap:8px; align-items:center; }
+        .modal-contributor { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--text-primary); text-decoration:none; }
+        .modal-contributor img { width:22px; height:22px; border-radius:50%; object-fit:cover; }
+        .modal-contributor span { color: var(--text-primary); font-weight:600; }
+        .modal-contrib-more { font-size:13px; padding:2px 6px; border-radius:999px; background:var(--muted-bg); }
+        .contributors-label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+        .contributors-list { display: flex; gap: 6px; align-items: center; }
+        .contributor-avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .contributors-row .contrib-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #eef2ff, #e0f2fe); color: #0f172a; font-size: 12px; font-weight: 600; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .contributors-row a.contributor-link { display: inline-flex; align-items: center; gap: 6px; padding: 0; border-radius: 0; text-decoration: none; color: inherit; background: transparent; }
+    .contributors-row a.contributor-link:hover { background: transparent; transform: none; }
+    .contributors-row .contrib-username { font-size: 12px; color: inherit; margin-left: 0; font-weight: 400; background: transparent; padding: 0; border-radius: 0; }
+        .contributors-row a:hover img { transform: none; }
+        .contributors-row .contrib-more { transition: none; }
+        .contributors-row a:hover .contrib-more { transform: none; }
+
+        /* Make submodule cards column flex containers so we can pin
+           the contributors row to the bottom of the card. */
+        .submodule-card {
+            display: flex;
+            flex-direction: column;
+        }
+        .submodule-card .card-body {
+            flex: 1 1 auto;
+        }
+        /* PR diff modal */
+        #prDiffModalOverlay {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2200;
+            padding: 20px;
+        }
+        .pr-diff-modal {
+            width: 100%;
+            max-width: 1100px;
+            max-height: 90vh;
+            overflow: auto;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+            padding: 18px;
+            color: var(--text-primary);
+            position: relative; /* allow absolute-positioned close button */
+        }
+        .pr-diff-modal h3 { margin: 0 0 12px 0; }
+        .pr-diff-close {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 18px;
+            padding: 6px;
+            line-height: 1;
+        }
+        .pr-diff-close:hover {
+            background: rgba(0,0,0,0.06);
+            color: var(--text-primary);
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(2,6,23,0.08);
+        }
+        .pr-diff-close:focus {
+            outline: 3px solid rgba(59,130,246,0.18);
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        .pr-diff-close:active {
+            transform: translateY(-50%) scale(0.98);
+        }
+        /* Sticky header inside modal: remains fixed while content scrolls */
+        .pr-diff-header {
+            position: sticky;
+            top: 0;
+            background: var(--bg-primary);
+            z-index: 6;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-light);
+            position: relative; /* contain absolute-positioned close button */
+        }
+        .pr-diff-body {
+            /* leave some breathing room; uses its own scrolling so header remains visible */
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: calc(80vh - 120px);
+            padding-right: 6px;
+        }
+        .pr-diff-item { margin-bottom: 14px; border-top: 1px solid var(--border-light); padding-top: 12px; }
+        .pr-diff-summary { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+        .pr-diff-pre {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            padding: 12px;
+            overflow: auto;
+            white-space: pre;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 8px;
+            border-radius: 6px;
+        }
+        /* Two-column diff panes */
+        .diff-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+        .diff-column {
+            flex: 1 1 50%;
+            min-width: 0;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+    /* Base pane backgrounds; individual lines get highlights */
+    /* Left pane: removed (tinted red). Right pane: added (tinted green). Keep subtle and readable. */
+    .diff-left .pr-diff-pre { background: rgba(254, 202, 202, 0.26); color: var(--text-primary); border-right: 1px solid rgba(239,68,68,0.12); }
+    .diff-right .pr-diff-pre { background: rgba(220, 252, 231, 0.28); color: var(--text-primary); border-left: 1px solid rgba(16,185,129,0.12); }
+        .pr-diff-file { margin-bottom: 16px; }
+        .pr-diff-file .pr-diff-filename { font-weight:600; margin-bottom:6px; display:flex; justify-content:space-between; gap:12px; align-items:center }
+        .pr-diff-file .pr-diff-filename a { font-size:12px; color:var(--text-secondary); text-decoration:underline }
+        /* Per-line styling inside diff panes */
+    .pr-diff-pre { padding: 8px; font-family: monospace; font-size: 13px; white-space: pre; }
+          /* Side-by-side table diff (GitHub-like) */
+          /* Wrapper keeps table layout but hides overflow; individual code cells scroll */
+          .sb-diff-wrap { width: 100%; overflow: hidden; border-radius: 6px; border: 1px solid var(--border-light); }
+          .sb-diff { width: 100%; border-collapse: collapse; font-family: monospace; font-size: 13px; table-layout: fixed; }
+          .sb-diff td { vertical-align: top; padding: 4px 8px; }
+          /* Wrapper shouldn't clip the panes' scrollbars */
+          .sb-diff-wrap { overflow: visible; }
+          .sb-line-num { width: 56px; text-align: right; color: var(--text-secondary); font-size: 12px; padding-right: 12px; border-right: 1px solid rgba(0,0,0,0.03); }
+          /* Make left/right code columns each scrollable and show visible scrollbars independently
+              so both panes remain visible side-by-side even when content is tall. */
+    /* Make each code pane a true scroll container with visible scrollbars */
+    .sb-code { width: calc(50% - 56px); white-space: pre; max-height: 60vh; overflow-x: auto; overflow-y: auto; word-break: normal; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-gutter: stable both-edges; }
+    /* Pre inside pane should not create its own scroll; allow the pane to handle scrolling */
+    .sb-pre { margin: 0; white-space: pre; font-family: monospace; font-size: 13px; display: block; min-width: 100%; }
+    /* Ensure rows don't collapse and allow visible separate scrollbars */
+    .sb-diff td { vertical-align: top; }
+    .sb-code.sb-left, .sb-code.sb-right { background-clip: padding-box; }
+    /* Make scrollbars clearly visible on WebKit-based browsers (only on the pane container) */
+    .sb-code::-webkit-scrollbar { width: 12px; }
+    .sb-code::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 6px; }
+    .sb-code::-webkit-scrollbar-track { background: transparent; }
+    /* Per-row state */
+    /* Removed lines: style the left-side code cell and its line number in red tones */
+    .sb-row.sb-removed .sb-code.sb-left { background: rgba(254,202,202,0.26); }
+    .sb-row.sb-removed .sb-code.sb-left .sb-pre { color: #7f1d1d; } /* darker red text for removed lines */
+    .sb-row.sb-removed .sb-line-num:first-of-type { background: rgba(254,202,202,0.12); color: #991B1B; border-right-color: rgba(239,68,68,0.12); }
+
+    /* Added lines: style the right-side code cell and its line number in green tones */
+    .sb-row.sb-added .sb-code.sb-right { background: rgba(220,252,231,0.28); }
+    .sb-row.sb-added .sb-code.sb-right .sb-pre { color: #065f46; } /* darker green text for added lines */
+    .sb-row.sb-added .sb-line-num:last-of-type { background: rgba(220,252,231,0.10); color: #065f46; border-left-color: rgba(16,185,129,0.08); }
+
+    /* Context lines remain muted (identical on both sides) */
+    .sb-row.sb-context .sb-code { background: transparent; }
+    .sb-row { border-bottom: 1px solid rgba(0,0,0,0.03); }
+
+    /* Replacements: left side removed (red), right side added (green) with stronger tints */
+    .sb-row.sb-replaced .sb-code.sb-left { background: rgba(254,202,202,0.34); }
+    .sb-row.sb-replaced .sb-code.sb-left .sb-pre { color: #7f1d1d; }
+    .sb-row.sb-replaced .sb-code.sb-right { background: rgba(220,252,231,0.36); }
+    .sb-row.sb-replaced .sb-code.sb-right .sb-pre { color: #065f46; }
+    /* New files list */
+    .pr-new-files { padding: 8px 12px; background: var(--bg-tertiary); border-radius: 6px; margin: 8px 0; }
+    .pr-new-files .new-files-tree { font-family: monospace; font-size: 13px; color: var(--text-primary); }
+    .pr-new-files ul { list-style: none; margin: 6px 0 0 12px; padding-left: 12px; border-left: 1px dashed rgba(0,0,0,0.06); }
+    .pr-new-files li { padding: 2px 0; }
+    .pr-new-files a { color: var(--accent-blue); text-decoration: none; font-size: 13px; }
+    .pr-new-files a:hover { text-decoration: underline; }
+    /* removed per-line highlight styles (rendering as plain pre blocks now) */
+    /* per-file preview buttons removed; use page-level preview instead */
+        
         /* Snapshot dropdown specific styling */
         #snapshot {
             width: auto;
@@ -2878,6 +3079,11 @@
                         errDiv.style.color = 'var(--text-danger)';
                         errDiv.textContent = 'Network error: ' + String(entry.err);
                         card.appendChild(errDiv);
+                        // append contributors row to cards (non-blocking)
+                        try {
+                            fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                        } catch (e) { console.warn('contributors: failed to init fetch', e); }
+
                         cardsContainer.appendChild(card);
                         continue;
                     }
@@ -3012,6 +3218,11 @@
                             // non-fatal; keep the empty card for repos without PRs
                         }
 
+                        // append contributors row to cards (non-blocking)
+                        try {
+                            fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                        } catch (e) { console.warn('contributors: failed to init fetch', e); }
+
                         cardsContainer.appendChild(card);
                         continue;
                     }
@@ -3044,13 +3255,21 @@
                         this.style.transform = 'translateX(0)';
                     });
                     
-                    // Add click functionality to open GitHub PRs page
-                    headerContainer.addEventListener('click', function() {
-                        const githubPRsUrl = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls`;
-                        window.open(githubPRsUrl, '_blank');
+                    // Add click functionality to open an in-page PR diff modal
+                    headerContainer.addEventListener('click', function(e) {
+                        // Prevent any default navigation or event bubbling that might
+                        // cause the browser to open links. We want an in-page modal.
+                        try { e.preventDefault(); } catch (err) {}
+                        try { e.stopPropagation(); } catch (err) {}
+                        // Call async helper; don't fall back to navigation here.
+                        try {
+                            showPrDiffs(r.owner, r.repo, prs);
+                        } catch (e) {
+                            console.warn('showPrDiffs threw synchronously', e);
+                        }
                     });
-                    
-                    headerContainer.title = `Click to view all pull requests for ${r.owner}/${r.repo} on GitHub`;
+
+                    headerContainer.title = `Click to view pull request diffs for ${r.owner}/${r.repo}`;
                     
                     const strong = document.createElement('strong');
                     strong.textContent = 'Updates';
@@ -3102,9 +3321,25 @@
                         left.style.minWidth = '0';
                         const titleLink = document.createElement('a');
                         titleLink.className = 'pr-title';
-                        titleLink.href = p.html_url;
-                        titleLink.target = '_blank';
+                        // Do NOT set href/target to avoid navigation to GitHub.
+                        // Keep the original URL in a data attribute for reference.
+                        try { titleLink.dataset.htmlUrl = p.html_url; } catch (e) {}
+                        titleLink.setAttribute('role', 'button');
+                        titleLink.setAttribute('tabindex', '0');
+                        titleLink.style.cursor = 'pointer';
                         titleLink.textContent = `#${p.number} — ${p.title}`;
+                        // Clicking the title opens the modal for this single PR (no external navigation)
+                        titleLink.addEventListener('click', function(ev) {
+                            try { ev.preventDefault(); ev.stopPropagation(); } catch (e) {}
+                            try { showPrDiffs(r.owner, r.repo, [p]); } catch (err) { console.warn('showPrDiffs failed for single PR', err); }
+                        });
+                        // support keyboard activation
+                        titleLink.addEventListener('keydown', function(ev) {
+                            if (ev.key === 'Enter' || ev.key === ' ') {
+                                try { ev.preventDefault(); ev.stopPropagation(); } catch (e) {}
+                                this.click();
+                            }
+                        });
                         titleLink.style.textDecoration = 'none';
                         titleLink.style.color = 'var(--text-primary)';
                         titleLink.style.display = 'block';
@@ -3141,8 +3376,19 @@
 
                     cardBody.appendChild(prListWrap);
                     card.appendChild(cardBody);
+
                     // mark card with PR count for filtering
                     try { card.dataset.prCount = String(prs.length); card.dataset.hasPrs = prs.length > 0 ? 'true' : 'false'; } catch(e){}
+
+                    // Try to fetch and render contributors for this repository (non-blocking)
+                    // We call this just before appending the card so the contributors
+                    // container becomes the bottom-most element and can be pinned there
+                    // by CSS (using margin-top: auto).
+                    // append contributors row to cards (non-blocking)
+                    try {
+                        fetchAndRenderContributors(r.owner, r.repo, card, sessionToken);
+                    } catch (e) { console.warn('contributors: failed to init fetch', e); }
+
                     cardsContainer.appendChild(card);
                 }
                 // Replace container content with the constructed nodes
@@ -3201,6 +3447,88 @@
             return 'just now';
         }
 
+        // Fetch and render contributors into the provided card element.
+        // Uses sessionToken (if provided) for authenticated requests to avoid rate limits.
+        async function fetchAndRenderContributors(owner, repo, cardEl, sessionToken) {
+            if (!owner || !repo || !cardEl) return;
+
+            const container = document.createElement('div');
+            container.className = 'contributors-row';
+
+            const label = document.createElement('div');
+            label.textContent = 'Contributors:';
+            label.className = 'contributors-label';
+            container.appendChild(label);
+
+            const list = document.createElement('div');
+            list.className = 'contributors-list';
+            container.appendChild(list);
+
+            // Append container to card (below existing content)
+            try { cardEl.appendChild(container); } catch(e){}
+
+            const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors?per_page=10`;
+            const headers = Object.assign({}, { Accept: 'application/vnd.github.v3+json' });
+            if (sessionToken) headers.Authorization = `token ${sessionToken}`;
+
+            try {
+                const res = await fetch(apiUrl, { headers });
+                if (!res.ok) {
+                    // Do not show error UI; silently return
+                    return;
+                }
+                const contributors = await res.json();
+                if (!Array.isArray(contributors) || contributors.length === 0) return;
+
+                // Optional debug: set sessionStorage.setItem('debug_contribs','1') to enable
+                try {
+                    if (sessionStorage.getItem && sessionStorage.getItem('debug_contribs') === '1') {
+                        console.debug('[debug_contribs] fetched', owner + '/' + repo, 'contributors:', contributors.length);
+                    }
+                } catch (e) {}
+
+                // Show top 5 contributors with an overflow indicator like GitHub
+                const totalContribs = contributors.length;
+                const topN = 5;
+                contributors.slice(0, topN).forEach(c => {
+                    const a = document.createElement('a');
+                    const profileUrl = c.html_url || `https://github.com/${c.login}`;
+                    a.href = profileUrl;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.className = 'contributor-link';
+                    a.title = `${c.login} — ${c.contributions || ''} contributions`;
+
+                    const avatar = document.createElement('img');
+                    avatar.src = c.avatar_url;
+                    avatar.alt = c.login;
+                    avatar.className = 'contributor-avatar';
+
+                    a.appendChild(avatar);
+                    list.appendChild(a);
+                });
+
+                if (totalContribs > topN) {
+                    const remaining = totalContribs - topN;
+                    const moreLink = document.createElement('a');
+                    moreLink.href = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/graphs/contributors`;
+                    moreLink.target = '_blank';
+                    moreLink.rel = 'noopener noreferrer';
+                    moreLink.title = `${remaining} more contributors`;
+
+                    const more = document.createElement('div');
+                    more.className = 'contrib-more';
+                    more.textContent = `+${remaining}`;
+
+                    moreLink.appendChild(more);
+                    list.appendChild(moreLink);
+                }
+            } catch (e) {
+                // ignore fetch errors
+                console.warn('contributors: fetch error', owner, repo, e);
+            }
+        }
+
         // PR filters for submodule cards
         function applyPrFilter(filter) {
             const buttons = document.querySelectorAll('#prsFilters .btn');
@@ -3219,6 +3547,234 @@
                     card.style.display = hasPrs ? 'none' : '';
                 }
             });
+        }
+
+        // Show PR diffs in a modal for a given repo. Accepts the already-fetched PR list to avoid refetch.
+        async function showPrDiffs(owner, repo, prs) {
+                    // Debugging gate: set sessionStorage.setItem('debug_pr_modal','1') to enable logs
+                    try {
+                        if (sessionStorage && sessionStorage.getItem && sessionStorage.getItem('debug_pr_modal') === '1') {
+                            console.debug('showPrDiffs invoked for', owner, repo, 'prsCount=', Array.isArray(prs) ? prs.length : 'not-provided');
+                        }
+                    } catch (e) {}
+
+                    const overlay = document.getElementById('prDiffModalOverlay');
+            const content = document.getElementById('prDiffModalContent');
+            if (!overlay || !content) return;
+            content.innerHTML = '<div style="text-align:center; padding:20px">Loading pull request diffs...</div>';
+            overlay.style.display = 'flex';
+
+            const token = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+            const headers = { Accept: 'application/vnd.github.v3+json' };
+            if (token) headers.Authorization = `token ${token}`;
+
+            try {
+                // Ensure we have PRs; if not provided, fetch list
+                let prList = prs;
+                if (!Array.isArray(prList)) {
+                    const pullsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls?state=open&per_page=50`;
+                    const prRes = await fetch(pullsUrl, { headers });
+                    if (!prRes.ok) throw new Error('Unable to fetch PRs');
+                    prList = await prRes.json();
+                }
+
+                if (!Array.isArray(prList) || prList.length === 0) {
+                    content.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">No open PRs found for this repository.</div>';
+                    return;
+                }
+
+                // For each PR, fetch the files endpoint to get patch (diff)
+                const diffs = [];
+                for (const pr of prList.slice(0, 10)) { // limit to first 10 to avoid overload
+                    try {
+                        const filesUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pr.number}/files`;
+                        const fRes = await fetch(filesUrl, { headers });
+                        if (!fRes.ok) {
+                            diffs.push({ pr, files: null, error: `HTTP ${fRes.status}` });
+                            continue;
+                        }
+                        const files = await fRes.json();
+                        diffs.push({ pr, files });
+                    } catch (e) {
+                        diffs.push({ pr, files: null, error: String(e) });
+                    }
+                }
+
+                // Render diffs
+                const parts = [];
+                // If we have at least one PR, link to that PR's details page. Otherwise link to the repo pulls list.
+                const firstPrUrl = (Array.isArray(prList) && prList.length > 0 && prList[0] && prList[0].html_url) ? prList[0].html_url : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`;
+                parts.push(`<div class="pr-diff-header"><div style="display:flex; justify-content:space-between; align-items:center; gap:8px;"><div style=\"display:flex; align-items:center; gap:12px;\"><div style=\"display:flex; flex-direction:column; gap:4px;\"><div style=\"display:flex; align-items:center; gap:8px;\"><h3 style=\"margin:0\">${owner}/${repo} — Pull Request Diffs</h3><a href=\"${firstPrUrl}\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"font-size:13px; color:var(--text-primary); text-decoration:underline;\">View on GitHub</a></div></div></div><div style=\"display:flex; gap:8px; align-items:center;\"><button id=\"prDiffModalClose\" class=\"pr-diff-close\">✕</button></div></div></div>`);
+                // start scrollable body (files/diffs will go inside this)
+                parts.push('<div class="pr-diff-body" style="max-height:calc(80vh - 120px); overflow:auto; padding-right:8px;">');
+                diffs.forEach(d => {
+                    // Build title with PR author avatar + username (show only PR author)
+                    const authorLogin = d.pr.user?.login || 'unknown';
+                    const authorAvatar = d.pr.user?.avatar_url || '';
+                    const authorUrl = d.pr.user?.html_url || (`https://github.com/${authorLogin}`);
+                    const titleText = `#${d.pr.number} — ${d.pr.title}`;
+                    const title = escapeHtml(titleText);
+                    if (d.error) {
+                        parts.push(`<div class="pr-diff-item"><div class="pr-diff-summary"><div>${title}</div><div style="color:var(--text-danger)">Error: ${escapeHtml(d.error)}</div></div></div>`);
+                        return;
+                    }
+                    // Insert author block next to the title
+                    const authorHtml = `<a class="pr-author" href="${escapeHtml(authorUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:8px; text-decoration:none; color:inherit;"><img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorLogin)}" style="width:22px; height:22px; border-radius:4px; object-fit:cover;"> <span style="font-size:13px; color:var(--text-primary);">@${escapeHtml(authorLogin)}</span></a>`;
+                    parts.push(`<div class="pr-diff-item"><div class="pr-diff-summary"><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div>${title}</div><div>${authorHtml}</div></div><div style="color:var(--text-secondary); font-size:12px">Files: ${d.files.length}</div></div>`);
+                    // Render each file. For files with status 'added' show a file-structure list instead of a diff.
+                    const addedFiles = (d.files || []).filter(f => f && f.status === 'added');
+                    if (addedFiles.length > 0) {
+                        // Render a New files added block
+                        const treeParts = ['<div class="pr-new-files"><strong>New files added</strong><div class="new-files-tree"><ul>'];
+                        addedFiles.forEach(af => {
+                            const pathEsc = escapeHtml(af.filename || '');
+                            const link = af.blob_url ? af.blob_url : (af.raw_url ? af.raw_url : '');
+                            if (link) {
+                                treeParts.push(`<li><a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${pathEsc}</a></li>`);
+                            } else {
+                                treeParts.push(`<li>${pathEsc}</li>`);
+                            }
+                        });
+                        treeParts.push('</ul></div></div>');
+                        parts.push(treeParts.join('\n'));
+                    }
+
+                    (d.files || []).forEach(f => {
+                        if (f && f.status === 'added') {
+                            // already rendered in the New files block
+                            return;
+                        }
+                        const filename = escapeHtml(f.filename || '(unknown)');
+                        const fileLink = f.blob_url ? f.blob_url : (f.raw_url ? f.raw_url : '');
+                        // each will be array of { type: 'added'|'removed'|'context'|'empty', text: '...' }
+                        let leftLines = [];
+                        let rightLines = [];
+                        if (f.patch) {
+                            // Split patch into lines and separate added/removed/context
+                            const lines = f.patch.split(/\r?\n/);
+                            lines.forEach(ln => {
+                                if (ln.startsWith('+++') || ln.startsWith('---') || ln.startsWith('@@')) {
+                                    // ignore file headers and hunk headers in the pane content
+                                    return;
+                                }
+                                if (ln.startsWith('+')) {
+                                    rightLines.push({ type: 'added', text: escapeHtml(ln.substring(1)) });
+                                    // keep alignment: empty placeholder on left
+                                    leftLines.push({ type: 'empty', text: '' });
+                                } else if (ln.startsWith('-')) {
+                                    leftLines.push({ type: 'removed', text: escapeHtml(ln.substring(1)) });
+                                    rightLines.push({ type: 'empty', text: '' });
+                                } else {
+                                    // context line
+                                    const ctx = escapeHtml(ln.startsWith(' ') ? ln.substring(1) : ln);
+                                    leftLines.push({ type: 'context', text: ctx });
+                                    rightLines.push({ type: 'context', text: ctx });
+                                }
+                            });
+                        } else {
+                            leftLines = ['(no patch available)'];
+                            rightLines = ['(no patch available)'];
+                        }
+
+                        // Build HTML for this file — render a GitHub-style side-by-side diff table with line numbers.
+                        let fileHtml = '<div class="pr-diff-file"><div class="pr-diff-filename"><div>' + filename + '</div>' + (fileLink ? ('<div><a href="' + escapeHtml(fileLink) + '" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>') : '') + '</div>';
+
+                        if (f.patch) {
+                            const patchLines = f.patch.split(/\r?\n/);
+                            const rows = [];
+                            let leftNum = 0;
+                            let rightNum = 0;
+                            const hunkRe = /^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@/;
+                            for (let i = 0; i < patchLines.length; i++) {
+                                const ln = patchLines[i];
+                                const m = ln.match(hunkRe);
+                                if (m) {
+                                    leftNum = parseInt(m[1], 10);
+                                    rightNum = parseInt(m[3], 10);
+                                    continue;
+                                }
+                                if (ln.startsWith('+')) {
+                                    rows.push({ type: 'added', leftNum: '', leftText: '', rightNum: rightNum, rightText: escapeHtml(ln.substring(1)) });
+                                    rightNum++;
+                                } else if (ln.startsWith('-')) {
+                                    rows.push({ type: 'removed', leftNum: leftNum, leftText: escapeHtml(ln.substring(1)), rightNum: '', rightText: '' });
+                                    leftNum++;
+                                } else {
+                                    const text = escapeHtml(ln.startsWith(' ') ? ln.substring(1) : ln);
+                                    rows.push({ type: 'context', leftNum: leftNum, leftText: text, rightNum: rightNum, rightText: text });
+                                    leftNum++; rightNum++;
+                                }
+                            }
+
+                            fileHtml += '<div class="sb-diff-wrap"><table class="sb-diff"><tbody>';
+                            // Coalesce sequences of removed/added lines into 'replaced' rows when adjacent
+                            const paired = [];
+                            for (let i = 0; i < rows.length; i++) {
+                                const cur = rows[i];
+                                if (cur.type === 'removed') {
+                                    // collect contiguous removed run
+                                    const removedRun = [cur];
+                                    let j = i + 1;
+                                    while (j < rows.length && rows[j].type === 'removed') { removedRun.push(rows[j]); j++; }
+                                    // collect following contiguous added run
+                                    const addedRun = [];
+                                    while (j < rows.length && rows[j].type === 'added') { addedRun.push(rows[j]); j++; }
+
+                                    const pairCount = Math.min(removedRun.length, addedRun.length);
+                                    // pair one-to-one for replacements
+                                    for (let k = 0; k < pairCount; k++) {
+                                        paired.push({ type: 'replaced', leftNum: removedRun[k].leftNum, leftText: removedRun[k].leftText, rightNum: addedRun[k].rightNum, rightText: addedRun[k].rightText });
+                                    }
+                                    // leftover removed lines
+                                    for (let k = pairCount; k < removedRun.length; k++) {
+                                        paired.push(removedRun[k]);
+                                    }
+                                    // leftover added lines
+                                    for (let k = pairCount; k < addedRun.length; k++) {
+                                        paired.push(addedRun[k]);
+                                    }
+                                    i = j - 1; // advance
+                                } else {
+                                    paired.push(cur);
+                                }
+                            }
+
+                            paired.forEach(r => {
+                                const rowClass = r.type === 'replaced' ? 'replaced' : r.type;
+                                fileHtml += '<tr class="sb-row sb-' + rowClass + '">';
+                                fileHtml += '<td class="sb-line-num">' + (r.leftNum || '') + '</td>';
+                                fileHtml += '<td class="sb-code sb-left"><pre class="sb-pre">' + (r.leftText || '') + '</pre></td>';
+                                fileHtml += '<td class="sb-line-num">' + (r.rightNum || '') + '</td>';
+                                fileHtml += '<td class="sb-code sb-right"><pre class="sb-pre">' + (r.rightText || '') + '</pre></td>';
+                                fileHtml += '</tr>';
+                            });
+                            fileHtml += '</tbody></table></div>';
+                        } else {
+                            fileHtml += '<div class="diff-container"><div class="diff-column diff-left"><pre class="pr-diff-pre">(no patch available)</pre></div><div class="diff-column diff-right"><pre class="pr-diff-pre">(no patch available)</pre></div></div>';
+                        }
+
+                        fileHtml += '</div>';
+                        parts.push(fileHtml);
+                    });
+                    parts.push('</div>');
+                });
+
+                content.innerHTML = parts.join('');
+
+                // modal contributors removed; showing only PR author per PR above
+
+                // Attach close handler
+                const closeBtn = document.getElementById('prDiffModalClose');
+                if (closeBtn) closeBtn.addEventListener('click', () => { overlay.style.display = 'none'; content.innerHTML = ''; });
+
+                // Side-by-side table handles alignment; no synchronized scroll required.
+
+                // per-file preview handlers removed
+
+                // Page-level preview removed per user request
+            } catch (e) {
+                content.innerHTML = `<div style="padding:12px; color:var(--text-danger);">Error loading diffs: ${escapeHtml(String(e))}</div>`;
+            }
         }
 
         function renderPrFilters() {
@@ -6255,40 +6811,24 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         }
         
         function applyAllFilters() {
-            console.log('🔄 applyAllFilters called');
-            console.log('📊 allRowsData:', allRowsData);
-            console.log('📏 allRowsData length:', allRowsData ? allRowsData.length : 'undefined');
             
             if (!allRowsData || allRowsData.length === 0) {
                 console.warn('⚠️ applyAllFilters called but allRowsData is empty or undefined');
-                console.log('🔍 Current state - selectedStatuses:', selectedStatuses);
-                console.log('🔍 Current state - currentTeamFilter:', currentTeamFilter);
-                console.log('🔍 Current state - showOnlyGroup:', showOnlyGroup);
                 return;
             }
-            
-            console.log('🏁 Starting filter process with', allRowsData.length, 'participants');
+
             let filteredData = [...allRowsData];
-            console.log('📋 Initial filteredData length:', filteredData.length);
             
             // Apply group participants filter first if active
             // This ensures team filtering can work on the group subset
             if (showOnlyGroup) {
-                console.log('🔍 Applying group participants filter. Group participants:', Array.from(groupParticipants));
                 const beforeGroupFilter = filteredData.length;
                 filteredData = filteredData.filter(participant => {
                     const name = getParticipantName(participant);
-                    const passes = Array.from(groupParticipants).some(groupName => 
+                    return Array.from(groupParticipants).some(groupName => 
                         groupName.toLowerCase() === name.toLowerCase()
                     );
-                    if (!passes) {
-                        console.log('❌ Participant filtered out by group status:', name);
-                    }
-                    return passes;
                 });
-                console.log('📊 Group filter result:', beforeGroupFilter, '→', filteredData.length);
-            } else {
-                console.log('⏭️ Skipping group participants filter (not active)');
             }
             
             // Apply team filter if active (works on group-filtered results if group filter is active)
@@ -7011,17 +7551,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }
             lastPreprocessTime = now;
             
-            console.log('🔄 preprocessParticipantData called, count:', preprocessCallCount);
-            console.log('📊 Processing', participants.length, 'participants');
-            console.log('🔍 First participant sample:', participants[0]);
-            console.log('🔍 Second participant sample:', participants[1]);
-            console.log('🔍 Last participant sample:', participants[participants.length - 1]);
-            
+            // preprocessParticipantData called (debug logs removed for production)
             return participants.map((participant, index) => {
-                // Debug first few and last few rows
-                if (index < 3 || index > participants.length - 3) {
-                    console.log(`🔍 Processing participant ${index}:`, participant);
-                }
                 
                 // Create a new object to maintain original data
                 const processed = {};
@@ -7832,7 +8363,6 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         
         function exportParticipantsCSV() {
             console.log('exportParticipantsCSV called');
-            console.log('window.participantsData:', window.participantsData);
             console.log('allRowsData:', allRowsData);
             
             if (!window.participantsData || window.participantsData.length === 0) {
@@ -10688,6 +11218,16 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             }, 1000); // Delay to ensure other scripts have loaded
         });
     </script>
+</script>
+
+<!-- PR Diff Modal Overlay -->
+<div id="prDiffModalOverlay" aria-hidden="true">
+    <div class="pr-diff-modal" role="dialog" aria-modal="true">
+        <div id="prDiffModalContent">
+            <!-- populated dynamically -->
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
