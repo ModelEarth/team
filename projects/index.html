@@ -3653,6 +3653,49 @@
                     }
                 }
 
+                // Also fetch .siterepos from the webroot repository and merge any
+                // additional site repositories into the list (de-duplicated).
+                try {
+                    const siteResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.siterepos', { cache: 'no-store' });
+                    if (siteResp && siteResp.ok) {
+                        const siteText = await siteResp.text();
+                        const lines = siteText.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                        const existing = new Set(repos.map(r => `${r.owner}/${r.repo}`));
+                        for (const line of lines) {
+                            // Accept formats like 'owner/repo', full GitHub URLs, or git@github.com:owner/repo.git
+                            let match = line.match(/github.com[:\\/](.+?)\/(.+?)(?:\.git)?$/);
+                            let owner = null, repo = null;
+                            if (match) {
+                                owner = match[1];
+                                repo = match[2];
+                            } else if (/^[\w.-]+\/[\w.-]+$/.test(line)) {
+                                const parts = line.split('/');
+                                owner = parts[0];
+                                repo = parts[1].replace(/\.git$/, '');
+                            }
+                            if (owner && repo) {
+                                const key = `${owner}/${repo}`;
+                                if (!existing.has(key)) {
+                                    repos.push({ owner, repo });
+                                    existing.add(key);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('.siterepos fetch failed', e);
+                }
+
+                // Ensure ModelEarth/webroot is included in the aggregated list
+                try {
+                    const finalSet = new Set(repos.map(r => `${r.owner}/${r.repo}`));
+                    if (!finalSet.has('ModelEarth/webroot')) {
+                        repos.push({ owner: 'ModelEarth', repo: 'webroot' });
+                    }
+                } catch (e) {
+                    // non-fatal
+                }
+
 
                 if (repos.length === 0) {
                     prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">No GitHub submodules found in .gitmodules.</div>';
