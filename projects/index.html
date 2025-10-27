@@ -3349,7 +3349,7 @@
                     // detect lat/lng keys (case-insensitive)
                     const lowerKeys = keys.map(k => k.toLowerCase());
                     const latKey = lowerKeys.includes('latitude') ? keys[lowerKeys.indexOf('latitude')] : (lowerKeys.includes('lat') ? keys[lowerKeys.indexOf('lat')] : null);
-                    const lngKey = lowerKeys.includes('longitude') ? keys[lowerKeys.indexOf('longitude')] : (lowerKeys.includes('lng') ? keys[lowerKeys.indexOf('lng')] : null);
+                    const lngKey = lowerKeys.includes('longitude') ? keys[lowerKeys.indexOf('longitude')] : (lowerKeys.includes('lng') ? keys[lowerKeys.indexOf('lng')] : (lowerKeys.includes('lon') ? keys[lowerKeys.indexOf('lon')] : (lowerKeys.includes('long') ? keys[lowerKeys.indexOf('long')] : null)));
                     let lat = null, lng = null;
                     if (latKey && lngKey) {
                         lat = parseFloat(row[latKey]);
@@ -3387,6 +3387,26 @@
                     }
                     // Also attempt to extract state (abbr) to build a nicer label
                     const state = extractStateFromRow(row);
+                    // If we don't have explicit coordinates but have a city and state,
+                    // approximate a deterministic location near the state centroid so
+                    // the city marker points roughly to the city's region instead of
+                    // the state center for all cities.
+                    if ((lat == null || lng == null) && city && state && US_STATE_CENTROIDS[state]) {
+                        try {
+                            const cent = US_STATE_CENTROIDS[state];
+                            // deterministic hash from city name
+                            let sum = 0;
+                            for (let i = 0; i < city.length; i++) sum = (sum * 31 + city.charCodeAt(i)) | 0;
+                            const angle = (Math.abs(sum) % 360) * (Math.PI / 180);
+                            const dist = 0.2 + (Math.abs(sum) % 100) / 1000; // ~0.2 - 0.299 degrees
+                            const approxLat = cent.lat + Math.sin(angle) * dist;
+                            const approxLng = cent.lng + Math.cos(angle) * dist;
+                            return { city: city || null, state: state || null, lat: approxLat, lng: approxLng };
+                        } catch (e) {
+                            // fallback to null coords
+                        }
+                    }
+
                     return { city: city || null, state: state || null, lat: lat, lng: lng };
                 }
 
@@ -3501,11 +3521,15 @@
                         const keys = Object.keys(r);
                         const lower = keys.map(k => k.toLowerCase());
                         const latKey = lower.includes('latitude') ? keys[lower.indexOf('latitude')] : (lower.includes('lat') ? keys[lower.indexOf('lat')] : null);
-                        const lngKey = lower.includes('longitude') ? keys[lower.indexOf('longitude')] : (lower.includes('lng') ? keys[lower.indexOf('lng')] : null);
+                        const lngKey = lower.includes('longitude') ? keys[lower.indexOf('longitude')] : (lower.includes('lng') ? keys[lower.indexOf('lng')] : (lower.includes('lon') ? keys[lower.indexOf('lon')] : (lower.includes('long') ? keys[lower.indexOf('long')] : null)));
                         if (latKey && lngKey) {
-                            const la = parseFloat(r[latKey]);
-                            const lo = parseFloat(r[lngKey]);
-                            if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                            let la = parseFloat(r[latKey]);
+                            let lo = parseFloat(r[lngKey]);
+                            if (!isNaN(la) && !isNaN(lo)) {
+                                // Correct swapped lat/lng if detected
+                                if (Math.abs(la) > 90 && Math.abs(lo) <= 90) { const tmp = la; la = lo; lo = tmp; }
+                                return [la, lo];
+                            }
                         }
                         // try combined location
                         const locIndex = lower.findIndex(k => ['location','address','place'].includes(k));
@@ -3602,7 +3626,7 @@
                 const keys = Object.keys(sample).map(k => k.toLowerCase());
                 const originalKeys = Object.keys(sample);
                 const latKey = keys.includes('latitude') ? originalKeys.find(k => k.toLowerCase()==='latitude') : (keys.includes('lat') ? originalKeys.find(k => k.toLowerCase()==='lat') : null);
-                const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : null);
+                const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : (keys.includes('lon') ? originalKeys.find(k => k.toLowerCase()==='lon') : (keys.includes('long') ? originalKeys.find(k => k.toLowerCase()==='long') : null)));
                 const locationKey = keys.includes('location') ? originalKeys.find(k => k.toLowerCase()==='location') : null;
 
                 // Helper: try to parse two numeric coords from a location string
@@ -3612,17 +3636,27 @@
                     // common: "lat, lng" or "lat;lng" or "lat lng"
                     const pair = s.match(/([+-]?\d{1,3}(?:\.\d+)?)[^\d+-]+([+-]?\d{1,3}(?:\.\d+)?)/);
                     if (pair && pair.length >= 3) {
-                        const la = parseFloat(pair[1]);
-                        const lo = parseFloat(pair[2]);
-                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                        let la = parseFloat(pair[1]);
+                        let lo = parseFloat(pair[2]);
+                        if (!isNaN(la) && !isNaN(lo)) {
+                            // if latitude appears out of range but longitude looks like a latitude,
+                            // assume values were swapped and correct them
+                            if (Math.abs(la) > 90 && Math.abs(lo) <= 90) {
+                                const tmp = la; la = lo; lo = tmp;
+                            }
+                            return [la, lo];
+                        }
                     }
                     // try explicit labels: "lat: X ... lon|lng: Y"
                     const laMatch = s.match(/lat[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
                     const loMatch = s.match(/(?:lon|lng|long|longitude)[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
                     if (laMatch && laMatch[1] && loMatch && loMatch[1]) {
-                        const la = parseFloat(laMatch[1]);
-                        const lo = parseFloat(loMatch[1]);
-                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                        let la = parseFloat(laMatch[1]);
+                        let lo = parseFloat(loMatch[1]);
+                        if (!isNaN(la) && !isNaN(lo)) {
+                            if (Math.abs(la) > 90 && Math.abs(lo) <= 90) { const tmp = la; la = lo; lo = tmp; }
+                            return [la, lo];
+                        }
                     }
                     return null;
                 }
@@ -3632,9 +3666,11 @@
                 data.forEach(r => {
                     try {
                         if (latKey && lngKey) {
-                            const lat = parseFloat(r[latKey]);
-                            const lng = parseFloat(r[lngKey]);
+                            let lat = parseFloat(r[latKey]);
+                            let lng = parseFloat(r[lngKey]);
                             if (!isNaN(lat) && !isNaN(lng)) {
+                                // Correct swapped lat/lng when necessary
+                                if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) { const tmp = lat; lat = lng; lng = tmp; }
                                 points.push([lat, lng, 0.8]);
                                 return;
                             }
