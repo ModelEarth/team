@@ -195,7 +195,7 @@ community:
 - **Submodules**: Defined in `.gitmodules` file (see Submodule Management section)
 - **Site Repos**: Defined in `.siterepos` file (see Site Repositories section)
 
-**DO NOT include directories that are not managed repositories** (like explore, img, css directories, etc.)
+**DO NOT include new directories added to the webroot that are not listed in the Submodules or Site Repos**
 
 #### Commit Message Requirements:
 - **Repository-specific**: Each commit message describes only that repository's changes

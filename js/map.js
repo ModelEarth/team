@@ -645,6 +645,11 @@ class ListingsDisplay {
         
         const strValue = value.toString();
         
+        // Format email addresses with mailto links
+        if (fieldType === 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
+            return `<a href="mailto:${strValue}">${strValue}</a>`;
+        }
+        
         // Format phone numbers
         if (fieldType === 'phone' || /^\+?[\d\s\-\(\)]+$/.test(strValue)) {
             return strValue.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
