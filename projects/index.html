@@ -10265,10 +10265,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Parse CSV data with robust parser that handles newlines in quoted fields
                     const rows = parseCSVRobust(csvText);
-                    if (points.length === 0) {
+                    if (!rows || rows.length === 0) {
                         throw new Error('No data found in CSV');
                     }
                     
+                        // Ensure map container element is defined before toggling
+                        const contEl = document.getElementById('participants-map-container');
                         try {
                             if (contEl) {
                                 const listParam = (typeof getHash === 'function') ? getHash().list : null;
