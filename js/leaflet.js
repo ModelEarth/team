@@ -1095,6 +1095,7 @@ class LeafletMapManager {
                 background: rgba(0, 0, 0, 0.8);
                 color: white;
                 padding: 4px;
+                min-height: 26px;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 500;
@@ -1107,7 +1108,12 @@ class LeafletMapManager {
                 white-space: nowrap;
                 margin: 0px !important;
             }
-            
+            .leaflet-left .leaflet-control {
+                margin-left: 0px;
+            }
+            .leaflet-bottom {
+                padding-left: 8px;
+            }
             .mapPopButton:hover {
                 background: rgba(0, 0, 0, 0.9);
             }
