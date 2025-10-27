@@ -377,22 +377,21 @@ get_submodules() {
     fi
 }
 
-# Parse extra repos from extra-repos.txt file in webroot directory
-get_extra_repos() {
-    local extra_file
-    if [ -f "extra-repos.txt" ]; then
+# Parse site repos from .siterepos file in webroot directory
+get_site_repos() {
+    local siterepos_file
+    if [ -f ".siterepos" ]; then
         # We're in webroot directory
-        extra_file="extra-repos.txt"
-    elif [ -f "../extra-repos.txt" ]; then
+        siterepos_file=".siterepos"
+    elif [ -f "../.siterepos" ]; then
         # We're in team subdirectory
-        extra_file="../extra-repos.txt"
+        siterepos_file="../.siterepos"
     else
-        echo "⚠️ WARNING: extra-repos.txt file not found" >&2
-        return 0  # Not an error, just no extra repos
+        return 0  # Not an error, just no site repos
     fi
     
-    # Skip header line and parse CSV format (Repo,Path)
-    tail -n +2 "$extra_file" | cut -d',' -f1
+    # Parse .siterepos file (same format as .gitmodules)
+    grep "^\[siterepo" "$siterepos_file" | sed 's/\[siterepo "\(.*\)"\]/\1/'
 }
 
 # Check if repo has capital M (ModelEarth) based on .gitmodules URL
@@ -1019,16 +1018,45 @@ commit_push() {
     fix_detached_head "$name"
     
     # Check if there are changes to commit first
+    local has_working_changes=false
+    local commit_hash=""
+    
     if [ -n "$(git status --porcelain)" ]; then
         # Only check user change and update remotes when there are actual changes
         check_user_change "$name"
         git add .
         local commit_msg=$(get_commit_message "$name" ".")
         git commit -m "$commit_msg"
-        local commit_hash=$(git rev-parse HEAD)
-        
-        # Determine target branch
-        local target_branch="main"
+        commit_hash=$(git rev-parse HEAD)
+        has_working_changes=true
+    fi
+    
+    # Check if there are unpushed commits (even if no working changes)
+    local unpushed_commits=0
+    local target_branch="main"
+    
+    # Count unpushed commits
+    if git rev-parse --verify origin/$target_branch >/dev/null 2>&1; then
+        unpushed_commits=$(git rev-list --count origin/$target_branch..HEAD 2>/dev/null || echo "0")
+    else
+        # Try master branch as fallback
+        target_branch="master"
+        if git rev-parse --verify origin/$target_branch >/dev/null 2>&1; then
+            unpushed_commits=$(git rev-list --count origin/$target_branch..HEAD 2>/dev/null || echo "0")
+        fi
+    fi
+    
+    # If there are working changes OR unpushed commits, proceed with push
+    if [ "$has_working_changes" = true ] || [ "$unpushed_commits" -gt 0 ]; then
+        if [ "$has_working_changes" = false ] && [ "$unpushed_commits" -gt 0 ]; then
+            echo "📤 Found $unpushed_commits unpushed commit(s) in $name - pushing to parent repository"
+            commit_hash=$(git rev-parse HEAD)
+            # For submodules being pushed directly, check user change normally
+            # Skip for webroot context operations to avoid remote URL confusion
+            if [[ "$name" != "webroot" ]] || [[ "$OPERATING_ON_WEBROOT" != "true" ]] || [[ -z "$WEBROOT_CONTEXT" ]]; then
+                check_user_change "$name"
+            fi
+        fi
         
         # Check if user owns the repository
         if is_repo_owner "$name"; then
@@ -1143,6 +1171,8 @@ commit_push() {
                 echo "🔄 PR creation failed for $name"
             fi
         fi
+    else
+        echo "ℹ️ No changes or unpushed commits in $name - nothing to push"
     fi
     
     # Return to original directory
@@ -1339,10 +1369,10 @@ pull_command() {
     # Check for and fix any detached HEAD states after pulls
     fix_all_detached_heads
     
-    # Pull extra repos with graceful merge handling
-    echo "📥 Pulling extra repos..."
-    local extra_repos=($(get_extra_repos))
-    for repo in "${extra_repos[@]}"; do
+    # Pull site repos with graceful merge handling
+    echo "📥 Pulling site repos..."
+    local site_repos=($(get_site_repos))
+    for repo in "${site_repos[@]}"; do
         [ ! -d "$repo" ] && continue
         cd "$repo"
         
@@ -1396,12 +1426,12 @@ pull_command() {
     done
     
     local submodules=($(get_submodules))
-    local extra_repos=($(get_extra_repos))
+    local site_repos=($(get_site_repos))
     local submodule_count=${#submodules[@]}
-    local extra_count=${#extra_repos[@]}
-    local total_count=$((1 + submodule_count + extra_count))
+    local site_count=${#site_repos[@]}
+    local total_count=$((1 + submodule_count + site_count))
     
-    echo "✅ Pull completed - 1 webroot + ${submodule_count} submodules + ${extra_count} extra repos = ${total_count} repositories"
+    echo "✅ Pull completed - 1 webroot + ${submodule_count} submodules + ${site_count} site repos = ${total_count} repositories"
 }
 
 # Pull specific repository
@@ -1529,12 +1559,12 @@ pull_specific_repo() {
         return
     fi
     
-    # Check if it's an extra repo
-    local extra_repos=($(get_extra_repos))
-    local extra_repo_list=" ${extra_repos[*]} "
-    if [[ "$extra_repo_list" =~ " $repo_name " ]]; then
+    # Check if it's an site repo
+    local site_repos=($(get_site_repos))
+    local site_repo_list=" ${site_repos[*]} "
+    if [[ "$site_repo_list" =~ " $repo_name " ]]; then
         if [ -d "$repo_name" ]; then
-            echo "📥 Pulling extra repo: $repo_name..."
+            echo "📥 Pulling site repo: $repo_name..."
             cd "$repo_name"
             
             # First fetch the latest changes
@@ -1584,7 +1614,7 @@ pull_specific_repo() {
                 merge_upstream "$repo_name"
             fi
             cd_webroot
-            echo "✅ $repo_name extra repo pull completed!"
+            echo "✅ $repo_name site repo pull completed!"
         else
             echo "⚠️ Extra repo not found: $repo_name"
         fi
@@ -1596,8 +1626,8 @@ pull_specific_repo() {
     echo "  Webroot: webroot"
     local submodules=($(get_submodules))
     echo "  Submodules: ${submodules[*]}"
-    local extra_repos=($(get_extra_repos))
-    echo "  Extra Repos: ${extra_repos[*]}"
+    local site_repos=($(get_site_repos))
+    echo "  Site Repos: ${site_repos[*]}"
 }
 
 # Check and fix detached HEAD states in all repositories
@@ -1621,9 +1651,9 @@ fix_all_detached_heads() {
         fi
     done
     
-    # Check extra repos
-    local extra_repos=($(get_extra_repos))
-    for repo in "${extra_repos[@]}"; do
+    # Check site repos
+    local site_repos=($(get_site_repos))
+    for repo in "${site_repos[@]}"; do
         if [ -d "$repo" ]; then
             cd "$repo"
             if fix_detached_head "$repo"; then
@@ -1677,9 +1707,9 @@ update_all_remotes_for_user() {
         fi
     done
     
-    # Check extra repos
-    local extra_repos=($(get_extra_repos))
-    for repo in "${extra_repos[@]}"; do
+    # Check site repos
+    local site_repos=($(get_site_repos))
+    for repo in "${site_repos[@]}"; do
         if [ -d "$repo" ]; then
             cd "$repo"
             if check_user_change "$repo"; then
@@ -1933,10 +1963,10 @@ push_specific_repo() {
         return
     fi
     
-    # Check if it's an extra repo
-    local extra_repos=($(get_extra_repos))
-    local extra_repo_list=" ${extra_repos[*]} "
-    if [[ "$extra_repo_list" =~ " $name " ]]; then
+    # Check if it's an site repo
+    local site_repos=($(get_site_repos))
+    local site_repo_list=" ${site_repos[*]} "
+    if [[ "$site_repo_list" =~ " $name " ]]; then
         if [ -d "$name" ]; then
             cd "$name"
             commit_push "$name" "$skip_pr"
@@ -1954,8 +1984,8 @@ push_specific_repo() {
     echo "  Webroot: webroot"
     local submodules=($(get_submodules))
     echo "  Submodules: ${submodules[*]}"
-    local extra_repos=($(get_extra_repos))
-    echo "  Extra Repos: ${extra_repos[*]}"
+    local site_repos=($(get_site_repos))
+    echo "  Site Repos: ${site_repos[*]}"
 }
 
 # Push all submodules
@@ -2062,20 +2092,20 @@ push_all() {
     # Push all submodules
     push_submodules "$skip_pr"
     
-    # Push extra repos with safe directory management
-    local extra_repos=($(get_extra_repos))
-    local failed_extra_pushes=()
+    # Push site repos with safe directory management
+    local site_repos=($(get_site_repos))
+    local failed_site_pushes=()
     
-    for repo in "${extra_repos[@]}"; do
+    for repo in "${site_repos[@]}"; do
         [ ! -d "$repo" ] && continue
         if ! safe_submodule_operation "$repo" "commit_push" "$repo" "$skip_pr"; then
-            failed_extra_pushes+=("$repo")
+            failed_site_pushes+=("$repo")
         fi
     done
     
     # Report any failures
-    if [ ${#failed_extra_pushes[@]} -gt 0 ]; then
-        echo "⚠️ Failed to push the following extra repos: ${failed_extra_pushes[*]}"
+    if [ ${#failed_site_pushes[@]} -gt 0 ]; then
+        echo "⚠️ Failed to push the following site repos: ${failed_site_pushes[*]}"
         echo "💡 You may need to resolve these manually"
     fi
     
@@ -2084,19 +2114,19 @@ push_all() {
     
     echo "✅ Complete push finished! - $(date +'%A, %b %-d at %-I:%M %p ET')"
     
-    # Check extra repos for uncommitted changes
-    check_extra_repos_for_changes
+    # Check site repos for uncommitted changes
+    check_site_repos_for_changes
 }
 
-# Check extra repos for uncommitted changes and prompt user
-check_extra_repos_for_changes() {
+# Check site repos for uncommitted changes and prompt user
+check_site_repos_for_changes() {
     cd $(git rev-parse --show-toplevel)
     
     local repos_with_changes=()
-    local extra_repos=($(get_extra_repos))
-    local repo_names=("${extra_repos[@]}")
+    local site_repos=($(get_site_repos))
+    local repo_names=("${site_repos[@]}")
     
-    # Check each extra repo for changes
+    # Check each site repo for changes
     for repo in "${repo_names[@]}"; do
         if [ -d "$repo" ]; then
             cd "$repo"
@@ -2121,31 +2151,31 @@ check_extra_repos_for_changes() {
         echo "  $i) all"
         echo ""
         
-        read -p "Which extra repo would you like to push? (1-$i or press Enter to skip): " choice
+        read -p "Which site repo would you like to push? (1-$i or press Enter to skip): " choice
         
         if [ -n "$choice" ]; then
             if [ "$choice" -eq "$i" ] 2>/dev/null; then
-                # Push all extra repos with changes
-                echo "🚀 Pushing all extra repos with changes..."
+                # Push all site repos with changes
+                echo "🚀 Pushing all site repos with changes..."
                 for repo in "${repos_with_changes[@]}"; do
-                    push_extra_repo "$repo"
+                    push_site_repo "$repo"
                 done
             elif [ "$choice" -ge 1 ] && [ "$choice" -lt "$i" ] 2>/dev/null; then
                 # Push specific repo
                 local selected_repo="${repos_with_changes[$((choice-1))]}"
                 echo "🚀 Pushing $selected_repo..."
-                push_extra_repo "$selected_repo"
+                push_site_repo "$selected_repo"
             else
-                echo "❌ Invalid choice. Skipping extra repo push."
+                echo "❌ Invalid choice. Skipping site repo push."
             fi
         else
-            echo "⏭️ Skipping extra repo push."
+            echo "⏭️ Skipping site repo push."
         fi
     fi
 }
 
-# Push a specific extra repo
-push_extra_repo() {
+# Push a specific site repo
+push_site_repo() {
     local repo_name="$1"
     
     cd $(git rev-parse --show-toplevel)
@@ -2207,9 +2237,9 @@ final_push_completion_check() {
         fi
     done
     
-    # Check extra repos
-    local extra_repos=($(get_extra_repos))
-    for repo in "${extra_repos[@]}"; do
+    # Check site repos
+    local site_repos=($(get_site_repos))
+    for repo in "${site_repos[@]}"; do
         if [ -d "$repo" ]; then
             cd "$repo"
             if [ -n "$(git rev-list --count @{u}..HEAD 2>/dev/null)" ] && [ "$(git rev-list --count @{u}..HEAD 2>/dev/null)" != "0" ]; then
@@ -2275,7 +2305,7 @@ case "$1" in
         echo "Usage: ./git.sh [pull|push|fix|remotes|auth] [repo_name|submodules|all] [nopr] [overwrite-local]"
         echo ""
         echo "Commands:"
-        echo "  ./git.sh pull                      - Pull all repositories (webroot + submodules + extra repos)"
+        echo "  ./git.sh pull                      - Pull all repositories (webroot + submodules + site repos)"
         echo "  ./git.sh pull [repo_name]          - Pull specific repository"
         echo "  ./git.sh push                      - Push all repositories with changes"
         echo "  ./git.sh push all                  - Push all repositories with changes (same as 'push')"
@@ -2289,8 +2319,8 @@ case "$1" in
         echo "  Webroot: webroot"
         submodules=($(get_submodules))
         echo "  Submodules: ${submodules[*]}"
-        extra_repos=($(get_extra_repos))
-        echo "  Extra Repos: ${extra_repos[*]}"
+        site_repos=($(get_site_repos))
+        echo "  Site Repos: ${site_repos[*]}"
         echo ""
         echo "Options:"
         echo "  nopr                               - Skip PR creation on push failures"
