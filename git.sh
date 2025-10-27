@@ -1018,16 +1018,45 @@ commit_push() {
     fix_detached_head "$name"
     
     # Check if there are changes to commit first
+    local has_working_changes=false
+    local commit_hash=""
+    
     if [ -n "$(git status --porcelain)" ]; then
         # Only check user change and update remotes when there are actual changes
         check_user_change "$name"
         git add .
         local commit_msg=$(get_commit_message "$name" ".")
         git commit -m "$commit_msg"
-        local commit_hash=$(git rev-parse HEAD)
-        
-        # Determine target branch
-        local target_branch="main"
+        commit_hash=$(git rev-parse HEAD)
+        has_working_changes=true
+    fi
+    
+    # Check if there are unpushed commits (even if no working changes)
+    local unpushed_commits=0
+    local target_branch="main"
+    
+    # Count unpushed commits
+    if git rev-parse --verify origin/$target_branch >/dev/null 2>&1; then
+        unpushed_commits=$(git rev-list --count origin/$target_branch..HEAD 2>/dev/null || echo "0")
+    else
+        # Try master branch as fallback
+        target_branch="master"
+        if git rev-parse --verify origin/$target_branch >/dev/null 2>&1; then
+            unpushed_commits=$(git rev-list --count origin/$target_branch..HEAD 2>/dev/null || echo "0")
+        fi
+    fi
+    
+    # If there are working changes OR unpushed commits, proceed with push
+    if [ "$has_working_changes" = true ] || [ "$unpushed_commits" -gt 0 ]; then
+        if [ "$has_working_changes" = false ] && [ "$unpushed_commits" -gt 0 ]; then
+            echo "📤 Found $unpushed_commits unpushed commit(s) in $name - pushing to parent repository"
+            commit_hash=$(git rev-parse HEAD)
+            # For submodules being pushed directly, check user change normally
+            # Skip for webroot context operations to avoid remote URL confusion
+            if [[ "$name" != "webroot" ]] || [[ "$OPERATING_ON_WEBROOT" != "true" ]] || [[ -z "$WEBROOT_CONTEXT" ]]; then
+                check_user_change "$name"
+            fi
+        fi
         
         # Check if user owns the repository
         if is_repo_owner "$name"; then
@@ -1142,6 +1171,8 @@ commit_push() {
                 echo "🔄 PR creation failed for $name"
             fi
         fi
+    else
+        echo "ℹ️ No changes or unpushed commits in $name - nothing to push"
     fi
     
     # Return to original directory
