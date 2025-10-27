@@ -3470,13 +3470,25 @@
                     // Ensure map exists so tiles are visible even when there are no points
                     initParticipantsHeatmap();
                     document.getElementById('participants-map-no-data').style.display = 'flex';
-                    document.getElementById('participants-map-container').style.display = 'block';
+                    try {
+                        const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                        const pmc = document.getElementById('participants-map-container');
+                        if (pmc) {
+                            if (listParam === 'modelteam') pmc.style.display = 'block'; else pmc.style.display = 'none';
+                        }
+                    } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
                     try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch(e){}
                     return;
                 }
 
                 document.getElementById('participants-map-no-data').style.display = 'none';
-                document.getElementById('participants-map-container').style.display = 'block';
+                try {
+                    const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                    const pmc2 = document.getElementById('participants-map-container');
+                    if (pmc2) {
+                        if (listParam === 'modelteam') pmc2.style.display = 'block'; else pmc2.style.display = 'none';
+                    }
+                } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
                 initParticipantsHeatmap();
                 // Ensure the heat layer exists and the map container has non-zero size
                 ensureParticipantsHeatLayer().then(() => {
@@ -3537,10 +3549,19 @@
                             const noDataEl = document.getElementById('participants-map-no-data');
                             if (!cont || !mapEl) return;
                             // Keep the container and controls visible; hide only the map pane so the toggle button remains accessible
+                            const listParamToggle = (typeof getHash === 'function') ? getHash().list : null;
+                            if (listParamToggle !== 'modelteam') {
+                                // Map is only available for modelteam; do not allow toggling otherwise
+                                heatmapVisible = false;
+                                e.target.textContent = 'Show map';
+                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
+                                return;
+                            }
                             if (heatmapVisible) {
                                 mapEl.style.display = 'block';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Hide map';
+                                try { if (cont && cont.dataset) delete cont.dataset.userHidden; } catch(e){}
                                 setTimeout(() => {
                                     try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch (err){}
                                 }, 120);
@@ -3549,6 +3570,7 @@
                                 mapEl.style.display = 'none';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Show map';
+                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
                             }
                         } else if (id === 'toggle-state-counts-btn') {
                             // Toggle the state counts overlay visibility
@@ -5141,13 +5163,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const hash = getHash();
                 const contribBtn = document.getElementById('contribs-btn');
                 if (!contribBtn) return;
-                if (hash.list === 'modelteam') {
+                const isModel = hash.list === 'modelteam';
+                if (isModel) {
                     contribBtn.style.display = '';
                 } else {
                     contribBtn.style.display = 'none';
                     // also hide contributions panel if open
                     const panel = document.getElementById('contributionsPanel');
                     if (panel) panel.style.display = 'none';
+                }
+
+                // Also control participants map visibility when viewing modelteam
+                try {
+                    const mapContainer = document.getElementById('participants-map-container');
+                    if (mapContainer) {
+                        // show map for modelteam, hide otherwise (but do not force-hide if
+                        // user explicitly toggled the map via the Show/Hide map control)
+                        // We check a lightweight flag stored on the container to respect
+                        // user toggles: if container.dataset.userHidden === '1' we won't
+                        // override the user's preference when hiding.
+                        if (isModel) {
+                            mapContainer.style.display = 'block';
+                        } else {
+                            if (!mapContainer.dataset.userHidden || mapContainer.dataset.userHidden !== '1') {
+                                mapContainer.style.display = 'none';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('updateContribsButtonVisibility - map visibility error', e);
                 }
             } catch (e) {
                 console.warn('updateContribsButtonVisibility error', e);
@@ -9999,18 +10043,41 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Parse CSV data with robust parser that handles newlines in quoted fields
                     const rows = parseCSVRobust(csvText);
-                    if (rows.length === 0) {
+                    if (points.length === 0) {
                         throw new Error('No data found in CSV');
                     }
                     
-                    // First row contains headers
+                        try {
+                            if (contEl) {
+                                const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                                if (listParam === 'modelteam') {
+                                    contEl.style.display = 'block';
+                                } else {
+                                    contEl.style.display = 'none';
+                                }
+                            }
+                        } catch (e) { if (contEl) contEl.style.display = 'block'; }
                     const headers = rows[0];
                     const feedsData = [];
                     
                     // Check if this is a geo site for filtering
                     const isGeoSiteCheck = isGeoSite();
-                    const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
-                    
+                    document.getElementById('participants-map-no-data').style.display = 'none';
+                    try {
+                        const contEl2 = document.getElementById('participants-map-container');
+                        const listParam2 = (typeof getHash === 'function') ? getHash().list : null;
+                        if (contEl2) {
+                            if (listParam2 === 'modelteam') contEl2.style.display = 'block'; else contEl2.style.display = 'none';
+                        }
+                    } catch (e) {
+                        try {
+                            const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                            const pmc3 = document.getElementById('participants-map-container');
+                            if (pmc3) {
+                                if (listParam === 'modelteam') pmc3.style.display = 'block'; else pmc3.style.display = 'none';
+                            }
+                        } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
+                    }
                     // Track skipped binary files for reporting
                     const skippedBinaryFiles = [];
                     
@@ -10495,6 +10562,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Set initial header visibility based on current hash (with delay to ensure dropdown is populated)
             setTimeout(updateHeaderVisibility, 500);
+
+            // Ensure Contributions button and participants map visibility reflect initial hash
+            setTimeout(updateContribsButtonVisibility, 550);
             
             // Initialize insights visibility from URL (with delay to ensure DOM is ready)
             setTimeout(checkInsightsFromURL, 100);
