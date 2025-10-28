@@ -871,11 +871,13 @@ class ListingsDisplay {
         if (window.leafletMap) {
             setTimeout(() => {
                 // Create a limited version of this object with only current page data
+                const mapListings = this.getMapListings();
+                
                 const limitedListingsApp = {
                     ...this,
-                    filteredListings: this.getCurrentPageListings(),
-                    listings: this.getCurrentPageListings(),
-                    getMapListings: () => this.getCurrentPageListings()
+                    filteredListings: mapListings,
+                    listings: mapListings,
+                    getMapListings: () => mapListings
                 };
                 window.leafletMap.updateFromListingsApp(limitedListingsApp);
             }, 100);
@@ -1185,7 +1187,25 @@ class ListingsDisplay {
 
     // Get listings for map display - returns only current page to avoid performance issues
     getMapListings() {
-        return this.getCurrentPageListings();
+        const listings = this.getCurrentPageListings();
+        
+        // Format email addresses in listings before sending to leaflet
+        return listings.map(listing => {
+            const formattedListing = { ...listing };
+            
+            // Check all fields for email addresses and format them
+            Object.keys(formattedListing).forEach(key => {
+                const value = formattedListing[key];
+                if (value && typeof value === 'string') {
+                    // Check if it's an email and format with mailto link
+                    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.toString())) {
+                        formattedListing[key] = `<a href="mailto:${value}" class="popup-link">${value}</a>`;
+                    }
+                }
+            });
+            
+            return formattedListing;
+        });
     }
 
     renderListings() {
@@ -1675,11 +1695,13 @@ class ListingsDisplay {
                 if (this.listings && this.listings.length > 0) {
                     //setTimeout(() => {
                         // Create a limited version of this object with only current page data
+                        const mapListings = this.getMapListings();
+                        
                         const limitedListingsApp = {
                             ...this,
-                            filteredListings: this.getCurrentPageListings(),
-                            listings: this.getCurrentPageListings(),
-                            getMapListings: () => this.getCurrentPageListings()
+                            filteredListings: mapListings,
+                            listings: mapListings,
+                            getMapListings: () => mapListings
                         };
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
                     //}, 100);

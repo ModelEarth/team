@@ -500,12 +500,12 @@ class LeafletMapManager {
                 if (value) {
                     if (index === 0) {
                         // First column - bold title
-                        content += `<div class="popup-title">${this.escapeHtml(value)}</div>`;
+                        content += `<div class="popup-title">${value}</div>`;
                     } else if (index === 1) {
                         // Second column - with appropriate prefix
                         const displayValue = column.toLowerCase().includes('population') ? 
                             `Population: ${this.formatNumber(value)}` : 
-                            `${this.escapeHtml(value)}`; // `${this.formatColumnName(column)}: ${this.escapeHtml(value)}`
+                            `${value}`; // `${this.formatColumnName(column)}: ${value}`
                         content += `<div class="popup-field"><span class="popup-text">${displayValue}</span></div>`;
                     } else if (index === 2) {
                         // Third column - with appropriate suffix
@@ -523,7 +523,7 @@ class LeafletMapManager {
             const county = this.getFieldValue(data, ['county', 'County']);
             
             if (name) {
-                content += `<div class="popup-title">${this.escapeHtml(name)}</div>`;
+                content += `<div class="popup-title">${name}</div>`;
             }
             
             if (population) {
@@ -1421,6 +1421,7 @@ class LeafletMapManager {
             console.warn('Invalid listings app provided');
             return;
         }
+        
         
         this.addMarkersFromData(listingsApp.filteredListings, listingsApp.config);
         
