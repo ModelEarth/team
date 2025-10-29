@@ -3041,6 +3041,7 @@
             let _participantsMap = null;
             let _participantsHeatLayer = null;
             let _participantsStateLayer = null;
+            let _cityDetailLayer = null;
             let heatmapVisible = true;
 
             // Simple state centroids (abbr -> { name, lat, lng }) for US states
@@ -3124,9 +3125,9 @@
                     doubleClickZoom: false,
                     boxZoom: false,
                     touchZoom: false,
-                    // Restrict zoom to reasonable levels for the heatmap view and allow closer zoom
+                    // Allow deeper zoom so city-level views can be reached programmatically
                     minZoom: 4,
-                    maxZoom: 6
+                    maxZoom: 15
                 });
                 const tile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 18,
@@ -3140,7 +3141,10 @@
                     const usaNorthEast = [49.384358, -66.885444];  // NE corner (approx)
                     const usaBounds = L.latLngBounds(usaSouthWest, usaNorthEast);
                     // Fit bounds with a tighter padding after tiles load to zoom in more on the continental USA.
-                    tile.on('load', function() {
+                    // Only fit bounds on the initial tile load. Using `once` prevents
+                    // subsequent tile loads (triggered by programmatic zooms) from
+                    // resetting the view back to the country overview.
+                    tile.once('load', function() {
                         try {
                             // Use a slightly larger pad to keep the view comfortably within the US
                             _participantsMap.fitBounds(usaBounds.pad(0.04));
@@ -3217,6 +3221,29 @@
                     // Try to add immediately (if map already ready) and also when tiles load
                     addStatusLegendTo(_participantsMap);
                     try { tile.on('load', function() { addStatusLegendTo(_participantsMap); }); } catch (e) {}
+                    // Add simple custom zoom controls (top-left) so users can zoom without wheel/dblclick
+                    try {
+                        if (!_participantsMap._customZoomAdded) {
+                            const zoomCtl = L.control({ position: 'topleft' });
+                            zoomCtl.onAdd = function() {
+                                const container = L.DomUtil.create('div', 'leaflet-bar custom-zoom-control');
+                                const zin = L.DomUtil.create('a', 'leaflet-control-zoom-in', container);
+                                zin.innerHTML = '+';
+                                zin.href = '#';
+                                zin.title = 'Zoom in';
+                                const zout = L.DomUtil.create('a', 'leaflet-control-zoom-out', container);
+                                zout.innerHTML = '−';
+                                zout.href = '#';
+                                zout.title = 'Zoom out';
+                                L.DomEvent.disableClickPropagation(container);
+                                L.DomEvent.on(zin, 'click', L.DomEvent.stop).on(zin, 'click', function(e) { try { _participantsMap.zoomIn(); } catch(e){} });
+                                L.DomEvent.on(zout, 'click', L.DomEvent.stop).on(zout, 'click', function(e) { try { _participantsMap.zoomOut(); } catch(e){} });
+                                return container;
+                            };
+                            zoomCtl.addTo(_participantsMap);
+                            _participantsMap._customZoomAdded = true;
+                        }
+                    } catch (e) { console.debug('custom zoom control add failed', e); }
                 } catch (e) { console.debug('status legend add failed', e); }
 
                 return _participantsMap;
@@ -3295,8 +3322,9 @@
                     if (_participantsStateLayer) { _participantsStateLayer.clearLayers(); }
                     return;
                 }
-                // Aggregate counts per state and per status category
-                const counts = {}; // { 'CA': { active: N, inactive: M, new: K, lead: L } }
+                // Aggregate counts per city (preferred) falling back to state centroids.
+                // cityCounts keyed by either a lat,lng pair or state-abbr when coords unavailable.
+                const cityCounts = {}; // { key: { lat, lng, label, counts: {active,inactive,new,lead} } }
                 const statusOf = function(row) {
                     if (!row) return 'inactive';
                     const keys = Object.keys(row || {});
@@ -3314,14 +3342,92 @@
                     // default fallback
                     return 'inactive';
                 };
+                // Helper: try to extract city name and/or lat/lng from row
+                function getCityInfo(row) {
+                    if (!row || typeof row !== 'object') return null;
+                    const keys = Object.keys(row);
+                    // detect lat/lng keys (case-insensitive)
+                    const lowerKeys = keys.map(k => k.toLowerCase());
+                    const latKey = lowerKeys.includes('latitude') ? keys[lowerKeys.indexOf('latitude')] : (lowerKeys.includes('lat') ? keys[lowerKeys.indexOf('lat')] : null);
+                    const lngKey = lowerKeys.includes('longitude') ? keys[lowerKeys.indexOf('longitude')] : (lowerKeys.includes('lng') ? keys[lowerKeys.indexOf('lng')] : (lowerKeys.includes('lon') ? keys[lowerKeys.indexOf('lon')] : (lowerKeys.includes('long') ? keys[lowerKeys.indexOf('long')] : null)));
+                    let lat = null, lng = null;
+                    if (latKey && lngKey) {
+                        lat = parseFloat(row[latKey]);
+                        lng = parseFloat(row[lngKey]);
+                        if (isNaN(lat) || isNaN(lng)) { lat = null; lng = null; }
+                    }
+                    // try to parse combined location field if lat/lng not present
+                    if ((lat == null || lng == null)) {
+                        const locKeyIndex = lowerKeys.findIndex(k => ['location','address','city','place'].includes(k));
+                        if (locKeyIndex !== -1) {
+                            const locVal = String(row[keys[locKeyIndex]] || '').trim();
+                            if (locVal) {
+                                // try to parse numeric pair
+                                const pair = locVal.match(/([+-]?\d{1,3}(?:\.\d+)?)[^0-9+-]+([+-]?\d{1,3}(?:\.\d+)?)/);
+                                if (pair && pair.length >= 3) {
+                                    const la = parseFloat(pair[1]);
+                                    const lo = parseFloat(pair[2]);
+                                    if (!isNaN(la) && !isNaN(lo)) { lat = la; lng = lo; }
+                                }
+                            }
+                        }
+                    }
+                    // Try to get city name separately
+                    let city = null;
+                    const cityKeyIndex = lowerKeys.findIndex(k => ['city','town','locality','place'].includes(k));
+                    if (cityKeyIndex !== -1) city = String(row[keys[cityKeyIndex]] || '').trim();
+                    // Fallback: try to extract city from a 'location' field like 'City, ST'
+                    if (!city) {
+                        const locKeyIndex2 = lowerKeys.findIndex(k => ['location','address'].includes(k));
+                        if (locKeyIndex2 !== -1) {
+                            const s = String(row[keys[locKeyIndex2]] || '');
+                            const m = s.match(/^\s*([^,]+),/);
+                            if (m && m[1]) city = m[1].trim();
+                        }
+                    }
+                    // Also attempt to extract state (abbr) to build a nicer label
+                    const state = extractStateFromRow(row);
+                    // If we don't have explicit coordinates but have a city and state,
+                    // approximate a deterministic location near the state centroid so
+                    // the city marker points roughly to the city's region instead of
+                    // the state center for all cities.
+                    if ((lat == null || lng == null) && city && state && US_STATE_CENTROIDS[state]) {
+                        try {
+                            const cent = US_STATE_CENTROIDS[state];
+                            // deterministic hash from city name
+                            let sum = 0;
+                            for (let i = 0; i < city.length; i++) sum = (sum * 31 + city.charCodeAt(i)) | 0;
+                            const angle = (Math.abs(sum) % 360) * (Math.PI / 180);
+                            const dist = 0.2 + (Math.abs(sum) % 100) / 1000; // ~0.2 - 0.299 degrees
+                            const approxLat = cent.lat + Math.sin(angle) * dist;
+                            const approxLng = cent.lng + Math.cos(angle) * dist;
+                            return { city: city || null, state: state || null, lat: approxLat, lng: approxLng };
+                        } catch (e) {
+                            // fallback to null coords
+                        }
+                    }
+
+                    return { city: city || null, state: state || null, lat: lat, lng: lng };
+                }
+
                 data.forEach(r => {
                     try {
-                        const s = extractStateFromRow(r);
-                        if (!s) return;
+                        const info = getCityInfo(r);
                         const stat = statusOf(r) || 'inactive';
-                        counts[s] = counts[s] || { active:0, inactive:0, new:0, lead:0 };
-                        if (!counts[s][stat]) counts[s][stat] = 0;
-                        counts[s][stat] += 1;
+                        if (info && info.lat != null && info.lng != null) {
+                            // prefer aggregating by exact lat/lng if available
+                            const key = `${info.lat.toFixed(5)},${info.lng.toFixed(5)}`;
+                            cityCounts[key] = cityCounts[key] || { lat: info.lat, lng: info.lng, label: info.city || `${info.lat.toFixed(2)},${info.lng.toFixed(2)}`, counts: { active:0, inactive:0, new:0, lead:0 } };
+                            cityCounts[key].counts[stat] = (cityCounts[key].counts[stat] || 0) + 1;
+                        } else if (info && info.state) {
+                            // fallback to state centroid aggregation
+                            const st = info.state;
+                            const cent = US_STATE_CENTROIDS[st];
+                            if (!cent) return;
+                            const key = `STATE:${st}`;
+                            cityCounts[key] = cityCounts[key] || { lat: cent.lat, lng: cent.lng, label: cent.name, counts: { active:0, inactive:0, new:0, lead:0 } };
+                            cityCounts[key].counts[stat] = (cityCounts[key].counts[stat] || 0) + 1;
+                        }
                     } catch (e) {}
                 });
                 // Create or clear state layer
@@ -3338,12 +3444,12 @@
                     new: '#3b82f6',       // blue
                     lead: '#8b5cf6'       // purple
                 };
-                const stateKeys = Object.keys(counts);
-                if (stateKeys.length === 0) return;
+                const entries = Object.keys(cityCounts);
+                if (entries.length === 0) return;
                 // compute max single-status count for sizing
                 let maxSingle = 0;
-                stateKeys.forEach(ab => {
-                    const s = counts[ab];
+                entries.forEach(key => {
+                    const s = cityCounts[key].counts;
                     Object.keys(s).forEach(k => { if (s[k] > maxSingle) maxSingle = s[k]; });
                 });
                 if (maxSingle === 0) maxSingle = 1;
@@ -3351,25 +3457,24 @@
                 // small offset generator so multiple bubbles don't overlap exactly
                 const offsetForIndex = function(i, total) {
                     const angle = (i / total) * Math.PI * 2 - Math.PI/2;
-                    const dist = 0.25; // degrees ~ small offset
+                    const dist = 0.02; // degrees ~ smaller offset for city clusters
                     return [Math.sin(angle) * dist, Math.cos(angle) * dist];
                 };
 
-                stateKeys.forEach(ab => {
-                    const info = US_STATE_CENTROIDS[ab];
-                    if (!info) return;
-                    const s = counts[ab];
-                    const statusList = Object.keys(s).filter(k => s[k] > 0);
+                entries.forEach(k => {
+                    const item = cityCounts[k];
+                    if (!item) return;
+                    const s = item.counts;
+                    const statusList = Object.keys(s).filter(st => s[st] > 0);
                     const totalStatuses = statusList.length || 1;
                     statusList.forEach((status, idx) => {
                         const cnt = s[status];
                         const pct = cnt / maxSingle;
                         const radius = 5 + Math.round(18 * Math.sqrt(pct));
                         const color = STATE_STATUS_COLORS[status] || '#6b7280';
-                        // offset the marker slightly so multiple statuses form a small cluster
                         const off = offsetForIndex(idx, totalStatuses);
-                        const lat = info.lat + off[0];
-                        const lng = info.lng + off[1];
+                        const lat = item.lat + off[0];
+                        const lng = item.lng + off[1];
                         const circle = L.circleMarker([lat, lng], {
                             radius: radius,
                             fillColor: color,
@@ -3378,17 +3483,122 @@
                             opacity: 0.6,
                             fillOpacity: 0.85
                         });
-                        // Popup shows state + breakdown for clarity
-                        const popupHtml = `<strong>${escapeHtml(info.name)}</strong><br/>${escapeHtml(status)}: <strong>${cnt}</strong>`;
+                        const popupHtml = `<strong>${escapeHtml(item.label)}</strong><br/>${escapeHtml(status)}: <strong>${cnt}</strong>`;
                         circle.bindPopup(popupHtml);
+                        // click to zoom into this city and show detailed participant markers
+                        circle.on('click', function() {
+                            try { zoomToCity(item.lat, item.lng, item.label); } catch(e){}
+                        });
                         _participantsStateLayer.addLayer(circle);
                     });
-                    // Add a hidden marker at centroid to show full breakdown when clicked
-                    const breakdown = Object.keys(s).map(k => `${k}: ${s[k]}`).join('<br/>');
-                    const centerMarker = L.circleMarker([info.lat, info.lng], { radius: 0.5, opacity: 0 });
-                    centerMarker.bindPopup(`<strong>${escapeHtml(info.name)}</strong><br/>${breakdown}`);
+                    // Add a small invisible marker to show full breakdown when clicked
+                    const breakdown = Object.keys(item.counts).map(k => `${k}: ${item.counts[k]}`).join('<br/>');
+                    const centerMarker = L.circleMarker([item.lat, item.lng], { radius: 0.5, opacity: 0 });
+                    centerMarker.bindPopup(`<strong>${escapeHtml(item.label)}</strong><br/>${breakdown}`);
+                    centerMarker.on('click', function() { try { zoomToCity(item.lat, item.lng, item.label); } catch(e){} });
                     _participantsStateLayer.addLayer(centerMarker);
                 });
+            }
+
+            // Zoom into a city and show individual participant markers for that city
+            function zoomToCity(lat, lng, label) {
+                if (!_participantsMap) return;
+                try {
+                    // zoom in
+                    const targetZoom = 10; // adjustable zoom for city level
+                    _participantsMap.setView([lat, lng], targetZoom);
+
+                    // clear previous detail layer
+                    if (!_cityDetailLayer) _cityDetailLayer = L.layerGroup();
+                    _cityDetailLayer.clearLayers();
+
+                    const rows = window.participantsData || [];
+                    if (!Array.isArray(rows) || rows.length === 0) return;
+
+                    // helper to parse lat/lng from a row (similar to earlier logic)
+                    function parseRowLatLng(r) {
+                        if (!r || typeof r !== 'object') return null;
+                        const keys = Object.keys(r);
+                        const lower = keys.map(k => k.toLowerCase());
+                        const latKey = lower.includes('latitude') ? keys[lower.indexOf('latitude')] : (lower.includes('lat') ? keys[lower.indexOf('lat')] : null);
+                        const lngKey = lower.includes('longitude') ? keys[lower.indexOf('longitude')] : (lower.includes('lng') ? keys[lower.indexOf('lng')] : (lower.includes('lon') ? keys[lower.indexOf('lon')] : (lower.includes('long') ? keys[lower.indexOf('long')] : null)));
+                        if (latKey && lngKey) {
+                            let la = parseFloat(r[latKey]);
+                            let lo = parseFloat(r[lngKey]);
+                            if (!isNaN(la) && !isNaN(lo)) {
+                                // Correct swapped lat/lng if detected
+                                if (Math.abs(la) > 90 && Math.abs(lo) <= 90) { const tmp = la; la = lo; lo = tmp; }
+                                return [la, lo];
+                            }
+                        }
+                        // try combined location
+                        const locIndex = lower.findIndex(k => ['location','address','place'].includes(k));
+                        if (locIndex !== -1) {
+                            const s = String(r[keys[locIndex]] || '');
+                            const m = s.match(/([+-]?\d{1,3}(?:\.\d+)?)[^0-9+-]+([+-]?\d{1,3}(?:\.\d+)?)/);
+                            if (m && m.length >= 3) {
+                                const la = parseFloat(m[1]);
+                                const lo = parseFloat(m[2]);
+                                if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                            }
+                        }
+                        return null;
+                    }
+
+                    // find participants near the city (within ~0.05 degrees) or matching label
+                    const tol = 0.05;
+                    const matches = [];
+                    for (const r of rows) {
+                        try {
+                            const coords = parseRowLatLng(r);
+                            if (coords) {
+                                const dlat = Math.abs(coords[0] - lat);
+                                const dlng = Math.abs(coords[1] - lng);
+                                if (dlat <= tol && dlng <= tol) {
+                                    matches.push({ row: r, lat: coords[0], lng: coords[1] });
+                                    continue;
+                                }
+                            }
+                            // fallback: match by city label in a 'city' or 'location' field
+                            const keys = Object.keys(r || {});
+                            const lowKeys = keys.map(k => k.toLowerCase());
+                            const cityIndex = lowKeys.findIndex(k => ['city','town','place','location'].includes(k));
+                            if (cityIndex !== -1) {
+                                const val = String(r[keys[cityIndex]] || '').toLowerCase();
+                                if (label && val && label.toLowerCase().includes(val) || (val && label && val.includes(label.toLowerCase()))) {
+                                    // try to parse coords for marker positioning
+                                    const coords2 = parseRowLatLng(r) || [lat + (Math.random()-0.5)*0.005, lng + (Math.random()-0.5)*0.005];
+                                    matches.push({ row: r, lat: coords2[0], lng: coords2[1] });
+                                }
+                            }
+                        } catch (e) {}
+                    }
+
+                    // If no matches, show a temporary marker at center
+                    if (matches.length === 0) {
+                        const temp = L.circleMarker([lat, lng], { radius: 8, fillColor: '#2563eb', color:'#0f172a', weight:1, fillOpacity:0.9 });
+                        temp.bindPopup(`<strong>${escapeHtml(label || 'Location')}</strong><br/><small>No individual participant coordinates found.</small>`);
+                        _cityDetailLayer.addLayer(temp);
+                    } else {
+                        // create markers for each participant
+                        matches.forEach(m => {
+                            const p = m.row;
+                            const name = p.name || p.Name || p.fullname || p['Full Name'] || (p.user && p.user.login) || 'participant';
+                            const info = escapeHtml(String(name));
+                            const marker = L.circleMarker([m.lat, m.lng], { radius: 6, fillColor: '#2563eb', color: '#0f172a', weight: 1, fillOpacity: 0.95 });
+                            const popup = `<strong>${info}</strong><br/>${escapeHtml(p.org || p.organization || p.company || p.Company || '')}`;
+                            marker.bindPopup(popup);
+                            _cityDetailLayer.addLayer(marker);
+                        });
+                    }
+
+                    _cityDetailLayer.addTo(_participantsMap);
+
+                    // (Overview reset control removed - user requested no overview button.)
+
+                } catch (e) {
+                    console.warn('zoomToCity failed', e);
+                }
             }
 
             function updateParticipantsHeatmapFromData(data) {
@@ -3416,7 +3626,7 @@
                 const keys = Object.keys(sample).map(k => k.toLowerCase());
                 const originalKeys = Object.keys(sample);
                 const latKey = keys.includes('latitude') ? originalKeys.find(k => k.toLowerCase()==='latitude') : (keys.includes('lat') ? originalKeys.find(k => k.toLowerCase()==='lat') : null);
-                const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : null);
+                const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : (keys.includes('lon') ? originalKeys.find(k => k.toLowerCase()==='lon') : (keys.includes('long') ? originalKeys.find(k => k.toLowerCase()==='long') : null)));
                 const locationKey = keys.includes('location') ? originalKeys.find(k => k.toLowerCase()==='location') : null;
 
                 // Helper: try to parse two numeric coords from a location string
@@ -3426,17 +3636,27 @@
                     // common: "lat, lng" or "lat;lng" or "lat lng"
                     const pair = s.match(/([+-]?\d{1,3}(?:\.\d+)?)[^\d+-]+([+-]?\d{1,3}(?:\.\d+)?)/);
                     if (pair && pair.length >= 3) {
-                        const la = parseFloat(pair[1]);
-                        const lo = parseFloat(pair[2]);
-                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                        let la = parseFloat(pair[1]);
+                        let lo = parseFloat(pair[2]);
+                        if (!isNaN(la) && !isNaN(lo)) {
+                            // if latitude appears out of range but longitude looks like a latitude,
+                            // assume values were swapped and correct them
+                            if (Math.abs(la) > 90 && Math.abs(lo) <= 90) {
+                                const tmp = la; la = lo; lo = tmp;
+                            }
+                            return [la, lo];
+                        }
                     }
                     // try explicit labels: "lat: X ... lon|lng: Y"
                     const laMatch = s.match(/lat[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
                     const loMatch = s.match(/(?:lon|lng|long|longitude)[^0-9+-]*([+-]?\d{1,3}(?:\.\d+)?)/i);
                     if (laMatch && laMatch[1] && loMatch && loMatch[1]) {
-                        const la = parseFloat(laMatch[1]);
-                        const lo = parseFloat(loMatch[1]);
-                        if (!isNaN(la) && !isNaN(lo)) return [la, lo];
+                        let la = parseFloat(laMatch[1]);
+                        let lo = parseFloat(loMatch[1]);
+                        if (!isNaN(la) && !isNaN(lo)) {
+                            if (Math.abs(la) > 90 && Math.abs(lo) <= 90) { const tmp = la; la = lo; lo = tmp; }
+                            return [la, lo];
+                        }
                     }
                     return null;
                 }
@@ -3446,9 +3666,11 @@
                 data.forEach(r => {
                     try {
                         if (latKey && lngKey) {
-                            const lat = parseFloat(r[latKey]);
-                            const lng = parseFloat(r[lngKey]);
+                            let lat = parseFloat(r[latKey]);
+                            let lng = parseFloat(r[lngKey]);
                             if (!isNaN(lat) && !isNaN(lng)) {
+                                // Correct swapped lat/lng when necessary
+                                if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) { const tmp = lat; lat = lng; lng = tmp; }
                                 points.push([lat, lng, 0.8]);
                                 return;
                             }
@@ -3470,13 +3692,25 @@
                     // Ensure map exists so tiles are visible even when there are no points
                     initParticipantsHeatmap();
                     document.getElementById('participants-map-no-data').style.display = 'flex';
-                    document.getElementById('participants-map-container').style.display = 'block';
+                    try {
+                        const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                        const pmc = document.getElementById('participants-map-container');
+                        if (pmc) {
+                            if (listParam === 'modelteam') pmc.style.display = 'block'; else pmc.style.display = 'none';
+                        }
+                    } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
                     try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch(e){}
                     return;
                 }
 
                 document.getElementById('participants-map-no-data').style.display = 'none';
-                document.getElementById('participants-map-container').style.display = 'block';
+                try {
+                    const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                    const pmc2 = document.getElementById('participants-map-container');
+                    if (pmc2) {
+                        if (listParam === 'modelteam') pmc2.style.display = 'block'; else pmc2.style.display = 'none';
+                    }
+                } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
                 initParticipantsHeatmap();
                 // Ensure the heat layer exists and the map container has non-zero size
                 ensureParticipantsHeatLayer().then(() => {
@@ -3537,10 +3771,19 @@
                             const noDataEl = document.getElementById('participants-map-no-data');
                             if (!cont || !mapEl) return;
                             // Keep the container and controls visible; hide only the map pane so the toggle button remains accessible
+                            const listParamToggle = (typeof getHash === 'function') ? getHash().list : null;
+                            if (listParamToggle !== 'modelteam') {
+                                // Map is only available for modelteam; do not allow toggling otherwise
+                                heatmapVisible = false;
+                                e.target.textContent = 'Show map';
+                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
+                                return;
+                            }
                             if (heatmapVisible) {
                                 mapEl.style.display = 'block';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Hide map';
+                                try { if (cont && cont.dataset) delete cont.dataset.userHidden; } catch(e){}
                                 setTimeout(() => {
                                     try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch (err){}
                                 }, 120);
@@ -3549,6 +3792,7 @@
                                 mapEl.style.display = 'none';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Show map';
+                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
                             }
                         } else if (id === 'toggle-state-counts-btn') {
                             // Toggle the state counts overlay visibility
@@ -3651,6 +3895,49 @@
                         const repo = gh[2];
                         repos.push({ owner, repo });
                     }
+                }
+
+                // Also fetch .siterepos from the webroot repository and merge any
+                // additional site repositories into the list (de-duplicated).
+                try {
+                    const siteResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.siterepos', { cache: 'no-store' });
+                    if (siteResp && siteResp.ok) {
+                        const siteText = await siteResp.text();
+                        const lines = siteText.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                        const existing = new Set(repos.map(r => `${r.owner}/${r.repo}`));
+                        for (const line of lines) {
+                            // Accept formats like 'owner/repo', full GitHub URLs, or git@github.com:owner/repo.git
+                            let match = line.match(/github.com[:\\/](.+?)\/(.+?)(?:\.git)?$/);
+                            let owner = null, repo = null;
+                            if (match) {
+                                owner = match[1];
+                                repo = match[2];
+                            } else if (/^[\w.-]+\/[\w.-]+$/.test(line)) {
+                                const parts = line.split('/');
+                                owner = parts[0];
+                                repo = parts[1].replace(/\.git$/, '');
+                            }
+                            if (owner && repo) {
+                                const key = `${owner}/${repo}`;
+                                if (!existing.has(key)) {
+                                    repos.push({ owner, repo });
+                                    existing.add(key);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('.siterepos fetch failed', e);
+                }
+
+                // Ensure ModelEarth/webroot is included in the aggregated list
+                try {
+                    const finalSet = new Set(repos.map(r => `${r.owner}/${r.repo}`));
+                    if (!finalSet.has('ModelEarth/webroot')) {
+                        repos.push({ owner: 'ModelEarth', repo: 'webroot' });
+                    }
+                } catch (e) {
+                    // non-fatal
                 }
 
 
@@ -5098,13 +5385,35 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const hash = getHash();
                 const contribBtn = document.getElementById('contribs-btn');
                 if (!contribBtn) return;
-                if (hash.list === 'modelteam') {
+                const isModel = hash.list === 'modelteam';
+                if (isModel) {
                     contribBtn.style.display = '';
                 } else {
                     contribBtn.style.display = 'none';
                     // also hide contributions panel if open
                     const panel = document.getElementById('contributionsPanel');
                     if (panel) panel.style.display = 'none';
+                }
+
+                // Also control participants map visibility when viewing modelteam
+                try {
+                    const mapContainer = document.getElementById('participants-map-container');
+                    if (mapContainer) {
+                        // show map for modelteam, hide otherwise (but do not force-hide if
+                        // user explicitly toggled the map via the Show/Hide map control)
+                        // We check a lightweight flag stored on the container to respect
+                        // user toggles: if container.dataset.userHidden === '1' we won't
+                        // override the user's preference when hiding.
+                        if (isModel) {
+                            mapContainer.style.display = 'block';
+                        } else {
+                            if (!mapContainer.dataset.userHidden || mapContainer.dataset.userHidden !== '1') {
+                                mapContainer.style.display = 'none';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('updateContribsButtonVisibility - map visibility error', e);
                 }
             } catch (e) {
                 console.warn('updateContribsButtonVisibility error', e);
@@ -9956,18 +10265,41 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Parse CSV data with robust parser that handles newlines in quoted fields
                     const rows = parseCSVRobust(csvText);
-                    if (rows.length === 0) {
+                    if (points.length === 0) {
                         throw new Error('No data found in CSV');
                     }
                     
-                    // First row contains headers
+                        try {
+                            if (contEl) {
+                                const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                                if (listParam === 'modelteam') {
+                                    contEl.style.display = 'block';
+                                } else {
+                                    contEl.style.display = 'none';
+                                }
+                            }
+                        } catch (e) { if (contEl) contEl.style.display = 'block'; }
                     const headers = rows[0];
                     const feedsData = [];
                     
                     // Check if this is a geo site for filtering
                     const isGeoSiteCheck = isGeoSite();
-                    const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
-                    
+                    document.getElementById('participants-map-no-data').style.display = 'none';
+                    try {
+                        const contEl2 = document.getElementById('participants-map-container');
+                        const listParam2 = (typeof getHash === 'function') ? getHash().list : null;
+                        if (contEl2) {
+                            if (listParam2 === 'modelteam') contEl2.style.display = 'block'; else contEl2.style.display = 'none';
+                        }
+                    } catch (e) {
+                        try {
+                            const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                            const pmc3 = document.getElementById('participants-map-container');
+                            if (pmc3) {
+                                if (listParam === 'modelteam') pmc3.style.display = 'block'; else pmc3.style.display = 'none';
+                            }
+                        } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
+                    }
                     // Track skipped binary files for reporting
                     const skippedBinaryFiles = [];
                     
@@ -10452,6 +10784,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Set initial header visibility based on current hash (with delay to ensure dropdown is populated)
             setTimeout(updateHeaderVisibility, 500);
+
+            // Ensure Contributions button and participants map visibility reflect initial hash
+            setTimeout(updateContribsButtonVisibility, 550);
             
             // Initialize insights visibility from URL (with delay to ensure DOM is ready)
             setTimeout(checkInsightsFromURL, 100);
