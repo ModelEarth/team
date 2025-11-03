@@ -3950,8 +3950,13 @@
 
                 // Attempt proxy for each repo first (no global /api/github/ping). If proxy
                 // returns OK or 403 (auth issue), use its response; otherwise fall back to
-                // the public GitHub API. Include session token when available for both paths.
-                const sessionToken = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+                // the public GitHub API. Include token when available for both paths.
+                // Check localStorage first (shared with Projects Hub), then sessionStorage
+                const sessionToken = (function(){
+                    try {
+                        return localStorage.getItem('github_token') || sessionStorage.getItem('github_token') || null;
+                    } catch(e){ return null }
+                })();
 
                 const fetches = repos.map(r => (async () => {
                     const publicUrl = `https://api.github.com/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
@@ -4510,7 +4515,12 @@
             content.innerHTML = '<div style="text-align:center; padding:20px">Loading pull request diffs...</div>';
             overlay.style.display = 'flex';
 
-            const token = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+            // Check localStorage first (shared with Projects Hub), then sessionStorage
+            const token = (function(){
+                try {
+                    return localStorage.getItem('github_token') || sessionStorage.getItem('github_token') || null;
+                } catch(e){ return null }
+            })();
             const headers = { Accept: 'application/vnd.github.v3+json' };
             if (token) headers.Authorization = `token ${token}`;
 
@@ -4776,9 +4786,11 @@
                 const tokenControls = document.getElementById('githubTokenControls');
                 const tokenPrompt = document.getElementById('githubTokenPrompt');
                 let token = null;
-                try { token = sessionStorage.getItem('github_token'); } catch(e){}
+                // Check localStorage first (shared with Projects Hub), then sessionStorage
+                try { token = localStorage.getItem('github_token') || sessionStorage.getItem('github_token'); } catch(e){}
                 if (status) {
-                    status.textContent = token ? 'Token present for this session.' : 'No token saved.';
+                    const tokenSource = localStorage.getItem('github_token') ? '(shared with Projects Hub)' : '(session only)';
+                    status.textContent = token ? `Token present ${tokenSource}` : 'No token saved.';
                 }
                 if (tokenControls) {
                     tokenControls.style.display = token ? 'none' : '';
@@ -4805,8 +4817,12 @@
             const tryFetch = async (url, useProxy) => {
                 try {
                     const headers = {};
-                    // include session token if proxy requires it
-                    const token = (function(){ try { return sessionStorage.getItem('github_token') || null } catch(e){ return null } })();
+                    // Check localStorage first (shared with Projects Hub), then sessionStorage
+                    const token = (function(){
+                        try {
+                            return localStorage.getItem('github_token') || sessionStorage.getItem('github_token') || null;
+                        } catch(e){ return null }
+                    })();
                     if (token && useProxy) headers.Authorization = `token ${token}`;
                     const resp = await fetch(url, { headers, cache: 'no-store' });
                     if (!resp || !resp.ok) return null;
@@ -10265,22 +10281,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                     // Parse CSV data with robust parser that handles newlines in quoted fields
                     const rows = parseCSVRobust(csvText);
-                    if (!rows || rows.length === 0) {
+                    if (rows.length === 0) {
                         throw new Error('No data found in CSV');
                     }
-                    
-                        // Ensure map container element is defined before toggling
-                        const contEl = document.getElementById('participants-map-container');
-                        try {
-                            if (contEl) {
-                                const listParam = (typeof getHash === 'function') ? getHash().list : null;
-                                if (listParam === 'modelteam') {
-                                    contEl.style.display = 'block';
-                                } else {
-                                    contEl.style.display = 'none';
-                                }
+
+                    // Define contEl before using it
+                    const contEl = document.getElementById('participants-map-container');
+                    try {
+                        if (contEl) {
+                            const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                            if (listParam === 'modelteam') {
+                                contEl.style.display = 'block';
+                            } else {
+                                contEl.style.display = 'none';
                             }
-                        } catch (e) { if (contEl) contEl.style.display = 'block'; }
+                        }
+                    } catch (e) { if (contEl) contEl.style.display = 'block'; }
                     const headers = rows[0];
                     const feedsData = [];
                     

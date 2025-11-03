@@ -33,7 +33,7 @@ function createWebrootSetupHTML() {
     return `
       <h1>Webroot setup</h1>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
-      2. <a href="${webrootGit}" target="github_webroot">Fork the webroot repo</a><br>
+      2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
       4. Choose "To contribute to the parent project" (ModelEarth/webroot) as you clone via Github Desktop.<br>
       5. Start your Command Line Interface (CLI) using the following commands:<br>`;
