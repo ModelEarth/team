@@ -43,8 +43,7 @@
       "In Team": "Team",
       "In Description": "Description"
     },
-    "datastates": ["GA"],
-    "mapInfo": "Cities in Georgia"
+    "datastates": ["GA"]
   },
   "recyclers": {
     "shortTitle": "B2B Recyclers",

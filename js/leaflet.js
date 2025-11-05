@@ -27,14 +27,81 @@ function debugAlert(message) {
         messageElement.textContent = `${timestamp}: ${message}`;
         debugDiv.appendChild(messageElement);
         
-        // Keep only last 20 messages
-        while (debugDiv.children.length > 20) {
+        // Keep only last 50 messages
+        while (debugDiv.children.length > 50) {
             debugDiv.removeChild(debugDiv.firstChild);
         }
         
         // Auto-scroll to bottom
         debugDiv.scrollTop = debugDiv.scrollHeight;
     }
+}
+/*
+waitForElm("#debug-container").then((elm) => {
+    alert("found");
+        //let debugContainer = document.getElementById('debug-container');
+        //addDebugControlButtons(debugContainer);
+});
+*/
+// Add control buttons to debug container (X, expand, copy)
+function addDebugControlButtons(debugContainer) {
+    // Check if controls already exist
+    if (debugContainer.querySelector('.debug-controls')) {
+        return; // Controls already added
+    }
+    
+    // Create controls container
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'debug-controls'; // Mark as controls so they don't get removed
+    controlsDiv.style.cssText = 'position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 10001;';
+    
+    // Close (X) button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 14px; line-height: 1;';
+    closeBtn.title = 'Close debug messages';
+    closeBtn.onclick = () => debugContainer.style.display = 'none';
+    
+    // Expand button
+    const expandBtn = document.createElement('button');
+    expandBtn.innerHTML = '⇱';
+    expandBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 12px; line-height: 1;';
+    expandBtn.title = 'Toggle expand';
+    expandBtn.onclick = () => {
+        const debugDiv = debugContainer.querySelector('#debug-messages');
+        if (debugDiv.style.maxHeight === '200px') {
+            debugDiv.style.maxHeight = '80vh';
+            expandBtn.innerHTML = '⇲';
+        } else {
+            debugDiv.style.maxHeight = '200px';
+            expandBtn.innerHTML = '⇱';
+        }
+    };
+    
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.innerHTML = '📋';
+    copyBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 10px; line-height: 1;';
+    copyBtn.title = 'Copy debug messages';
+    copyBtn.onclick = () => {
+        const debugDiv = debugContainer.querySelector('#debug-messages');
+        const messages = Array.from(debugDiv.children)
+            .filter(child => !child.classList.contains('debug-controls'))
+            .map(child => child.textContent)
+            .join('\n');
+        navigator.clipboard.writeText(messages).then(() => {
+            copyBtn.innerHTML = '✓';
+            setTimeout(() => copyBtn.innerHTML = '📋', 1000);
+        });
+    };
+    
+    controlsDiv.appendChild(closeBtn);
+    controlsDiv.appendChild(expandBtn);
+    controlsDiv.appendChild(copyBtn);
+    debugContainer.appendChild(controlsDiv);
+    
+    // Make sure debug container has relative positioning for absolute controls
+    debugContainer.style.position = 'fixed';
 }
 
 class LeafletMapManager {
