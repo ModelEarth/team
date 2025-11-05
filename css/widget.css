@@ -864,7 +864,7 @@ body {
     height: 100% !important;
 }
 .leaflet-container {
-    background: none !important; /* Prevents white corner radius edge */
+    background: #f5f5f5 !important; /* Provide visible background for map tiles */
     /* outline-offset: 0px !important; Not sure if we'll need this */
 }
 .leaflet-container a.leaflet-popup-close-button {

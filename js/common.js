@@ -2030,6 +2030,142 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Function to add control buttons (close/expand) to any div
+function addControlButtons(parentDivId, options = {}) {
+    const parentDiv = document.getElementById(parentDivId);
+    if (!parentDiv) {
+        console.warn(`addControlButtons: Parent div '${parentDivId}' not found`);
+        return;
+    }
+
+    // Default options
+    const defaults = {
+        showCloseButton: true,
+        showExpandButton: true,
+        closeButtonText: '×',
+        expandButtonText: '⛶',
+        position: 'top-right', // top-right, top-left, bottom-right, bottom-left
+        onClose: null,
+        onExpand: null
+    };
+    
+    const config = { ...defaults, ...options };
+    
+    // Create container for buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'control-buttons-container';
+    buttonContainer.style.cssText = `
+        position: absolute;
+        ${config.position.includes('top') ? 'top: 8px' : 'bottom: 8px'};
+        ${config.position.includes('right') ? 'right: 8px' : 'left: 8px'};
+        display: flex;
+        gap: 4px;
+        z-index: 1001;
+    `;
+    
+    // Create close button
+    if (config.showCloseButton) {
+        const closeButton = document.createElement('button');
+        closeButton.className = 'control-button close-button';
+        closeButton.innerHTML = config.closeButtonText;
+        closeButton.title = 'Close';
+        closeButton.style.cssText = `
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        `;
+        
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(220, 38, 38, 0.8)';
+        });
+        
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(0, 0, 0, 0.7)';
+        });
+        
+        closeButton.addEventListener('click', () => {
+            if (config.onClose && typeof config.onClose === 'function') {
+                config.onClose(parentDiv);
+            } else {
+                parentDiv.remove();
+            }
+        });
+        
+        buttonContainer.appendChild(closeButton);
+    }
+    
+    // Create expand button
+    if (config.showExpandButton) {
+        const expandButton = document.createElement('button');
+        expandButton.className = 'control-button expand-button';
+        expandButton.innerHTML = config.expandButtonText;
+        expandButton.title = 'Expand/Collapse';
+        expandButton.style.cssText = `
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        `;
+        
+        expandButton.addEventListener('mouseenter', () => {
+            expandButton.style.background = 'rgba(59, 130, 246, 0.8)';
+        });
+        
+        expandButton.addEventListener('mouseleave', () => {
+            expandButton.style.background = 'rgba(0, 0, 0, 0.7)';
+        });
+        
+        expandButton.addEventListener('click', () => {
+            if (config.onExpand && typeof config.onExpand === 'function') {
+                config.onExpand(parentDiv, expandButton);
+            } else {
+                // Default expand/collapse behavior
+                const isCollapsed = parentDiv.style.height === '100px';
+                if (isCollapsed) {
+                    parentDiv.style.height = '200px';
+                    expandButton.innerHTML = '⛶';
+                    expandButton.title = 'Collapse';
+                } else {
+                    parentDiv.style.height = '100px';
+                    expandButton.innerHTML = '⛷';
+                    expandButton.title = 'Expand';
+                }
+            }
+        });
+        
+        buttonContainer.appendChild(expandButton);
+    }
+    
+    // Ensure parent div has relative positioning for absolute positioning of buttons
+    if (getComputedStyle(parentDiv).position === 'static') {
+        parentDiv.style.position = 'relative';
+    }
+    
+    // Add button container to parent div
+    parentDiv.appendChild(buttonContainer);
+    
+    return buttonContainer;
+}
+
 // Load team data for teamLookup cache
 // Uses populateTeamLookup
 async function loadTeamDataForLookup() {
