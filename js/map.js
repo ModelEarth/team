@@ -356,6 +356,12 @@ class ListingsDisplay {
         
         let data = await this.loadDataFromConfig(showConfig);
         
+        // Merge geoDataset if specified in showConfig
+        if (showConfig.geoDataset && showConfig.geoColumns && showConfig.geoColumns.length > 0) {
+            debugAlert('🌍 GEO MERGE: Loading geoDataset: ' + showConfig.geoDataset);
+            data = await this.mergeGeoDataset(data, showConfig);
+        }
+        
         // Apply int_required filtering if specified
         if (showConfig.int_required && data.length > 0) {
             const intRequiredField = showConfig.int_required;
@@ -426,6 +432,71 @@ class ListingsDisplay {
             return await this.loadCSVData(datasetUrl, config);
         } else {
             return this.createMockData(config);
+        }
+    }
+
+    async mergeGeoDataset(primaryData, config) {
+        try {
+            debugAlert('🌍 GEO MERGE: Starting geo dataset merge');
+            
+            // Load the geo dataset
+            const geoDatasetUrl = config.geoDataset.startsWith('http') ? config.geoDataset : this.getDatasetBasePath() + config.geoDataset;
+            debugAlert('🌍 GEO MERGE: Loading geo data from: ' + geoDatasetUrl);
+            
+            let geoData;
+            if (config.geoDataset.endsWith('.json')) {
+                geoData = await this.loadJSONData(geoDatasetUrl);
+            } else {
+                geoData = await this.loadCSVData(geoDatasetUrl, config);
+            }
+            
+            debugAlert('🌍 GEO MERGE: Loaded ' + geoData.length + ' geo records');
+            
+            // Get the merge column (first item in geoColumns array)
+            const mergeColumn = config.geoColumns[0];
+            debugAlert('🌍 GEO MERGE: Merging on column: ' + mergeColumn);
+            
+            // Create a lookup map from geo data for efficient merging
+            const geoLookup = {};
+            geoData.forEach(geoRow => {
+                const keyValue = geoRow[mergeColumn];
+                if (keyValue) {
+                    geoLookup[keyValue] = geoRow;
+                }
+            });
+            
+            debugAlert('🌍 GEO MERGE: Created lookup with ' + Object.keys(geoLookup).length + ' entries');
+            
+            // Merge geo data into primary data
+            let mergedCount = 0;
+            let addedColumns = new Set();
+            
+            primaryData.forEach(primaryRow => {
+                const keyValue = primaryRow[mergeColumn];
+                if (keyValue && geoLookup[keyValue]) {
+                    const geoRow = geoLookup[keyValue];
+                    
+                    // Add all geo columns that don't already exist in primary data
+                    Object.keys(geoRow).forEach(geoColumn => {
+                        if (!primaryRow.hasOwnProperty(geoColumn)) {
+                            primaryRow[geoColumn] = geoRow[geoColumn];
+                            addedColumns.add(geoColumn);
+                        }
+                    });
+                    
+                    mergedCount++;
+                }
+            });
+            
+            debugAlert('🌍 GEO MERGE: Merged ' + mergedCount + ' records, added columns: ' + Array.from(addedColumns).join(', '));
+            
+            return primaryData;
+            
+        } catch (error) {
+            debugAlert('❌ GEO MERGE ERROR: ' + error.message);
+            console.error('Error merging geo dataset:', error);
+            // Return original data if merge fails
+            return primaryData;
         }
     }
 
@@ -1239,13 +1310,16 @@ class ListingsDisplay {
         await this.loadShowData(); // Invokes this.render()
         //this.render();
         
-        // Force map reinitialization when changing datasets
-        /*
-        setTimeout(() => {
-            console.log('🔍 TRACE: initializeMap() called from changeShow()');
-            //this.initializeMap('FROM_CHANGESHOW');
-        }, 100);
-        */
+        // Force map update when changing datasets (similar to filtering but for dataset change)
+        debugAlert('🔄 DATASET CHANGE: Updating map for new dataset: ' + showKey);
+        if (window.leafletMap) {
+            setTimeout(() => {
+                debugAlert('🔄 DATASET CHANGE: Calling updateMapMarkers from changeShow()');
+                this.updateMapMarkers();
+            }, 100);
+        } else {
+            debugAlert('❌ DATASET CHANGE: No leafletMap available, will be created in render()');
+        }
     }
 
     attachSearchInputListener() {
