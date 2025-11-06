@@ -923,10 +923,21 @@ async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
         
     } catch (error) {
         console.error('Failed to load show.json configuration:', error);
-        showMessage('Failed to load show.json, falling back to CSV configuration', 'warning');
         
-        // Fallback to CSV configuration if show.json fails
-        return await loadCsvConfig(fileSelect, hashParam);
+        // Provide detailed error message for better debugging
+        let errorDetails = error.message;
+        if (error.message.includes('404') || error.message.includes('Not Found')) {
+            errorDetails = `show.json file not found at ${SHOW_JSON_URL}. Check if the file exists and has proper permissions.`;
+        } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+            errorDetails = `Access denied to show.json file at ${SHOW_JSON_URL}. Check file permissions.`;
+        } else if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+            errorDetails = `Network error loading show.json from ${SHOW_JSON_URL}. Check network connection and file accessibility.`;
+        }
+        
+        showMessage(`Failed to load show.json: ${errorDetails}. Falling back to CSV configuration.`, 'warning');
+        
+        // Also throw the error with details so it shows in the main error handler
+        throw new Error(`Failed to load list of lists from show.json: ${errorDetails}`);
     }
 }
 
