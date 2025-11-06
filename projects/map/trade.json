@@ -58,5 +58,20 @@
       "In County Name": "County"
     },
     "mapInfo": "Companies in Georgia, USA"
+  },
+  "dca": {
+    "shortTitle": "Deep-Containment Architecture",
+    "menuTitle": "Deep-Containment Architecture",
+    "listTitle": "Deep-Containment Architecture for SMRs",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
+    "markerType": "google",
+    "nameColumn": "Location",
+    "featuredColumns": ["CountyRegion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
+    "search": {
+      "In City": "Location",
+      "In County Name": "CountyRegion"
+    },
+    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
   }
 }
