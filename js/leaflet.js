@@ -7,19 +7,75 @@ function debugAlert(message) {
     const isTestSite = Cookies.get('modelsite') === 'model.georgia';
     
     if (isLocalhost && isTestSite) {
-        // Create or find debug div
-        let debugDiv = document.getElementById('debug-messages');
-        if (!debugDiv) {
-            debugDiv = document.createElement('div');
+        // Create or find debug holder div
+        let debugHolder = document.getElementById('debug-messages-holder');
+        if (!debugHolder) {
+            debugHolder = document.createElement('div');
+            debugHolder.id = 'debug-messages-holder';
+            debugHolder.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000;';
+            
+            // Create control buttons container first
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'control-buttons-container';
+            controlsDiv.style.cssText = 'position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 10001;';
+            
+            // Create the debug messages div
+            const debugDiv = document.createElement('div');
             debugDiv.id = 'debug-messages';
-            debugDiv.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: scroll; z-index: 10000;';
-            document.body.appendChild(debugDiv);
+            debugDiv.style.cssText = 'background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 54px; overflow-y: scroll; position: relative; cursor: ns-resize;';
+            
+            // Add drag handle
+            const dragHandle = document.createElement('div');
+            dragHandle.id = 'debug-drag-handle';
+            dragHandle.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; height: 8px; cursor: ns-resize; background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent); z-index: 10002;';
+            
+            // Append elements in order
+            debugHolder.appendChild(controlsDiv);
+            debugHolder.appendChild(debugDiv);
+            debugDiv.appendChild(dragHandle);
+            
+            document.body.appendChild(debugHolder);
             
             // Add control buttons if function is available
-            if (typeof addControlButtons === 'function') {
-                addControlButtons('debug-messages');
+            if (typeof addDebugControlButtons === 'function') {
+                addDebugControlButtons(debugHolder);
             }
+            
+            // Add drag functionality
+            let isDragging = false;
+            let startY = 0;
+            let startHeight = 54;
+            
+            dragHandle.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startY = e.clientY;
+                startHeight = parseInt(window.getComputedStyle(debugDiv).getPropertyValue('max-height'));
+                dragHandle.style.cursor = 'row-resize';
+                debugDiv.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaY = startY - e.clientY;
+                const newHeight = Math.max(54, Math.min(400, startHeight + deltaY));
+                debugDiv.style.maxHeight = newHeight + 'px';
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    dragHandle.style.cursor = 'ns-resize';
+                    debugDiv.style.cursor = 'default';
+                    document.body.style.userSelect = '';
+                }
+            });
         }
+        
+        // Get the actual debug messages div
+        const debugDiv = document.getElementById('debug-messages') || debugHolder.querySelector('#debug-messages');
         
         // Add timestamp and message
         const timestamp = new Date().toLocaleTimeString();
@@ -45,15 +101,14 @@ waitForElm("#debug-container").then((elm) => {
 */
 // Add control buttons to debug container (X, expand, copy)
 function addDebugControlButtons(debugContainer) {
-    // Check if controls already exist
-    if (debugContainer.querySelector('.debug-controls')) {
-        return; // Controls already added
+    const controlsDiv = debugContainer.querySelector('.control-buttons-container');
+    if (!controlsDiv || controlsDiv.querySelector('.debug-controls')) {
+        return; // Controls already added or no container found
     }
     
-    // Create controls container
-    const controlsDiv = document.createElement('div');
-    controlsDiv.className = 'debug-controls'; // Mark as controls so they don't get removed
-    controlsDiv.style.cssText = 'position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 10001;';
+    // Create controls wrapper
+    const controlsWrapper = document.createElement('div');
+    controlsWrapper.className = 'debug-controls';
     
     // Close (X) button
     const closeBtn = document.createElement('button');
@@ -69,11 +124,12 @@ function addDebugControlButtons(debugContainer) {
     expandBtn.title = 'Toggle expand';
     expandBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
-        if (debugDiv.style.maxHeight === '200px') {
-            debugDiv.style.maxHeight = '80vh';
+        const currentHeight = parseInt(debugDiv.style.maxHeight);
+        if (currentHeight <= 54) {
+            debugDiv.style.maxHeight = '300px';
             expandBtn.innerHTML = '⇲';
         } else {
-            debugDiv.style.maxHeight = '200px';
+            debugDiv.style.maxHeight = '54px';
             expandBtn.innerHTML = '⇱';
         }
     };
@@ -86,7 +142,7 @@ function addDebugControlButtons(debugContainer) {
     copyBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
         const messages = Array.from(debugDiv.children)
-            .filter(child => !child.classList.contains('debug-controls'))
+            .filter(child => !child.id?.includes('debug-drag-handle'))
             .map(child => child.textContent)
             .join('\n');
         navigator.clipboard.writeText(messages).then(() => {
@@ -95,13 +151,10 @@ function addDebugControlButtons(debugContainer) {
         });
     };
     
-    controlsDiv.appendChild(closeBtn);
-    controlsDiv.appendChild(expandBtn);
-    controlsDiv.appendChild(copyBtn);
-    debugContainer.appendChild(controlsDiv);
-    
-    // Make sure debug container has relative positioning for absolute controls
-    debugContainer.style.position = 'fixed';
+    controlsWrapper.appendChild(closeBtn);
+    controlsWrapper.appendChild(expandBtn);
+    controlsWrapper.appendChild(copyBtn);
+    controlsDiv.appendChild(controlsWrapper);
 }
 
 class LeafletMapManager {

@@ -148,6 +148,14 @@
         #toggle-state-counts-btn { display: none !important; }
     </style>
 
+
+    <!-- Include Projects Hub Issues Manager for GitHub Auth -->
+    <!-- Modify to only load the google token input process when "repos" is clicked, 
+    not the projects list. -->
+    <!--
+    <script src="../../projects/js/issues.js"></script>
+    -->
+
     <!--
     Activate after default map turned off
     <script type="text/javascript" src="../../localsite/js/embed.js?source=show.trade&map=cities.us"></script>
@@ -2644,6 +2652,8 @@
                 <div id="top-message-content"></div>
             </div>
         </div>
+
+        <div id="issuesWidget"></div>
 
         <div class="contentpadding" style="padding-bottom: 0px">
             <div class="breadcrumb">

@@ -471,7 +471,7 @@ body {
     position: relative;
     overflow-y: auto;
     max-height: calc(100vh - 100px);
-    min-height: 300px;
+    /* min-height: 300px; Caused too much space above .no-results-content */
     margin-top: -20px; /* Places under control fade out */
     padding-top: 15px;
 }
