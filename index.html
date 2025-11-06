@@ -19,9 +19,6 @@
 
     <script src="../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
 
-    <!-- Include Projects Hub Issues Manager for GitHub Auth -->
-    <script src="../projects/js/issues.js"></script>
-
     <script>
     // Sign In button testing under localhost or harimayooram.github.io
     document.addEventListener('DOMContentLoaded', function() {
@@ -2182,33 +2179,7 @@
 
     <!-- Initialize GitHub Auth Widget (Minimal Mode) -->
     <script>
-        // Initialize Projects Hub widget in minimal auth-only mode
-        let githubAuthWidget;
 
-        // Wait for DOM to be ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initGitHubAuth);
-        } else {
-            initGitHubAuth();
-        }
-
-        function initGitHubAuth() {
-            try {
-                // Create minimal widget for auth only
-                githubAuthWidget = new GitHubIssuesManager('github-auth-minimal', {
-                    githubToken: localStorage.getItem('github_token') || '',
-                    owner: 'modelearth',
-                    defaultRepo: 'team'
-                });
-
-                // Make it globally accessible
-                window.issuesManager = githubAuthWidget;
-
-                console.log('✅ GitHub Auth widget initialized (minimal mode)');
-            } catch (error) {
-                console.error('❌ Failed to initialize GitHub Auth widget:', error);
-            }
-        }
     </script>
 
     <!-- CSS to hide everything except auth section -->

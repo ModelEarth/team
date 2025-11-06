@@ -2,6 +2,66 @@
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
 
+if (typeof window.param !== 'undefined') {
+    //alert("window.param is available in map.js and window.param.map is: " + window.param.map)
+}
+
+// Debug function for showing messages in debug-messages div
+function debugAlert(message) {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isTestSite = Cookies.get('modelsite') === 'model.georgia';
+    
+    if (isLocalhost && isTestSite) {
+        try {
+            // Create or find debug container (wrapper for relative positioning)
+            let debugContainer = document.getElementById('debug-container');
+            if (!debugContainer) {
+                debugContainer = document.createElement('div');
+                debugContainer.id = 'debug-container';
+                debugContainer.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000;';
+                document.body.appendChild(debugContainer);
+                
+                // Create debug div inside container
+                const debugDiv = document.createElement('div');
+                debugDiv.id = 'debug-messages';
+                debugDiv.style.cssText = 'position: relative; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: scroll;';
+                debugContainer.appendChild(debugDiv);
+                
+                // Add control buttons (X, expand, copy) - with delay to ensure div is stable
+                setTimeout(() => addDebugControlButtons(debugContainer), 50);
+            }
+            
+            // Get the debug div from container
+            let debugDiv = document.getElementById('debug-messages');
+            
+            // Ensure controls exist - re-add if missing (they might get removed somehow)
+            if (debugContainer && !debugContainer.querySelector('.debug-controls')) {
+                setTimeout(() => addDebugControlButtons(debugContainer), 10);
+            }
+            
+            // Add timestamp and message
+            const timestamp = new Date().toLocaleTimeString();
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${timestamp}: ${message}`;
+            debugDiv.appendChild(messageElement);
+            
+            // Keep only last 50 messages (but don't remove control buttons)
+            const messageChildren = Array.from(debugDiv.children).filter(child => !child.classList.contains('debug-controls'));
+            while (messageChildren.length > 50) {
+                debugDiv.removeChild(messageChildren[0]);
+                messageChildren.shift();
+            }
+            
+            // Auto-scroll to bottom
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        } catch (error) {
+            // Fallback to console if debug div fails
+            console.log('DEBUG:', message, '(debug div error:', error.message, ')');
+        }
+    }
+}
+
+
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
     waitForElm('#mapwidget').then((elm) => {
@@ -380,7 +440,7 @@ class ListingsDisplay {
             return primaryData;
         }
     }
-    
+
     createMockData(config) {
         console.log("createMockData() this.currentShow " + this.currentShow );
         if (this.currentShow === 'cities') {
@@ -891,6 +951,30 @@ class ListingsDisplay {
     }
 
     filterListings() {
+        // Debug logging for filter invocation
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isTestSite = Cookies.get('modelsite') === 'model.georgia';
+        
+        if (isLocalhost && isTestSite) {
+            let debugDiv = document.getElementById('debug-messages');
+            if (!debugDiv) {
+                debugDiv = document.createElement('div');
+                debugDiv.id = 'debug-messages';
+                debugDiv.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: scroll; z-index: 10000;';
+                document.body.appendChild(debugDiv);
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${timestamp}: FILTER INVOKED - searchTerm: "${this.searchTerm}"`;
+            debugDiv.appendChild(messageElement);
+            
+            while (debugDiv.children.length > 20) {
+                debugDiv.removeChild(debugDiv.firstChild);
+            }
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+        
         // Check if Leaflet map is currently animating to avoid DOM conflicts
         if (window.leafletMap && window.leafletMap.map && 
             (window.leafletMap.map._animatingZoom || window.leafletMap.map._zooming)) {
@@ -920,7 +1004,13 @@ class ListingsDisplay {
             });
         }
         this.currentPage = 1;
+        
+        // Set flag to prevent render() from updating map (we'll do it manually)
+        debugAlert('🔄 FILTER START: Setting isFilteringInProgress=true, calling render()');
+        this.isFilteringInProgress = true;
         this.render();
+        this.isFilteringInProgress = false;
+        debugAlert('🔄 FILTER END: Reset isFilteringInProgress=false');
         
         // Restore focus and cursor position if search input was focused
         if (wasSearchInputFocused) {
@@ -935,18 +1025,15 @@ class ListingsDisplay {
             }, 0);
         }
         
-        // Update map with filtered results - only send current page data
+        // Update map with filtered results - use updateMapMarkers to avoid recreation
+        debugAlert('🔍 FILTER: window.leafletMap exists: ' + !!window.leafletMap);
         if (window.leafletMap) {
             setTimeout(() => {
-                // Create a limited version of this object with only current page data
-                const limitedListingsApp = {
-                    ...this,
-                    filteredListings: this.getCurrentPageListings(),
-                    listings: this.getCurrentPageListings(),
-                    getMapListings: () => this.getCurrentPageListings()
-                };
-                window.leafletMap.updateFromListingsApp(limitedListingsApp);
+                debugAlert('🔄 FILTER: Calling updateMapMarkers from filterListings()');
+                this.updateMapMarkers();
             }, 100);
+        } else {
+            debugAlert('❌ FILTER: No leafletMap available, skipping map update');
         }
     }
 
@@ -1105,6 +1192,50 @@ class ListingsDisplay {
         this.filterListings();
     }
 
+    showMapLimitNotification(limit, total) {
+        // Remove existing notification if present
+        const existingNotification = document.getElementById('map-limit-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.id = 'map-limit-notification';
+        notification.style.cssText = `
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 193, 7, 0.9);
+            color: #856404;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 1px solid #ffeaa7;
+        `;
+        notification.innerHTML = `
+            <strong>Map Limited:</strong> Showing ${limit.toLocaleString()} of ${total.toLocaleString()} points for performance.
+            <span style="margin-left: 10px; cursor: pointer; font-weight: bold; color: #6c757d;" onclick="this.parentElement.remove()">×</span>
+        `;
+
+        // Add to map container or body
+        const mapContainer = document.getElementById('widgetmap') || document.body;
+        if (mapContainer.style.position !== 'relative' && mapContainer.style.position !== 'absolute') {
+            mapContainer.style.position = 'relative';
+        }
+        mapContainer.appendChild(notification);
+
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 8000);
+    }
+
     async changeShow(showKey, updateCache = true) {
         this.currentShow = showKey;
         this.searchPopupOpen = false;
@@ -1117,16 +1248,26 @@ class ListingsDisplay {
             this.saveCachedShow(showKey);
         }
         
+        // CRITICAL: Prevent HTML recreation during dataset change to preserve map
+        this.isDatasetChanging = true;
+        debugAlert('🔄 DATASET CHANGE START: Setting isDatasetChanging=true for dataset: ' + showKey);
+        
         await this.loadShowData(); // Invokes this.render()
         //this.render();
         
-        // Force map reinitialization when changing datasets
-        /*
-        setTimeout(() => {
-            console.log('🔍 TRACE: initializeMap() called from changeShow()');
-            //this.initializeMap('FROM_CHANGESHOW');
-        }, 100);
-        */
+        this.isDatasetChanging = false;
+        debugAlert('🔄 DATASET CHANGE END: Reset isDatasetChanging=false');
+        
+        // Force map update when changing datasets (similar to filtering but for dataset change)
+        debugAlert('🔄 DATASET CHANGE: Updating map for new dataset: ' + showKey);
+        if (window.leafletMap) {
+            setTimeout(() => {
+                debugAlert('🔄 DATASET CHANGE: Calling updateMapMarkers from changeShow()');
+                this.updateMapMarkers();
+            }, 100);
+        } else {
+            debugAlert('❌ DATASET CHANGE: No leafletMap available, will be created in render()');
+        }
     }
 
     attachSearchInputListener() {
@@ -1251,9 +1392,91 @@ class ListingsDisplay {
         return this.filteredListings.slice(startIndex, endIndex);
     }
 
-    // Get listings for map display - returns only current page to avoid performance issues
+    // Get listings for map display - limit to prevent performance issues with large datasets
     getMapListings() {
-        return this.getCurrentPageListings();
+        // Use filteredListings to include all filtered results, not just current page
+        const allListings = this.filteredListings || this.getCurrentPageListings();
+        
+        // Limit map points to prevent performance issues (max 1000 points)
+        const MAX_MAP_POINTS = 1000;
+        const listings = allListings.length > MAX_MAP_POINTS ? 
+            allListings.slice(0, MAX_MAP_POINTS) : 
+            allListings;
+            
+        if (allListings.length > MAX_MAP_POINTS) {
+            console.log(`🗺️ Map limited to ${MAX_MAP_POINTS} points (${allListings.length} total available)`);
+            
+            // Show notification to user about map limitation
+            this.showMapLimitNotification(MAX_MAP_POINTS, allListings.length);
+        }
+        // Debug function that only shows messages on localhost with model.georgia
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isTestSite = Cookies.get('modelsite') === 'model.georgia';
+        
+        if (isLocalhost && isTestSite) {
+            // Send to debug div instead of alert
+            let debugDiv = document.getElementById('debug-messages');
+            if (!debugDiv) {
+                debugDiv = document.createElement('div');
+                debugDiv.id = 'debug-messages';
+                debugDiv.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: scroll; z-index: 10000;';
+                document.body.appendChild(debugDiv);
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const messageElement = document.createElement('div');
+            const mapZoom = window.leafletMap?.map?.getZoom() || 'no map';
+            messageElement.textContent = `${timestamp}: DEBUG: getMapListings called. filteredListings:${this.filteredListings?.length} getCurrentPage:${this.getCurrentPageListings()?.length} final listings:${listings?.length} zoom:${mapZoom}`;
+            debugDiv.appendChild(messageElement);
+            
+            while (debugDiv.children.length > 20) {
+                debugDiv.removeChild(debugDiv.firstChild);
+            }
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+        
+        // Note: Option 2 caching not needed since data is already in memory (search works offline)
+        
+        // OPTIMIZATION 1: Only send columns that popups actually use
+        return listings.map(listing => {
+            const slimListing = {};
+            
+            // Include all featured columns that actually exist in the data
+            if (this.config?.featuredColumns && Array.isArray(this.config.featuredColumns)) {
+                this.config.featuredColumns.forEach(col => {
+                    // Try original case first, then lowercase fallback (same logic as leaflet popup)
+                    const value = listing[col] || listing[col.toLowerCase()];
+                    if (value !== undefined) {
+                        // Use the original column name that exists in the data
+                        const actualKey = listing[col] !== undefined ? col : col.toLowerCase();
+                        slimListing[actualKey] = value;
+                    }
+                });
+            } else {
+                // Fallback: include common popup fields that exist
+                const fallbackFields = ['name', 'Name', 'organization name', 'city', 'City', 'email', 'Email', 'EMAIL', 'population', 'Population', 'county', 'County'];
+                fallbackFields.forEach(field => {
+                    if (listing[field] !== undefined) {
+                        slimListing[field] = listing[field];
+                    }
+                });
+            }
+            
+            // ALWAYS include coordinate fields for map positioning (critical for mapping)
+            const coordinateFields = ['latitude', 'longitude', 'Latitude', 'Longitude', 'LAT', 'LON', 'lat', 'lng', 'lon'];
+            coordinateFields.forEach(field => {
+                if (listing[field] !== undefined) {
+                    slimListing[field] = listing[field];
+                }
+            });
+            
+            // Also try field mapping approach as backup
+            const fieldMapping = this.getFieldMapping();
+            if (fieldMapping && listing[fieldMapping.latitude]) slimListing[fieldMapping.latitude] = listing[fieldMapping.latitude];
+            if (fieldMapping && listing[fieldMapping.longitude]) slimListing[fieldMapping.longitude] = listing[fieldMapping.longitude];
+            
+            return slimListing;
+        });
     }
 
     renderListings() {
@@ -1521,6 +1744,54 @@ class ListingsDisplay {
 
         // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
         // X added to temp disable until g.org removes showheader=false
+        
+        // During filtering or dataset changes, only update specific parts instead of full HTML recreation
+        
+        if (this.isFilteringInProgress || this.isDatasetChanging) {
+            const operationType = this.isFilteringInProgress ? 'filtering' : 'dataset change';
+            debugAlert('🔄 PARTIAL UPDATE: During ' + operationType + ', updating only list content and controls');
+            
+            
+            // Update search input value
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = this.searchTerm;
+            }
+           
+            // Update list content only 
+            const listContainer = document.getElementById('widgetDetailsList');
+            if (listContainer) {
+                listContainer.innerHTML = this.getCurrentPageListings().map(listing => {
+                    const formattedListing = this.formatListing(listing);
+                    return this.generateListingCard(formattedListing);
+                }).join('');
+                debugAlert('🔄 PARTIAL UPDATE: Updated list with ' + this.getCurrentPageListings().length + ' items');
+            }
+             
+            // Update pagination
+            // This prevents filter from being applied
+            /*
+            const paginationContainer = document.querySelector('.pagination-container');
+            if (paginationContainer) {
+                paginationContainer.innerHTML = this.generatePaginationHTML();
+                debugAlert('🔄 PARTIAL UPDATE: Updated pagination');
+            }
+            */
+            
+            // Re-attach event listeners for the updated elements
+            this.attachSearchInputListener();
+            
+
+            debugAlert('🔄 PARTIAL UPDATE: Completed ' + operationType + ' content update');
+            //return;
+        }
+        
+        if (this.isFilteringInProgress) {
+            //alert("filter")
+            // BUG renderListings is preventing map points from being removed by filter
+            //document.getElementById('listingsGrid').innerHTML = this.renderListings();
+        } else if (!this.isDatasetChanging) {
+        // Initial load only
         mapwidget.innerHTML = `
             ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
             <!-- Widget Hero Container -->
@@ -1654,6 +1925,7 @@ class ListingsDisplay {
                 </div>
             </div>
         `;
+        }
 
         // Apply domain-based sign-in button visibility
         this.applySignInVisibility();
@@ -1672,8 +1944,14 @@ class ListingsDisplay {
                 });
             }
             
-            //this.conditionalMapInit();
-            this.initializeMap('FROM_RENDER conditionalMapInit');
+            // Skip map initialization during filtering or dataset changes (updateMapMarkers will handle it)
+            debugAlert('🔍 RENDER: isFilteringInProgress=' + !!this.isFilteringInProgress + ' isDatasetChanging=' + !!this.isDatasetChanging);
+            if (!this.isFilteringInProgress && !this.isDatasetChanging) {
+                debugAlert('🗺️ RENDER: Calling initializeMap from render()');
+                this.initializeMap('FROM_RENDER conditionalMapInit');
+            } else {
+                debugAlert('🚫 RENDER: Skipping map init during filtering or dataset change');
+            }
             this.setupPrintDownloadIcons();
         //}, 0);
     }
@@ -1685,8 +1963,34 @@ class ListingsDisplay {
     
     initializeMap(source = 'UNKNOWN') {
         //alert("initializeMap called from: " + source)
-        console.log('🚨 INITIALIZEMAP CALLED FROM:', source);
-        console.trace('Call stack:');
+        debugAlert('🚨 INITIALIZEMAP CALLED FROM: ' + source);
+        
+        // This can be simplified since map now that only here on init
+
+        // CRITICAL: Block ALL map recreation during filtering or dataset changes to prevent #widgetmap from being emptied
+        if (this.isFilteringInProgress) {
+            debugAlert('🚫 BLOCKING: Map recreation during filtering - isFilteringInProgress=true');
+            return;
+        }
+        if (this.isDatasetChanging) {
+            debugAlert('🚫 BLOCKING: Map recreation during dataset change - isDatasetChanging=true');
+            return;
+        }
+        
+        // Check if this is a filter update and map already exists
+        debugAlert('🔍 CONDITION CHECK: source=' + source + ' leafletMap exists=' + !!window.leafletMap + ' map exists=' + !!(window.leafletMap && window.leafletMap.map));
+        if (source === 'FROM_RENDER conditionalMapInit' && window.leafletMap && window.leafletMap.map) {
+            debugAlert('🔄 FILTER UPDATE: Using existing map, just updating markers');
+            this.isDoingFilterUpdate = true;
+            this.skipNextMapUpdate = true; // Prevent duplicate updateFromListingsApp call
+            this.updateMapMarkers();
+            this.isDoingFilterUpdate = false;
+            return;
+        }
+        
+        // Clear any filter update flag
+        this.isDoingFilterUpdate = false;
+        
         // Check if LeafletMapManager is available
         if (typeof LeafletMapManager === 'undefined') {
             console.warn('LeafletMapManager not available');
@@ -1698,9 +2002,20 @@ class ListingsDisplay {
             console.log('Map initialization already in progress, skipping...');
             return;
         }
+        
+        // Preserve zoom level if map already exists
+        let preservedZoom = null;
+        let preservedCenter = null;
+        if (window.leafletMap && window.leafletMap.map) {
+            preservedZoom = window.leafletMap.map.getZoom();
+            preservedCenter = window.leafletMap.map.getCenter();
+            console.log('🔄 Preserving zoom:', preservedZoom, 'center:', preservedCenter);
+        }
+        
         this.mapInitializing = true;
         
         waitForElm('#widgetmap').then((elm) => {
+            console.log('🔍 WAITFORELM: #widgetmap found, starting map initialization');
             try {
                 // More thorough cleanup of existing map
                 if (window.leafletMap && window.leafletMap.map) {
@@ -1733,24 +2048,47 @@ class ListingsDisplay {
                 }
                 
                 // Create new map instance
+                console.log('🏗️ Creating new LeafletMapManager');
                 window.leafletMap = new LeafletMapManager('widgetmap', {
                     height: '500px',
                     width: '100%'
                 });
+                console.log('✅ LeafletMapManager created successfully');
+                
+                // If we're preserving zoom, set the flag IMMEDIATELY to prevent initial zoom logic
+                if (preservedZoom !== null && preservedCenter !== null) {
+                    console.log('🔄 Restoring zoom:', preservedZoom, 'center:', preservedCenter);
+                    // Override the global flag BEFORE adding markers to prevent initial zoom logic
+                    window.mapHasEverLoaded = true;
+                    
+                    // Use setTimeout to ensure map is fully initialized
+                    setTimeout(() => {
+                        if (window.leafletMap && window.leafletMap.map) {
+                            window.leafletMap.map.setView(preservedCenter, preservedZoom);
+                        }
+                    }, 50);
+                }
                 
                 // Update map with current listings data - only send current page data
-                console.log("Update map with current listings data - only send current page data")
-                if (this.listings && this.listings.length > 0) {
+                debugAlert("Update map with current listings data - only send current page data");
+                debugAlert('🔍 CONDITION: this.listings exists=' + !!this.listings + ' length=' + (this.listings?.length || 'undefined') + ' skipNextMapUpdate=' + this.skipNextMapUpdate);
+                if (this.listings && this.listings.length > 0 && !this.skipNextMapUpdate) {
                     //setTimeout(() => {
                         // Create a limited version of this object with only current page data
+                        const mapListings = this.getMapListings();
+                        
                         const limitedListingsApp = {
                             ...this,
-                            filteredListings: this.getCurrentPageListings(),
-                            listings: this.getCurrentPageListings(),
-                            getMapListings: () => this.getCurrentPageListings()
+                            filteredListings: mapListings,
+                            listings: mapListings,
+                            getMapListings: () => mapListings
                         };
+                        debugAlert('📍 Calling updateFromListingsApp with ' + mapListings.length + ' listings');
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
                     //}, 100);
+                } else if (this.skipNextMapUpdate) {
+                    debugAlert('🚫 SKIPPING updateFromListingsApp - filter update in progress');
+                    this.skipNextMapUpdate = false; // Reset flag
                 }
             } catch (error) {
                 console.warn('Failed to initialize map:', error);
@@ -2105,6 +2443,40 @@ class ListingsDisplay {
                 data,
                 options
             );
+        }
+    }
+    
+    updateMapMarkers() {
+        const stack = new Error().stack.split('\n').slice(2, 4).map(line => line.trim().replace(/.*\//, '')).join(' -> ');
+        debugAlert('🔄 UPDATING MAP MARKERS WITHOUT RECREATION - called from: ' + stack);
+        
+        if (!window.leafletMap || !window.leafletMap.map) {
+            console.warn('No existing map to update');
+            return;
+        }
+        
+        try {
+            // Get current map data
+            const mapData = this.getMapListings();
+            debugAlert('🔍 UPDATE: Got map data: ' + (mapData ? mapData.length : 'null') + ' items');
+            
+            if (!mapData || mapData.length === 0) {
+                console.warn('🚨 UPDATE: No map data available, clearing markers');
+                window.leafletMap.clearMarkers();
+                return;
+            }
+            
+            console.log('🔄 UPDATE: Calling addMarkersFromData with', mapData.length, 'items');
+            // Add new markers using existing method (this clears old markers automatically)
+            window.leafletMap.addMarkersFromData(mapData, this.config);
+            
+            console.log('✅ MAP MARKERS UPDATED:', mapData.length, 'markers');
+            
+        } catch (error) {
+            console.error('Error updating map markers:', error);
+            // Fallback to full recreation if update fails
+            console.log('Falling back to full map recreation');
+            this.initializeMap('FALLBACK_FROM_UPDATE_ERROR');
         }
     }
     

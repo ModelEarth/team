@@ -471,7 +471,7 @@ body {
     position: relative;
     overflow-y: auto;
     max-height: calc(100vh - 100px);
-    min-height: 300px;
+    /* min-height: 300px; Caused too much space above .no-results-content */
     margin-top: -20px; /* Places under control fade out */
     padding-top: 15px;
 }
@@ -864,7 +864,7 @@ body {
     height: 100% !important;
 }
 .leaflet-container {
-    background: none !important; /* Prevents white corner radius edge */
+    background: #f5f5f5 !important; /* Provide visible background for map tiles */
     /* outline-offset: 0px !important; Not sure if we'll need this */
 }
 .leaflet-container a.leaflet-popup-close-button {
