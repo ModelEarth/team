@@ -1,6 +1,6 @@
 // src/main.rs
 use actix_cors::Cors;
-use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware};
+use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware, HttpRequest};
 use anyhow::Context;
 use chrono::{Utc, NaiveDate};
 use clap::{Parser, Subcommand};
@@ -2984,6 +2984,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/hdf5", web::post().to(proxy_hdf5_file))
                     )
                     .route("/scrape", web::get().to(scrape_site))
+                    .route("/admin/git", web::post().to(run_git_script))
                     .service(
                         web::scope("/recommendations")
                             .route("", web::post().to(get_recommendations_handler))
@@ -3335,6 +3336,150 @@ fn extract_html_title(html: &str) -> Option<String> {
         }
     }
     None
+}
+
+// Admin: run git.sh script (protected by ADMIN_KEY env var)
+#[derive(Serialize)]
+struct ScriptResult {
+    success: bool,
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
+    error: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RunGitRequest {
+    // allowed actions: "push" | "pull" (optional)
+    action: Option<String>,
+}
+
+async fn run_git_script(req: HttpRequest, body: web::Json<RunGitRequest>) -> Result<HttpResponse> {
+    // Authenticate using a GitHub token passed by the client.
+    // Accept token in `Authorization` header (Bearer or token) or `x-github-token`.
+    // Validate token by calling GitHub API /user. If valid, pass it to the script as GITHUB_TOKEN
+    // so the server-side script can use it for HTTPS git operations.
+    let header_token = req
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .or_else(|| req.headers().get("x-github-token").and_then(|v| v.to_str().ok()).map(|s| s.to_string()));
+
+    let token = if let Some(mut t) = header_token {
+        // strip common prefixes
+        if t.to_lowercase().starts_with("bearer ") {
+            t = t[7..].to_string();
+        } else if t.to_lowercase().starts_with("token ") {
+            t = t[6..].to_string();
+        }
+        Some(t)
+    } else {
+        None
+    };
+
+    if token.is_none() {
+        return Ok(HttpResponse::Unauthorized().json(ScriptResult {
+            success: false,
+            code: None,
+            stdout: "".into(),
+            stderr: "".into(),
+            error: Some("Missing GitHub token in Authorization or x-github-token header".into()),
+        }));
+    }
+
+    // Validate token with GitHub API (/user)
+    let gh_token = token.unwrap();
+    let client = reqwest::Client::new();
+    let gh_resp = client
+        .get("https://api.github.com/user")
+        .header("User-Agent", "partner-tools")
+        .bearer_auth(&gh_token)
+        .send()
+        .await;
+
+    match gh_resp {
+        Ok(r) if r.status().is_success() => {
+            // token validated
+        }
+        Ok(r) => {
+            return Ok(HttpResponse::Unauthorized().json(ScriptResult {
+                success: false,
+                code: None,
+                stdout: "".into(),
+                stderr: format!("GitHub token rejected (HTTP {})", r.status()),
+                error: Some("Invalid GitHub token".into()),
+            }));
+        }
+        Err(e) => {
+            return Ok(HttpResponse::InternalServerError().json(ScriptResult {
+                success: false,
+                code: None,
+                stdout: "".into(),
+                stderr: format!("Failed to validate token: {}", e),
+                error: Some("Token validation failed".into()),
+            }));
+        }
+    }
+
+    // Determine repo dir and script path from env (safe defaults)
+    let repo_dir = std::env::var("WEBROOT_DIR").unwrap_or_else(|_| "/Users/sugandhab/Documents/GitHub/webroot".into());
+    let script_path = std::env::var("GIT_SCRIPT_PATH").unwrap_or_else(|_| "./git.sh".into());
+
+    // Build command
+    let mut cmd = tokio::process::Command::new(&script_path);
+    cmd.current_dir(repo_dir);
+    // Provide token to the child process so scripts can use it (via env GITHUB_TOKEN)
+    cmd.env("GITHUB_TOKEN", &gh_token);
+
+    // Validate and append allowed action arg if provided
+    if let Some(act) = body.action.as_ref() {
+        let action = act.trim().to_lowercase();
+        match action.as_str() {
+            "push" | "pull" => {
+                cmd.arg(action);
+            }
+            _ => {
+                return Ok(HttpResponse::BadRequest().json(ScriptResult {
+                    success: false,
+                    code: None,
+                    stdout: "".into(),
+                    stderr: "".into(),
+                    error: Some(format!("Invalid action: {}", action)),
+                }));
+            }
+        }
+    }
+
+    // Run with timeout
+    match tokio::time::timeout(tokio::time::Duration::from_secs(120), cmd.output()).await {
+        Ok(Ok(output)) => {
+            let code = output.status.code();
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            Ok(HttpResponse::Ok().json(ScriptResult {
+                success: output.status.success(),
+                code,
+                stdout,
+                stderr,
+                error: None,
+            }))
+        }
+        Ok(Err(e)) => Ok(HttpResponse::InternalServerError().json(ScriptResult {
+            success: false,
+            code: None,
+            stdout: "".into(),
+            stderr: "".into(),
+            error: Some(format!("Failed to run script: {}", e)),
+        })),
+        Err(_) => Ok(HttpResponse::InternalServerError().json(ScriptResult {
+            success: false,
+            code: None,
+            stdout: "".into(),
+            stderr: "".into(),
+            error: Some("Timed out".into()),
+        })),
+    }
 }
 
 #[actix_web::main]
