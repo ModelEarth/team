@@ -10230,7 +10230,10 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             if (listParam === 'all') {
                 fileSelect.value = 'all';
-                selectedFile = 'all';
+                // Get the correct selectedFile from the "all" option's data-url
+                const allOption = Array.from(fileSelect.options).find(option => option.value === 'all');
+                selectedFile = allOption?.getAttribute('data-url') || 'all';
+                console.log('Set selectedFile for list=all to:', selectedFile);
             } else {
                 selectedFile = selectedOption.getAttribute('data-url') || selectedOption.value;
             }
@@ -10260,7 +10263,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const allListsOption = document.createElement('option');
             allListsOption.value = 'all';
             allListsOption.textContent = 'All Lists';
-            allListsOption.setAttribute('data-url', 'all');
+            
+            // Set the correct data-url based on site type
+            if (isGeoSite()) {
+                // For geo sites, point to show.json
+                const currentPath = window.location.pathname;
+                let showJsonPath;
+                
+                if (currentPath.includes('/team/projects')) {
+                    showJsonPath = 'map/show.json';
+                } else if (currentPath.includes('/team/')) {
+                    showJsonPath = 'projects/map/show.json';
+                } else {
+                    showJsonPath = 'team/projects/map/show.json';
+                }
+                
+                allListsOption.setAttribute('data-url', showJsonPath);
+                console.log('Set "all" option data-url for geo site to:', showJsonPath);
+            } else {
+                // For regular sites, use the Google Sheets URL
+                allListsOption.setAttribute('data-url', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv');
+                console.log('Set "all" option data-url for regular site to Google Sheets CSV');
+            }
             
             // Insert as the first option
             fileSelect.insertBefore(allListsOption, fileSelect.firstChild);
@@ -10547,6 +10571,34 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
             document.getElementById('loadStatus').style.display = 'block';
             
+            // Check if this is a geo site - if so, load from show.json using existing flow
+            if (isGeoSite()) {
+                console.log('Geo site detected - loading list of lists from show.json using existing flow');
+                
+                // Calculate the correct relative path to show.json
+                let showJsonPath;
+                const currentPath = window.location.pathname;
+                
+                if (currentPath.includes('/team/projects')) {
+                    showJsonPath = 'map/show.json';
+                } else if (currentPath.includes('/team/')) {
+                    showJsonPath = 'projects/map/show.json';
+                } else {
+                    showJsonPath = 'team/projects/map/show.json';
+                }
+                
+                // Set selectedFile to show.json path and use existing loading flow
+                selectedFile = showJsonPath;
+                console.log('Set selectedFile to:', selectedFile);
+                
+                // Update the dropdown to show "all" is selected
+                fileSelect.value = 'all';
+                
+                // Use the existing data loading process
+                getSubsetUsingSnapshot();
+                return;
+            }
+            
             // Load and display the meta-list Google Sheet with all feeds
             const masterSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
             
@@ -10630,7 +10682,8 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             });
                             
                             // Filter entries for geo sites (check the 'List' field)
-                            if (isGeoSiteCheck) {
+                            // Only apply geo filtering when allowedGeoOptions is defined (when using default Google Sheets)
+                            if (isGeoSiteCheck && typeof allowedGeoOptions !== 'undefined') {
                                 const listValue = feedEntry['List'] || feedEntry['list'];
                                 if (!allowedGeoOptions.includes(listValue)) {
                                     continue; // Skip this entry for geo sites
