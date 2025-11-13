@@ -358,6 +358,7 @@ class ListingsDisplay {
             // Merge geo data into primary data
             let mergedCount = 0;
             let addedColumns = new Set();
+            let unmatchedValues = new Set(); // Track unmatched values efficiently
             
             primaryData.forEach(primaryRow => {
                 const keyValue = primaryRow[mergeColumn];
@@ -373,6 +374,9 @@ class ListingsDisplay {
                     });
                     
                     mergedCount++;
+                } else if (keyValue) {
+                    // Track values that couldn't be matched (only if keyValue exists)
+                    unmatchedValues.add(keyValue);
                 }
             });
             
@@ -384,6 +388,16 @@ class ListingsDisplay {
                 mergedRecords: mergedCount,
                 geoDatasetSize: geoData.length
             };
+            
+            // Report unmatched values as a secondary process to avoid slowing down the merge
+            setTimeout(() => {
+                if (unmatchedValues.size > 0) {
+                    const unmatchedList = Array.from(unmatchedValues);
+                    debugAlert(`🔍 GEO MERGE UNMATCHED: ${unmatchedValues.size} values from "${mergeColumn}" column not found in geo dataset: ${unmatchedList.join(', ')}`);
+                } else {
+                    debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
+                }
+            }, 0);
             
             return primaryData;
             
