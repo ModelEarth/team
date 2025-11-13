@@ -1,5 +1,23 @@
 {
- "liaisons": {
+  "visits": {
+    "shortTitle": "City Visits",
+    "menuTitle": "City Visits",
+    "listTitle": "City Visits",
+    "datatype": "csv",
+    "dataset": "../../../display/team/map/visits.csv",
+    "markerType": "google",
+    "nameColumn": "City",
+    "featuredColumns": ["Team", "Description", "StartDate", "TotalParticipants"],
+    "geoDataset": "cities.csv",
+    "geoColumns": ["City"],
+    "search": {
+      "In City": "City",
+      "In Team": "Team",
+      "In Description": "Description"
+    },
+    "datastates": ["GA"]
+  },
+  "liaisons": {
     "shortTitle": "Liaisons",
     "menuTitle": "Camera Ready Liaisons",
     "listTitle": "Camera Ready Communities",
@@ -26,24 +44,6 @@
     },
     "datastates": ["GA"],
     "mapInfo": "Cities in Georgia"
-  },
-  "visits": {
-    "shortTitle": "City Visits",
-    "menuTitle": "City Visits",
-    "listTitle": "City Visits",
-    "datatype": "csv",
-    "dataset": "../../../display/team/map/visits.csv",
-    "markerType": "google",
-    "nameColumn": "City",
-    "featuredColumns": ["Team", "Description", "StartDate", "TotalParticipants"],
-    "geoDataset": "cities.csv",
-    "geoColumns": ["City"],
-    "search": {
-      "In City": "City",
-      "In Team": "Team",
-      "In Description": "Description"
-    },
-    "datastates": ["GA"]
   },
   "recyclers": {
     "shortTitle": "B2B Recyclers",

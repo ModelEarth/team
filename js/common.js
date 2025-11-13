@@ -2042,11 +2042,14 @@ function addControlButtons(parentDivId, options = {}) {
     const defaults = {
         showCloseButton: true,
         showExpandButton: true,
+        showClearButton: false, // Only show for specific divs like debug-messages
         closeButtonText: '×',
         expandButtonText: '⛶',
+        clearButtonText: '🗑️',
         position: 'top-right', // top-right, top-left, bottom-right, bottom-left
         onClose: null,
-        onExpand: null
+        onExpand: null,
+        onClear: null
     };
     
     const config = { ...defaults, ...options };
@@ -2059,23 +2062,19 @@ function addControlButtons(parentDivId, options = {}) {
         ${config.position.includes('top') ? 'top: 8px' : 'bottom: 8px'};
         ${config.position.includes('right') ? 'right: 8px' : 'left: 8px'};
         display: flex;
-        gap: 4px;
+        gap: 8px;
         z-index: 1001;
     `;
     
-    // Create close button
-    if (config.showCloseButton) {
-        const closeButton = document.createElement('button');
-        closeButton.className = 'control-button close-button';
-        closeButton.innerHTML = config.closeButtonText;
-        closeButton.title = 'Close';
-        closeButton.style.cssText = `
+    // Common button styles function
+    function getButtonStyles() {
+        return `
             background: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
@@ -2084,47 +2083,47 @@ function addControlButtons(parentDivId, options = {}) {
             justify-content: center;
             transition: background-color 0.2s ease;
         `;
+    }
+    
+    // Create clear button first
+    if (config.showClearButton) {
+        const clearButton = document.createElement('button');
+        clearButton.className = 'control-button clear-button';
+        clearButton.innerHTML = config.clearButtonText;
+        clearButton.title = 'Clear content';
+        clearButton.style.cssText = getButtonStyles();
         
-        closeButton.addEventListener('mouseenter', () => {
-            closeButton.style.background = 'rgba(220, 38, 38, 0.8)';
+        clearButton.addEventListener('mouseenter', () => {
+            clearButton.style.background = 'rgba(168, 85, 247, 0.8)';
         });
         
-        closeButton.addEventListener('mouseleave', () => {
-            closeButton.style.background = 'rgba(0, 0, 0, 0.7)';
+        clearButton.addEventListener('mouseleave', () => {
+            clearButton.style.background = 'rgba(0, 0, 0, 0.7)';
         });
         
-        closeButton.addEventListener('click', () => {
-            if (config.onClose && typeof config.onClose === 'function') {
-                config.onClose(parentDiv);
+        clearButton.addEventListener('click', () => {
+            if (config.onClear && typeof config.onClear === 'function') {
+                config.onClear(parentDiv, clearButton);
             } else {
-                parentDiv.remove();
+                // Default clear behavior - clear text content
+                if (parentDivId === 'debug-messages') {
+                    parentDiv.innerHTML = '';
+                } else {
+                    parentDiv.textContent = '';
+                }
             }
         });
         
-        buttonContainer.appendChild(closeButton);
+        buttonContainer.appendChild(clearButton);
     }
     
-    // Create expand button
+    // Create expand button second
     if (config.showExpandButton) {
         const expandButton = document.createElement('button');
         expandButton.className = 'control-button expand-button';
         expandButton.innerHTML = config.expandButtonText;
         expandButton.title = 'Expand/Collapse';
-        expandButton.style.cssText = `
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.2s ease;
-        `;
+        expandButton.style.cssText = getButtonStyles();
         
         expandButton.addEventListener('mouseenter', () => {
             expandButton.style.background = 'rgba(59, 130, 246, 0.8)';
@@ -2153,6 +2152,33 @@ function addControlButtons(parentDivId, options = {}) {
         });
         
         buttonContainer.appendChild(expandButton);
+    }
+    
+    // Create close button last (rightmost)
+    if (config.showCloseButton) {
+        const closeButton = document.createElement('button');
+        closeButton.className = 'control-button close-button';
+        closeButton.innerHTML = config.closeButtonText;
+        closeButton.title = 'Close';
+        closeButton.style.cssText = getButtonStyles();
+        
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(220, 38, 38, 0.8)';
+        });
+        
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(0, 0, 0, 0.7)';
+        });
+        
+        closeButton.addEventListener('click', () => {
+            if (config.onClose && typeof config.onClose === 'function') {
+                config.onClose(parentDiv);
+            } else {
+                parentDiv.remove();
+            }
+        });
+        
+        buttonContainer.appendChild(closeButton);
     }
     
     // Ensure parent div has relative positioning for absolute positioning of buttons

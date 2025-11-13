@@ -870,3 +870,27 @@ body {
 .leaflet-container a.leaflet-popup-close-button {
     font: 18px / 24px Tahoma, Verdana, sans-serif !important; /* For map popup close-X */
 }
+
+/* Debug Controls Container */
+.debug-controls {
+    display: flex !important;
+    gap: 2px !important;
+    align-items: center !important;
+}
+
+/* Debug Controls Button Styles */
+.debug-controls button {
+    background: rgba(255,255,255,0.2) !important;
+    border: none !important;
+    color: white !important;
+    width: 20px !important;
+    height: 25px !important;
+    border-radius: 3px !important;
+    cursor: pointer !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: top !important;
+}
