@@ -396,13 +396,18 @@ class ListingsDisplay {
                 debugAlert('🌍 GEO MERGE: Location field detected, will split into City and State');
                 
                 // Process primary data to split Location into City and State
-                primaryData.forEach(primaryRow => {
+                primaryData.forEach((primaryRow, index) => {
                     const locationValue = primaryRow[mergeColumn];
                     if (locationValue && typeof locationValue === 'string') {
-                        const parts = locationValue.split(',');
-                        if (parts.length >= 2) {
-                            const city = parts[0].trim();
-                            const statePart = parts[1].trim();
+                        const firstCommaIndex = locationValue.indexOf(',');
+                        if (firstCommaIndex !== -1) {
+                            const city = locationValue.substring(0, firstCommaIndex).trim();
+                            const statePart = locationValue.substring(firstCommaIndex + 1).trim();
+                            
+                            // Debug logging for first few entries
+                            if (index < 3) {
+                                debugAlert(`🔍 LOCATION SPLIT ${index}: "${locationValue}" → City: "${city}", State: "${statePart}"`);
+                            }
                             
                             // Convert full state name to abbreviation if needed
                             const stateCode = stateNameToCode[statePart.toLowerCase()] || statePart;
