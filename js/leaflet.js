@@ -4,9 +4,9 @@
 // Debug function that only shows messages on localhost with model.georgia
 function debugAlert(message) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isTestSite = Cookies.get('modelsite') === 'model.georgia';
+    //const isTestSite = Cookies.get('modelsite') === 'model.georgia';
     
-    if (isLocalhost && isTestSite) {
+    if (isLocalhost) { // && isTestSite
         // Create or find debug holder div
         let debugHolder = document.getElementById('debug-messages-holder');
         if (!debugHolder) {
@@ -113,14 +113,12 @@ function addDebugControlButtons(debugContainer) {
     // Close (X) button
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 14px; line-height: 1;';
     closeBtn.title = 'Close debug messages';
     closeBtn.onclick = () => debugContainer.style.display = 'none';
     
     // Expand button
     const expandBtn = document.createElement('button');
     expandBtn.innerHTML = '⇱';
-    expandBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 12px; line-height: 1;';
     expandBtn.title = 'Toggle expand';
     expandBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
@@ -137,7 +135,6 @@ function addDebugControlButtons(debugContainer) {
     // Copy button
     const copyBtn = document.createElement('button');
     copyBtn.innerHTML = '📋';
-    copyBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 10px; line-height: 1;';
     copyBtn.title = 'Copy debug messages';
     copyBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
@@ -151,9 +148,19 @@ function addDebugControlButtons(debugContainer) {
         });
     };
     
-    controlsWrapper.appendChild(closeBtn);
+    // Create clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.innerHTML = '🗑️';
+    clearBtn.title = 'Clear debug messages';
+    clearBtn.onclick = () => {
+        const debugDiv = debugContainer.querySelector('#debug-messages');
+        debugDiv.innerHTML = '<div id="debug-drag-handle" style="height: 3px; background: rgba(255,255,255,0.3); margin: 0 -10px 5px; cursor: ns-resize;"></div>';
+    };
+    
+    controlsWrapper.appendChild(clearBtn);
     controlsWrapper.appendChild(expandBtn);
     controlsWrapper.appendChild(copyBtn);
+    controlsWrapper.appendChild(closeBtn);
     controlsDiv.appendChild(controlsWrapper);
 }
 
@@ -161,9 +168,9 @@ class LeafletMapManager {
     constructor(containerId = 'map', options = {}) {
         // Debug: track when map is being created/recreated
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
+        //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
         
-        if (isLocalhost && isTestSite) {
+        if (isLocalhost) { // && isTestSite
             const stack = new Error().stack.split('\n').slice(2, 4).map(line => line.trim().replace(/.*\//, '')).join(' -> ');
             debugAlert('MAP CONSTRUCTOR CALLED - LeafletMapManager created/recreated - ' + stack);
         }
@@ -372,6 +379,7 @@ class LeafletMapManager {
     }
     
     initializeMap() {
+        debugAlert("initializeMap in leaflet.js");
         if (!window.L) {
             setTimeout(() => this.initializeMap(), 100);
             return;
@@ -409,12 +417,12 @@ class LeafletMapManager {
         this.map.on('zoomend', () => {
             // Debug: track zoom changes
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
+            //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
             
-            if (isLocalhost && isTestSite) {
+            //if (isLocalhost && isTestSite) {
                 const stack = new Error().stack.split('\n').slice(2, 4).map(line => line.trim().replace(/.*\//, '')).join(' -> ');
                 debugAlert('ZOOM CHANGED to ' + this.map.getZoom() + ' - triggered by: ' + stack);
-            }
+            //}
             
             // Track user-initiated zoom changes (not programmatic ones)
             const currentZoom = this.map.getZoom();
@@ -749,6 +757,13 @@ class LeafletMapManager {
         try {
             // Create custom icon with zoom-based sizing and shape
             const currentZoom = this.map.getZoom();
+            
+            // Ensure useLargerSizes is set correctly for initial marker creation
+            if (currentZoom <= 5 && !this.useLargerSizes) {
+                this.useLargerSizes = true;
+                console.log(`Setting useLargerSizes=true during createMarker for zoom ${currentZoom}`);
+            }
+            
             const iconSize = this.getIconSizeForZoom(currentZoom);
             const markerHtml = this.getMarkerHtml(currentZoom, iconSize);
             
@@ -967,10 +982,15 @@ class LeafletMapManager {
     
     getMarkerHtml(zoom, iconSize) {
         // Use conditional logic based on initial zoom level
+        console.log(`getMarkerHtml: zoom=${zoom}, useLargerSizes=${this.useLargerSizes}, iconSize=${iconSize}`);
         if (this.useLargerSizes) {
             // Apply larger sizes when initial zoom was 5 or less
-            if (zoom <= 3) {
-                // 50% dots for zoom 1-3 (slightly smaller than level 4)
+            if (zoom === 1) {
+                // Set fixed size for level 1 instead of percentage
+                const size1 = 4; // Fixed size to match level 2
+                return `<div class="marker-dot-tiny" style="width: ${size1}px; height: ${size1}px;"></div>`;
+            } else if (zoom <= 3) {
+                // 50% dots for zoom 2-3 (slightly smaller than level 4)
                 const size3 = Math.max(2, Math.round(iconSize * 0.5));
                 return `<div class="marker-dot-tiny" style="width: ${size3}px; height: ${size3}px;"></div>`;
             } else if (zoom === 4) {
@@ -1000,8 +1020,12 @@ class LeafletMapManager {
             }
         } else {
             // Use default/original sizes when initial zoom was greater than 5
-            if (zoom <= 3) {
-                // Half-size dots for zoom 1-3
+            if (zoom === 1) {
+                // Set fixed size for level 1 instead of percentage  
+                const size1 = 4; // Fixed size to match level 2
+                return `<div class="marker-dot-tiny" style="width: ${size1}px; height: ${size1}px;"></div>`;
+            } else if (zoom <= 3) {
+                // Half-size dots for zoom 2-3
                 const halfSize = Math.max(1, Math.round(iconSize * 0.2));
                 return `<div class="marker-dot-tiny" style="width: ${halfSize}px; height: ${halfSize}px;"></div>`;
             } else if (zoom === 4) {

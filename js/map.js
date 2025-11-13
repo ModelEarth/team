@@ -45,6 +45,9 @@ class ListingsDisplay {
         this.searchPopupOpen = false;
         this.dataLoaded = false;
         this.mapInitializing = false;
+        this.initialMapLoad = true;
+        this.isFilteringInProgress = false;
+        this.geoMergeInfo = null; // Track geo dataset merge information
         
         // Configuration for paths
         this.pathConfig = {
@@ -235,6 +238,9 @@ class ListingsDisplay {
         
         this.config = showConfig;
         
+        // Clear any previous geo merge info
+        this.geoMergeInfo = null;
+        
         let data = await this.loadDataFromConfig(showConfig);
         
         // Merge geoDataset if specified in showConfig
@@ -285,6 +291,7 @@ class ListingsDisplay {
         
         this.loading = false;
         
+        debugAlert("loadShowData() this.isDatasetChanging: " + this.isDatasetChanging)
         // Force a render after a short delay to ensure UI updates
         //setTimeout(() => {
             this.render();
@@ -370,6 +377,13 @@ class ListingsDisplay {
             });
             
             debugAlert('🌍 GEO MERGE: Merged ' + mergedCount + ' records, added columns: ' + Array.from(addedColumns).join(', '));
+            
+            // Store merge information for search results display
+            this.geoMergeInfo = {
+                totalRecords: primaryData.length,
+                mergedRecords: mergedCount,
+                geoDatasetSize: geoData.length
+            };
             
             return primaryData;
             
@@ -920,7 +934,12 @@ class ListingsDisplay {
             });
         }
         this.currentPage = 1;
-        this.render();
+        
+        // Set flag to prevent render() from updating map (we'll do it manually)
+        this.isFilteringInProgress = true;
+        //this.render(); // For map point update
+        this.updateListingsDisplay();
+        this.isFilteringInProgress = false;
         
         // Restore focus and cursor position if search input was focused
         if (wasSearchInputFocused) {
@@ -935,17 +954,11 @@ class ListingsDisplay {
             }, 0);
         }
         
-        // Update map with filtered results - only send current page data
+        // Update map with filtered results - send all filtered data, not just current page
         if (window.leafletMap) {
             setTimeout(() => {
-                // Create a limited version of this object with only current page data
-                const limitedListingsApp = {
-                    ...this,
-                    filteredListings: this.getCurrentPageListings(),
-                    listings: this.getCurrentPageListings(),
-                    getMapListings: () => this.getCurrentPageListings()
-                };
-                window.leafletMap.updateFromListingsApp(limitedListingsApp);
+                debugAlert('🚨 updateFromListingsApp in filterListings() - sending ' + this.filteredListings.length + ' filtered listings');
+                window.leafletMap.updateFromListingsApp(this);
             }, 100);
         }
     }
@@ -1109,6 +1122,9 @@ class ListingsDisplay {
         this.currentShow = showKey;
         this.searchPopupOpen = false;
         
+        // Dataset change - keep existing map, just update data
+        debugAlert("🔄 Dataset change: Keeping existing map, will update data only");
+        
         // Update URL hash
         //this.updateUrlHash(showKey); // Avoid because hash is driving
         
@@ -1117,8 +1133,31 @@ class ListingsDisplay {
             this.saveCachedShow(showKey);
         }
         
-        await this.loadShowData(); // Invokes this.render()
-        //this.render();
+        // Set flag to prevent render() from updating map (we'll do it manually like filtering)
+        this.isDatasetChanging = true;
+        await this.loadShowData(); // This calls render(), but it will be skipped due to flag
+        this.updateListingsDisplay(); // Update only the listings display
+        this.isDatasetChanging = false;
+        
+        // Update map with new dataset and fit to new points
+        if (window.leafletMap) {
+            setTimeout(() => {
+                debugAlert('🚨 updateFromListingsApp in changeShow() - dataset change - sending ' + this.filteredListings.length + ' listings');
+                
+                // Force bounds fitting for dataset changes by temporarily resetting the baseline
+                const originalMapHasLoaded = window.mapHasEverLoaded;
+                window.mapHasEverLoaded = false; // Trick the system into thinking this is initial load
+                
+                window.leafletMap.updateFromListingsApp(this);
+                
+                // Restore the flag after update
+                setTimeout(() => {
+                    window.mapHasEverLoaded = originalMapHasLoaded;
+                    debugAlert('🗺️ Dataset change bounds fitting completed, restored mapHasEverLoaded flag');
+                }, 300);
+                
+            }, 100);
+        }
         
         // Force map reinitialization when changing datasets
         /*
@@ -1475,99 +1514,227 @@ class ListingsDisplay {
         `;
     }
 
+    renderSearchResults() {
+        const shortTitle = this.config?.shortTitle ? ` ${this.config.shortTitle}` : '';
+        
+        // Show filtered count whenever results are filtered (regardless of whether search term exists)
+        if (this.filteredListings.length !== this.listings.length) {
+            // When filtering is active (or search produced different results), show [filtered] of [total]
+            let result = `${this.filteredListings.length} of ${this.listings.length}${shortTitle}`;
+            
+            // Add geo merge info if available and dataset is merged
+            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
+                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
+            }
+            
+            return result;
+        } else {
+            // When no filtering, show just the total
+            let result = `${this.listings.length}${shortTitle}`;
+            
+            // Add geo merge info if available and dataset is merged
+            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
+                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
+            }
+            
+            return result;
+        }
+    }
+
+    updateListingsDisplay() {
+        // Update only the listings display without recreating the entire UI
+        const listingsScrollContainer = document.querySelector('.listings-scroll-container');
+        if (listingsScrollContainer) {
+            // Update the entire listings scroll container content
+            listingsScrollContainer.innerHTML = `
+                <div class="listings-grid basePanelPadding" style="padding-top:0px">
+                    ${this.renderListings()}
+                </div>
+                ${this.renderNoResults()}
+                ${this.renderEmptyState()}
+            `;
+            
+            // Update pagination and search results if they exist
+            const detailsBottom = document.getElementById('widgetDetailsBottom');
+            if (detailsBottom) {
+                detailsBottom.innerHTML = `
+                    <div class="search-results">
+                        ${this.renderSearchResults()}
+                    </div>
+                    <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
+                        ${this.renderPagination()}
+                    </div>
+                `;
+            }
+            
+            // Event listeners are handled by global delegation, no need to re-attach
+        }
+    }
+
     render() {
-        //alert('🔍 RENDER() called');
+        debugAlert('🔍 RENDER() called');
+        
         console.trace('Render call stack:');
         // Force clear loading state if we have data
         if (this.dataLoaded && this.listings && this.listings.length > 0 && this.loading) {
             this.loading = false;
         }
-        
-        const mapwidget = document.getElementById('mapwidget');
-        if (mapwidget) mapwidget.style.display = 'block';
-        
-        if (this.loading) {
-            // FORCE clear loading if we have data but still loading
-            if (this.listings && this.listings.length > 0) {
-                this.loading = false;
-                // Don't return, continue to render
-            } else {
-                this.showLoadingState("Loading listings...");
+        if (!(this.isFilteringInProgress || this.isDatasetChanging)) {
+            //alert("render() overwrites map")
+            const mapwidget = document.getElementById('mapwidget');
+            if (mapwidget) mapwidget.style.display = 'block';
+            
+            if (this.loading) {
+                // FORCE clear loading if we have data but still loading
+                if (this.listings && this.listings.length > 0) {
+                    this.loading = false;
+                    // Don't return, continue to render
+                } else {
+                    this.showLoadingState("Loading listings...");
+                    return;
+                }
+            }
+
+            // Store data loading error but don't return early - still show the interface
+            if (this.error) {
+                this.dataLoadError = this.error;
+            }
+
+            if (!this.showConfigs || Object.keys(this.showConfigs).length === 0) {
+                this.showLoadingState("Loading Dataset Choices");
                 return;
             }
-        }
+        
+            let localwidgetHeader = `
+                <!-- Header -->
+                <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="flex:1;">
+                        <h1>${this.config?.listTitle || 'Listings'}</h1>
+                        ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div id="map-print-download-icons" style="padding-top:12px"></div>
+                    </div>
+                </div>`
 
-        // Store data loading error but don't return early - still show the interface
-        if (this.error) {
-            this.dataLoadError = this.error;
-        }
-
-        if (!this.showConfigs || Object.keys(this.showConfigs).length === 0) {
-            this.showLoadingState("Loading Dataset Choices");
-            return;
-        }
-
-        let localwidgetHeader = `
-            <!-- Header -->
-            <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="flex:1;">
-                    <h1>${this.config?.listTitle || 'Listings'}</h1>
-                    ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <div id="map-print-download-icons" style="padding-top:12px"></div>
-                </div>
-            </div>`
-
-        // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
-        // X added to temp disable until g.org removes showheader=false
-        mapwidget.innerHTML = `
-            ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
-            <!-- Widget Hero Container -->
-            <div id="widgetHero"></div>
-                
-            <!-- Widget Content Container -->
-            <div id="widgetContent">
-                <!-- Details Section (Left column on desktop) -->
-                <div id="widgetDetailsParent" class="basePanel">
-                <div id="widgetDetails" myparent="widgetDetailsParent" class="basePanel">
-                    <!-- Controls -->
-                    <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
-                        <div class="search-container">
-                            ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
-                            <div class="map-selector">
-                                <select id="mapDataSelect" class="map-select">
-                                    <option value="">Selected map...</option>
-                                    ${Object.keys(this.showConfigs).map(key => 
-                                        `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                            ` : ''}
-                            <div class="search-wrapper">
-                                <div class="search-box">
-                                    <input
-                                        type="text"
-                                        id="searchInput"
-                                        placeholder="Search listings..."
-                                        value="${this.searchTerm}"
-                                        class="search-input"
-                                    />
-                                    <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
+            // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
+            // X added to temp disable until g.org removes showheader=false
+            mapwidget.innerHTML = `
+                ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
+                <!-- Widget Hero Container -->
+                <div id="widgetHero"></div>
+                    
+                <!-- Widget Content Container -->
+                <div id="widgetContent">
+                    <!-- Details Section (Left column on desktop) -->
+                    <div id="widgetDetailsParent" class="basePanel">
+                    <div id="widgetDetails" myparent="widgetDetailsParent" class="basePanel">
+                        <!-- Controls -->
+                        <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
+                            <div class="search-container">
+                                ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
+                                <div class="map-selector">
+                                    <select id="mapDataSelect" class="map-select">
+                                        <option value="">Selected map...</option>
+                                        ${Object.keys(this.showConfigs).map(key => 
+                                            `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
+                                        ).join('')}
+                                    </select>
                                 </div>
-                                <div class="search-fields-control">
-                                    <button id="searchFieldsBtn" class="search-fields-btn ${this.searchPopupOpen ? 'active' : ''}">
-                                        <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
+                                ` : ''}
+                                <div class="search-wrapper">
+                                    <div class="search-box">
+                                        <input
+                                            type="text"
+                                            id="searchInput"
+                                            placeholder="Search listings..."
+                                            value="${this.searchTerm}"
+                                            class="search-input"
+                                        />
+                                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                         </svg>
-                                        <span class="button-text">${this.getSearchFieldsSummary()}</span>
-                                    </button>
+                                    </div>
+                                    <div class="search-fields-control">
+                                        <button id="searchFieldsBtn" class="search-fields-btn ${this.searchPopupOpen ? 'active' : ''}">
+                                            <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
+                                            </svg>
+                                            <span class="button-text">${this.getSearchFieldsSummary()}</span>
+                                        </button>
+                                    </div>
+                                    <!-- Expand Icon for Details -->
+                                    <div class="fullscreen-toggle-container">
+                                        <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
+                                            <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                                            </svg>
+                                            <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
-                                <!-- Expand Icon for Details -->
-                                <div class="fullscreen-toggle-container">
-                                    <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
+                            </div>
+                        </div>
+                        
+                        <!-- Listings Grid -->
+                        <div class="listings-scroll-container">
+                            <div class="listings-grid basePanelPadding" style="padding-top:0px">
+                                ${this.renderListings()}
+                            </div>
+                        </div>
+
+                        ${this.renderNoResults()}
+                        ${this.renderEmptyState()}
+                        
+                        <!-- Widget Details Bottom Container -->
+                        <div id="widgetDetailsBottom">
+                            <div class="search-results">
+                                ${this.renderSearchResults()}
+                            </div>
+                            <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
+                                ${this.renderPagination()}
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <!-- Right Column (Gallery + Map on desktop) -->
+                    <div class="right-column">
+                        <!-- Gallery Section -->
+                        <div id="widgetGalleryParent" style="display:none">
+                        <div id="pageGallery" myparent="widgetGalleryParent" style="display:none" class="earth">
+                            <!-- Expand Icon for Gallery -->
+                            <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
+                                <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
+                                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                                    </svg>
+                                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- ../../img/banner.webp --->
+                            <!--
+                            <img src="../../../community/img/hero/hero.png" alt="Banner" class="gallery-banner">
+                            -->
+                        </div>
+                        </div>
+                        <!-- Map Section -->
+                        <div id="pageMap" style="position: relative;">
+                            <!-- Map Wrapper Container -->
+                            <div id="widgetmapWrapper" myparent="pageMap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden; position: relative;">
+                                <div id="widgetmap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                                </div>
+                                <!-- Add Visit Button - Upper Left Corner -->
+                                <div style="position: absolute; top: 8px; left: 8px; z-index: 1000;">
+                                    <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn list-cities" style="display:none">Add Visit</a>
+                                </div>
+                                <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
+                                <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
+                                    <button class="fullscreen-toggle-btn" mywidgetpanel="widgetmapWrapper" onclick="window.listingsApp.myHero()" title="Expand Map">
                                         <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                                         </svg>
@@ -1579,81 +1746,12 @@ class ListingsDisplay {
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Listings Grid -->
-                    <div class="listings-scroll-container">
-                        <div class="listings-grid basePanelPadding" style="padding-top:0px">
-                            ${this.renderListings()}
-                        </div>
-                    </div>
+                </div>
+            `;
+        } 
 
-                    ${this.renderNoResults()}
-                    ${this.renderEmptyState()}
-                    
-                    <!-- Widget Details Bottom Container -->
-                    <div id="widgetDetailsBottom">
-                        <div class="search-results">
-                            ${this.getCurrentPageListings().length === this.filteredListings.length ? 
-                                `${this.filteredListings.length}` : 
-                                `${this.getCurrentPageListings().length} of ${this.filteredListings.length}`}
-                            ${this.filteredListings.length !== this.listings.length ? ` (${this.listings.length} total)` : ''}
-                            ${this.config?.shortTitle ? ` ${this.config.shortTitle}` : ''}
-                        </div>
-                        <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
-                            ${this.renderPagination()}
-                        </div>
-                    </div>
-                </div>
-                </div>
 
-                <!-- Right Column (Gallery + Map on desktop) -->
-                <div class="right-column">
-                    <!-- Gallery Section -->
-                    <div id="widgetGalleryParent" style="display:none">
-                    <div id="pageGallery" myparent="widgetGalleryParent" style="display:none" class="earth">
-                        <!-- Expand Icon for Gallery -->
-                        <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
-                            <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
-                                <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                </svg>
-                                <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <!-- ../../img/banner.webp --->
-                        <!--
-                        <img src="../../../community/img/hero/hero.png" alt="Banner" class="gallery-banner">
-                        -->
-                    </div>
-                    </div>
-                    <!-- Map Section -->
-                    <div id="pageMap" style="position: relative;">
-                        <!-- Map Wrapper Container -->
-                        <div id="widgetmapWrapper" myparent="pageMap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden; position: relative;">
-                            <div id="widgetmap" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
-                            </div>
-                            <!-- Add Visit Button - Upper Left Corner -->
-                            <div style="position: absolute; top: 8px; left: 8px; z-index: 1000;">
-                                <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn list-cities" style="display:none">Add Visit</a>
-                            </div>
-                            <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
-                            <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
-                                <button class="fullscreen-toggle-btn" mywidgetpanel="widgetmapWrapper" onclick="window.listingsApp.myHero()" title="Expand Map">
-                                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                    </svg>
-                                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // ALLOWED MAP POINTS TO CHANGE WITH DAT
 
         // Apply domain-based sign-in button visibility
         this.applySignInVisibility();
@@ -1672,10 +1770,15 @@ class ListingsDisplay {
                 });
             }
             
-            //this.conditionalMapInit();
-            this.initializeMap('FROM_RENDER conditionalMapInit');
+            // Skip map initialization during filtering to prevent map recreation
+            if (!this.isFilteringInProgress) {
+                this.initializeMap('FROM_RENDER conditionalMapInit');
+            } else {
+                debugAlert("🚫 SKIPPING initializeMap during filtering to preserve map");
+            }
             this.setupPrintDownloadIcons();
         //}, 0);
+          
     }
     
     //conditionalMapInit() {
@@ -1684,7 +1787,14 @@ class ListingsDisplay {
     //}
     
     initializeMap(source = 'UNKNOWN') {
-        //alert("initializeMap called from: " + source)
+        debugAlert("🗺️ initializeMap in map.js CALLED FROM: " + source + " - checking initialMapLoad flag: " + this.initialMapLoad)
+        
+        // Block ALL map recreation during filtering to prevent #widgetmap from being emptied
+        if (this.isFilteringInProgress) {
+            debugAlert('🚫 BLOCKING: Map recreation during filtering - isFilteringInProgress=true');
+            return;
+        }
+        
         console.log('🚨 INITIALIZEMAP CALLED FROM:', source);
         console.trace('Call stack:');
         // Check if LeafletMapManager is available
@@ -1702,41 +1812,48 @@ class ListingsDisplay {
         
         waitForElm('#widgetmap').then((elm) => {
             try {
-                // More thorough cleanup of existing map
-                if (window.leafletMap && window.leafletMap.map) {
-                    try {
-                        // Stop any ongoing animations/transitions
-                        window.leafletMap.map.stop();
-                        
-                        // Remove all event listeners
-                        window.leafletMap.map.off();
-                        
-                        // Clear any pending timeouts/animations
-                        window.leafletMap.map._clearPans && window.leafletMap.map._clearPans();
-                        
-                        // Remove the map
-                        window.leafletMap.map.remove();
-                        
-                        // Clean up DOM references
-                        const container = document.getElementById('widgetmap');
-                        if (container && container._leaflet_id) {
-                            delete container._leaflet_id;
+                // More thorough cleanup of existing map - only during initial load or dataset changes
+                if (this.initialMapLoad) {
+                    if (window.leafletMap && window.leafletMap.map && this.initialMapLoad) {
+                        debugAlert("🧹 CLEANING UP EXISTING MAP - this causes tile reload, only doing during initial/dataset load");
+                        try {
+                            // Stop any ongoing animations/transitions
+                            window.leafletMap.map.stop();
+                            
+                            // Remove all event listeners
+                            window.leafletMap.map.off();
+                            
+                            // Clear any pending timeouts/animations
+                            window.leafletMap.map._clearPans && window.leafletMap.map._clearPans();
+                            
+                            // Remove the map
+                            window.leafletMap.map.remove();
+                            
+                            // Clean up DOM references
+                            const container = document.getElementById('widgetmap');
+                            if (container && container._leaflet_id) {
+                                delete container._leaflet_id;
+                            }
+                            if (container && container._leaflet) {
+                                delete container._leaflet;
+                            }
+                            
+                        } catch (e) {
+                            console.warn('Error removing existing map:', e);
                         }
-                        if (container && container._leaflet) {
-                            delete container._leaflet;
-                        }
-                        
-                    } catch (e) {
-                        console.warn('Error removing existing map:', e);
+                        window.leafletMap = null;
                     }
-                    window.leafletMap = null;
                 }
-                
-                // Create new map instance
-                window.leafletMap = new LeafletMapManager('widgetmap', {
-                    height: '500px',
-                    width: '100%'
-                });
+                // Create new map instance - only during initial load or dataset changes
+                if (this.initialMapLoad) {
+                    debugAlert("🗺️ CREATING NEW MAP - only during initial/dataset load");
+                    window.leafletMap = new LeafletMapManager('widgetmap', {
+                        height: '500px',
+                        width: '100%'
+                    });
+                } else {
+                    debugAlert("🔄 SKIPPING MAP RECREATION - using existing map to avoid tile reload. Map exists: " + !!window.leafletMap);
+                }
                 
                 // Update map with current listings data - only send current page data
                 console.log("Update map with current listings data - only send current page data")
@@ -1756,6 +1873,9 @@ class ListingsDisplay {
                 console.warn('Failed to initialize map:', error);
             } finally {
                 this.mapInitializing = false;
+                // Set flag to false after initial map creation to prevent recreation during filtering
+                this.initialMapLoad = false;
+                debugAlert("✅ Map initialized! Setting initialMapLoad = false to prevent future recreation");
             }
         });
     }
@@ -2135,6 +2255,11 @@ class ListingsDisplay {
         }
         
         console.log(`Stored ${cleanedData.length} rows in DOM for download/print functionality`);
+        
+        // Debug alert to confirm what data is stored
+        if (typeof debugAlert === 'function') {
+            debugAlert(`storeDataInDOM: Storing ${cleanedData.length} of ${data.length} original rows. All data stored: ${cleanedData.length === data.length}`);
+        }
         
         // Report data size changes when on localhost
         let reportDataSize = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
