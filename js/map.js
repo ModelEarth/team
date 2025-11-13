@@ -23,6 +23,25 @@ function mapWidgetChange() {
             }
         }
     }
+    
+    // Check for summarize parameter changes
+    if (hash.summarize !== priorHash.summarize) {
+        if (window.listingsApp) {
+            if (hash.summarize === 'true') {
+                debugAlert('📊 Hash change detected: Summarize = true');
+                window.listingsApp.SummarizeList();
+            } else {
+                debugAlert('📊 Hash change detected: Summarize = false/cleared');
+                window.listingsApp.UnsummarizeList();
+            }
+            
+            // Update button text if it exists
+            const summarizeButton = document.getElementById('summarize-toggle');
+            if (summarizeButton) {
+                summarizeButton.textContent = hash.summarize === 'true' ? 'Unsummarize' : 'Summarize';
+            }
+        }
+    }
 }
 class ListingsDisplay {
 
@@ -292,10 +311,21 @@ class ListingsDisplay {
         this.loading = false;
         
         debugAlert("loadShowData() this.isDatasetChanging: " + this.isDatasetChanging)
-        // Force a render after a short delay to ensure UI updates
-        //setTimeout(() => {
-            this.render();
-        //}, 100);
+        
+        // Force a render first to create UI structure
+        this.render();
+        
+        // Check if initial load should show summary view after UI is rendered
+        const currentHash = this.getCurrentHash();
+        if (currentHash.summarize === 'true' && this.config?.geoColumns && this.config.geoColumns.length > 0) {
+            debugAlert('📊 INITIAL LOAD: Summarize detected in hash, showing summary view after render');
+            setTimeout(() => {
+                this.SummarizeList();
+            }, 100); // Small delay to ensure render completes
+            return;
+        }
+        
+        // Render was already called above (no need for duplicate render call)
         
         // AGGRESSIVE: Force render again after longer delay if still stuck
         /*
@@ -344,14 +374,98 @@ class ListingsDisplay {
             const mergeColumn = config.geoColumns[0];
             debugAlert('🌍 GEO MERGE: Merging on column: ' + mergeColumn);
             
+            // State abbreviation lookup (full name -> 2-char code)
+            const stateNameToCode = {
+                'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+                'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+                'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+                'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+                'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
+                'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+                'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+                'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+                'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
+                'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+                'district of columbia': 'DC'
+            };
+            
+            // Check if this is a Location field that needs to be split
+            const isLocationField = mergeColumn.toLowerCase() === 'location';
+            
+            if (isLocationField) {
+                debugAlert('🌍 GEO MERGE: Location field detected, will split into City and State');
+                
+                // Process primary data to split Location into City and State
+                primaryData.forEach(primaryRow => {
+                    const locationValue = primaryRow[mergeColumn];
+                    if (locationValue && typeof locationValue === 'string') {
+                        const parts = locationValue.split(',');
+                        if (parts.length >= 2) {
+                            const city = parts[0].trim();
+                            const statePart = parts[1].trim();
+                            
+                            // Convert full state name to abbreviation if needed
+                            const stateCode = stateNameToCode[statePart.toLowerCase()] || statePart;
+                            
+                            // Add City field if not already present
+                            if (!primaryRow.hasOwnProperty('City')) {
+                                primaryRow.City = city;
+                            }
+                            
+                            // Add State field if not already present
+                            if (!primaryRow.hasOwnProperty('State')) {
+                                primaryRow.State = stateCode;
+                            }
+                        } else if (parts.length === 1) {
+                            // Only city provided
+                            if (!primaryRow.hasOwnProperty('City')) {
+                                primaryRow.City = parts[0].trim();
+                            }
+                        }
+                    }
+                });
+                
+                debugAlert('🌍 GEO MERGE: Completed Location splitting');
+            }
+            
             // Create a lookup map from geo data for efficient merging
             const geoLookup = {};
-            geoData.forEach(geoRow => {
-                const keyValue = geoRow[mergeColumn];
-                if (keyValue) {
-                    geoLookup[keyValue] = geoRow;
-                }
-            });
+            
+            // Support different case variations for geo dataset columns
+            const getCityField = (geoRow) => {
+                return geoRow.City || geoRow.CITY || geoRow.city;
+            };
+            
+            const getStateField = (geoRow) => {
+                return geoRow.State || geoRow.STATE || geoRow.STATE_CODE || geoRow.state;
+            };
+            
+            if (isLocationField) {
+                // Create lookup using City and optionally State
+                geoData.forEach(geoRow => {
+                    const geoCity = getCityField(geoRow);
+                    const geoState = getStateField(geoRow);
+                    
+                    if (geoCity) {
+                        // Create keys for both city-only and city+state combinations
+                        const cityKey = geoCity.toLowerCase();
+                        geoLookup[cityKey] = geoRow;
+                        
+                        if (geoState) {
+                            const cityStateKey = `${cityKey}|${geoState.toLowerCase()}`;
+                            geoLookup[cityStateKey] = geoRow;
+                        }
+                    }
+                });
+            } else {
+                // Regular lookup using the merge column
+                geoData.forEach(geoRow => {
+                    const keyValue = geoRow[mergeColumn];
+                    if (keyValue) {
+                        geoLookup[keyValue] = geoRow;
+                    }
+                });
+            }
             
             debugAlert('🌍 GEO MERGE: Created lookup with ' + Object.keys(geoLookup).length + ' entries');
             
@@ -361,10 +475,42 @@ class ListingsDisplay {
             let unmatchedValues = new Set(); // Track unmatched values efficiently
             
             primaryData.forEach(primaryRow => {
-                const keyValue = primaryRow[mergeColumn];
-                if (keyValue && geoLookup[keyValue]) {
-                    const geoRow = geoLookup[keyValue];
+                let geoRow = null;
+                let lookupKey = null;
+                
+                if (isLocationField) {
+                    // Special handling for Location field
+                    const city = primaryRow.City;
+                    const state = primaryRow.State;
                     
+                    if (city && state) {
+                        // Try city+state first for more precise matching
+                        const cityStateKey = `${city.toLowerCase()}|${state.toLowerCase()}`;
+                        geoRow = geoLookup[cityStateKey];
+                        lookupKey = `${city}, ${state}`;
+                        
+                        if (!geoRow) {
+                            // Fallback to city-only if city+state doesn't match
+                            const cityKey = city.toLowerCase();
+                            geoRow = geoLookup[cityKey];
+                            lookupKey = city;
+                        }
+                    } else if (city) {
+                        // Only city available, use city-only lookup
+                        const cityKey = city.toLowerCase();
+                        geoRow = geoLookup[cityKey];
+                        lookupKey = city;
+                    }
+                } else {
+                    // Regular merge column handling
+                    const keyValue = primaryRow[mergeColumn];
+                    if (keyValue) {
+                        geoRow = geoLookup[keyValue];
+                        lookupKey = keyValue;
+                    }
+                }
+                
+                if (geoRow) {
                     // Add all geo columns that don't already exist in primary data
                     Object.keys(geoRow).forEach(geoColumn => {
                         if (!primaryRow.hasOwnProperty(geoColumn)) {
@@ -373,10 +519,21 @@ class ListingsDisplay {
                         }
                     });
                     
+                    // Handle geoStateTarget parameter - relate State field to specified field in geo dataset
+                    if (config.geoStateTarget && primaryRow.State) {
+                        const stateTargetField = config.geoStateTarget;
+                        const geoStateValue = geoRow[stateTargetField] || geoRow[stateTargetField.toUpperCase()] || geoRow[stateTargetField.toLowerCase()];
+                        
+                        if (geoStateValue && !primaryRow.hasOwnProperty(stateTargetField)) {
+                            primaryRow[stateTargetField] = geoStateValue;
+                            addedColumns.add(stateTargetField);
+                        }
+                    }
+                    
                     mergedCount++;
-                } else if (keyValue) {
-                    // Track values that couldn't be matched (only if keyValue exists)
-                    unmatchedValues.add(keyValue);
+                } else if (lookupKey) {
+                    // Track values that couldn't be matched (only if lookupKey exists)
+                    unmatchedValues.add(lookupKey);
                 }
             });
             
@@ -1254,6 +1411,26 @@ class ListingsDisplay {
             }
         });
 
+        // Handle summarize toggle button
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'summarize-toggle') {
+                const currentHash = this.getCurrentHash();
+                const isSummarized = currentHash.summarize === 'true';
+                
+                if (typeof goHash === 'function') {
+                    if (isSummarized) {
+                        // Unsummarize - clear the summarize hash
+                        goHash({"summarize": ""});
+                    } else {
+                        // Summarize - set summarize to true
+                        goHash({"summarize": "true"});
+                    }
+                } else {
+                    debugAlert('⚠️ goHash function not available');
+                }
+            }
+        });
+
         document.addEventListener('click', (e) => {
             if (e.target.closest(".details-toggle")) {
                 e.preventDefault();
@@ -1309,6 +1486,11 @@ class ListingsDisplay {
         return this.getCurrentPageListings();
     }
 
+    isSummaryView() {
+        // Check if we're showing summary data by looking for originalListings
+        return this.originalListings !== null && this.originalListings !== undefined;
+    }
+
     renderListings() {
         // Show error inline if there's a data loading error
         if (this.dataLoadError) {
@@ -1327,6 +1509,11 @@ class ListingsDisplay {
         }
         
         const currentPageListings = this.getCurrentPageListings();
+        
+        // Check if this is summary view
+        if (this.isSummaryView()) {
+            return this.renderSummaryListings(currentPageListings);
+        }
         
         return currentPageListings.map(listing => {
             const displayData = this.getDisplayData(listing);
@@ -1403,6 +1590,72 @@ class ListingsDisplay {
                                     `;
                                 }).join('')}
                         </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderSummaryListings(summaryListings) {
+        if (!this.config?.geoColumns || this.config.geoColumns.length === 0) {
+            return '<div>No geo columns defined for summary</div>';
+        }
+
+        const groupColumn = this.config.geoColumns[0]; // First geoColumn is the grouping column
+        const aggregateColumn = this.config.geoAggregate; // Column to aggregate
+        
+        return summaryListings.map(summaryItem => {
+            const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
+            const groupName = summaryItem[groupColumn] || 'Unknown';
+            const count = summaryItem.count || 0;
+            const aggregateTotal = summaryItem.aggregateTotal || 0;
+            
+            // Filter out the fields that should be hidden in summary view
+            const fieldsToOmit = new Set([
+                groupColumn.toLowerCase(), 
+                'count', 
+                'aggregatetotal'
+            ]);
+            
+            // Count additional details (excluding omitted fields)
+            const additionalDetails = Object.entries(summaryItem)
+                .filter(([key, value]) => 
+                    !fieldsToOmit.has(key.toLowerCase()) &&
+                    value && 
+                    value.toString().trim() !== '' &&
+                    value.toString().trim() !== '-'
+                );
+            
+            const additionalDetailsCount = additionalDetails.length;
+            
+            return `
+                <div class="listing-card">
+                    <div class="listing-content">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div class="listing-name">${groupName}</div>
+                            <div class="summary-stats" style="display: flex; gap: 15px; color: #666;">
+                                <div>Visits: ${count}</div>
+                                ${aggregateColumn ? `<div>Participants: ${aggregateTotal}</div>` : ''}
+                            </div>
+                        </div>
+                        
+                        ${additionalDetailsCount > 0 ? `
+                        <div class="details-toggle">
+                            <span class="toggle-arrow" id="arrow-${uniqueId}" data-details-id="${uniqueId}">▶</span>
+                            <span class="toggle-label" data-details-id="${uniqueId}">Additional Details (${additionalDetailsCount})</span>
+                        </div>
+                        
+                        <div class="details-content" id="${uniqueId}">
+                            ${additionalDetails.map(([key, value]) => `
+                                <div class="detail-item">
+                                    <strong>${this.formatKeyName(key)}:</strong>
+                                    <div class="detail-value">
+                                        ${this.formatFieldValue(value)}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1555,6 +1808,80 @@ class ListingsDisplay {
         }
     }
 
+    getCurrentHash() {
+        if (typeof getHash === 'function') {
+            return getHash();
+        }
+        return {};
+    }
+
+    SummarizeList() {
+        debugAlert('📊 SUMMARIZE: Creating summary list');
+        
+        if (!this.config?.geoColumns || this.config.geoColumns.length === 0) {
+            debugAlert('❌ SUMMARIZE: No geoColumns defined');
+            return;
+        }
+
+        const groupColumn = this.config.geoColumns[0]; // First geoColumn is the grouping column
+        const aggregateColumn = this.config.geoAggregate; // Column to aggregate
+        
+        debugAlert(`📊 SUMMARIZE: Grouping by "${groupColumn}", aggregating "${aggregateColumn}"`);
+        
+        // Group data by the grouping column
+        const groups = {};
+        this.listings.forEach(listing => {
+            const groupValue = listing[groupColumn];
+            if (groupValue) {
+                if (!groups[groupValue]) {
+                    groups[groupValue] = {
+                        [groupColumn]: groupValue,
+                        count: 0,
+                        aggregateTotal: 0
+                    };
+                }
+                groups[groupValue].count++;
+                
+                // Add to aggregate if the column exists and has a numeric value
+                if (aggregateColumn && listing[aggregateColumn]) {
+                    const aggregateValue = parseFloat(listing[aggregateColumn]);
+                    if (!isNaN(aggregateValue)) {
+                        groups[groupValue].aggregateTotal += aggregateValue;
+                    }
+                }
+            }
+        });
+        
+        // Convert to array and sort by count (descending)
+        const summaryData = Object.values(groups).sort((a, b) => b.count - a.count);
+        
+        debugAlert(`📊 SUMMARIZE: Created ${summaryData.length} summary groups`);
+        
+        // Store original data and set summary as filtered listings
+        this.originalListings = this.listings;
+        this.originalFilteredListings = this.filteredListings;
+        this.filteredListings = summaryData;
+        this.currentPage = 1; // Reset to first page
+        
+        // Update display
+        this.updateListingsDisplay();
+    }
+
+    UnsummarizeList() {
+        debugAlert('📊 UNSUMMARIZE: Restoring original list');
+        
+        if (this.originalListings) {
+            this.listings = this.originalListings;
+            this.filteredListings = this.originalFilteredListings || this.originalListings;
+            this.originalListings = null;
+            this.originalFilteredListings = null;
+            this.currentPage = 1; // Reset to first page
+            
+            // Update display
+            this.updateListingsDisplay();
+        }
+    }
+
     updateListingsDisplay() {
         // Update only the listings display without recreating the entire UI
         const listingsScrollContainer = document.querySelector('.listings-scroll-container');
@@ -1581,7 +1908,27 @@ class ListingsDisplay {
                 `;
             }
             
+            // Update summarize button visibility based on current dataset
+            this.updateSummarizeButtonVisibility();
+            
             // Event listeners are handled by global delegation, no need to re-attach
+        }
+    }
+
+    updateSummarizeButtonVisibility() {
+        const summarizeControls = document.querySelector('.summarize-controls');
+        if (summarizeControls) {
+            const shouldShow = this.config?.geoColumns && this.config.geoColumns.length > 0;
+            summarizeControls.style.display = shouldShow ? 'block' : 'none';
+            
+            if (shouldShow) {
+                // Update button text based on current hash state
+                const currentHash = this.getCurrentHash();
+                const summarizeButton = document.getElementById('summarize-toggle');
+                if (summarizeButton) {
+                    summarizeButton.textContent = currentHash.summarize === 'true' ? 'Unsummarize' : 'Summarize';
+                }
+            }
         }
     }
 
@@ -1691,6 +2038,15 @@ class ListingsDisplay {
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Summarize Toggle (only for datasets with geoColumns) -->
+                        ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
+                        <div class="summarize-controls" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                            <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
+                            </button>
+                        </div>
+                        ` : ''}
                         
                         <!-- Listings Grid -->
                         <div class="listings-scroll-container">

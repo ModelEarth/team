@@ -10,6 +10,7 @@
     "featuredColumns": ["Team", "Description", "StartDate", "TotalParticipants"],
     "geoDataset": "cities.csv",
     "geoColumns": ["City"],
+    "geoAggregate": ["TotalParticipants"],
     "search": {
       "In City": "City",
       "In Team": "Team",
