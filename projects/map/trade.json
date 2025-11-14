@@ -1,14 +1,33 @@
 {
-  "cities.us": {
-    "shortTitle": "US Cities",
-    "menuTitle": "US Cities",
-    "listTitle": "US Cities",
+  "dca": {
+    "shortTitle": "Deep-Containment Architecture",
+    "menuTitle": "Deep-Containment Architecture",
+    "listTitle": "Deep-Containment Architecture for SMRs",
     "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/kelvins/US-Cities-Database/refs/heads/main/csv/us_cities.csv",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
     "markerType": "google",
-    "nameColumn": "City",
-    "allColumns": ["ID", "StateCode", "State", "City", "County", "Latitude", "Longitude", "Elevation"],
+    "nameColumn": "Location",
+    "featuredColumns": ["CountyRegion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
+    "search": {
+      "In City": "Location",
+      "In County Name": "CountyRegion"
+    },
+    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
+  },
+  "modelteam": {
+    "shortTitle": "Model.Earth Team",
+    "menuTitle": "Model.Earth Team",
+    "listTitle": "Model.Earth Team",
+    "datatype": "csv",
+    "dataset": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1833978520&single=true&output=csv",
+    "markerType": "google",
+    "nameColumn": "Name",
+    "allColumns": ["Name", "Team", "Status", "Location", "Projects"],
     "featuredColumns": ["City", "State", "County", "Latitude", "Longitude", "Elevation"],
+    "geoDataset": "https://raw.githubusercontent.com/kelvins/US-Cities-Database/refs/heads/main/csv/us_cities.csv",
+    "geoColumns": ["Location"],
+    "geoStateTarget": ["STATE_CODE"],
+    "geoAggregateX": ["TotalParticipants"],
     "search": {
       "By City Name": "City",
       "By State Name": "State"
@@ -58,20 +77,5 @@
       "In County Name": "County"
     },
     "mapInfo": "Companies in Georgia, USA"
-  },
-  "dca": {
-    "shortTitle": "Deep-Containment Architecture",
-    "menuTitle": "Deep-Containment Architecture",
-    "listTitle": "Deep-Containment Architecture for SMRs",
-    "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
-    "markerType": "google",
-    "nameColumn": "Location",
-    "featuredColumns": ["CountyRegion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
-    "search": {
-      "In City": "Location",
-      "In County Name": "CountyRegion"
-    },
-    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
   }
 }
