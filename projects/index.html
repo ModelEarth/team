@@ -4980,11 +4980,29 @@
                                 const leftCode = btn.closest('tr') ? (btn.closest('tr').querySelector('.sb-code.sb-left .sb-pre') || {}).textContent : '';
                                 const rightCode = btn.closest('tr') ? (btn.closest('tr').querySelector('.sb-code.sb-right .sb-pre') || {}).textContent : '';
                                 const snippet = (leftCode || rightCode || '').trim().split('\n').slice(0,6).join('\n');
-                                const prompt = `Please analyze the following diff for file ${filename || '(unknown)'}:\n\n${snippet}\n\nProvide a concise explanation of what changed and potential issues to watch for.`;
+                                // Build a repo-prefixed path: use current pathname (no domain, no hash)
+                                const navPath = (window.location.pathname || '') + (window.location.search || '');
+                                const navClean = navPath.replace(/#.*$/, '').replace(/\/$/, '');
+                                const safeFile = (filename || '').toString().replace(/^\//, '');
+                                // Use only the repo name (no URL) before the filename, e.g. /my-repo/path/to/file
+                                const repoNameSegment = (typeof repo !== 'undefined' && repo) ? ('/' + repo) : '';
+                                const combinedPath = repoNameSegment + '/' + safeFile;
+                                const prompt = `Please analyze the following diff for file ${combinedPath || '(unknown)'}:\n\n${snippet}\n\nProvide a concise explanation of what changed and potential issues to watch for.`;
                                 try {
                                     localStorage.setItem('codechat_prefill_prompt', prompt);
                                     // Also write structured metadata including repo and filename so CodeChat can select repository
-                                    const meta = { repo: `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, filename: filename || '', pr: (d && d.pr && d.pr.number) ? d.pr.number : null };
+                                    // navigation: pathname+search (no domain or hash); filename: nav + /repo/<filename>
+                                    const navPathOnly = (window.location.pathname || '') + (window.location.search || '');
+                                    const navCleanOnly = navPathOnly.replace(/#.*$/, '').replace(/\/$/, '');
+                                    const safeFilename = (filename || '').toString().replace(/^\//, '');
+                                    const repoSegment = (typeof repo !== 'undefined' && repo) ? '/' + repo : '';
+                                    const repoLocal = repoSegment + '/' + safeFilename;
+                                    const meta = {
+                                        repo: `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+                                        navigation: navCleanOnly,
+                                        filename: repoLocal,
+                                        pr: (d && d.pr && d.pr.number) ? d.pr.number : null
+                                    };
                                     localStorage.setItem('codechat_prefill_meta', JSON.stringify(meta));
                                 } catch (e) {
                                     // ignore quota errors
