@@ -505,6 +505,38 @@
     .sb-row.sb-context .sb-code { background: transparent; }
     .sb-row { border-bottom: 1px solid rgba(0,0,0,0.03); }
 
+    /* Hover entire diff row highlight and per-line analyze action */
+    /* Use inset box-shadow to overlay a subtle highlight without removing
+       existing added/removed backgrounds. */
+    .sb-row:hover td {
+        box-shadow: inset 0 0 0 9999px rgba(59,130,246,0.04);
+        transition: box-shadow 0.12s ease;
+    }
+    .sb-action { width: 40px; text-align: center; vertical-align: middle; }
+    .sb-analyze-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 6px;
+        border-radius: 6px;
+        color: var(--text-secondary);
+        opacity: 0;
+        transform: translateY(0) scale(1);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+    /* Show the analyzing icon only when hovering the row and make it larger on hover */
+    .sb-row:hover .sb-analyze-btn {
+        opacity: 1;
+        color: var(--text-primary);
+        transform: translateY(-1px) scale(1.22);
+    }
+    .sb-analyze-btn:focus {
+        outline: 3px solid rgba(59,130,246,0.18);
+        outline-offset: 2px;
+    }
+
     /* Replacements: left side removed (red), right side added (green) with stronger tints */
     .sb-row.sb-replaced .sb-code.sb-left { background: rgba(254,202,202,0.34); }
     .sb-row.sb-replaced .sb-code.sb-left .sb-pre { color: #7f1d1d; }
@@ -4914,6 +4946,8 @@
                                 fileHtml += '<td class="sb-code sb-left"><pre class="sb-pre">' + (r.leftText || '') + '</pre></td>';
                                 fileHtml += '<td class="sb-line-num">' + (r.rightNum || '') + '</td>';
                                 fileHtml += '<td class="sb-code sb-right"><pre class="sb-pre">' + (r.rightText || '') + '</pre></td>';
+                                // Action column: hidden analyze icon that appears on row hover
+                                fileHtml += '<td class="sb-action" data-left="' + (r.leftNum || '') + '" data-right="' + (r.rightNum || '') + '"><button class="sb-analyze-btn" title="Analyze line" aria-label="Analyze line">🔬</button></td>';
                                 fileHtml += '</tr>';
                             });
                             fileHtml += '</tbody></table></div>';
@@ -4928,6 +4962,77 @@
                 });
 
                 content.innerHTML = parts.join('');
+
+                // Attach analyze button handlers: show a small temporary toast and log the line numbers.
+                try {
+                    document.querySelectorAll('.sb-analyze-btn').forEach(btn => {
+                        // Hover: prepare a CodeChat prompt with the surrounding diff context so the user
+                        // can open CodeChat and the prompt will be prefilled.
+                        btn.addEventListener('mouseenter', (ev) => {
+                            try {
+                                const td = btn.closest('.sb-action');
+                                const left = td ? td.getAttribute('data-left') : '';
+                                const right = td ? td.getAttribute('data-right') : '';
+                                // Find the nearest file name and patch text by walking up the DOM
+                                const fileEl = btn.closest('.pr-diff-file');
+                                const filename = fileEl ? (fileEl.querySelector('.pr-diff-filename > div') || {}).textContent : '';
+                                // Collect a small snippet of the left/right texts from the row
+                                const leftCode = btn.closest('tr') ? (btn.closest('tr').querySelector('.sb-code.sb-left .sb-pre') || {}).textContent : '';
+                                const rightCode = btn.closest('tr') ? (btn.closest('tr').querySelector('.sb-code.sb-right .sb-pre') || {}).textContent : '';
+                                const snippet = (leftCode || rightCode || '').trim().split('\n').slice(0,6).join('\n');
+                                // Build a repo-prefixed path: use current pathname (no domain, no hash)
+                                const navPath = (window.location.pathname || '') + (window.location.search || '');
+                                const navClean = navPath.replace(/#.*$/, '').replace(/\/$/, '');
+                                const safeFile = (filename || '').toString().replace(/^\//, '');
+                                // Use only the repo name (no URL) before the filename, e.g. /my-repo/path/to/file
+                                const repoNameSegment = (typeof repo !== 'undefined' && repo) ? ('/' + repo) : '';
+                                const combinedPath = repoNameSegment + '/' + safeFile;
+                                const prompt = `Please analyze the following diff for file ${combinedPath || '(unknown)'}:\n\n${snippet}\n\nProvide a concise explanation of what changed and potential issues to watch for.`;
+                                try {
+                                    localStorage.setItem('codechat_prefill_prompt', prompt);
+                                    // Also write structured metadata including repo and filename so CodeChat can select repository
+                                    // navigation: pathname+search (no domain or hash); filename: nav + /repo/<filename>
+                                    const navPathOnly = (window.location.pathname || '') + (window.location.search || '');
+                                    const navCleanOnly = navPathOnly.replace(/#.*$/, '').replace(/\/$/, '');
+                                    const safeFilename = (filename || '').toString().replace(/^\//, '');
+                                    const repoSegment = (typeof repo !== 'undefined' && repo) ? '/' + repo : '';
+                                    const repoLocal = repoSegment + '/' + safeFilename;
+                                    const meta = {
+                                        repo: `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+                                        navigation: navCleanOnly,
+                                        filename: repoLocal,
+                                        pr: (d && d.pr && d.pr.number) ? d.pr.number : null
+                                    };
+                                    localStorage.setItem('codechat_prefill_meta', JSON.stringify(meta));
+                                } catch (e) {
+                                    // ignore quota errors
+                                }
+                            } catch (e) { console.warn('prepare codechat prompt failed', e); }
+                        });
+
+                        // Click: provide quick feedback toast and open CodeChat in a new tab/window
+                        btn.addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            const td = btn.closest('.sb-action');
+                            const left = td ? td.getAttribute('data-left') : '';
+                            const right = td ? td.getAttribute('data-right') : '';
+                            console.log('Analyze line clicked', { left, right });
+                            // lightweight toast feedback
+                            const toast = document.createElement('div');
+                            toast.className = 'analyze-toast';
+                            toast.textContent = `Opening CodeChat — analyzing L:${left || '-'} R:${right || '-'}`;
+                            Object.assign(toast.style, { position: 'fixed', right: '20px', bottom: '20px', padding: '8px 12px', background: 'rgba(2,6,23,0.9)', color: 'white', borderRadius: '8px', zIndex: 99999, fontSize: '13px' });
+                            document.body.appendChild(toast);
+                            setTimeout(() => { try { toast.remove(); } catch(e){} }, 2200);
+
+                            // Open CodeChat in a new tab — it will read the prefill prompt from localStorage on load.
+                            const chatUrl = (function(){
+                                try { return new URL('../../codechat/chat/index.html', window.location.href).href; } catch(e){ return '/codechat/chat/index.html'; }
+                            })();
+                            window.open(chatUrl, '_blank');
+                        });
+                    });
+                } catch (e) { console.warn('attach analyze handlers failed', e); }
 
                 // modal contributors removed; showing only PR author per PR above
 
