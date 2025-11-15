@@ -12,6 +12,8 @@
 
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/shared-styles.css">
+    <!-- GitHub Auth Styling for minimal widget -->
+    <link rel="stylesheet" href="../../projects/css/issues.css">
     <script>
         // Load submodule names by parsing .gitmodules from GitHub.
         if (!window.teamSubmodulesPromise) {
@@ -150,11 +152,8 @@
 
 
     <!-- Include Projects Hub Issues Manager for GitHub Auth -->
-    <!-- Modify to only load the google token input process when "repos" is clicked, 
-    not the projects list. -->
-    <!--
+    <!-- Only loads in minimal mode when list=modelteam -->
     <script src="../../projects/js/issues.js"></script>
-    -->
 
     <!--
     Activate after default map turned off
@@ -2728,8 +2727,6 @@
             </div>
         </div>
 
-        <div id="issuesWidget"></div>
-
         <div class="contentpadding" style="padding-bottom: 0px">
             <div class="breadcrumb">
                 <a href="../admin/">Partner Tools</a>
@@ -2837,6 +2834,9 @@
                 <div id="readme-content"></div>
             </div>
         </div>
+
+        <!-- GitHub Token Authentication (only visible for list=modelteam) -->
+        <div id="github-auth-container" style="display: none;"></div>
 
         <div class="card" id="participants-table-card" style="display: none;">
 
@@ -12618,6 +12618,77 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         </div>
     </div>
 </div>
+
+<!-- GitHub Minimal Auth Widget Initialization -->
+<script>
+    // Global reference to minimal auth widget
+    let githubAuthWidget = null;
+
+    // Initialize minimal GitHub auth widget only when list=modelteam
+    function initializeGitHubAuth() {
+        const container = document.getElementById('github-auth-container');
+        if (!container) return;
+
+        // Debug localStorage token
+        const storedToken = localStorage.getItem('github_token');
+        console.log('🔐 localStorage check:', {
+            hasToken: !!storedToken,
+            tokenLength: storedToken?.length || 0,
+            tokenPreview: storedToken ? storedToken.substring(0, 4) + '...' : 'none'
+        });
+
+        // Get hash parameters
+        const hash = (typeof getHash === 'function') ? getHash() : {};
+
+        console.log('🔍 GitHub Auth Check - hash.list:', hash.list);
+
+        // Only show for list=modelteam
+        if (hash.list === 'modelteam') {
+            // Initialize widget if not already done
+            if (!githubAuthWidget) {
+                try {
+                    console.log('✅ Initializing GitHub auth in minimal mode');
+
+                    // Create GitHubIssuesManager in minimal mode
+                    githubAuthWidget = new GitHubIssuesManager('github-auth-container', {
+                        minimalMode: true
+                    });
+
+                    console.log('✅ GitHub auth widget initialized successfully');
+                } catch (error) {
+                    console.error('❌ Failed to initialize GitHub auth widget:', error);
+                }
+            }
+
+            // Show container
+            container.style.display = 'block';
+            console.log('👁️ GitHub auth container visible');
+        } else {
+            // Hide container for other lists
+            container.style.display = 'none';
+            console.log('🔒 GitHub auth container hidden (list is not modelteam)');
+        }
+    }
+
+    // Listen for hash changes
+    document.addEventListener('hashChangeEvent', function() {
+        console.log('🔗 hashChangeEvent fired');
+        initializeGitHubAuth();
+    });
+
+    window.addEventListener('hashchange', function() {
+        console.log('🔄 hashchange fired');
+        initializeGitHubAuth();
+    });
+
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeGitHubAuth);
+    } else {
+        // DOM is already ready
+        setTimeout(initializeGitHubAuth, 300);
+    }
+</script>
 
 </body>
 </html>
