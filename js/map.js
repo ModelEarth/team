@@ -370,6 +370,12 @@ class ListingsDisplay {
             
             debugAlert('🌍 GEO MERGE: Loaded ' + geoData.length + ' geo records');
             
+            // Debug: Show first primary data row structure
+            if (primaryData.length > 0) {
+                debugAlert('🔍 DEBUG: Primary data columns: ' + Object.keys(primaryData[0]).join(', '));
+                debugAlert('🔍 DEBUG: First row data: ' + JSON.stringify(primaryData[0]));
+            }
+            
             // Get the merge column (first item in geoColumns array)
             const mergeColumn = config.geoColumns[0];
             debugAlert('🌍 GEO MERGE: Merging on column: ' + mergeColumn);
@@ -394,6 +400,13 @@ class ListingsDisplay {
             
             if (isLocationField) {
                 debugAlert('🌍 GEO MERGE: Location field detected, will split into City and State');
+                
+                // Debug: Show first few raw values in Location field
+                debugAlert('🔍 DEBUG: First 3 Location field values:');
+                for (let i = 0; i < Math.min(3, primaryData.length); i++) {
+                    const rawValue = primaryData[i][mergeColumn];
+                    debugAlert(`  ${i}: Location="${rawValue}" (type: ${typeof rawValue})`);
+                }
                 
                 // Process primary data to split Location into City and State
                 primaryData.forEach((primaryRow, index) => {
@@ -421,10 +434,10 @@ class ListingsDisplay {
                             if (!primaryRow.hasOwnProperty('State')) {
                                 primaryRow.State = stateCode;
                             }
-                        } else if (parts.length === 1) {
-                            // Only city provided
+                        } else {
+                            // Only city provided (no comma found)
                             if (!primaryRow.hasOwnProperty('City')) {
-                                primaryRow.City = parts[0].trim();
+                                primaryRow.City = locationValue.trim();
                             }
                         }
                     }
@@ -442,7 +455,22 @@ class ListingsDisplay {
             };
             
             const getStateField = (geoRow) => {
-                return geoRow.State || geoRow.STATE || geoRow.STATE_CODE || geoRow.state;
+                // Use config.geoStateTarget if specified, otherwise fallback to common state field names
+                if (config.geoStateTarget && Array.isArray(config.geoStateTarget) && config.geoStateTarget.length > 0) {
+                    // geoStateTarget is an array, use the first element as the state field name
+                    const stateFieldName = config.geoStateTarget[0];
+                    const stateValue = geoRow[stateFieldName] || geoRow[stateFieldName.toUpperCase()] || geoRow[stateFieldName.toLowerCase()];
+                    if (stateValue) {
+                        debugAlert(`🌍 GEO STATE: Using config field '${stateFieldName}' = '${stateValue}'`);
+                    }
+                    return stateValue;
+                }
+                // Fallback to common state field names
+                const stateValue = geoRow.State || geoRow.STATE || geoRow.STATE_CODE || geoRow.state;
+                if (stateValue) {
+                    debugAlert(`🌍 GEO STATE: Using fallback field = '${stateValue}'`);
+                }
+                return stateValue;
             };
             
             if (isLocationField) {
@@ -525,8 +553,9 @@ class ListingsDisplay {
                     });
                     
                     // Handle geoStateTarget parameter - relate State field to specified field in geo dataset
-                    if (config.geoStateTarget && primaryRow.State) {
-                        const stateTargetField = config.geoStateTarget;
+                    if (config.geoStateTarget && Array.isArray(config.geoStateTarget) && primaryRow.State) {
+                        // geoStateTarget is an array, use the first element as the state field name
+                        const stateTargetField = config.geoStateTarget[0];
                         const geoStateValue = geoRow[stateTargetField] || geoRow[stateTargetField.toUpperCase()] || geoRow[stateTargetField.toLowerCase()];
                         
                         if (geoStateValue && !primaryRow.hasOwnProperty(stateTargetField)) {
@@ -647,23 +676,18 @@ class ListingsDisplay {
             return [];
         }
         
-        let headers;
-        let dataStartIndex = 1;
+        // Always parse first row as headers
+        if (lines.length < 2) {
+            return [];
+        }
         
-        // Check if config has allColumns array (for datasets without header row)
+        const headerLine = lines[0];
+        const headers = this.parseCSVLine(headerLine);
+        const dataStartIndex = 1;
+        
+        console.log('🔧 Parsed headers from CSV:', headers);
         if (config && config.allColumns && Array.isArray(config.allColumns)) {
-            headers = config.allColumns;
-            dataStartIndex = 0; // Start from first line since there's no header row
-            console.log('🔧 Using allColumns for headers:', headers);
-            console.log('🔧 Config dataset:', config.dataset);
-        } else {
-            // Traditional parsing - first row contains headers
-            if (lines.length < 2) {
-                return [];
-            }
-            const headerLine = lines[0];
-            headers = this.parseCSVLine(headerLine);
-            dataStartIndex = 1;
+            console.log('🔧 AllColumns config (for display filtering):', config.allColumns);
         }
         
         const data = [];
@@ -777,11 +801,32 @@ class ListingsDisplay {
             return mapping;
         }
         
-        // Default mapping when no allColumns
-        return {
+        // Default mapping when no allColumns - detect from actual data fields
+        const mapping = {
             latitude: 'latitude',
             longitude: 'longitude'
         };
+        
+        // If we have data, check actual field names for coordinate fields
+        if (this.listings && this.listings.length > 0) {
+            const sampleRow = this.listings[0];
+            const fieldNames = Object.keys(sampleRow);
+            
+            fieldNames.forEach(field => {
+                const lowerField = field.toLowerCase();
+                if (lowerField.includes('lat')) {
+                    mapping.latitude = field;
+                    debugAlert(`🗺️ FIELD MAPPING: Found latitude field: ${field}`);
+                } else if (lowerField.includes('lng') || lowerField.includes('lon')) {
+                    mapping.longitude = field;
+                    debugAlert(`🗺️ FIELD MAPPING: Found longitude field: ${field}`);
+                }
+            });
+        }
+        
+        debugAlert(`🗺️ FIELD MAPPING: Final mapping - latitude: '${mapping.latitude}', longitude: '${mapping.longitude}'`);
+        
+        return mapping;
     }
 
     getRecognizedFields(listing) {
@@ -1308,9 +1353,11 @@ class ListingsDisplay {
         if (updateCache) {
             this.saveCachedShow(showKey);
         }
-        
-        // Set flag to prevent render() from updating map (we'll do it manually like filtering)
-        this.isDatasetChanging = true;
+        //alert("priorHash.map " + priorHash.map);
+        if (priorHash.map) { // Also need to allow for map-none-map sequence.
+            // Set flag to prevent render() from updating map (we'll do it manually like filtering)
+            this.isDatasetChanging = true;
+        }
         await this.loadShowData(); // This calls render(), but it will be skipped due to flag
         this.updateListingsDisplay(); // Update only the listings display
         this.isDatasetChanging = false;

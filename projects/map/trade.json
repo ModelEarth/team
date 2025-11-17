@@ -7,7 +7,7 @@
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
     "markerType": "google",
     "nameColumn": "Location",
-    "featuredColumns": ["CountyRegion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
+    "featuredColumns": ["Location", "Countyregion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
     "search": {
       "In City": "Location",
       "In County Name": "CountyRegion"
@@ -22,8 +22,7 @@
     "dataset": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRh5-bIR4hC1f9H3NtDCNT19hZXnqz8WRrBwTuLGnZiA5PWhFILUv2nS2FKE2TZ4dZ-RnJkZwHx1t2Y/pub?gid=1833978520&single=true&output=csv",
     "markerType": "google",
     "nameColumn": "Name",
-    "allColumns": ["Name", "Team", "Status", "Location", "Projects"],
-    "featuredColumns": ["City", "State", "County", "Latitude", "Longitude", "Elevation"],
+    "featuredColumns": ["Name", "City", "State", "Team", "Projects", "Status", "Location", "Focus", "Github"],
     "geoDataset": "https://raw.githubusercontent.com/kelvins/US-Cities-Database/refs/heads/main/csv/us_cities.csv",
     "geoColumns": ["Location"],
     "geoStateTarget": ["STATE_CODE"],
