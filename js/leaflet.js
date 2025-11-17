@@ -723,48 +723,25 @@ class LeafletMapManager {
     }
     
     extractCoordinates(item) {
+        // Try various coordinate field names
+        const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'LATITUDE', 'y', 'Y'];
+        const lngFields = ['longitude', 'lng', 'lon', 'Longitude', 'LON', 'LONGITUDE', 'x', 'X'];
+        
         let lat = null, lng = null;
         
-        // First try to get field mapping from listingsApp if available
-        if (window.listingsApp && typeof window.listingsApp.getFieldMapping === 'function') {
-            const mapping = window.listingsApp.getFieldMapping();
-            debugAlert(`🗺️ EXTRACT COORDS: Using field mapping - lat field: '${mapping.latitude}', lng field: '${mapping.longitude}'`);
-            
-            // Use the mapped field names
-            if (mapping.latitude && item[mapping.latitude] && !isNaN(parseFloat(item[mapping.latitude]))) {
-                lat = parseFloat(item[mapping.latitude]);
-                debugAlert(`🗺️ EXTRACT COORDS: Found lat from '${mapping.latitude}' = ${lat}`);
-            }
-            
-            if (mapping.longitude && item[mapping.longitude] && !isNaN(parseFloat(item[mapping.longitude]))) {
-                lng = parseFloat(item[mapping.longitude]);
-                debugAlert(`🗺️ EXTRACT COORDS: Found lng from '${mapping.longitude}' = ${lng}`);
+        // Find latitude
+        for (const field of latFields) {
+            if (item[field] && !isNaN(parseFloat(item[field]))) {
+                lat = parseFloat(item[field]);
+                break;
             }
         }
         
-        // Fallback to hardcoded field names if mapping didn't work
-        if (lat === null || lng === null) {
-            const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'LATITUDE', 'y', 'Y'];
-            const lngFields = ['longitude', 'lng', 'lon', 'Longitude', 'LON', 'LONGITUDE', 'x', 'X'];
-            
-            // Find latitude
-            if (lat === null) {
-                for (const field of latFields) {
-                    if (item[field] && !isNaN(parseFloat(item[field]))) {
-                        lat = parseFloat(item[field]);
-                        break;
-                    }
-                }
-            }
-            
-            // Find longitude
-            if (lng === null) {
-                for (const field of lngFields) {
-                    if (item[field] && !isNaN(parseFloat(item[field]))) {
-                        lng = parseFloat(item[field]);
-                        break;
-                    }
-                }
+        // Find longitude
+        for (const field of lngFields) {
+            if (item[field] && !isNaN(parseFloat(item[field]))) {
+                lng = parseFloat(item[field]);
+                break;
             }
         }
         

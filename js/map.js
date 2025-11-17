@@ -544,9 +544,18 @@ class ListingsDisplay {
                 }
                 
                 if (geoRow) {
+                    // Debug the geo match
+                    const geoLat = geoRow.LATITUDE || geoRow.latitude || geoRow.LAT;
+                    const geoLng = geoRow.LONGITUDE || geoRow.longitude || geoRow.LON;
+                    debugAlert(`🗺️ GEO MATCH: ${primaryRow.Location} matched to geo row with lat: ${geoLat}, lng: ${geoLng}, lookup key: ${lookupKey}`);
+                    
                     // Add all geo columns that don't already exist in primary data
                     Object.keys(geoRow).forEach(geoColumn => {
                         if (!primaryRow.hasOwnProperty(geoColumn)) {
+                            // Debug coordinate assignments
+                            if (geoColumn.toLowerCase().includes('lat') || geoColumn.toLowerCase().includes('lon')) {
+                                debugAlert(`🗺️ GEO MERGE: Adding ${geoColumn} = ${geoRow[geoColumn]} to row with Location: ${primaryRow.Location}`);
+                            }
                             primaryRow[geoColumn] = geoRow[geoColumn];
                             addedColumns.add(geoColumn);
                         }
