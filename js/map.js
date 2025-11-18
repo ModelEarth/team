@@ -792,6 +792,7 @@ class ListingsDisplay {
     }
 
     getFieldMapping() {
+        debugAlert(`🗺️ getFieldMapping()`); // Why is function called dozens of time?
         // When allColumns exists, create a mapping from standard field names to allColumns field names
         if (this.config && this.config.allColumns && Array.isArray(this.config.allColumns)) {
             const mapping = {};
@@ -800,9 +801,9 @@ class ListingsDisplay {
             // Map standard geographic coordinate fields
             allColumns.forEach(field => {
                 const lowerField = field.toLowerCase();
-                if (lowerField.includes('lat')) {
+                if (lowerField === 'lat' || lowerField === 'latitude') {
                     mapping.latitude = field;
-                } else if (lowerField.includes('lng') || lowerField.includes('lon')) {
+                } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
                     mapping.longitude = field;
                 }
             });
@@ -823,17 +824,17 @@ class ListingsDisplay {
             
             fieldNames.forEach(field => {
                 const lowerField = field.toLowerCase();
-                if (lowerField.includes('lat')) {
+                if (lowerField === 'lat' || lowerField === 'latitude') {
                     mapping.latitude = field;
-                    debugAlert(`🗺️ FIELD MAPPING: Found latitude field: ${field}`);
-                } else if (lowerField.includes('lng') || lowerField.includes('lon')) {
+                    //debugAlert(`🗺️ FIELD MAPPING: Found latitude field: ${field}`);
+                } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
                     mapping.longitude = field;
-                    debugAlert(`🗺️ FIELD MAPPING: Found longitude field: ${field}`);
+                    //debugAlert(`🗺️ FIELD MAPPING: Found longitude field: ${field}`);
                 }
             });
         }
         
-        debugAlert(`🗺️ FIELD MAPPING: Final mapping - latitude: '${mapping.latitude}', longitude: '${mapping.longitude}'`);
+        //debugAlert(`🗺️ FIELD MAPPING: Final mapping - latitude: '${mapping.latitude}', longitude: '${mapping.longitude}'`);
         
         return mapping;
     }
