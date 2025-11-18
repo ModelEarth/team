@@ -209,53 +209,57 @@ function expandSection(sectionId) {
 }
 
 // Function to create collapsible sections with Done/Show toggle
-function makeCollapsible(divId, statusMessage = 'Section completed and collapsed') {
+function makeCollapsible(divId, statusMessage = 'Section completed and collapsed', onCollapseCallback = null) {
     const targetDiv = document.getElementById(divId);
     if (!targetDiv) return;
-    
+
     // Check if already made collapsible
     if (targetDiv.querySelector('.collapse-toggle-btn')) return;
-    
+
     // Get stored state
     const isCollapsed = localStorage.getItem(`${divId}-collapsed`) === 'true';
-    
+
     // Create toggle button
     const toggleBtn = document.createElement('button');
     toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-secondary' : 'collapse-toggle-btn btn btn-primary';
     toggleBtn.style.cssText = 'position: absolute; top: 12px; right: 0px; padding: 6px 12px; font-size: 12px; z-index: 10;';
     toggleBtn.textContent = isCollapsed ? 'Show' : 'Done';
-    
+
     // Create status div (hidden by default)
     const statusDiv = document.createElement('div');
     statusDiv.className = 'collapse-status';
     statusDiv.style.cssText = 'display: none; color: var(--text-secondary); font-size: 14px; font-style: italic;';
     statusDiv.textContent = statusMessage;
-    
+
     // Wrap existing content
     const originalContent = targetDiv.innerHTML;
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'collapse-content';
     contentWrapper.innerHTML = originalContent;
-    
+
     // Make target div position relative for absolute positioning of button
     targetDiv.style.position = 'relative';
-    
+
     // Clear and rebuild div structure
     targetDiv.innerHTML = '';
     targetDiv.appendChild(toggleBtn);
     targetDiv.appendChild(contentWrapper);
     targetDiv.appendChild(statusDiv);
-    
+
     // Apply initial state
     if (isCollapsed) {
         contentWrapper.style.display = 'none';
         statusDiv.style.display = 'block';
+        // Call callback if collapsed on load
+        if (onCollapseCallback && typeof onCollapseCallback === 'function') {
+            onCollapseCallback();
+        }
     }
-    
+
     // Add click handler
     toggleBtn.addEventListener('click', function() {
         const isCurrentlyCollapsed = contentWrapper.style.display === 'none';
-        
+
         if (isCurrentlyCollapsed) {
             // Show content
             contentWrapper.style.display = 'block';
@@ -270,6 +274,11 @@ function makeCollapsible(divId, statusMessage = 'Section completed and collapsed
             toggleBtn.textContent = 'Show';
             toggleBtn.className = 'collapse-toggle-btn btn btn-secondary';
             localStorage.setItem(`${divId}-collapsed`, 'true');
+
+            // Call the collapse callback if provided
+            if (onCollapseCallback && typeof onCollapseCallback === 'function') {
+                onCollapseCallback();
+            }
         }
     });
 }
@@ -336,7 +345,12 @@ function createOSDetectionPanel(containerId) {
                 <div id="os-specific-install">
                     <!-- OS-specific installation instructions will be populated here -->
                 </div>
+                <div>
+                    Optional, for auto-updates run to move from the system directory to your local user directory:
 
+                    <pre><code>claude migrate-installer</code></pre>
+
+                </div>
             </div>
 
             <div id="cli-instructions" style="margin-bottom: 16px;">
@@ -353,14 +367,35 @@ npx @anthropic-ai/claude-code</div>
     </div>
     </div>
 
-        <div class="cardsection" id="gemini-installation" style="display: none;">
-                <h4 style="margin: 0 0 8px 0;">Gemini CLI Installation:</h4>
-                <div id="gemini-command-display">
-                    <pre><code>python -m venv env
+        <div class="card" id="gemini-installation-card" style="display: none; position: relative;">
+            <h1 class="card-title">Gemini Setup</h1>
+
+            <!-- Gemini Insights Section (always visible) -->
+            <div id="gemini-resources" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key: <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a></h4>
+                <div id="gemini-key-content">
+                    Add it in team/.env
+                </div>
+            </div>
+
+            <!-- Gemini CLI Installation Section Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4 style="margin: 0;">Gemini CLI Installation</h4>
+                <button id="gemini-toggle-btn" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;">Done</button>
+            </div>
+
+            <!-- Collapsible CLI Installation Content -->
+            <div id="gemini-installation-content">
+                <div class="cardsection">
+                    <div id="gemini-command-display">
+                        <pre class="no-bottom-margin"><code>python -m venv env
 env\Scripts\activate.bat
 npm install -g @google/generative-ai
-gemini</code></pre>
+gemini</code></pre></div>
+                </div>
             </div>
+
+            <div id="gemini-status" style="display: none; color: var(--text-secondary); font-style: italic;"></div>
         </div>
         <div class="cardsection" id="vscode-cmds" style="display: none; margin-bottom:16px">
             <h4 style="margin: 0 0 8px 0;">VS Code command</h4>
@@ -370,7 +405,7 @@ gemini</code></pre>
 
         <div class="card" style="margin-bottom: 16px;">
 
-            <h1>Prerequisites</h1>
+            <h1 class="card-title">Github CLI for sending a Pull Request (PR)</h1>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
                 <span>Do you have Github CLI installed?</span>
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
@@ -571,15 +606,33 @@ function initializeOSDetectionPanel() {
         
         // Handle Gemini CLI section
         if (geminiChecked) {
-            // Show and expand Gemini installation section
-            expandSection('gemini-installation');
-            
+            // Show and expand Gemini installation card
+            const geminiCard = document.getElementById('gemini-installation-card');
+            const geminiContent = document.getElementById('gemini-installation-content');
+            const geminiStatus = document.getElementById('gemini-status');
+            const geminiBtn = document.getElementById('gemini-toggle-btn');
+
+            if (geminiCard) {
+                geminiCard.style.display = 'block';
+            }
+            if (geminiContent) {
+                geminiContent.style.display = 'block';
+            }
+            if (geminiStatus) {
+                geminiStatus.style.display = 'none';
+            }
+            if (geminiBtn) {
+                geminiBtn.textContent = 'Done';
+                geminiBtn.className = 'btn btn-primary';
+            }
+
             // Update Gemini commands based on OS
             updateGeminiCommandsForOS(selectedOS);
         } else {
-            // Hide Gemini installation section
-            if (geminiInstallation) {
-                geminiInstallation.style.display = 'none';
+            // Hide Gemini installation card
+            const geminiCard = document.getElementById('gemini-installation-card');
+            if (geminiCard) {
+                geminiCard.style.display = 'none';
             }
         }
         
@@ -614,19 +667,19 @@ function initializeOSDetectionPanel() {
         const geminiCommandDisplay = document.getElementById('gemini-command-display');
         if (geminiCommandDisplay) {
             let geminiContent = '';
-            
+
             if (selectedOS === 'PC') {
-                geminiContent = `<pre><code>python -m venv env
+                geminiContent = `<pre class="no-bottom-margin"><code>python -m venv env
 env\\Scripts\\activate.bat
 npm install -g @google/generative-ai
 gemini</code></pre>`;
             } else {
-                geminiContent = `<pre><code>python3 -m venv env
+                geminiContent = `<pre class="no-bottom-margin"><code>python3 -m venv env
 source env/bin/activate
 npm install -g @google/generative-ai
 gemini</code></pre>`;
             }
-            
+
             geminiCommandDisplay.innerHTML = geminiContent;
         }
     }
@@ -659,40 +712,42 @@ gemini</code></pre>`;
     function updateCommandsForOS(selectedOS) {
         // Find the command display div
         let commandDisplay = document.getElementById('command-display');
-        
+
         // If not found directly, look for it within collapsed content
         if (!commandDisplay) {
             const claudeCodeCommands = document.getElementById('claude-code-commands');
             if (claudeCodeCommands) {
-                commandDisplay = claudeCodeCommands.querySelector('#command-display') || 
+                commandDisplay = claudeCodeCommands.querySelector('#command-display') ||
                                claudeCodeCommands.querySelector('.collapse-content #command-display');
             }
         }
-        
+
         if (commandDisplay) {
             let newContent = '';
-            
+
+            // Check if "Already installed" radio button is selected
+            const alreadyInstalledRadio = document.querySelector('input[name="claude-install-status"][value="already"]');
+            const isAlreadyInstalled = alreadyInstalledRadio && alreadyInstalledRadio.checked;
+            const claudeCmd = isAlreadyInstalled ? 'claude  # Use your installed version directly' : 'npx @anthropic-ai/claude-code';
+
             if (selectedOS === 'Mac' || selectedOS === 'Linux') {
                 newContent = `<pre><code>python3 -m venv env
 source env/bin/activate
-npx @anthropic-ai/claude-code</code></pre>`;
+${claudeCmd}</code></pre>`;
             } else if (selectedOS === 'PC') {
-                // Check if Initial install radio button is selected
-                const initialInstallRadio = document.querySelector('input[name="claude-install-status"][value="initial"]');
-                const isInitialInstall = initialInstallRadio && initialInstallRadio.checked;
-                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && npx @anthropic-ai/claude-code</code></pre>`;
+                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && ${claudeCmd}</code></pre>`;
             } else {
                 newContent = `<b>For Unix/Linux/Mac:</b>
 <pre><code>python3 -m venv env
 source env/bin/activate
-npx @anthropic-ai/claude-code</code></pre>
+${claudeCmd}</code></pre>
 
 <b>For Windows:</b>
 <pre><code>python -m venv env
 env\\Scripts\\activate.bat
-npx @anthropic-ai/claude-code</code></pre>`;
+${claudeCmd}</code></pre>`;
             }
-            
+
             commandDisplay.innerHTML = newContent;
         }
     }
@@ -879,9 +934,101 @@ npx @anthropic-ai/claude-code</code></pre>`;
     // Make sections collapsible after initialization
     setTimeout(() => {
         makeCollapsible('cli-commands', 'Claude Code CLI Installation');
-        makeCollapsible('gemini-installation', 'Gemini CLI Installation');
         makeCollapsible('vscode-cmds', 'VS Code Commands');
+
+        // Setup custom Gemini toggle
+        setupGeminiToggle();
     }, 100);
+}
+
+// Function to setup custom Gemini toggle button
+function setupGeminiToggle() {
+    const toggleBtn = document.getElementById('gemini-toggle-btn');
+    const content = document.getElementById('gemini-installation-content');
+    const statusDiv = document.getElementById('gemini-status');
+
+    if (!toggleBtn || !content || !statusDiv) return;
+
+    // Get stored state
+    const isCollapsed = localStorage.getItem('gemini-installation-collapsed') === 'true';
+
+    // Apply initial state
+    if (isCollapsed) {
+        content.style.display = 'none';
+        statusDiv.style.display = 'block';
+        toggleBtn.textContent = 'Show';
+        toggleBtn.className = 'btn btn-secondary';
+        // Run API check for initial collapsed state
+        checkGeminiApiStatus();
+    }
+
+    // Add click handler
+    toggleBtn.addEventListener('click', function() {
+        const isCurrentlyCollapsed = content.style.display === 'none';
+
+        if (isCurrentlyCollapsed) {
+            // Show content
+            content.style.display = 'block';
+            statusDiv.style.display = 'none';
+            toggleBtn.textContent = 'Done';
+            toggleBtn.className = 'btn btn-primary';
+            localStorage.setItem('gemini-installation-collapsed', 'false');
+        } else {
+            // Hide content
+            content.style.display = 'none';
+            statusDiv.style.display = 'block';
+            toggleBtn.textContent = 'Show';
+            toggleBtn.className = 'btn btn-secondary';
+            localStorage.setItem('gemini-installation-collapsed', 'true');
+
+            // Run API check when collapsed
+            checkGeminiApiStatus();
+        }
+    });
+
+    // Check Gemini key status if the function is available (from setup.js)
+    if (typeof checkGeminiKeyStatus === 'function') {
+        setTimeout(() => {
+            checkGeminiKeyStatus();
+        }, 100);
+    }
+}
+
+// Function to check Gemini API accessibility
+async function checkGeminiApiStatus() {
+    const statusDiv = document.getElementById('gemini-status');
+    if (!statusDiv) return;
+
+    // Show checking status
+    statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Checking Gemini CLI status...</span>';
+
+    // Check if Gemini key is available (from setup.js or browser cache)
+    let hasKey = false;
+
+    // Check browser cache
+    const cachedKey = localStorage.getItem('gemini_api_key');
+    if (cachedKey) {
+        hasKey = true;
+        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Key available in browser cache</span>';
+        return;
+    }
+
+    // Check if server-side key is available (if checkGeminiKeyStatus is available)
+    if (typeof isGeminiKeyAvailable === 'function') {
+        try {
+            hasKey = await isGeminiKeyAvailable();
+            if (hasKey) {
+                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Key configured in team/.env</span>';
+            } else {
+                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - No API key configured yet</span>';
+            }
+        } catch (error) {
+            statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Add API key to use Gemini</span>';
+        }
+    } else {
+        // If we can't check, show a generic message
+        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Add API key in Gemini Insights above</span>';
+    }
 }
 
 // API utility function

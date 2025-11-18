@@ -45,10 +45,10 @@
         <div id="os-detection-container"></div>
 
         <div class="card" id="web-server-panel">
-            <h2 class="card-title">
+            <h1 class="card-title">
                 <span class="status-indicator" id="web-server-status"></span>
                 <span id="web-server-title">Local Web Server</span>
-            </h2>
+            </h1>
             <div id="web-server-content">
                 <p style="color: var(--text-secondary);">
                     Checking web server status...
@@ -60,10 +60,8 @@
 
         <div class="card" id="trade-flow-repos-container"></div>
 
-        <div id="gemini-resources-container"></div>
-
         <div class="card">
-            <h2 class="card-title">About AI Insights</h2>
+            <h1 class="card-title">About AI Insights</h1>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
                 Both Claude Code CLI and the Gemini API can be applied for <a href="../../projects/#list=all">data analysis</a><!--, content generation, 
                 and smart recommendations for CRM activities.-->
@@ -327,12 +325,15 @@
             console.error('setupWebrootSetup function not available');
         }
 
-        // Setup Trade Flow Repos and Gemini Resources
-        if (typeof setupGeminiResourcesAfterTradeFlow === 'function') {
-            setupGeminiResourcesAfterTradeFlow('trade-flow-repos-container', 'gemini-resources-container');
+        // Setup Trade Flow Repos only (Gemini Resources now in Gemini Setup card from common.js)
+        if (typeof setupTradeFlowRepos === 'function') {
+            setupTradeFlowRepos('trade-flow-repos-container');
         } else {
-            console.error('setupGeminiResourcesAfterTradeFlow function not available');
+            console.error('setupTradeFlowRepos function not available');
         }
+
+        // Gemini resources are now integrated into the Gemini Setup card created by common.js
+        // No need to call setupGeminiResourcesAfterTradeFlow here
         
         // Initialize page
         updateWebServerPanel(); // Check web server status
