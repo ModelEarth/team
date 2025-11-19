@@ -1,7 +1,7 @@
 {
   "dca": {
-    "shortTitle": "Deep-Containment Architecture",
-    "menuTitle": "Deep-Containment Architecture",
+    "shortTitle": "Deep-Containment SMRs",
+    "menuTitle": "Deep-Containment Sites",
     "listTitle": "Deep-Containment Architecture for SMRs",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
