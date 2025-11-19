@@ -372,7 +372,7 @@ npx @anthropic-ai/claude-code</div>
 
             <!-- Gemini Insights Section (always visible) -->
             <div id="gemini-resources" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key: <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a></h4>
+                <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
                 <div id="gemini-key-content">
                     Add it in team/.env
                 </div>
@@ -1005,29 +1005,30 @@ async function checkGeminiApiStatus() {
     // Check if Gemini key is available (from setup.js or browser cache)
     let hasKey = false;
 
-    // Check browser cache
+    // Check browser cache first
     const cachedKey = localStorage.getItem('gemini_api_key');
     if (cachedKey) {
         hasKey = true;
-        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Key available in browser cache</span>';
+        statusDiv.innerHTML = '<span style="color: var(--accent-green);">✅ Gemini CLI setup collapsed - Key available in browser cache</span>';
         return;
     }
 
-    // Check if server-side key is available (if checkGeminiKeyStatus is available)
+    // Check if server-side key is available (requires Rust API server)
     if (typeof isGeminiKeyAvailable === 'function') {
         try {
             hasKey = await isGeminiKeyAvailable();
             if (hasKey) {
-                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Key configured in team/.env</span>';
+                statusDiv.innerHTML = '<span style="color: var(--accent-green);">✅ Gemini CLI setup collapsed - Key configured in team/.env</span>';
             } else {
-                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - No API key configured yet</span>';
+                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust server to detect team/.env key, or add key in browser</span>';
             }
         } catch (error) {
-            statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Add API key to use Gemini</span>';
+            // Server not running or network error
+            statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check team/.env key, or add key using button above</span>';
         }
     } else {
-        // If we can't check, show a generic message
-        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">Gemini CLI setup collapsed - Add API key in Gemini Insights above</span>';
+        // Function not available - likely server not running
+        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check team/.env key, or add key using button above</span>';
     }
 }
 

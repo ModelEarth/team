@@ -241,7 +241,7 @@ if (typeof API_BASE === 'undefined') {
 function createGeminiResourcesHTML() {
     return `
 <div id="gemini-resources" class="card" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key: <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a></h4>
+    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
     <div id="gemini-key-content">
         Add it in team/.env
     </div>
@@ -274,9 +274,8 @@ async function checkGeminiKeyStatus() {
 function updateGeminiKeyUI(keyIsAvailable) {
     const titleElement = document.getElementById('gemini-key-title');
     const contentElement = document.getElementById('gemini-key-content');
-    const linkElement = document.getElementById('gemini-key-link');
-    
-    if (!titleElement || !contentElement || !linkElement) return;
+
+    if (!titleElement || !contentElement) return;
     
     if (keyIsAvailable) {
         // Key is available - update to activated state
@@ -301,14 +300,10 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 </button>
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Enter your Gemini Key</label>
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
                     <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
@@ -321,12 +316,18 @@ function updateGeminiKeyUI(keyIsAvailable) {
         
         // Determine button text and title based on available keys
         const buttonText = cachedKey ? 'Change Key' : 'Add Key';
-        const titlePrefix = cachedKey ? '🟡 Gemini Key Available (Browser Cache): ' : '🔴 Add AI Insights Key: ';
+        const titlePrefix = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add Gemini Key';
+        const storageText = cachedKey ? 'Your key is stored in your browser cache only' : 'Your key will be stored in your browser cache only';
+        const envText = cachedKey ? `To use additional keys residing in team/.env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to team/.env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
+        const linkText = cachedKey ? 'Get another Gemini key' : 'Get your Gemini key';
 
-        titleElement.innerHTML = titlePrefix + '<a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a>';
+        titleElement.innerHTML = titlePrefix;
         contentElement.innerHTML = `
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 12px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> after adding a Gemini key below or in team/.env
+            <div style="margin-top: 8px;">
+                ${storageText} - <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">${linkText}</a>
+            </div>
+            <div style="margin-top: 8px;">
+                ${envText}
             </div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -340,14 +341,10 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 </button>
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Browser Key:</label>
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
                     <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
