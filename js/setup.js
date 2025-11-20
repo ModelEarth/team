@@ -243,7 +243,7 @@ function createGeminiResourcesHTML() {
 <div id="gemini-resources" class="card" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
     <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
     <div id="gemini-key-content">
-        Add it in team/.env
+        Add it in .env
     </div>
 </div>
     `;
@@ -286,7 +286,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
 
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
+            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in .env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -318,7 +318,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
         const buttonText = cachedKey ? 'Change Key' : 'Add Key';
         const titlePrefix = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add Gemini Key';
         const storageText = cachedKey ? 'Your key is stored in your browser cache only' : 'Your key will be stored in your browser cache only';
-        const envText = cachedKey ? `To use additional keys residing in team/.env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to team/.env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
+        const envText = cachedKey ? `To use additional keys residing in .env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to .env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
         const linkText = cachedKey ? 'Get another Gemini key' : 'Get your Gemini key';
 
         titleElement.innerHTML = titlePrefix;

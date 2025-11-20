@@ -49,8 +49,8 @@ type SharedConfig = Arc<Mutex<Config>>;
 
 impl Config {
     fn from_env() -> anyhow::Result<Self> {
-        // Try to load from .env file first
-        dotenv::dotenv().ok();
+        // Try to load from .env file in parent directory (webroot)
+        dotenv::from_path("../.env").ok();
         
         // Also check for a config.toml file
         if let Ok(config_str) = std::fs::read_to_string("config.toml") {
@@ -78,9 +78,9 @@ impl Config {
     
     fn reload() -> anyhow::Result<Self> {
         log::info!("Reloading configuration from .env file");
-        
-        // Force reload of .env file by reading it directly and setting env vars
-        if let Ok(env_content) = std::fs::read_to_string(".env") {
+
+        // Force reload of .env file from parent directory by reading it directly and setting env vars
+        if let Ok(env_content) = std::fs::read_to_string("../.env") {
             for line in env_content.lines() {
                 let line = line.trim();
                 if line.is_empty() || line.starts_with('#') {
@@ -200,8 +200,8 @@ fn start_env_watcher(config: SharedConfig) -> anyhow::Result<()> {
     let (tx, rx) = channel();
     let mut watcher = RecommendedWatcher::new(tx, NotifyConfig::default())?;
     
-    // Watch the .env file
-    let env_path = Path::new(".env");
+    // Watch the .env file in parent directory (webroot)
+    let env_path = Path::new("../.env");
     if env_path.exists() {
         watcher.watch(env_path, RecursiveMode::NonRecursive)?;
         log::info!("Started watching .env file for changes");
@@ -622,12 +622,12 @@ async fn restart_server() -> Result<HttpResponse> {
 async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpResponse> {
     use std::fs::OpenOptions;
     use std::io::{BufRead, BufReader, Write};
-    
-    let env_path = ".env";
+
+    let env_path = "../.env";
     let mut env_lines = Vec::new();
     let mut updated_keys = std::collections::HashSet::<String>::new();
-    
-    // Read existing .env file if it exists
+
+    // Read existing .env file from parent directory if it exists
     if let Ok(file) = std::fs::File::open(env_path) {
         let reader = BufReader::new(file);
         for line in reader.lines().map_while(Result::ok) {
@@ -723,17 +723,17 @@ async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpRes
 // Create .env file from .env.example content
 async fn create_env_config(req: web::Json<CreateEnvConfigRequest>) -> Result<HttpResponse> {
     use std::fs;
-    
-    // Check if .env file already exists
-    if std::path::Path::new(".env").exists() {
+
+    // Check if .env file already exists in parent directory
+    if std::path::Path::new("../.env").exists() {
         return Ok(HttpResponse::BadRequest().json(json!({
             "success": false,
             "error": ".env file already exists"
         })));
     }
-    
-    // Write the content to .env file
-    match fs::write(".env", &req.content) {
+
+    // Write the content to .env file in parent directory
+    match fs::write("../.env", &req.content) {
         Ok(_) => {
             Ok(HttpResponse::Ok().json(json!({
                 "success": true,
