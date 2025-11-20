@@ -2737,7 +2737,7 @@
                         <option value="custom">Choose File...</option>
                     </select>
                     <button class="btn btn-primary" id="get-participants">
-                        <span class="loading-spinner" id="participants-spinner" style="display: none;"></span>
+                        <span id="participants-spinner" style="display: none;"></span>
                         Get List
                     </button>
                 </div>
@@ -2878,7 +2878,7 @@
                     </div>
                 </div>
                 <div id="insightsContent" class="insights-content">
-                    <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
+                    <div style="color: var(--text-secondary); font-style: italic; padding: 20px;">
                         Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
                     </div>
                 </div>
@@ -5591,7 +5591,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     displayCachedInsights(cacheKey, 'claude');
                 } else {
                     const content = document.getElementById('insightsContent');
-                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
+                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
                 }
             }
         }
@@ -5633,7 +5633,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     displayCachedInsights(cacheKey, 'gemini');
                 } else {
                     const content = document.getElementById('insightsContent');
-                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
+                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
                 }
             }
         }
