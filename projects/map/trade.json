@@ -7,7 +7,7 @@
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
     "markerType": "google",
     "nameColumn": "Location",
-    "featuredColumns": ["Location", "Countyregion", "Nearbycity", "DepositDistance", "GeologicalNotes", "FuelType", "MineralAvailability", "Typeform", "Fueldepth", "Nearbycitydistance"],
+    "featuredColumns": ["Location", "CountyRegion", "Nearby City", "Deposit Distance", "Geological Notes", "Fuel Type", "Mineral Availability", "Type Form", "Fuel Depth", "Nearby City Distance"],
     "search": {
       "In City": "Location",
       "In County Name": "CountyRegion"
