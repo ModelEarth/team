@@ -86,15 +86,15 @@ else
   cd team
   # Ensure Rust is installed and cargo is in PATH
   source ~/.cargo/env 2>/dev/null || echo "Install Rust first: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-  # Copy .env.example to .env in webroot only if .env doesn't exist
-  [ ! -f ../.env ] && cp ../.env.example ../.env
+  # Copy .env.example to .env in docker directory only if .env doesn't exist
+  [ ! -f ../docker/.env ] && cp ../docker/.env.example ../docker/.env
   # Start the server with correct binary name
   nohup cargo run --bin partner_tools -- serve > server.log 2>&1 &
   echo "Started Rust API server on port 8081"
 fi
 ```
 
-Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the webroot directory (parent of team) and is created from .env.example only if it doesn't already exist.
+Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (webroot/docker/.env) and is created from .env.example only if it doesn't already exist.
 
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:

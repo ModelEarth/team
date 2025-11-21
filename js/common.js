@@ -374,7 +374,7 @@ npx @anthropic-ai/claude-code</div>
             <div id="gemini-resources" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
                 <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
                 <div id="gemini-key-content">
-                    Add it in .env
+                    Add it in docker/.env
                 </div>
             </div>
 
@@ -1020,15 +1020,15 @@ async function checkGeminiApiStatus() {
             if (hasKey) {
                 statusDiv.innerHTML = '<span style="color: var(--accent-green);">✅ Gemini CLI setup collapsed - Key configured in .env</span>';
             } else {
-                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust server to detect .env key, or add key in browser</span>';
+                statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust server to detect docker/.env key, or add key in browser</span>';
             }
         } catch (error) {
             // Server not running or network error
-            statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check .env key, or add key using button above</span>';
+            statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check docker/.env key, or add key using button above</span>';
         }
     } else {
         // Function not available - likely server not running
-        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check .env key, or add key using button above</span>';
+        statusDiv.innerHTML = '<span style="color: var(--text-secondary);">⚠️ Gemini CLI setup collapsed - Start Rust API server to check docker/.env key, or add key using button above</span>';
     }
 }
 
