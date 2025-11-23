@@ -123,6 +123,14 @@ h2 {
     gap: 8px;
 }
 
+/* Override h1 styling when used with card-title */
+h1.card-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 0px;
+    margin-bottom: 16px;
+}
+
 .log-output {
     background: #1a1a1a;
     color: #00ff00;
@@ -342,7 +350,9 @@ pre code {
     /* Ensure code blocks can't expand beyond their container */
     min-width: 0;
 }
-
+.no-bottom-margin, .no-bottom-margin pre, .no-bottom-margin code, .no-bottom-margin pre code {
+    margin-bottom: 0px !important;
+}
 /* ===== CARD SECTIONS ===== */
 .cardsection {
     margin-bottom: 16px;

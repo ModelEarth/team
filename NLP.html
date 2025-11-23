@@ -49,79 +49,70 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     </div>
 </div>
 
+<!-- Search Input -->
 <div class="searchbar">
     <input id="q" placeholder="Search feeds/projects…" />
     <label><input type="checkbox" id="fuzzy" checked /> Fuzzy</label>
     <input type="range" id="th" min="0" max="60" value="35" />
     <button id="gemini-insights" class="gemini-btn">Gemini Insights</button>
 </div>
+
+<!-- Regular Search Results -->
 <div id="search-results">Loading feeds…</div>
 <div id="ai-results" class="ai-results" style="display: none;"></div>
 
+<!-- AI Insights Component (Modular & Reusable) -->
+<div id="aiInsights" class="ai-insights-container" style="display: none;">
+    <div class="insights-header">
+        <div class="insights-status" id="insightsStatus">
+            <!-- AI Provider Buttons (rendered by JavaScript) -->
+            <div id="aiProviderButtons"></div>
+
+            <!-- Custom Controls Area (rendered by JavaScript if enabled) -->
+            <div id="aiControlsArea"></div>
+        </div>
+    </div>
+
+    <!-- Insights Content (dynamically populated) -->
+    <div class="insights-content" id="insightsContent">
+        <div style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 20px;">
+            Enter a search query above and click <strong>Gemini Insights</strong> for AI-powered semantic search.
+        </div>
+    </div>
+</div>
+
+<!-- External Libraries - Load First -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
 
+<!-- AI Integration Scripts - Optional, don't block if missing -->
+<script src="js/common.js" onerror="console.warn('common.js not loaded - AI features will use standalone implementation')"></script>
+<script src="js/list.js" onerror="console.warn('list.js not loaded - AI features will use standalone implementation')"></script>
+
+<!-- AI Insights Component (Core) -->
+<script src="js/ai-insights-core.js"></script>
+<script src="js/ai-insights-config.js"></script>
+<script src="js/nlp-url-resolver.js"></script>
+<script src="js/ai-insights-nlp-adapter.js"></script>
+
+<!-- NLP Search Modules -->
+<script src="js/nlp-search.js"></script>
+<script src="js/nlp.js"></script>
+
+<!-- Initialize AI Insights Component -->
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    const searchInput = document.getElementById("q");
-    const fuzzyCheckbox = document.getElementById("fuzzy");
-    const thresholdSlider = document.getElementById("th");
-    const searchResultsDiv = document.getElementById("search-results");
-    const aiRefineBtn = document.getElementById("ai-refine");
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Initializing NLP AI Insights Component');
 
-    let feeds = [];
-    let fuse;
+    // Create and initialize the NLP AI Adapter
+    window.nlpAI = new NLPAIAdapter();
 
-    // Load CSV
-    Papa.parse("projects/map/cities.csv", {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            if(results.data.length === 0 || results.meta.fields.includes("404: Not Found")){
-                searchResultsDiv.innerHTML = `<p style="color:red;">CSV not found or failed to load.</p>`;
-                console.error("CSV load failed. Check the filename and path.");
-                return;
-            }
-
-            feeds = results.data.map(r => ({
-                Title: r.Title?.trim() || "(No title)",
-                Description: r.Description?.trim() || "(No description)",
-                URL: r.URL?.trim() || "#"
-            }));
-
-            console.log("CSV loaded successfully. Headers:", results.meta.fields, "Total feeds:", feeds.length);
-
-            fuse = new Fuse(feeds, {
-                keys: ['Title', 'Description'],
-                threshold: thresholdSlider.value / 100,
-                includeScore: true
-            });
-
-            searchResultsDiv.innerHTML = `<p>Loaded ${feeds.length} rows. Start searching above!</p>`;
-        },
-        error: function(err) {
-            searchResultsDiv.innerHTML = `<p style="color:red;">Error loading CSV: ${err}</p>`;
-        }
-    });
-
-    const doSearch = () => {
-        if (!feeds.length) return;
-
-        const query = searchInput.value.trim();
-        if (!query) {
-            searchResultsDiv.innerHTML = '';
-            return;
-        }
-
-        let results = fuzzyCheckbox.checked ? fuse.search(query) : feeds.filter(f =>
-            f.Title.toLowerCase().includes(query.toLowerCase()) ||
-            f.Description.toLowerCase().includes(query.toLowerCase())
-        ).map(f => ({ item: f }));
-
-        if(!results.length){
-            searchResultsDiv.innerHTML = `<p>No results found for "<strong>${query}</strong>"</p>`;
-            return;
+    try {
+        const success = await window.nlpAI.init();
+        if (success) {
+            console.log('✅ NLP AI Insights Component ready');
+        } else {
+            console.error('❌ Failed to initialize NLP AI Insights Component');
         }
 
         searchResultsDiv.innerHTML = results.map(r => {

@@ -724,7 +724,7 @@ class LeafletMapManager {
     
     extractCoordinates(item) {
         // Try various coordinate field names
-        const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'y', 'Y'];
+        const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'LATITUDE', 'y', 'Y'];
         const lngFields = ['longitude', 'lng', 'lon', 'Longitude', 'LON', 'LONGITUDE', 'x', 'X'];
         
         let lat = null, lng = null;

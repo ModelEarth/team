@@ -1,0 +1,109 @@
+# Git files and directories
+.git
+.gitignore
+.gitattributes
+.github/
+
+# Docker files (avoid copying Docker config into the image)
+Dockerfile
+docker-compose.yml
+docker-compose*.yml
+.dockerignore
+
+# CI/CD and tooling
+.claude/
+.vscode/
+.idea/
+
+# Configuration files (secrets)
+.env
+.env.local
+.env.production
+config/keys.json
+settings.local.json
+
+# Auth keys and secrets
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Rust build artifacts and cache
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Testing and coverage
+coverage/
+*.lcov
+.nyc_output
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+
+# JavaScript/Node (if any)
+node_modules/
+bower_components/
+.npm
+.yarn-integrity
+.pnp.*
+.node_repl_history
+
+# Build outputs and cache
+.cache/
+.parcel-cache/
+out/
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE files
+*.sublime-project
+*.sublime-workspace
+*.iml
+*.code-workspace
+
+# Documentation (optional - uncomment if you don't need docs in container)
+# README.md
+# DEPLOY_README.md
+# docs/
+
+# Test files (if you don't run tests in Docker)
+test_*.rs
+*_test.rs
+
+# Other
+.nojekyll
+*.tgz
+*.bak
+*.backup
+
+# Prevent nested webroot repositories
+webroot/
+**/webroot/

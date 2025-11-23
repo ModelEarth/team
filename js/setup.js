@@ -31,7 +31,7 @@ function createWebrootSetupHTML() {
         : 'https://github.com/modelearth/webroot/';
     
     return `
-      <h1>Webroot setup</h1>
+      <h1 class="card-title">Webroot setup</h1>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
@@ -42,7 +42,7 @@ function createWebrootSetupHTML() {
 // HTML content for the trade flow repos section
 function createTradeFlowReposHTML() {
     return `
-        <h1>Extra Repos</h1>
+        <h1 class="card-title">Extra Repos</h1>
         <p>Optional: To contribute to our data-pipeline or industry tradeflow visualizations, run the following to fork and clone:<br>
         data-pipeline, trade-data, nisar, community, evaporation-kits</p>
         
@@ -58,7 +58,7 @@ clone extra repos from [your github account]
 }
 
 function createBackendInfo() {
-    return `<h1>Rust API Backend</h1>
+    return `<h1 class="card-title">Rust API Backend</h1>
   Run "Start Rust" if your backend isn't started yet.<br><br>
   <a href="http://localhost:8887/team/admin/sql/panel/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: #3B82F6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-right: 12px;">
     <span>🗄️</span>
@@ -240,12 +240,10 @@ if (typeof API_BASE === 'undefined') {
 // HTML content for the gemini resources section
 function createGeminiResourcesHTML() {
     return `
-<div id="gemini-resources" class="card" style="margin-bottom: 16px;">
-    <h1>Gemini Insights</h1>
-    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add AI Insights Key:</h4>
+<div id="gemini-resources" class="card" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
     <div id="gemini-key-content">
-        You can use a free Gemini key for AI insights.<br>
-        <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link">Get your Gemini key</a> and add it in team/.env
+        Add it in docker/.env
     </div>
 </div>
     `;
@@ -276,20 +274,19 @@ async function checkGeminiKeyStatus() {
 function updateGeminiKeyUI(keyIsAvailable) {
     const titleElement = document.getElementById('gemini-key-title');
     const contentElement = document.getElementById('gemini-key-content');
-    const linkElement = document.getElementById('gemini-key-link');
-    
-    if (!titleElement || !contentElement || !linkElement) return;
+
+    if (!titleElement || !contentElement) return;
     
     if (keyIsAvailable) {
         // Key is available - update to activated state
-        titleElement.innerHTML = '<h2 class="card-title" style="margin: 0 0 8px 0;">✅ Your Gemini Key is Activated</h2>';
-        
+        titleElement.innerHTML = '✅ Your Gemini Key is Activated';
+
         // Use teamPathSetup to get correct relative path to projects
         const projectsPath = teamPathSetup + 'projects/#list=all';
-        
+
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in team/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
+            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in docker/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -303,14 +300,10 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 </button>
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Enter your Gemini Key</label>
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
                     <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
@@ -323,13 +316,18 @@ function updateGeminiKeyUI(keyIsAvailable) {
         
         // Determine button text and title based on available keys
         const buttonText = cachedKey ? 'Change Key' : 'Add Key';
-        const titleText = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add AI Insights Key:';
-        
-        titleElement.textContent = titleText;
+        const titlePrefix = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add Gemini Key';
+        const storageText = cachedKey ? 'Your key is stored in your browser cache only' : 'Your key will be stored in your browser cache only';
+        const envText = cachedKey ? `To use additional keys residing in docker/.env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to docker/.env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
+        const linkText = cachedKey ? 'Get another Gemini key' : 'Get your Gemini key';
+
+        titleElement.innerHTML = titlePrefix;
         contentElement.innerHTML = `
-            You can use a free Gemini key for AI insights. <a href="#" onclick="checkGeminiKeyStatus(); return false;">Refresh</a><br>
-            <div style="margin-top: 8px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px; padding: 12px; font-size: 11px;">
-                ⚠️ <a href="${adminServerPath}">Start the Rust API server</a> to use the Gemini key from team/.env for your AI insights
+            <div style="margin-top: 8px;">
+                ${storageText} - <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">${linkText}</a>
+            </div>
+            <div style="margin-top: 8px;">
+                ${envText}
             </div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -343,14 +341,10 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 </button>
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                <label for="browser-gemini-key" style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; display: block;">Browser Key:</label>
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
                     <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary);">
-                    <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">Get your Gemini key</a> - Stored only in your browser cache
                 </div>
             </div>
         `;
@@ -503,18 +497,18 @@ async function testGeminiFromPanel() {
 }
 
 // Setup gemini resources section in a target container
-function setupGeminiResources(containerId) {
-    const container = document.getElementById(containerId);
-    if (container) {
+function setupGeminiResources() { // containerId
+    //const container = document.getElementById(containerId);
+    //if (container) {
         // Insert the gemini resources HTML
         const geminiHTML = createGeminiResourcesHTML();
-        container.innerHTML = geminiHTML;
+        //container.innerHTML = geminiHTML;
         
         // Check Gemini key status and update UI after inserting the content
         setTimeout(() => {
             checkGeminiKeyStatus();
         }, 100);
-    }
+    //}
 }
 
 // Check if Gemini key is available and working
@@ -533,32 +527,11 @@ async function isGeminiKeyAvailable() {
 
 
 // Setup Gemini Resources conditionally based on key availability
+// NOTE: This function is disabled - Gemini setup is now handled by the Gemini Setup card in common.js
 async function setupGeminiResourcesConditionally() {
-    if (typeof isGeminiKeyAvailable === 'function') {
-        const isAvailable = await isGeminiKeyAvailable();
-        
-        if (typeof waitForElm === 'function') {
-            // Wait for gemini setup container to exist
-            waitForElm('#gemini-setup-container').then((geminiContainer) => {
-                const promptModal = document.getElementById('promptModal');
-                
-                if (!isAvailable) {
-                    // Gemini key not available - show setup card
-                    if (typeof setupGeminiResources === 'function') {
-                        setupGeminiResources('gemini-setup-container');
-                        geminiContainer.style.display = 'block';
-                    }
-                    // Hide the prompt modal since Gemini is not available
-                    if (promptModal) {
-                        promptModal.style.display = 'none';
-                    }
-                } else {
-                    // Gemini key is available - hide setup card, show prompt modal normally
-                    geminiContainer.style.display = 'none';
-                }
-            });
-        }
-    }
+    // Gemini setup is now integrated into the Gemini Setup card created by common.js
+    // No longer need to conditionally show/hide a separate setup card
+    return;
 }
 
 // Setup Gemini Resources after Trade Flow Repos (for admin server page)
@@ -585,10 +558,11 @@ function setupGeminiResourcesAfterTradeFlow(tradeFlowContainerId, geminiContaine
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize immediately if elements exist
     initializeGitFields();
-    
-    // Setup Gemini resources conditionally for projects pages
-    setupGeminiResourcesConditionally();
-    
+
+    // NOTE: setupGeminiResourcesConditionally is now disabled
+    // Gemini setup is handled by the Gemini Setup card in common.js
+    // setupGeminiResourcesConditionally();
+
     // Also initialize after waitForElm to ensure they're loaded
     if (typeof waitForElm === 'function') {
         waitForElm('#gitAccount').then((elm) => {
