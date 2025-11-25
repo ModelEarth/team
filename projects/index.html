@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/shared-styles.css">
     <!-- GitHub Auth Styling for minimal widget -->
     <link rel="stylesheet" href="../../projects/css/issues.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         // Load submodule names by parsing .gitmodules from GitHub.
         if (!window.teamSubmodulesPromise) {
@@ -2835,9 +2836,6 @@
             </div>
         </div>
 
-        <!-- GitHub Token Authentication (only visible for list=modelteam) -->
-        <div id="github-auth-container" style="display: none;"></div>
-
         <div class="card" id="participants-table-card" style="display: none;">
 
             <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
@@ -2883,7 +2881,10 @@
                     </div>
                 </div>
             </div>
-            
+
+            <!-- GitHub Token Authentication (only visible when Repos button is clicked) -->
+            <div id="github-auth-container" style="display: none;"></div>
+
             <!-- Contributions Panel -->
             <div id="contributionsPanel" style="display: none; margin-top: 16px;">
                 <div class="insights-header">
@@ -2894,18 +2895,7 @@
                     </div>
                 </div>
                 <div id="contributionsContent" class="insights-content">
-                    <div id="githubTokenPrompt" style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 8px 20px 4px 20px;">
-                        Contributions panel — optionally paste a GitHub personal access token to raise API limits for live PR fetches.
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap;">
-                        <div id="githubTokenControls" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                            <input id="githubTokenInput" type="password" class="form-control" placeholder="Paste GitHub token" style="max-width:420px;" aria-label="GitHub token input">
-                            <button class="btn btn-primary" id="saveGithubTokenBtn" onclick="saveGithubToken()">Save</button>
-                            <button class="btn btn-secondary" id="clearGithubTokenBtn" onclick="clearGithubToken()">Clear</button>
-                        </div>
-                        <div id="githubTokenStatus" style="color:var(--text-secondary); font-size:12px; flex:1; min-width:160px;"></div>
-                    </div>
-                    
+
                     <!-- Filter row for submodule cards -->
                     <div id="prsFilters" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <div style="color:var(--text-secondary); font-size:13px; margin-right:6px;">Show:</div>
@@ -3933,6 +3923,9 @@
             const visible = panel.style.display === 'block';
             if (visible) {
                 panel.style.display = 'none';
+                // Hide GitHub auth container when closing
+                const authContainer = document.getElementById('github-auth-container');
+                if (authContainer) authContainer.style.display = 'none';
             } else {
                 panel.style.display = 'block';
                 // Ensure insights panel is hidden when showing contributions
@@ -3940,6 +3933,19 @@
                 showContributionsSection();
                 // Load aggregated submodule PRs (if available)
                 try { loadSubmodulePRs(); } catch (e) { console.warn('loadSubmodulePRs missing', e); }
+
+                // Show GitHub auth container and initialize projects list
+                const authContainer = document.getElementById('github-auth-container');
+                if (authContainer) {
+                    authContainer.style.display = 'block';
+                    console.log('👁️ GitHub auth container visible (Repos button clicked)');
+                }
+
+                // Initialize projects list if not already done
+                if (window.githubAuthWidget && typeof window.githubAuthWidget.initializeProjectsList === 'function') {
+                    window.githubAuthWidget.initializeProjectsList();
+                    console.log('📋 Initializing projects list');
+                }
             }
         }
 
@@ -5055,67 +5061,6 @@
             }
         }
 
-        // GitHub token helpers (sessionStorage only)
-        function saveGithubToken() {
-            const input = document.getElementById('githubTokenInput');
-            const status = document.getElementById('githubTokenStatus');
-            if (!input) return;
-            const token = input.value.trim();
-            try {
-                if (!token) {
-                    // clear session store
-                    try { sessionStorage.removeItem('github_token'); } catch(e){}
-                    if (status) status.textContent = 'No token saved.';
-                    try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
-                    try { restoreGithubTokenStatus(); } catch (e) {}
-                    return;
-                }
-                // Always store only in sessionStorage for privacy
-                sessionStorage.setItem('github_token', token);
-                if (status) status.textContent = 'Token saved for this session.';
-                input.value = '';
-                try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
-                try { restoreGithubTokenStatus(); } catch (e) {}
-            } catch (e) {
-                if (status) status.textContent = 'Unable to save token.';
-            }
-        }
-
-        function clearGithubToken() {
-            const status = document.getElementById('githubTokenStatus');
-            try {
-                try { sessionStorage.removeItem('github_token'); } catch(e){}
-                if (status) status.textContent = 'Token cleared.';
-                try { loadSubmodulePRs(); } catch (e) { /* ignore */ }
-                try { restoreGithubTokenStatus(); } catch (e) {}
-            } catch (e) {
-                if (status) status.textContent = 'Unable to clear token.';
-            }
-        }
-
-        // Restore status text on panel open and toggle token UI/prompt
-        function restoreGithubTokenStatus(){
-            try {
-                const status = document.getElementById('githubTokenStatus');
-                const tokenControls = document.getElementById('githubTokenControls');
-                const tokenPrompt = document.getElementById('githubTokenPrompt');
-                let token = null;
-                // Check localStorage first (shared with Projects Hub), then sessionStorage
-                try { token = localStorage.getItem('github_token') || sessionStorage.getItem('github_token'); } catch(e){}
-                if (status) {
-                    const tokenSource = localStorage.getItem('github_token') ? '(shared with Projects Hub)' : '(session only)';
-                    status.textContent = token ? `Token present ${tokenSource}` : 'No token saved.';
-                }
-                if (tokenControls) {
-                    tokenControls.style.display = token ? 'none' : '';
-                }
-                if (tokenPrompt) {
-                    tokenPrompt.style.display = token ? 'none' : '';
-                }
-            } catch(e){}
-        }
-    // initialize token UI on script load
-    try { restoreGithubTokenStatus(); } catch(e){}
         // Prefetch minimal repo summaries (commits count and updated time) to avoid
         // making per-repo API calls when the Contributions panel is opened.
         // This will try a site-local proxy first (/api/github/html/...), then
@@ -12639,17 +12584,22 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
 
         console.log('🔍 GitHub Auth Check - hash.list:', hash.list);
 
-        // Only show for list=modelteam
+        // Only initialize for list=modelteam, but don't show container yet
+        // Container will be shown when user clicks "Repos" button
         if (hash.list === 'modelteam') {
             // Initialize widget if not already done
             if (!githubAuthWidget) {
                 try {
                     console.log('✅ Initializing GitHub auth in minimal mode');
 
-                    // Create GitHubIssuesManager in minimal mode
+                    // Create GitHubIssuesManager with showProject: false
+                    // Projects list will be loaded when user clicks "Repos" button
                     githubAuthWidget = new GitHubIssuesManager('github-auth-container', {
-                        minimalMode: true
+                        showProject: false
                     });
+
+                    // Make globally accessible for toggleContributions
+                    window.githubAuthWidget = githubAuthWidget;
 
                     console.log('✅ GitHub auth widget initialized successfully');
                 } catch (error) {
@@ -12657,9 +12607,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
             }
 
-            // Show container
-            container.style.display = 'block';
-            console.log('👁️ GitHub auth container visible');
+            // Keep container hidden until "Repos" button is clicked
+            container.style.display = 'none';
+            console.log('🔒 GitHub auth container ready but hidden (will show when Repos button clicked)');
         } else {
             // Hide container for other lists
             container.style.display = 'none';
