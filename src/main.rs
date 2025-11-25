@@ -422,6 +422,16 @@ struct SaveCsvRequest {
     content: String,
 }
 
+// GitHub token endpoint - returns token from docker/.env if available
+async fn get_github_token() -> Result<HttpResponse> {
+    // Read GITHUB_PERSONAL_ACCESS_TOKEN from environment
+    let token = std::env::var("GITHUB_PERSONAL_ACCESS_TOKEN").ok();
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "token": token
+    })))
+}
+
 // Health check endpoint
 async fn health_check(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     match &data.db {
@@ -2945,6 +2955,10 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/usage/cli", web::get().to(get_gemini_usage_cli))
                             .route("/usage/website", web::get().to(get_gemini_usage_website))
                             .route("/analyze", web::post().to(gemini_insights::analyze_with_gemini))
+                    )
+                    .service(
+                        web::scope("/github")
+                            .route("/token", web::get().to(get_github_token))
                     )
                     .service(
                         web::scope("/semantic-search")
