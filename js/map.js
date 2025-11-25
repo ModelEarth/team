@@ -75,6 +75,47 @@ class ListingsDisplay {
         
         this.init();
         this.setupGlobalEventListeners();
+
+        // Initialize debug message queue watcher
+        ListingsDisplay.initDebugDivWatcher();
+    }
+
+    // Static properties for debug message queue
+    static debugMessageQueue = [];
+    static debugDivReady = false;
+    static debugDivCheckStarted = false;
+
+    // Initialize debug div watcher
+    static initDebugDivWatcher() {
+        if (this.debugDivCheckStarted) return;
+        this.debugDivCheckStarted = true;
+
+        const checkForDiv = () => {
+            const debugDiv = document.getElementById('debug-messages');
+            if (debugDiv) {
+                console.log('✅ debug-messages div found, flushing queue with', this.debugMessageQueue.length, 'messages');
+                this.debugDivReady = true;
+                this.flushDebugMessageQueue();
+            } else {
+                // Keep checking every 100ms
+                setTimeout(checkForDiv, 100);
+            }
+        };
+        checkForDiv();
+    }
+
+    static flushDebugMessageQueue() {
+        const debugDiv = document.getElementById('debug-messages');
+        if (!debugDiv || this.debugMessageQueue.length === 0) return;
+
+        console.log('📤 Flushing', this.debugMessageQueue.length, 'queued messages to debug div');
+
+        // Insert all queued messages (oldest first, so they appear in correct order)
+        this.debugMessageQueue.reverse().forEach(html => {
+            debugDiv.insertAdjacentHTML('afterbegin', html);
+        });
+
+        this.debugMessageQueue = [];
     }
 
     setupGlobalEventListeners() {
@@ -339,7 +380,11 @@ class ListingsDisplay {
     }
 
     async loadDataFromConfig(config) {
-        if (config.googleCSV) {
+        // Check if dataset_via_api is configured
+        if (config.dataset_via_api && config.dataset_via_api.trim() !== '') {
+            console.log('Loading data from API:', config.dataset_via_api);
+            return await this.loadAPIData(config.dataset_via_api, config);
+        } else if (config.googleCSV) {
             //return await this.loadGoogleCSV(config.googleCSV);
             return await this.loadCSVData(config.googleCSV, config);
         } else if (config.dataset.endsWith('.json') ) {
@@ -663,19 +708,229 @@ class ListingsDisplay {
 
     async loadJSONData(url) {
         const response = await fetch(url);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to load JSON: ${response.status} ${response.statusText}`);
         }
-        
+
         const jsonData = await response.json();
-        
+
         // Convert JSON array to the same format as CSV data
         if (Array.isArray(jsonData) && jsonData.length > 0) {
             return jsonData;
         }
-        
+
         return [];
+    }
+
+    async loadAPIData(apiPath, config) {
+        // Determine the API URL to call
+        let apiUrl;
+
+        if (apiPath.startsWith('https://www.cognitoforms.com')) {
+            // Cognito Forms URLs should be proxied through our Rust API server
+            // which will add authentication
+            const cognitoPath = apiPath.replace('https://www.cognitoforms.com/api/', '');
+            apiUrl = `http://localhost:8081/api/cognito/${cognitoPath}`;
+            console.log('Proxying Cognito Forms request:', apiPath, '→', apiUrl);
+        } else if (apiPath.startsWith('http')) {
+            // Other external URLs are called directly
+            apiUrl = apiPath;
+        } else {
+            // Relative paths are resolved to local API server
+            apiUrl = `http://localhost:8081${apiPath}`;
+        }
+
+        console.log('Fetching data from API:', apiUrl);
+
+        try {
+            const response = await fetch(apiUrl);
+
+            if (!response.ok) {
+                // Try to get detailed error from response body
+                let detailedError = response.statusText;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.error) {
+                        detailedError = errorData.error;
+                    } else if (errorData.message) {
+                        detailedError = errorData.message;
+                    }
+                } catch (e) {
+                    console.warn('Could not parse error response:', e);
+                }
+
+                const errorMsg = `API request failed: ${response.status} ${detailedError}`;
+                console.error(errorMsg);
+
+                // Display error in debug messages
+                this.displayAPIError(apiUrl, response.status, detailedError, config);
+
+                // Fallback to CSV if API fails
+                if (config.dataset) {
+                    console.log('Falling back to CSV dataset:', config.dataset);
+                    this.displayDebugMessage('⚠️ Using CSV fallback: ' + config.dataset, 'warning');
+                    const datasetUrl = config.dataset.startsWith('http')
+                        ? config.dataset
+                        : this.getDatasetBasePath() + config.dataset;
+                    return await this.loadCSVData(datasetUrl, config);
+                }
+                throw new Error(errorMsg);
+            }
+
+            const apiResponse = await response.json();
+
+            // Check if API response has the expected structure
+            if (apiResponse.success && apiResponse.data) {
+                // Extract entries from the API response
+                const entries = apiResponse.data.entries || apiResponse.data || [];
+
+                if (Array.isArray(entries) && entries.length > 0) {
+                    console.log(`Successfully loaded ${entries.length} entries from API`);
+                    this.displayDebugMessage(`✅ API Success: Loaded ${entries.length} entries from ${apiUrl}`, 'success');
+                    return entries;
+                }
+            }
+
+            console.warn('API returned no data, falling back to CSV if available');
+            this.displayDebugMessage('⚠️ API returned no data, using CSV fallback', 'warning');
+
+            // Fallback to CSV if API returns no data
+            if (config.dataset) {
+                const datasetUrl = config.dataset.startsWith('http')
+                    ? config.dataset
+                    : this.getDatasetBasePath() + config.dataset;
+                return await this.loadCSVData(datasetUrl, config);
+            }
+
+            return [];
+
+        } catch (error) {
+            console.error('API connection error:', error);
+            this.displayAPIError(apiUrl, null, error.message, config);
+
+            // Fallback to CSV on connection error
+            if (config.dataset) {
+                this.displayDebugMessage('⚠️ Using CSV fallback due to connection error', 'warning');
+                const datasetUrl = config.dataset.startsWith('http')
+                    ? config.dataset
+                    : this.getDatasetBasePath() + config.dataset;
+                return await this.loadCSVData(datasetUrl, config);
+            }
+
+            throw error;
+        }
+    }
+
+    displayAPIError(apiUrl, statusCode, errorMessage, config) {
+        console.log('🚨 displayAPIError called - Endpoint:', apiUrl, 'Status:', statusCode, 'Error:', errorMessage);
+
+        const errorHtml = `
+            <div id="api-error-box" style="
+                border: 2px solid #dc3545;
+                border-radius: 8px;
+                padding: 16px;
+                margin: 10px 0;
+                background: #fff;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            ">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 24px; margin-right: 10px;">❌</span>
+                    <div style="font-weight: bold; font-size: 16px; color: #dc3545;">
+                        API Connection Failed
+                    </div>
+                    <button onclick="this.closest('#api-error-box').remove()" style="
+                        margin-left: auto;
+                        background: transparent;
+                        border: none;
+                        font-size: 20px;
+                        cursor: pointer;
+                        color: #999;
+                        padding: 0 8px;
+                    ">×</button>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 12px;">
+                    <div style="margin-bottom: 8px;">
+                        <strong>Endpoint:</strong><br>
+                        <code style="background: #fff; padding: 4px 8px; border-radius: 3px; display: inline-block; margin-top: 4px; font-size: 12px; color: #333;">${apiUrl}</code>
+                    </div>
+                    ${statusCode ? `<div style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #dc3545; font-weight: bold;">${statusCode}</span></div>` : ''}
+                    <div>
+                        <strong>Error:</strong> ${errorMessage}
+                    </div>
+                </div>
+
+                <details style="margin-top: 12px;" open>
+                    <summary style="cursor: pointer; font-weight: bold; color: #495057; margin-bottom: 8px;">
+                        Troubleshooting Steps
+                    </summary>
+                    <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.6; color: #495057;">
+                        ${errorMessage.includes('404') ? `
+                        <li><strong style="color: #dc3545;">404 Not Found</strong> - The entries endpoint URL is incorrect</li>
+                        <li>Cognito Forms may use a different URL pattern for entries</li>
+                        <li>Check the official API documentation for the correct endpoint format</li>
+                        ` : errorMessage.includes('error sending request') || errorMessage.includes('Request failed') ? `
+                        <li><strong style="color: #dc3545;">TLS/SSL Connection Issue Detected</strong></li>
+                        <li>The Rust server cannot connect to Cognito Forms API</li>
+                        <li>This may be due to certificate validation or network restrictions</li>
+                        <li>Test from server: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">curl https://www.cognitoforms.com/api/forms</code></li>
+                        ` : ''}
+                        <li>Verify server is running: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">curl http://localhost:8081/api/health</code></li>
+                        <li>Check API credentials in <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">docker/.env</code></li>
+                        <li>Check server logs: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">tail -f server.log</code></li>
+                    </ul>
+                </details>
+
+                ${config.dataset ? `
+                <div style="margin-top: 12px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                    <strong style="color: #856404;">ℹ️ Fallback Active:</strong> Loading data from CSV instead<br>
+                    <code style="font-size: 11px; color: #856404; word-break: break-all;">${config.dataset}</code>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        // Display in dedicated API error container (always visible)
+        const errorContainer = document.getElementById('api-error-container');
+        if (errorContainer) {
+            console.log('✅ Displaying API error in dedicated container');
+            errorContainer.innerHTML = errorHtml;
+        } else {
+            console.error('❌ api-error-container not found!');
+        }
+
+        // Also log to debug messages if available
+        this.displayDebugMessage(`❌ API Error: ${errorMessage}`, 'error');
+    }
+
+    displayDebugMessage(message, type = 'info') {
+
+        const colors = {
+            'success': { bg: '#d4edda', border: '#28a745', text: '#155724' },
+            'warning': { bg: '#fff3cd', border: '#ffc107', text: '#856404' },
+            'info': { bg: '#d1ecf1', border: '#17a2b8', text: '#0c5460' },
+            'error': { bg: '#f8d7da', border: '#dc3545', text: '#721c24' }
+        };
+
+        const color = colors[type] || colors.info;
+
+        const messageHtml = `
+            <div style="border-left: 4px solid ${color.border}; padding: 8px 12px; margin: 5px 0; background: ${color.bg}; color: ${color.text}; font-family: monospace; font-size: 12px;">
+                ${message}
+            </div>
+        `;
+
+        // Queue or display immediately depending on div readiness
+        const debugDiv = document.getElementById('debug-messages');
+        if (debugDiv && ListingsDisplay.debugDivReady) {
+            console.log('📢 Displaying debug message immediately:', message);
+            debugDiv.insertAdjacentHTML('afterbegin', messageHtml);
+        } else {
+            console.log('📥 Queueing debug message (div not ready yet):', message);
+            ListingsDisplay.debugMessageQueue.push(messageHtml);
+        }
     }
 
     parseCSV(csvText, config = null) {

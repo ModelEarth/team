@@ -4,6 +4,7 @@
     "menuTitle": "City Visits",
     "listTitle": "City Visits",
     "datatype": "csv",
+    "dataset_via_api": "https://www.cognitoforms.com/api/forms/298/entries",
     "dataset": "../../../display/team/map/visits.csv",
     "markerType": "google",
     "nameColumn": "City",

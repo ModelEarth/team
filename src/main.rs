@@ -30,6 +30,7 @@ mod recommendations;
 mod oauth;
 mod prompts;
 mod semantic_search;
+mod api_integration;
 use recommendations::RecommendationRequest;
 use oauth::{OAuthConfig, UserSession, OAuthUrlResponse};
 
@@ -2897,7 +2898,10 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
     
     // Create persistent Claude session manager
     let claude_session_manager: ClaudeSessionManager = Arc::new(Mutex::new(ClaudeSession::new()));
-    
+
+    // Create API integration config for Cognito Forms
+    let cognito_config = api_integration::ApiConfig::cognito_forms();
+
     // Get server config from shared config
     let (server_host, server_port) = {
         let config_guard = shared_config.lock().unwrap();
@@ -2907,16 +2911,19 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
     println!("Starting API server on {server_host}:{server_port}");
     let session_manager_clone = claude_session_manager.clone();
     
+    let cognito_config_clone = cognito_config.clone();
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
-        
+
         App::new()
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(session_manager_clone.clone()))
+            .app_data(web::Data::new(cognito_config_clone.clone()))
             .wrap(cors)
             .wrap(middleware::Logger::default())
             .service(
@@ -3021,6 +3028,12 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                         web::scope("/google")
                             .route("/projects", web::get().to(get_google_cloud_projects))
                             .route("/projects/mock", web::get().to(get_google_cloud_projects_mock))
+                    )
+                    .service(
+                        web::scope("/cognito")
+                            .route("/test", web::get().to(api_integration::test_connection))
+                            .route("/forms", web::get().to(api_integration::list_forms))
+                            .route("/forms/{form_id}/entries", web::get().to(api_integration::get_form_entries))
                     )
             )
     })
