@@ -2771,6 +2771,9 @@
                         <div class="menu-item" id="refresh-csv-toggle" style="display: none;">
                             <span>Refresh lists.csv</span>
                         </div>
+                        <div class="menu-item" id="refresh-local-toggle" style="display: none;">
+                            <span>Refresh Locally</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -11283,6 +11286,18 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Show "Refresh lists.csv" option only on localhost
             if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
                 document.getElementById('refresh-csv-toggle').style.display = 'block';
+
+                // Show "Refresh Local" option if map widget has dataset_api_slow or dataset_via_api
+                // and dataset is a local file
+                if (window.listingsApp && window.listingsApp.config) {
+                    const config = window.listingsApp.config;
+                    const hasAPIConfig = config.dataset_api_slow || config.dataset_via_api;
+                    const hasLocalDataset = config.dataset && !config.dataset.startsWith('http');
+
+                    if (hasAPIConfig && hasLocalDataset) {
+                        document.getElementById('refresh-local-toggle').style.display = 'block';
+                    }
+                }
             }
             
             // Load snapshot if no auto-data loading occurred
@@ -11298,6 +11313,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             document.getElementById('list-feeds-toggle').addEventListener('click', showAllLists);
             document.getElementById('refresh-csv-toggle').addEventListener('click', refreshListsCSV);
+            document.getElementById('refresh-local-toggle').addEventListener('click', function() {
+                if (window.listingsApp && typeof window.listingsApp.refreshLocalData === 'function') {
+                    window.listingsApp.refreshLocalData();
+                } else {
+                    console.error('ListingsApp refreshLocalData function not available');
+                }
+            });
             
             document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
             document.getElementById('condensed-toggle').addEventListener('click', toggleCondensed);

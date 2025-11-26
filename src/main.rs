@@ -3034,7 +3034,9 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/test", web::get().to(api_integration::test_connection))
                             .route("/forms", web::get().to(api_integration::list_forms))
                             .route("/forms/{form_id}/entries", web::get().to(api_integration::get_form_entries))
+                            .route("/proxy", web::get().to(api_integration::proxy_cognito_request))
                     )
+                    .route("/refresh-local", web::post().to(api_integration::refresh_local_file))
             )
     })
     .bind((server_host, server_port))?

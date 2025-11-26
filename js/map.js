@@ -380,11 +380,14 @@ class ListingsDisplay {
     }
 
     async loadDataFromConfig(config) {
-        // Check if dataset_via_api is configured
+        // Check if dataset_via_api (fast API) is configured
         if (config.dataset_via_api && config.dataset_via_api.trim() !== '') {
-            console.log('Loading data from API:', config.dataset_via_api);
+            console.log('Loading data from fast API:', config.dataset_via_api);
             return await this.loadAPIData(config.dataset_via_api, config);
-        } else if (config.googleCSV) {
+        }
+        // For slow APIs (dataset_api_slow), we don't auto-load, only use local dataset
+        // The "Refresh Local" button will fetch from slow API and save to local file
+        else if (config.googleCSV) {
             //return await this.loadGoogleCSV(config.googleCSV);
             return await this.loadCSVData(config.googleCSV, config);
         } else if (config.dataset.endsWith('.json') ) {
@@ -729,9 +732,9 @@ class ListingsDisplay {
 
         if (apiPath.startsWith('https://www.cognitoforms.com')) {
             // Cognito Forms URLs should be proxied through our Rust API server
-            // which will add authentication
-            const cognitoPath = apiPath.replace('https://www.cognitoforms.com/api/', '');
-            apiUrl = `http://localhost:8081/api/cognito/${cognitoPath}`;
+            // which will add authentication - use the generic proxy endpoint
+            const encodedUrl = encodeURIComponent(apiPath);
+            apiUrl = `http://localhost:8081/api/cognito/proxy?url=${encodedUrl}`;
             console.log('Proxying Cognito Forms request:', apiPath, '→', apiUrl);
         } else if (apiPath.startsWith('http')) {
             // Other external URLs are called directly
@@ -780,15 +783,47 @@ class ListingsDisplay {
 
             const apiResponse = await response.json();
 
+            console.log('API Response structure:', {
+                hasSuccess: !!apiResponse.success,
+                hasData: !!apiResponse.data,
+                dataType: typeof apiResponse.data,
+                isArray: Array.isArray(apiResponse.data),
+                dataLength: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'N/A'
+            });
+
             // Check if API response has the expected structure
             if (apiResponse.success && apiResponse.data) {
-                // Extract entries from the API response
-                const entries = apiResponse.data.entries || apiResponse.data || [];
+                let entries;
 
-                if (Array.isArray(entries) && entries.length > 0) {
-                    console.log(`Successfully loaded ${entries.length} entries from API`);
-                    this.displayDebugMessage(`✅ API Success: Loaded ${entries.length} entries from ${apiUrl}`, 'success');
+                // Check if data is already an array (bulk entries) or a single object (specific entry)
+                if (Array.isArray(apiResponse.data)) {
+                    entries = apiResponse.data;
+                    console.log(`Processing ${entries.length} entries from bulk API response`);
+                } else if (typeof apiResponse.data === 'object' && apiResponse.data !== null) {
+                    // Single entry - wrap in array
+                    entries = [apiResponse.data];
+                    console.log('Processing single entry from API response');
+                } else {
+                    entries = [];
+                    console.warn('Unexpected data format:', typeof apiResponse.data);
+                }
+
+                if (entries.length > 0) {
+                    // Log each entry as it's found
+                    entries.forEach((entry, index) => {
+                        console.log(`Entry #${index + 1}:`, {
+                            City: entry.City,
+                            Team: entry.Team,
+                            StartDate: entry.StartDate,
+                            TotalParticipants: entry.TotalParticipants
+                        });
+                    });
+
+                    console.log(`✅ Successfully loaded ${entries.length} entries from API`);
+                    this.displayDebugMessage(`✅ API Success: Loaded ${entries.length} entries`, 'success');
                     return entries;
+                } else {
+                    console.warn('No entries found in response');
                 }
             }
 
@@ -819,6 +854,71 @@ class ListingsDisplay {
             }
 
             throw error;
+        }
+    }
+
+    async refreshLocalData() {
+        try {
+            // Get the API URL (prefer dataset_via_api, fall back to dataset_api_slow)
+            const apiUrl = this.config?.dataset_via_api || this.config?.dataset_api_slow;
+            const localFilePath = this.config?.dataset;
+
+            if (!apiUrl) {
+                this.displayDebugMessage('❌ No API URL configured', 'error');
+                return;
+            }
+
+            if (!localFilePath || localFilePath.startsWith('http')) {
+                this.displayDebugMessage('❌ No local file path configured or path is not local', 'error');
+                return;
+            }
+
+            this.displayDebugMessage('🔄 Fetching data from API and saving to local file...', 'info');
+
+            // Get the fields to omit from dataset_omit config
+            const omitFields = this.config?.dataset_omit
+                ? this.config.dataset_omit.split(',').map(f => f.trim())
+                : [];
+
+            // Call the Rust endpoint to refresh the local file
+            const response = await fetch('http://localhost:8081/api/refresh-local', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    api_url: apiUrl,
+                    local_file_path: localFilePath,
+                    omit_fields: omitFields
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorMessage = `Failed to refresh local data (${response.status})`;
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    // Not JSON, use the text as is
+                    errorMessage = errorText || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const result = await response.json();
+            this.displayDebugMessage(`✅ Successfully refreshed local file: ${localFilePath} (${result.entries_count} entries)`, 'success');
+
+            // Reload the data from the refreshed local file
+            this.loading = true;
+            this.render();
+            await this.loadData();
+            this.loading = false;
+            this.render();
+
+        } catch (error) {
+            console.error('Error refreshing local data:', error);
+            this.displayDebugMessage(`❌ Failed to refresh local data: ${error.message}`, 'error');
         }
     }
 
@@ -1236,14 +1336,16 @@ class ListingsDisplay {
 
     formatKeyName(key) {
         if (!key) return '';
-        
+
         // Words that should not be capitalized unless at the start
         const lowercaseWords = ['in', 'to', 'of', 'for', 'and', 'or', 'but', 'at', 'by', 'with', 'from', 'on', 'as', 'is', 'the', 'a', 'an'];
         // Words that should be all caps
         const uppercaseWords = ['id', 'url'];
-        
+
         return key
+            .replace(/([A-Z])/g, ' $1')  // Add space before capital letters (CamelCase -> Camel Case)
             .replace(/_/g, ' ')  // Replace underscores with spaces
+            .trim()  // Remove leading/trailing spaces
             .split(' ')
             .map((word, index) => {
                 const lowerWord = word.toLowerCase();
@@ -1725,6 +1827,14 @@ class ListingsDisplay {
                 if (!isNaN(page)) {
                     this.changePage(page);
                 }
+            }
+        });
+
+        // Handle refresh local button
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'refreshLocalBtn' || e.target.closest('#refreshLocalBtn')) {
+                e.preventDefault();
+                this.refreshLocalData();
             }
         });
 
@@ -2358,10 +2468,18 @@ class ListingsDisplay {
                         
                         <!-- Summarize Toggle (only for datasets with geoColumns) -->
                         ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
-                        <div class="summarize-controls" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                        <div class="summarize-controls" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 10px; align-items: center;">
                             <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                                 ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
                             </button>
+                            ${ (window.location.hostname === 'localhost' &&
+                                (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
+                                this.config?.dataset &&
+                                !this.config.dataset.startsWith('http')) ? `
+                            <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;" title="Fetch data from API and save to local file">
+                                Refresh Locally
+                            </button>
+                            ` : ''}
                         </div>
                         ` : ''}
                         
