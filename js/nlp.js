@@ -41,7 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
             // Initialize fuzzy search
             fuse = initializeFuzzySearch(feeds, thresholdSlider.value / 100);
 
-            searchResultsDiv.innerHTML = `<p>✅ Loaded ${feeds.length} project feeds. Start searching above!</p>`;
+            // Display all projects initially
+            displayAllProjects();
         },
         // Error callback
         (errorMessage) => {
@@ -51,14 +52,37 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     /**
+     * Display all projects (used on initial load and when search is cleared)
+     */
+    const displayAllProjects = () => {
+        if (!feeds.length) return;
+
+        const urlResolver = window.nlpAI?.urlResolver || null;
+        // Convert feeds to results format (with .item property)
+        const allResults = feeds.map(feed => ({ item: feed }));
+
+        searchResultsDiv.innerHTML = `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 4px;">
+                <strong>Showing all ${feeds.length} projects</strong>
+                <span style="color: #666; font-size: 0.9rem; margin-left: 0.5rem;">
+                    — Type in the search bar to filter
+                </span>
+            </div>
+            ${renderSearchResults(allResults, urlResolver)}
+        `;
+    };
+
+    /**
      * Perform regular (non-AI) search
      */
     const doSearch = () => {
         if (!feeds.length) return;
 
         const query = searchInput.value.trim();
+
+        // If query is empty, show all projects
         if (!query) {
-            searchResultsDiv.innerHTML = '';
+            displayAllProjects();
             return;
         }
 
@@ -72,7 +96,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Get URL resolver from AI adapter (if initialized)
         const urlResolver = window.nlpAI?.urlResolver || null;
-        searchResultsDiv.innerHTML = renderSearchResults(results, urlResolver);
+        searchResultsDiv.innerHTML = `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 4px;">
+                <strong>Found ${results.length} matching project${results.length !== 1 ? 's' : ''}</strong>
+                <span style="color: #666; font-size: 0.9rem; margin-left: 0.5rem;">
+                    for "${query}"
+                </span>
+            </div>
+            ${renderSearchResults(results, urlResolver)}
+        `;
     };
 
     // Event listeners for search
