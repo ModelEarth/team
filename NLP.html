@@ -30,6 +30,14 @@
         <span>ℹ️</span>
         <span>Use regular search for keywords, or click <strong>Gemini Insights</strong> for intelligent semantic matching across projects.</span>
     </div>
+
+    <!-- Gemini Resources Section -->
+    <div id="gemini-resources" class="card" style="margin-top: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+        <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
+        <div id="gemini-key-content">
+            Add it in docker/.env
+        </div>
+    </div>
 </div>
 
 <!-- Search Input -->
@@ -68,6 +76,7 @@
 
 <!-- AI Integration Scripts - Optional, don't block if missing -->
 <script src="js/common.js" onerror="console.warn('common.js not loaded - AI features will use standalone implementation')"></script>
+<script src="js/setup.js" onerror="console.warn('setup.js not loaded - Gemini setup features will be limited')"></script>
 <script src="js/list.js" onerror="console.warn('list.js not loaded - AI features will use standalone implementation')"></script>
 
 <!-- AI Insights Component (Core) -->
@@ -84,6 +93,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Initializing NLP AI Insights Component');
+
+    // Initialize Gemini Resources section (from setup.js)
+    if (typeof setupGeminiResources === 'function') {
+        setupGeminiResources();
+    }
 
     // Create and initialize the NLP AI Adapter
     window.nlpAI = new NLPAIAdapter();
