@@ -380,6 +380,14 @@ class ListingsDisplay {
     }
 
     async loadDataFromConfig(config) {
+        // Check for offline mode - use dataset_offline if onlinemode cookie is false
+        const onlineMode = Cookies.get('onlinemode');
+        if (onlineMode === 'false' && config.dataset_offline) {
+            console.log('Offline mode active - using dataset_offline:', config.dataset_offline);
+            // Temporarily override dataset with dataset_offline
+            config = {...config, dataset: config.dataset_offline};
+        }
+
         // Check if dataset_via_api (fast API) is configured
         if (config.dataset_via_api && config.dataset_via_api.trim() !== '') {
             console.log('Loading data from fast API:', config.dataset_via_api);
@@ -1987,28 +1995,29 @@ class ListingsDisplay {
                         ${displayData.quaternary ? `<div class="listing-info">${displayData.quaternary}</div>` : ''}
                         ${displayData.quinary ? `<div class="listing-info">${displayData.quinary}</div>` : ''}
                         ${displayData.senary ? `<div class="listing-info">${displayData.senary}</div>` : ''}
-                        
+
+                        ${additionalDetailsCount > 0 ? `
                         <div class="details-toggle">
                             <span class="toggle-arrow" id="arrow-${uniqueId}" data-details-id="${uniqueId}">▶</span>
                             <span class="toggle-label" data-details-id="${uniqueId}">Additional Details (${additionalDetailsCount})</span>
                         </div>
-                        
+
                         <div class="details-content" id="${uniqueId}">
                             ${Object.entries(listing)
-                                .filter(([key, value]) => 
-                                    !isInFeaturedColumns(key) && 
+                                .filter(([key, value]) =>
+                                    !isInFeaturedColumns(key) &&
                                     !isInOmitList(key) &&
-                                    value && 
+                                    value &&
                                     value.toString().trim() !== '' &&
                                     value.toString().trim() !== '-' &&
-                                    key !== fieldMapping.latitude && 
+                                    key !== fieldMapping.latitude &&
                                     key !== fieldMapping.longitude
                                 )
                                 .map(([key, value]) => {
                                     const formattedValue = this.formatFieldValue(value);
                                     const shouldStack = key.length > 16 && formattedValue.length > 38;
                                     const stackedClass = shouldStack ? ' stacked' : '';
-                                    
+
                                     return `
                                         <div class="detail-item${stackedClass}">
                                             <span class="detail-label">${this.formatKeyName(key)}:</span>
@@ -2017,6 +2026,7 @@ class ListingsDisplay {
                                     `;
                                 }).join('')}
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2464,24 +2474,25 @@ class ListingsDisplay {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Summarize Toggle (only for datasets with geoColumns) -->
-                        ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
-                        <div class="summarize-controls" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 10px; align-items: center;">
-                            <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                                ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
-                            </button>
-                            ${ (window.location.hostname === 'localhost' &&
-                                (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
-                                this.config?.dataset &&
-                                !this.config.dataset.startsWith('http')) ? `
-                            <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;" title="Fetch data from API and save to local file">
-                                Refresh Locally
-                            </button>
+
+                            <!-- Summarize Toggle (only for datasets with geoColumns) -->
+                            ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
+                            <div class="summarize-controls" style="padding-bottom:10px; display: flex; gap: 10px; align-items: center;">
+                                <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                    ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
+                                </button>
+                                ${ (window.location.hostname === 'localhost' &&
+                                    (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
+                                    this.config?.dataset &&
+                                    !this.config.dataset.startsWith('http')) ? `
+                                <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;" title="Fetch data from API and save to local file">
+                                    Refresh Locally
+                                </button>
+                                ` : ''}
+                            </div>
                             ` : ''}
+
                         </div>
-                        ` : ''}
                         
                         <!-- Listings Grid -->
                         <div class="listings-scroll-container">

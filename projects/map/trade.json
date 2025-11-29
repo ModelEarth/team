@@ -5,9 +5,11 @@
     "listTitle": "Deep-Containment Architecture for SMRs",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
+    "dataset_offline": "/community/projects/nuclear/locations.csv",
     "markerType": "google",
     "nameColumn": "Location",
     "featuredColumns": ["Location", "CountyRegion", "Nearby City", "Deposit Distance", "Geological Notes", "Fuel Type", "Mineral Availability", "Type Form", "Fuel Depth", "Nearby City Distance"],
+    "omit_display": ["Country"],
     "search": {
       "In City": "Location",
       "In County Name": "CountyRegion"
