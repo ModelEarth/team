@@ -5,31 +5,14 @@
 <title>AI-Powered Project Search</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body { font-family: Arial, sans-serif; margin: 2rem; }
-input, button { margin: 0.3rem; padding: 0.5rem; font-size: 1rem; }
-.card { border: 1px solid #ccc; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; }
-.searchbar { margin-bottom: 1rem; }
-button { background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; }
-button:hover { background-color: #45a049; }
-button:disabled { background-color: #ccc; cursor: not-allowed; }
-.gemini-btn { background-color: #4285F4; }
-.gemini-btn:hover { background-color: #357ae8; }
-.suggestions-box { 
-    background-color: #e8f5e9; 
-    border: 1px solid #4CAF50; 
-    border-radius: 8px; 
-    padding: 1rem; 
-    margin-bottom: 1rem; 
-}
-.suggestions-box h3 { margin-top: 0; display: flex; align-items: center; gap: 0.5rem; }
-.suggestions-box ul { margin: 0.5rem 0; padding-left: 1.5rem; }
-.suggestions-box li { margin: 0.3rem 0; }
-.info-text { font-size: 0.9rem; color: #666; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.3rem; }
-.ai-results { margin-top: 1rem; padding: 1rem; background-color: #f5f5f5; border-radius: 8px; }
-.loading { color: #666; font-style: italic; }
-.error { color: #d32f2f; background-color: #ffebee; padding: 0.5rem; border-radius: 4px; }
-</style>
+<!-- Shared Stylesheets (reused from projects page) -->
+<link type="text/css" rel="stylesheet" href="../localsite/css/base.css" id="/localsite/css/base.css" />
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/shared-styles.css">
+
+<!-- NLP-Specific Stylesheets -->
+<link rel="stylesheet" href="css/nlp.css">
+<link rel="stylesheet" href="css/ai-insights.css">
 </head>
 <body>
 
@@ -54,12 +37,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     <input id="q" placeholder="Search feeds/projects…" />
     <label><input type="checkbox" id="fuzzy" checked /> Fuzzy</label>
     <input type="range" id="th" min="0" max="60" value="35" />
-    <button id="gemini-insights" class="gemini-btn">Gemini Insights</button>
 </div>
-
-<!-- Regular Search Results -->
-<div id="search-results">Loading feeds…</div>
-<div id="ai-results" class="ai-results" style="display: none;"></div>
 
 <!-- AI Insights Component (Modular & Reusable) -->
 <div id="aiInsights" class="ai-insights-container" style="display: none;">
@@ -80,6 +58,9 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
         </div>
     </div>
 </div>
+
+<!-- Regular Search Results -->
+<div id="search-results">Loading feeds…</div>
 
 <!-- External Libraries - Load First -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -114,128 +95,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             console.error('❌ Failed to initialize NLP AI Insights Component');
         }
-
-        searchResultsDiv.innerHTML = results.map(r => {
-            const item = r.item;
-            return `<div class="card">
-                        <h3>${item.Title}</h3>
-                        <p>${item.Description}</p>
-                        <a href="${item.URL}" target="_blank">Link</a>
-                    </div>`;
-        }).join('');
-    };
-
-    // Event listeners
-    searchInput.addEventListener("input", doSearch);
-    searchInput.addEventListener("keydown", e => { if(e.key==="Enter") doSearch(); });
-    thresholdSlider.addEventListener("input", () => {
-        if(fuse) fuse.options.threshold = thresholdSlider.value / 100;
-        doSearch();
-    });
-    fuzzyCheckbox.addEventListener("change", doSearch);
-
-    // Gemini API configuration (shared with team/projects/index.html)
-    const GEMINI_API_BASE = 'http://localhost:8081/api';
-    const geminiInsightsBtn = document.getElementById("gemini-insights");
-    const aiResultsDiv = document.getElementById("ai-results");
-
-    // Gemini Insights handler
-    geminiInsightsBtn.addEventListener("click", async () => {
-        if (!feeds.length) {
-            aiResultsDiv.innerHTML = '<div class="error">No feeds loaded. Please wait for feeds to load.</div>';
-            aiResultsDiv.style.display = 'block';
-            return;
-        }
-
-        const query = searchInput.value.trim();
-        if (!query) {
-            aiResultsDiv.innerHTML = '<div class="error">Please enter a search query first.</div>';
-            aiResultsDiv.style.display = 'block';
-            return;
-        }
-
-        // Disable button and show loading
-        geminiInsightsBtn.disabled = true;
-        geminiInsightsBtn.textContent = 'Processing...';
-        aiResultsDiv.style.display = 'block';
-        aiResultsDiv.innerHTML = '<div class="loading">🔄 Analyzing projects with Gemini AI...</div>';
-
-        try {
-            // Prepare data for Gemini analysis
-            const sampleData = feeds.slice(0, 20); // Limit to 20 for analysis
-            const prompt = `Based on this search query: "${query}"
-
-Help me find relevant projects from this dataset. Analyze the project titles and descriptions to identify which projects match the intent of the search query, even if they don't contain the exact keywords.
-
-**Available Projects (${feeds.length} total, showing sample of ${sampleData.length}):**
-${sampleData.map((f, idx) => `${idx + 1}. Title: ${f.Title}\n   Description: ${f.Description}\n   URL: ${f.URL}`).join('\n\n')}
-
-Please:
-1. Identify which projects are most relevant to the search query
-2. Explain why they are relevant
-3. Suggest any additional search terms that might be useful
-4. Provide a summary of the types of projects found
-
-Format your response in a clear, structured way.`;
-
-            const response = await fetch(`${GEMINI_API_BASE}/gemini/analyze`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    prompt: prompt
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success && result.analysis) {
-                // Display Gemini analysis
-                aiResultsDiv.innerHTML = `
-                    <h3>🤖 Gemini AI Analysis</h3>
-                    <div style="white-space: pre-wrap; line-height: 1.6;">${result.analysis}</div>
-                    <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
-                        <strong>Query:</strong> "${query}" | 
-                        <strong>Total Projects:</strong> ${feeds.length} | 
-                        <strong>Sample Analyzed:</strong> ${sampleData.length}
-                    </p>
-                `;
-            } else {
-                throw new Error(result.error || 'Analysis failed');
-            }
-
-        } catch (error) {
-            console.error('Gemini API error:', error);
-            const isConnectionError = error.message.includes('fetch') || 
-                                    error.message.includes('NetworkError') || 
-                                    error.message.includes('Failed to fetch');
-            
-            if (isConnectionError) {
-                aiResultsDiv.innerHTML = `
-                    <div class="error">
-                        <strong>⚠️ Connection Error</strong><br>
-                        The Gemini API requires the Rust backend server to be running.<br>
-                        <small>Start the server with "start rust" to enable AI-powered search.</small>
-                    </div>
-                `;
-            } else {
-                aiResultsDiv.innerHTML = `
-                    <div class="error">
-                        <strong>Error:</strong> ${error.message || 'Unknown error occurred'}
-                    </div>
-                `;
-            }
-        } finally {
-            // Re-enable button
-            geminiInsightsBtn.disabled = false;
-            geminiInsightsBtn.textContent = 'Gemini Insights';
-        }
-    });
+    } catch (error) {
+        console.error('❌ Error initializing NLP AI Insights Component:', error);
+    }
 });
 </script>
 
