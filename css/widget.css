@@ -45,7 +45,6 @@ body {
     display: flex;
     gap: 12px;
     align-items: flex-start;
-    margin-bottom: 12px;
     overflow: visible;
     position: relative;
 }

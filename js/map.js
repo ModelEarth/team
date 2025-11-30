@@ -2428,7 +2428,7 @@ class ListingsDisplay {
                     <div id="widgetDetailsParent" class="basePanel">
                     <div id="widgetDetails" myparent="widgetDetailsParent" class="basePanel">
                         <!-- Controls -->
-                        <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground" style="padding-bottom:0px">
+                        <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground">
                             <div class="search-container">
                                 ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
                                 <div class="map-selector">
@@ -2477,7 +2477,7 @@ class ListingsDisplay {
 
                             <!-- Summarize Toggle (only for datasets with geoColumns) -->
                             ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
-                            <div class="summarize-controls" style="padding-bottom:10px; display: flex; gap: 10px; align-items: center;">
+                            <div class="summarize-controls" style="display: flex; gap: 10px; align-items: center;">
                                 <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                                     ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
                                 </button>
