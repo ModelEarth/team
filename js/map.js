@@ -561,7 +561,7 @@ class ListingsDisplay {
             // Merge geo data into primary data
             let mergedCount = 0;
             let addedColumns = new Set();
-            let unmatchedValues = new Set(); // Track unmatched values efficiently
+            let unmatchedValues = new Map(); // Track unmatched values with counts (location -> count)
             
             primaryData.forEach(primaryRow => {
                 let geoRow = null;
@@ -631,8 +631,9 @@ class ListingsDisplay {
                     
                     mergedCount++;
                 } else if (lookupKey) {
-                    // Track values that couldn't be matched (only if lookupKey exists)
-                    unmatchedValues.add(lookupKey);
+                    // Track values that couldn't be matched with their counts (only if lookupKey exists)
+                    const currentCount = unmatchedValues.get(lookupKey) || 0;
+                    unmatchedValues.set(lookupKey, currentCount + 1);
                 }
             });
             
@@ -648,8 +649,16 @@ class ListingsDisplay {
             // Report unmatched values as a secondary process to avoid slowing down the merge
             setTimeout(() => {
                 if (unmatchedValues.size > 0) {
-                    const unmatchedList = Array.from(unmatchedValues);
-                    debugAlert(`🔍 GEO MERGE UNMATCHED: ${unmatchedValues.size} values from "${mergeColumn}" column not found in geo dataset: ${unmatchedList.join(', ')}`);
+                    // Generate individual debugAlert messages for each failed location with count
+                    debugAlert(`❌ GEO MERGE FAILED: ${unmatchedValues.size} unique location(s) not found in geo dataset`);
+
+                    // Sort by count (descending) for better visibility
+                    const sortedUnmatched = Array.from(unmatchedValues.entries())
+                        .sort((a, b) => b[1] - a[1]);
+
+                    sortedUnmatched.forEach(([location, count]) => {
+                        debugAlert(`📍 Missing location: "${location}" (${count} record${count > 1 ? 's' : ''} failed to merge - no lat/lon available for map)`);
+                    });
                 } else {
                     debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
                 }
