@@ -16,6 +16,7 @@ dependencies = [
  "clap",
  "colored 2.2.0",
  "criterion",
+ "csv",
  "dialoguer",
  "dirs",
  "dotenv",

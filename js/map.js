@@ -409,10 +409,139 @@ class ListingsDisplay {
         }
     }
 
+    // Check if dataset already has complete Latitude and Longitude data
+    hasCompleteCoordinates(data) {
+        if (!data || data.length === 0) return false;
+
+        // Check if Latitude and Longitude columns exist
+        const firstRow = data[0];
+        const hasLatCol = firstRow.hasOwnProperty('LATITUDE') || firstRow.hasOwnProperty('Latitude') || firstRow.hasOwnProperty('latitude');
+        const hasLonCol = firstRow.hasOwnProperty('LONGITUDE') || firstRow.hasOwnProperty('Longitude') || firstRow.hasOwnProperty('longitude');
+
+        if (!hasLatCol || !hasLonCol) {
+            debugAlert('📍 Dataset missing Latitude/Longitude columns');
+            return false;
+        }
+
+        // Check if all rows have valid coordinates
+        const missingCount = data.filter(row => {
+            const lat = row.LATITUDE || row.Latitude || row.latitude;
+            const lon = row.LONGITUDE || row.Longitude || row.longitude;
+            return !lat || !lon || lat === '' || lon === '';
+        }).length;
+
+        if (missingCount > 0) {
+            debugAlert(`📍 Dataset has ${missingCount} rows missing coordinates`);
+            return false;
+        }
+
+        debugAlert('✅ All rows have lat/lon, skipping merge with geoDataset');
+        return true;
+    }
+
+    async geocodeLocationWithLLM(locationString) {
+        const prompt = `Please provide the latitude and longitude for this location: "${locationString}"
+
+Return ONLY a JSON object in this exact format with coordinates rounded to 2 decimal places:
+{"latitude": 00.00, "longitude": -00.00}
+
+Do not include any explanation or additional text.`;
+
+        try {
+            // Try Gemini first
+            const geminiResponse = await fetch('http://localhost:8081/api/gemini/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+
+            if (geminiResponse.ok) {
+                const result = await geminiResponse.json();
+                if (result.success && result.analysis) {
+                    const coords = this.parseCoordinatesFromLLM(result.analysis);
+                    if (coords) {
+                        debugAlert(`🌍 Gemini geocoded "${locationString}": ${coords.latitude}, ${coords.longitude}`);
+                        return coords;
+                    }
+                }
+            }
+
+            // Fallback to Claude
+            const claudeResponse = await fetch('http://localhost:8081/api/claude/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+
+            if (claudeResponse.ok) {
+                const result = await claudeResponse.json();
+                if (result.success && result.analysis) {
+                    const coords = this.parseCoordinatesFromLLM(result.analysis);
+                    if (coords) {
+                        debugAlert(`🌍 Claude geocoded "${locationString}": ${coords.latitude}, ${coords.longitude}`);
+                        return coords;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`Geocoding failed for ${locationString}:`, error);
+        }
+
+        return null;
+    }
+
+    parseCoordinatesFromLLM(text) {
+        try {
+            // Try to find JSON in the response
+            const jsonMatch = text.match(/\{[^}]*"latitude"[^}]*"longitude"[^}]*\}/);
+            if (jsonMatch) {
+                const coords = JSON.parse(jsonMatch[0]);
+                if (coords.latitude && coords.longitude) {
+                    // Round to 2 decimal places
+                    return {
+                        latitude: Math.round(coords.latitude * 100) / 100,
+                        longitude: Math.round(coords.longitude * 100) / 100
+                    };
+                }
+            }
+
+            // Try to parse numbers directly
+            const latMatch = text.match(/lat(?:itude)?[:\s]+(-?\d+\.?\d*)/i);
+            const lonMatch = text.match(/lon(?:gitude)?[:\s]+(-?\d+\.?\d*)/i);
+            if (latMatch && lonMatch) {
+                return {
+                    latitude: Math.round(parseFloat(latMatch[1]) * 100) / 100,
+                    longitude: Math.round(parseFloat(lonMatch[1]) * 100) / 100
+                };
+            }
+        } catch (error) {
+            console.error('Failed to parse coordinates:', error);
+        }
+        return null;
+    }
+
+    getLocationKey(row, mergeColumn, isLocationField) {
+        if (isLocationField && row.City && row.State) {
+            const city = row.City.trim();
+            const state = row.State.trim();
+            return `${city}|${state}`;
+        } else if (isLocationField && row.City) {
+            return row.City.trim();
+        } else if (row[mergeColumn]) {
+            return row[mergeColumn];
+        }
+        return null;
+    }
+
     async mergeGeoDataset(primaryData, config) {
         try {
+            // Check if dataset already has complete coordinates - skip merge if so
+            if (this.hasCompleteCoordinates(primaryData)) {
+                return primaryData;
+            }
+
             debugAlert('🌍 GEO MERGE: Starting geo dataset merge');
-            
+
             // Load the geo dataset
             const geoDatasetUrl = config.geoDataset.startsWith('http') ? config.geoDataset : this.getDatasetBasePath() + config.geoDataset;
             debugAlert('🌍 GEO MERGE: Loading geo data from: ' + geoDatasetUrl);
@@ -605,9 +734,14 @@ class ListingsDisplay {
                     const geoLng = geoRow.LONGITUDE || geoRow.longitude || geoRow.LON;
                     debugAlert(`🗺️ GEO MATCH: ${primaryRow.Location} matched to geo row with lat: ${geoLat}, lng: ${geoLng}, lookup key: ${lookupKey}`);
                     
-                    // Add all geo columns that don't already exist in primary data
+                    // Add all geo columns that don't already exist or are empty in primary data
                     Object.keys(geoRow).forEach(geoColumn => {
-                        if (!primaryRow.hasOwnProperty(geoColumn)) {
+                        const shouldUpdate = !primaryRow.hasOwnProperty(geoColumn) ||
+                                           primaryRow[geoColumn] === '' ||
+                                           primaryRow[geoColumn] === null ||
+                                           primaryRow[geoColumn] === undefined;
+
+                        if (shouldUpdate) {
                             // Debug coordinate assignments
                             if (geoColumn.toLowerCase().includes('lat') || geoColumn.toLowerCase().includes('lon')) {
                                 debugAlert(`🗺️ GEO MERGE: Adding ${geoColumn} = ${geoRow[geoColumn]} to row with Location: ${primaryRow.Location}`);
@@ -638,32 +772,110 @@ class ListingsDisplay {
             });
             
             debugAlert('🌍 GEO MERGE: Merged ' + mergedCount + ' records, added columns: ' + Array.from(addedColumns).join(', '));
-            
+
             // Store merge information for search results display
             this.geoMergeInfo = {
                 totalRecords: primaryData.length,
                 mergedRecords: mergedCount,
                 geoDatasetSize: geoData.length
             };
-            
-            // Report unmatched values as a secondary process to avoid slowing down the merge
-            setTimeout(() => {
-                if (unmatchedValues.size > 0) {
-                    // Generate individual debugAlert messages for each failed location with count
-                    debugAlert(`❌ GEO MERGE FAILED: ${unmatchedValues.size} unique location(s) not found in geo dataset`);
 
-                    // Sort by count (descending) for better visibility
-                    const sortedUnmatched = Array.from(unmatchedValues.entries())
-                        .sort((a, b) => b[1] - a[1]);
+            // Track if we need to save changes to the CSV
+            let coordinatesAdded = mergedCount > 0;
 
-                    sortedUnmatched.forEach(([location, count]) => {
-                        debugAlert(`📍 Missing location: "${location}" (${count} record${count > 1 ? 's' : ''} failed to merge - no lat/lon available for map)`);
-                    });
-                } else {
-                    debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
+            // Handle unmatched values with LLM geocoding (only during "Refresh Locally")
+            const isRefreshingLocally = config._isRefreshingLocally === true;
+
+            // During "Refresh Locally", also check for rows with incomplete coordinates (either lat or lon is empty)
+            if (isRefreshingLocally) {
+                primaryData.forEach(row => {
+                    const lat = row.Latitude || row.LATITUDE || row.latitude;
+                    const lon = row.Longitude || row.LONGITUDE || row.longitude;
+                    const hasLat = lat && lat !== '' && lat !== null && lat !== undefined;
+                    const hasLon = lon && lon !== '' && lon !== null && lon !== undefined;
+
+                    // If either coordinate is missing, add this location for LLM geocoding
+                    if (!hasLat || !hasLon) {
+                        const lookupKey = this.getLocationKey(row, mergeColumn, isLocationField);
+                        if (lookupKey) {
+                            const currentCount = unmatchedValues.get(lookupKey) || 0;
+                            unmatchedValues.set(lookupKey, currentCount + 1);
+                        }
+                    }
+                });
+            }
+
+            if (unmatchedValues.size > 0 && isRefreshingLocally) {
+                debugAlert(`🤖 GEO MERGE: ${unmatchedValues.size} location(s) not found - will attempt LLM geocoding`);
+
+                let geocodedCount = 0;
+
+                // Sort by count (descending) - geocode most frequent locations first
+                const sortedUnmatched = Array.from(unmatchedValues.entries())
+                    .sort((a, b) => b[1] - a[1]);
+
+                // Process each unmatched location
+                for (const [location, count] of sortedUnmatched) {
+                    // Try LLM geocoding
+                    const coords = await this.geocodeLocationWithLLM(location);
+                    if (coords) {
+                        // Update all records with this location (use mixed case to match cities.csv)
+                        primaryData.forEach(row => {
+                            const rowLocation = this.getLocationKey(row, mergeColumn, isLocationField);
+                            if (rowLocation === location) {
+                                row.Latitude = coords.latitude;
+                                row.Longitude = coords.longitude;
+                                addedColumns.add('Latitude');
+                                addedColumns.add('Longitude');
+                            }
+                        });
+                        geocodedCount += count;
+                        mergedCount += count;
+                        coordinatesAdded = true;
+                    } else {
+                        debugAlert(`❌ Failed to geocode "${location}" (${count} record${count > 1 ? 's' : ''})`);
+                    }
                 }
-            }, 0);
-            
+
+                debugAlert(`✅ LLM Geocoding complete: ${geocodedCount} record(s) geocoded`);
+            } else if (unmatchedValues.size > 0) {
+                // Report unmatched values for non-refresh operations
+                debugAlert(`❌ GEO MERGE FAILED: ${unmatchedValues.size} unique location(s) not found in geo dataset`);
+
+                const sortedUnmatched = Array.from(unmatchedValues.entries())
+                    .sort((a, b) => b[1] - a[1]);
+
+                sortedUnmatched.forEach(([location, count]) => {
+                    debugAlert(`📍 Missing location: "${location}" (${count} record${count > 1 ? 's' : ''} failed to merge - no lat/lon available for map)`);
+                });
+            } else {
+                debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
+            }
+
+            // Check for any rows still missing coordinates and report them
+            const rowsMissingCoords = [];
+            primaryData.forEach((row, index) => {
+                const lat = row.Latitude || row.LATITUDE || row.latitude;
+                const lon = row.Longitude || row.LONGITUDE || row.longitude;
+                const hasLat = lat && lat !== '' && lat !== null && lat !== undefined;
+                const hasLon = lon && lon !== '' && lon !== null && lon !== undefined;
+
+                if (!hasLat || !hasLon) {
+                    const locationName = row[mergeColumn] || row.Location || row.City || row.Name || `Row ${index + 1}`;
+                    rowsMissingCoords.push(locationName);
+                }
+            });
+
+            if (rowsMissingCoords.length > 0) {
+                debugAlert(`⚠️ ${rowsMissingCoords.length} row(s) still missing coordinates: ${rowsMissingCoords.join(', ')}`);
+            }
+
+            // Save updated coordinates back to CSV only during "Refresh Locally" operations
+            if (coordinatesAdded && isRefreshingLocally && config.dataset && !config.dataset.startsWith('http')) {
+                debugAlert('💾 Saving updated coordinates to CSV file...');
+                await this.saveUpdatedDataset(primaryData, config.dataset);
+            }
+
             return primaryData;
             
         } catch (error) {
@@ -673,7 +885,33 @@ class ListingsDisplay {
             return primaryData;
         }
     }
-    
+
+    async saveUpdatedDataset(data, localFilePath) {
+        try {
+            const response = await fetch('http://localhost:8081/api/save-dataset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    data: data,
+                    file_path: localFilePath
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to save dataset: ${response.status} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            debugAlert(`✅ Saved ${result.entries_count} entries with coordinates to ${localFilePath}`);
+        } catch (error) {
+            console.error('Error saving updated dataset:', error);
+            debugAlert(`❌ Failed to save coordinates: ${error.message}`);
+        }
+    }
+
     createMockData(config) {
         console.log("createMockData() this.currentShow " + this.currentShow );
         if (this.currentShow === 'cities') {
@@ -897,6 +1135,9 @@ class ListingsDisplay {
                 ? this.config.dataset_omit.split(',').map(f => f.trim())
                 : [];
 
+            // Get the merge column from geoColumns config (for coordinate preservation)
+            const mergeColumn = this.config?.geoColumns?.[0] || 'Location';
+
             // Call the Rust endpoint to refresh the local file
             const response = await fetch('http://localhost:8081/api/refresh-local', {
                 method: 'POST',
@@ -906,7 +1147,8 @@ class ListingsDisplay {
                 body: JSON.stringify({
                     api_url: apiUrl,
                     local_file_path: localFilePath,
-                    omit_fields: omitFields
+                    omit_fields: omitFields,
+                    merge_column: mergeColumn
                 })
             });
 
@@ -924,14 +1166,25 @@ class ListingsDisplay {
             }
 
             const result = await response.json();
-            this.displayDebugMessage(`✅ Successfully refreshed local file: ${localFilePath} (${result.entries_count} entries)`, 'success');
+            const entriesCount = result.data?.entries_count || 0;
+            this.displayDebugMessage(`✅ Successfully refreshed local file: ${localFilePath} (${entriesCount} entries)`, 'success');
+
+            // Mark that we're refreshing locally to enable LLM geocoding
+            if (this.config) {
+                this.config._isRefreshingLocally = true;
+            }
 
             // Reload the data from the refreshed local file
             this.loading = true;
             this.render();
-            await this.loadData();
+            await this.loadShowData();
             this.loading = false;
             this.render();
+
+            // Clear the flag after reload
+            if (this.config) {
+                this.config._isRefreshingLocally = false;
+            }
 
         } catch (error) {
             console.error('Error refreshing local data:', error);

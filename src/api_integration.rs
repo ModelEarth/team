@@ -404,6 +404,12 @@ pub struct RefreshLocalRequest {
     pub local_file_path: String,
     #[serde(default)]
     pub omit_fields: Vec<String>,
+    #[serde(default = "default_merge_column")]
+    pub merge_column: String,
+}
+
+fn default_merge_column() -> String {
+    "Location".to_string()
 }
 
 // Helper function to normalize a path by resolving .. and . components
@@ -432,6 +438,106 @@ fn normalize_path(path: &std::path::Path) -> std::path::PathBuf {
     components.iter().collect()
 }
 
+// Read existing CSV and extract Latitude/Longitude values
+async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) -> std::collections::HashMap<String, (String, String)> {
+    use std::collections::HashMap;
+
+    let mut coordinates = HashMap::new();
+
+    // Determine the absolute file path
+    let file_path = if local_file_path.starts_with('/') {
+        local_file_path.to_string()
+    } else {
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let show_json_dir = current_dir.join("projects/map");
+        let full_path = show_json_dir.join(local_file_path);
+        normalize_path(&full_path).to_string_lossy().to_string()
+    };
+
+    // Try to read the existing file
+    match std::fs::read_to_string(&file_path) {
+        Ok(contents) => {
+            let mut rdr = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(contents.as_bytes());
+
+            // Get headers to find merge column, Latitude, Longitude columns
+            let headers = match rdr.headers() {
+                Ok(h) => h.clone(),
+                Err(_) => return coordinates,
+            };
+
+            let location_idx = headers.iter().position(|h| h == merge_column);
+            let lat_idx = headers.iter().position(|h| h == "LATITUDE" || h == "Latitude" || h == "latitude");
+            let lon_idx = headers.iter().position(|h| h == "LONGITUDE" || h == "Longitude" || h == "longitude");
+
+            if location_idx.is_none() || lat_idx.is_none() || lon_idx.is_none() {
+                log::info!("CSV missing {}/Latitude/Longitude columns, no coordinates to preserve", merge_column);
+                return coordinates;
+            }
+
+            // Read each record and extract coordinates
+            for result in rdr.records() {
+                if let Ok(record) = result {
+                    if let (Some(location), Some(lat), Some(lon)) = (
+                        record.get(location_idx.unwrap()),
+                        record.get(lat_idx.unwrap()),
+                        record.get(lon_idx.unwrap()),
+                    ) {
+                        if !location.is_empty() && !lat.is_empty() && !lon.is_empty() {
+                            coordinates.insert(location.to_string(), (lat.to_string(), lon.to_string()));
+                        }
+                    }
+                }
+            }
+
+            log::info!("Read {} coordinate pairs from existing CSV", coordinates.len());
+        }
+        Err(e) => {
+            log::info!("Could not read existing CSV ({}), starting fresh", e);
+        }
+    }
+
+    coordinates
+}
+
+// Merge old coordinates into new entries
+fn merge_coordinates(
+    mut entries: Vec<serde_json::Value>,
+    old_coordinates: std::collections::HashMap<String, (String, String)>,
+    merge_column: &str,
+) -> Vec<serde_json::Value> {
+    for entry in entries.iter_mut() {
+        if let Some(obj) = entry.as_object_mut() {
+            // Get the merge column field (Location, City, etc.)
+            if let Some(location_value) = obj.get(merge_column) {
+                if let Some(location) = location_value.as_str() {
+                    // Check if we have old coordinates for this location
+                    if let Some((lat, lon)) = old_coordinates.get(location) {
+                        // Only add if not already present (use mixed case to match cities.csv)
+                        if !obj.contains_key("Latitude") && !obj.contains_key("LATITUDE") && !obj.contains_key("latitude") {
+                            obj.insert("Latitude".to_string(), serde_json::Value::String(lat.clone()));
+                        }
+                        if !obj.contains_key("Longitude") && !obj.contains_key("LONGITUDE") && !obj.contains_key("longitude") {
+                            obj.insert("Longitude".to_string(), serde_json::Value::String(lon.clone()));
+                        }
+                    } else {
+                        // No old coordinates - add empty Latitude/Longitude columns for consistency (use mixed case)
+                        if !obj.contains_key("Latitude") && !obj.contains_key("LATITUDE") && !obj.contains_key("latitude") {
+                            obj.insert("Latitude".to_string(), serde_json::Value::String("".to_string()));
+                        }
+                        if !obj.contains_key("Longitude") && !obj.contains_key("LONGITUDE") && !obj.contains_key("longitude") {
+                            obj.insert("Longitude".to_string(), serde_json::Value::String("".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    entries
+}
+
 // Refresh local file with data from API
 pub async fn refresh_local_file(
     config: web::Data<ApiConfig>,
@@ -441,6 +547,11 @@ pub async fn refresh_local_file(
     let local_file_path = &req.local_file_path;
 
     log::info!("Refreshing local file {} with data from {}", local_file_path, api_url);
+    log::info!("Using merge column: {}", req.merge_column);
+
+    // First, read the existing CSV to extract Latitude/Longitude values
+    let old_coordinates = read_existing_coordinates(local_file_path, &req.merge_column).await;
+    log::info!("Found {} existing coordinate entries", old_coordinates.len());
 
     // Check if this is a Cognito Forms URL that needs special handling
     let entries = if api_url.starts_with("https://www.cognitoforms.com") && api_url.ends_with("/entries") {
@@ -512,8 +623,11 @@ pub async fn refresh_local_file(
 
     log::info!("Converting {} entries to CSV", entries.len());
 
-    // Convert JSON entries to CSV
-    let csv_data = json_to_csv(&entries).map_err(|e| {
+    // Merge old coordinates into new entries
+    let entries_with_coords = merge_coordinates(entries.clone(), old_coordinates, &req.merge_column);
+
+    // Convert JSON entries to CSV (now includes Latitude/Longitude columns)
+    let csv_data = json_to_csv(&entries_with_coords).map_err(|e| {
         let err_msg = format!("Failed to convert JSON to CSV: {}", e);
         log::error!("{}", err_msg);
         actix_web::error::ErrorInternalServerError(err_msg)
@@ -611,6 +725,58 @@ fn json_to_csv(entries: &Vec<serde_json::Value>) -> Result<String, String> {
     }
 
     Ok(csv)
+}
+
+// Request structure for save dataset endpoint
+#[derive(Deserialize)]
+pub struct SaveDatasetRequest {
+    pub data: Vec<serde_json::Value>,
+    pub file_path: String,
+}
+
+// Save dataset to CSV file
+pub async fn save_dataset(
+    req: web::Json<SaveDatasetRequest>,
+) -> Result<HttpResponse> {
+    let file_path = &req.file_path;
+    let data = &req.data;
+
+    log::info!("Saving dataset with {} entries to {}", data.len(), file_path);
+
+    // Determine the absolute file path
+    let absolute_path = if file_path.starts_with('/') {
+        file_path.clone()
+    } else {
+        let current_dir = std::env::current_dir().map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
+        })?;
+        let show_json_dir = current_dir.join("projects/map");
+        let full_path = show_json_dir.join(file_path);
+        normalize_path(&full_path).to_string_lossy().to_string()
+    };
+
+    // Convert data to CSV
+    let csv_data = json_to_csv(data).map_err(|e| {
+        let err_msg = format!("Failed to convert JSON to CSV: {}", e);
+        log::error!("{}", err_msg);
+        actix_web::error::ErrorInternalServerError(err_msg)
+    })?;
+
+    // Write to file
+    std::fs::write(&absolute_path, csv_data).map_err(|e| {
+        let err_msg = format!("Failed to write to file {}: {}", absolute_path, e);
+        log::error!("{}", err_msg);
+        actix_web::error::ErrorInternalServerError(err_msg)
+    })?;
+
+    log::info!("Successfully saved {} entries to {}", data.len(), absolute_path);
+
+    Ok(HttpResponse::Ok().json(ApiResponse {
+        success: true,
+        message: Some(format!("Successfully saved {} entries", data.len())),
+        error: None,
+        data: Some(serde_json::json!({ "entries_count": data.len(), "file_path": file_path })),
+    }))
 }
 
 // Configure routes for external API integration

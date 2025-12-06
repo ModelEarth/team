@@ -3037,6 +3037,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/proxy", web::get().to(api_integration::proxy_cognito_request))
                     )
                     .route("/refresh-local", web::post().to(api_integration::refresh_local_file))
+                    .route("/save-dataset", web::post().to(api_integration::save_dataset))
             )
     })
     .bind((server_host, server_port))?

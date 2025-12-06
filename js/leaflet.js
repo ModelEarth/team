@@ -647,8 +647,6 @@ class LeafletMapManager {
             }
         }
         
-        // Keep only the critical debug message right before tiles disappear
-        
         // Always check if larger sizes should be used
         const currentZoom = this.map.getZoom();
         const shouldUseLargerSizes = currentZoom <= 5;
@@ -657,10 +655,7 @@ class LeafletMapManager {
             console.log(`Zoom ${currentZoom} detected, enabling larger sizes`);
         }
         
-        // Apply multiple checks with delays to ensure consistent behavior
         const currentZoomForDebug = this.map.getZoom();
-        debugAlert('DEBUG: ensureLargerSizesIfNeeded DISABLED for testing - RIGHT BEFORE TILES DISAPPEAR - zoom:' + currentZoomForDebug);
-        // this.ensureLargerSizesIfNeeded(); // DISABLED TO TEST TILE ISSUE
         
         debugAlert('✅ MARKERS ADDED: ' + validMarkers.length + ' markers from ' + data.length + ' items - method completing');
         
