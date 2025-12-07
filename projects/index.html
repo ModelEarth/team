@@ -1555,6 +1555,7 @@
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 20px;
             margin-top: 20px;
+            margin-bottom: 20px;
             align-items: start; /* keep cards top-aligned */
         }
 
@@ -2713,6 +2714,12 @@
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .dark .view-btn:hover:not(.active) {
             color: #fff !important;
         }
@@ -3929,11 +3936,15 @@
                 // Hide GitHub auth container when closing
                 const authContainer = document.getElementById('github-auth-container');
                 if (authContainer) authContainer.style.display = 'none';
+
+                // Update hash to remove showrepos parameter
+                if (typeof updateHash === 'function') {
+                    updateHash({ 'showrepos': '' });
+                }
             } else {
                 panel.style.display = 'block';
                 // Ensure insights panel is hidden when showing contributions
                 const ai = document.getElementById('aiInsights'); if (ai) ai.style.display = 'none';
-                showContributionsSection();
                 // Load aggregated submodule PRs (if available)
                 try { loadSubmodulePRs(); } catch (e) { console.warn('loadSubmodulePRs missing', e); }
 
@@ -3941,13 +3952,16 @@
                 const authContainer = document.getElementById('github-auth-container');
                 if (authContainer) {
                     authContainer.style.display = 'block';
-                    console.log('👁️ GitHub auth container visible (Repos button clicked)');
                 }
 
                 // Initialize projects list if not already done
                 if (window.githubAuthWidget && typeof window.githubAuthWidget.initializeProjectsList === 'function') {
                     window.githubAuthWidget.initializeProjectsList();
-                    console.log('📋 Initializing projects list');
+                }
+
+                // Update hash to add showrepos=true parameter
+                if (typeof updateHash === 'function') {
+                    updateHash({ 'showrepos': 'true' });
                 }
             }
         }
@@ -3966,6 +3980,7 @@
             }
 
             prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">Loading open PRs across submodules...</div>';
+            prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);"><span style="display:inline-block; width:16px; height:16px; border:2px solid var(--text-secondary); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle;"></span>Loading open PRs across submodules...</div>';
             try {
                 // Fetch .gitmodules from GitHub repository
                 const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
@@ -4037,7 +4052,18 @@
                     return;
                 }
 
-                prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);">Fetching PRs for ' + repos.length + ' repositories...</div>';
+                // Create status message and cards container
+                const statusDiv = document.createElement('div');
+                statusDiv.style.padding = '12px';
+                statusDiv.style.color = 'var(--text-secondary)';
+                statusDiv.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid var(--text-secondary); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle;"></span><span id="pr-fetch-status">Fetched PRs for 0 of ' + repos.length + ' repositories</span>';
+
+                const cardsContainer = document.createElement('div');
+                cardsContainer.className = 'submodule-cards';
+
+                prsContainer.innerHTML = '';
+                prsContainer.appendChild(statusDiv);
+                prsContainer.appendChild(cardsContainer);
 
                 // Attempt proxy for each repo first (no global /api/github/ping). If proxy
                 // returns OK or 403 (auth issue), use its response; otherwise fall back to
@@ -4048,6 +4074,9 @@
                         return localStorage.getItem('github_token') || sessionStorage.getItem('github_token') || null;
                     } catch(e){ return null }
                 })();
+
+                let fetchedCount = 0;
+                const statusSpan = document.getElementById('pr-fetch-status');
 
                 const fetches = repos.map(r => (async () => {
                     const publicUrl = `https://api.github.com/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/pulls?state=open&per_page=100`;
@@ -4062,10 +4091,7 @@
                     }
                 })());
 
-                const responses = await Promise.all(fetches);
-
                 // Build a responsive grid of submodule cards using DOM nodes (safer than string concat)
-                const cardsContainer = document.createElement('div');
 
                 // Helper: trigger server-side git script via admin API
                 // Use a configurable API base for development. You can set window.__API_BASE__ from
@@ -4186,14 +4212,19 @@
                         return { ok: false, text: String(err) };
                     }
                 }
-                cardsContainer.className = 'submodule-cards';
-                for (const entry of responses) {
+
+                // Helper function to display repository name
+                function displayRepo(owner, repo) {
+                    if (!repo) return '';
+                    // Show only the repository name with first letter capitalized
+                    return repo.charAt(0).toUpperCase() + repo.slice(1);
+                }
+
+                // Process each fetch as it completes and render progressively
+                // Wrap each fetch to render immediately when it completes
+                const renderPromises = fetches.map(async (fetchPromise, index) => {
+                    const entry = await fetchPromise;
                     const r = entry.r;
-                    function displayRepo(owner, repo) {
-                        if (!repo) return '';
-                        // Show only the repository name with first letter capitalized
-                        return repo.charAt(0).toUpperCase() + repo.slice(1);
-                    }
 
                     const ghUrl = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}`;
 
@@ -4286,7 +4317,13 @@
                         } catch (e) { console.warn('contributors: failed to init fetch', e); }
 
                         cardsContainer.appendChild(card);
-                        continue;
+
+                        // Update progress counter
+                        fetchedCount++;
+                        if (statusSpan) {
+                            statusSpan.textContent = 'Fetched PRs for ' + fetchedCount + ' of ' + repos.length + ' repositories';
+                        }
+                        return;
                     }
 
                     const res = entry.res;
@@ -4304,7 +4341,13 @@
                         }
                         card.appendChild(msg);
                         cardsContainer.appendChild(card);
-                        continue;
+
+                        // Update progress counter
+                        fetchedCount++;
+                        if (statusSpan) {
+                            statusSpan.textContent = 'Fetched PRs for ' + fetchedCount + ' of ' + repos.length + ' repositories';
+                        }
+                        return;
                     }
 
                     const prs = await res.json();
@@ -4425,7 +4468,13 @@
                         } catch (e) { console.warn('contributors: failed to init fetch', e); }
 
                         cardsContainer.appendChild(card);
-                        continue;
+
+                        // Update progress counter
+                        fetchedCount++;
+                        if (statusSpan) {
+                            statusSpan.textContent = 'Fetched PRs for ' + fetchedCount + ' of ' + repos.length + ' repositories';
+                        }
+                        return;
                     }
 
                     const cardBody = document.createElement('div');
@@ -4591,10 +4640,22 @@
                     } catch (e) { console.warn('contributors: failed to init fetch', e); }
 
                     cardsContainer.appendChild(card);
+
+                    // Update progress counter
+                    fetchedCount++;
+                    if (statusSpan) {
+                        statusSpan.textContent = 'Fetched PRs for ' + fetchedCount + ' of ' + repos.length + ' repositories';
+                    }
+                });
+
+                // Wait for all renders to complete
+                await Promise.all(renderPromises);
+
+                // Remove status message when all repos are loaded
+                if (statusDiv && statusDiv.parentNode) {
+                    statusDiv.remove();
                 }
-                // Replace container content with the constructed nodes
-                prsContainer.innerHTML = '';
-                prsContainer.appendChild(cardsContainer);
+
                 // initialize filters view after rendering cards
                 try { renderPrFilters(); } catch(e){}
             } catch (e) {
@@ -10379,13 +10440,13 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             const insightsParam = getHash().insights;
             const aiInsights = document.getElementById('aiInsights');
             const insightsBtn = document.getElementById('insights-btn');
-            
+
             // Ensure elements exist before trying to manipulate them
             if (!aiInsights) {
                 console.warn('aiInsights element not found');
                 return;
             }
-            
+
             if (insightsParam === 'all') {
                 aiInsights.style.setProperty('display', 'block', 'important');
                 if (insightsBtn) {
@@ -10398,6 +10459,20 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     insightsBtn.textContent = 'Insights';
                 }
                 console.log('Insights panel hidden (no URL parameter)');
+            }
+        }
+
+        // Check for showrepos parameter in URL and auto-show repos panel
+        function checkShowReposFromURL() {
+            const showReposParam = getHash().showrepos;
+            const contributionsPanel = document.getElementById('contributionsPanel');
+
+            // Only process if showrepos=true and contributions panel exists
+            if (showReposParam === 'true' && contributionsPanel) {
+                // Only show if not already visible
+                if (contributionsPanel.style.display !== 'block') {
+                    toggleContributions();
+                }
             }
         }
         
@@ -11123,7 +11198,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Initialize insights visibility from URL (with delay to ensure DOM is ready)
             setTimeout(checkInsightsFromURL, 100);
-            
+
+            // Initialize repos visibility from URL (wait for element to exist)
+            waitForElm('#contributionsPanel').then(() => {
+                waitForElm('#github-auth-container').then(() => {
+                    checkShowReposFromURL();
+                });
+            });
+
             // Listen for URL changes to handle list parameter changes
             // hashChangeEvent and getHash reside in localsite/js/localsite.js
             document.addEventListener('hashChangeEvent', function (elem) { 
@@ -11146,8 +11228,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 
                 // Update menu visibility
                 updateMenuVisibility();
-                
+
                 checkInsightsFromURL();
+                checkShowReposFromURL();
 
                 // Handle list parameter changes - only load data if list actually changed
                 if (listParam && listParam !== currentLoadedList) {
