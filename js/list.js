@@ -1756,19 +1756,35 @@ async function displaySharedGeminiInsights(analysis, totalRecords, sampleSize, i
 }
 
 async function displaySharedClaudeInsights(analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
+    console.warn('⚠️ DISPLAY FUNCTION CALLED: displaySharedClaudeInsights', {
+        analysisLength: analysis?.length,
+        totalRecords,
+        sampleSize,
+        isNewAnalysis,
+        hasInsightsContent: !!document.getElementById('insightsContent')
+    });
+
     const insightsContent = document.getElementById('insightsContent');
-    if (!insightsContent) return;
-    
+    if (!insightsContent) {
+        console.warn('⚠️ ERROR: insightsContent element not found!');
+        return;
+    }
+
     const saveButtonsHTML = createSaveButtons('claude', isNewAnalysis);
     const promptHTML = createPromptSection(customPrompt, 'claude');
-    
+
     // Check if this is cached data
     const isCached = !isNewAnalysis;
-    
+
     try {
         // Use markdown processing similar to admin page
         const processedHTML = await processSharedMarkdownContent(analysis);
-        
+
+        console.warn('⚠️ MARKDOWN PROCESSED:', {
+            processedLength: processedHTML?.length,
+            preview: processedHTML?.substring(0, 100)
+        });
+
         let html = `
             <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
                 <strong>🤖 Claude Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
@@ -1781,8 +1797,15 @@ async function displaySharedClaudeInsights(analysis, totalRecords, sampleSize, i
                 ${processedHTML}
             </div>
         `;
-        
+
+        console.warn('⚠️ SETTING INNERHTML:', {
+            htmlLength: html.length,
+            htmlPreview: html.substring(0, 200)
+        });
+
         insightsContent.innerHTML = html;
+
+        console.warn('⚠️ INNERHTML SET SUCCESSFULLY');
         
         // Apply markdown styling if available
         if (typeof applyMarkdownStyling === 'function') {

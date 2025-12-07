@@ -1,9 +1,36 @@
 // Common utilities and shared functions
 
+// Function to create a loading spinner element
+function createLoadingSpinner(text = 'Loading...', options = {}) {
+    const {
+        fontSize = '14px',
+        spinnerSize = '16px',
+        spinnerBorder = '2px',
+        color = 'var(--text-secondary)',
+        marginRight = '8px'
+    } = options;
+
+    return `
+        <div style="padding: 20px; display: flex; align-items: flex-start; gap: 12px;">
+            <span style="display: inline-block; width: ${spinnerSize}; height: ${spinnerSize}; border: ${spinnerBorder} solid ${color}; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0; margin-top: 2px;"></span>
+            <div style="flex: 1;">
+                <div style="font-weight: 500; color: var(--text-primary); font-size: ${fontSize};">${text}</div>
+                <div class="loading-progress" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Function to update loading progress message
+function updateLoadingProgress(message, containerSelector = '.loading-progress') {
+    const progressEl = document.querySelector(containerSelector);
+    if (progressEl) progressEl.textContent = message;
+}
+
 // Function to detect if current site is a geo site
 function isGeoSite() {
     const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
-    return window.location.hostname.includes('geo') || 
+    return window.location.hostname.includes('geo') ||
            window.location.hostname.includes('location') ||
            (modelsite === 'model.georgia');
 }

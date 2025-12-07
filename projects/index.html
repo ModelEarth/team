@@ -3979,7 +3979,7 @@
                 content.appendChild(prsContainer);
             }
 
-            prsContainer.innerHTML = '<div style="padding:12px; color:var(--text-secondary);"><span style="display:inline-block; width:16px; height:16px; border:2px solid var(--text-secondary); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle;"></span>Loading open PRs across submodules...</div>';
+            prsContainer.innerHTML = createLoadingSpinner('Loading open PRs across submodules...', { fontSize: '14px', spinnerSize: '16px' });
             try {
                 // Fetch .gitmodules from GitHub repository
                 const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
@@ -5245,20 +5245,43 @@
                 // Check which button is currently highlighted (has cached-insights class)
                 const claudeHighlighted = claudeBtn && claudeBtn.classList.contains('cached-insights');
                 const geminiHighlighted = geminiBtn && geminiBtn.classList.contains('cached-insights');
-                
+
+                // Check if we have pending (new, unsaved) analysis - don't overwrite it!
+                const hasPendingClaudeAnalysis = typeof pendingClaudeAnalysis !== 'undefined' && pendingClaudeAnalysis !== null;
+                const hasPendingGeminiAnalysis = typeof pendingGeminiAnalysis !== 'undefined' && pendingGeminiAnalysis !== null;
+
+                console.warn('⚠️ showAIInsightsButtons check:', {
+                    claudeHighlighted,
+                    geminiHighlighted,
+                    hasPendingClaudeAnalysis,
+                    hasPendingGeminiAnalysis,
+                    hasClaudeCache,
+                    hasGeminiCache
+                });
+
+                // Don't overwrite pending (new) analysis with cached content
+                if (hasPendingClaudeAnalysis || hasPendingGeminiAnalysis) {
+                    console.warn('⚠️ Skipping auto-display: pending analysis exists');
+                    return;
+                }
+
                 if (claudeHighlighted && hasClaudeCache) {
                     // Claude is highlighted and has cache - display it
                     displayCachedInsights(cacheKey, 'claude');
                 } else if (geminiHighlighted && hasGeminiCache) {
                     // Gemini is highlighted and has cache - display it
                     displayCachedInsights(cacheKey, 'gemini');
-                } else if (hasClaudeCache && !geminiHighlighted) {
-                    // No specific highlight but Claude has cache - display Claude as default
-                    displayCachedInsights(cacheKey, 'claude');
-                } else if (hasGeminiCache && !claudeHighlighted) {
-                    // No specific highlight but Gemini has cache - display Gemini as default
-                    displayCachedInsights(cacheKey, 'gemini');
                 }
+                // Only show fallback on initial load (no buttons highlighted yet)
+                else if (!claudeHighlighted && !geminiHighlighted) {
+                    // No button highlighted - show cached insights in priority order
+                    if (hasClaudeCache) {
+                        displayCachedInsights(cacheKey, 'claude');
+                    } else if (hasGeminiCache) {
+                        displayCachedInsights(cacheKey, 'gemini');
+                    }
+                }
+                // If a button is highlighted but cache doesn't match, don't show anything
             }
             // Intentionally do not auto-open contributions panel; user must click to view it
         }
@@ -5402,27 +5425,34 @@
             if (!prompt || !aiType || !window.participantsData) return;
             
             closePromptModal();
-            
-            // Show loading state
+
+            console.warn('⚠️ CLAUDE START: Beginning analysis for', aiType);
+
+            // Clear any previous success/error messages
+            hideTopMessage();
+
+            // Show loading state with animated spinner (reusing repos loading animation)
             const content = document.getElementById('insightsContent');
-            content.innerHTML = '<div style="padding: 20px; text-align: center;">🔄 Generating insights...</div>';
-            
+            content.innerHTML = createLoadingSpinner('Generating insights...');
+
             try {
+                updateLoadingProgress('Preparing data...');
+
                 // Get currently filtered and sorted data instead of raw data
                 const currentlyDisplayedData = getCurrentlyDisplayedData();
                 const maxRows = parseInt(document.getElementById('maxRowsInput')?.value || 20);
                 const analysisData = currentlyDisplayedData.slice(0, maxRows);
-                
+
                 // Get all available headers from the original data to include complete row information
                 const allHeaders = window.participantsData.length > 0 ? Object.keys(window.participantsData[0]) : [];
-                
+
                 console.log(`📊 AI Analysis Data Summary:
 - Original dataset: ${window.participantsData.length} records
-- After filters: ${currentlyDisplayedData.length} records  
+- After filters: ${currentlyDisplayedData.length} records
 - Sent for analysis: ${analysisData.length} records
 - All available columns: ${allHeaders.length} (${allHeaders.join(', ')})
 - Current sort: ${currentSortColumn || 'none'} ${currentSortOrder || ''}`);
-                
+
                 // Ensure analysis data includes all columns, not just visible ones
                 const completeAnalysisData = analysisData.map(row => {
                     const completeRow = {};
@@ -5431,7 +5461,9 @@
                     });
                     return completeRow;
                 });
-                
+
+                updateLoadingProgress(`Sending ${analysisData.length} records to ${aiType === 'claude' ? 'Claude' : 'Gemini'}...`);
+
                 const endpoint = aiType === 'claude' ? '/claude/analyze' : '/gemini/analyze';
                 const response = await fetch(`${GEMINI_API_BASE}${endpoint}`, {
                     method: 'POST',
@@ -5484,16 +5516,31 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         data_context: null
                     })
                 });
-                
+
+                updateLoadingProgress('Processing response...');
                 const result = await response.json();
-                
+
+                console.warn('⚠️ API RESPONSE:', {
+                    aiType,
+                    success: result.success,
+                    hasAnalysis: !!result.analysis,
+                    analysisLength: result.analysis?.length || 0,
+                    error: result.error
+                });
+
                 if (result.success && result.analysis) {
                     // Append token usage information if available
                     let analysisWithTokens = result.analysis;
                     if (result.token_usage) {
                         analysisWithTokens = appendTokenUsage(result.analysis, result.token_usage);
                     }
-                    
+
+                    console.warn('⚠️ ANALYSIS CONTENT:', {
+                        aiType,
+                        contentPreview: analysisWithTokens.substring(0, 100) + '...',
+                        fullLength: analysisWithTokens.length
+                    });
+
                     // Store in pending analysis (don't save to cache yet - user needs to save)
                     const pendingData = {
                         success: true,
@@ -5513,23 +5560,36 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                             groupOnly: showOnlyGroup || false
                         }
                     };
-                    
+
                     if (aiType === 'claude') {
+                        console.warn('⚠️ ABOUT TO DISPLAY CLAUDE INSIGHTS');
                         pendingClaudeAnalysis = pendingData;
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedClaudeInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
+                        console.warn('⚠️ CLAUDE END: displaySharedClaudeInsights completed');
                         showTopMessage('✅ Claude analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
                     } else {
+                        console.warn('⚠️ ABOUT TO DISPLAY GEMINI INSIGHTS');
                         pendingGeminiAnalysis = pendingData;
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedGeminiInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
+                        console.warn('⚠️ GEMINI END: displaySharedGeminiInsights completed');
                         showTopMessage('✅ Gemini analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
                     }
-                    
+
+                    console.warn('⚠️ BEFORE showAIInsightsButtons - Content should be visible');
                     showAIInsightsButtons(); // Update button states
+                    console.warn('⚠️ AFTER showAIInsightsButtons - Check if content still visible');
                     
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${result.error || 'Unknown error'}</div>`;
+                    showTopMessage(`❌ ${aiType === 'claude' ? 'Claude' : 'Gemini'} analysis failed: ${result.error || 'Unknown error'}`, 'error', 5000);
+
+                    // Clear button highlighting on error so fallback doesn't trigger
+                    const claudeBtn = document.getElementById('claudeInsightsBtn');
+                    const geminiBtn = document.getElementById('geminiInsightsBtn');
+                    if (claudeBtn) claudeBtn.classList.remove('cached-insights');
+                    if (geminiBtn) geminiBtn.classList.remove('cached-insights');
                 }
                 
             } catch (error) {
@@ -5547,7 +5607,14 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     showTopMessage('⚠️ AI Analysis failed: Rust API server not running on port 8081', 'error', 8000);
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${error.message}</div>`;
+                    showTopMessage(`❌ ${aiType === 'claude' ? 'Claude' : 'Gemini'} analysis failed: ${error.message}`, 'error', 5000);
                 }
+
+                // Clear button highlighting on error so fallback doesn't trigger
+                const claudeBtn = document.getElementById('claudeInsightsBtn');
+                const geminiBtn = document.getElementById('geminiInsightsBtn');
+                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
+                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
             }
         }
         
@@ -5566,26 +5633,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function saveClaudeAnalysis() {
             if (pendingClaudeAnalysis) {
                 const cacheKey = getCurrentDataSource();
-                console.log('Saving Claude analysis to cache with key:', cacheKey);
-                
-                
+                console.warn('⚠️ SAVING CLAUDE ANALYSIS to cache');
+
+
                 // Save to cache
                 claudeInsightsCache[cacheKey] = pendingClaudeAnalysis;
                 localStorage.setItem('claudeInsightsCache', JSON.stringify(claudeInsightsCache));
-                
+
                 // Clear pending analysis
                 pendingClaudeAnalysis = null;
-                
+
                 // Re-display without Save/Cancel buttons
                 displaySharedClaudeInsights(
-                    claudeInsightsCache[cacheKey].analysis, 
-                    claudeInsightsCache[cacheKey].totalRecords, 
-                    claudeInsightsCache[cacheKey].sampleSize, 
+                    claudeInsightsCache[cacheKey].analysis,
+                    claudeInsightsCache[cacheKey].totalRecords,
+                    claudeInsightsCache[cacheKey].sampleSize,
                     false,
                     claudeInsightsCache[cacheKey].customPrompt
                 );
-                
-                showAIInsightsButtons(); // Update button states
+
+                console.warn('⚠️ AFTER SAVE: Re-displayed Claude insights');
+
+                // Highlight Claude button to indicate which insights are displayed
+                const claudeBtn = document.getElementById('claudeInsightsBtn');
+                const geminiBtn = document.getElementById('geminiInsightsBtn');
+                if (claudeBtn) claudeBtn.classList.add('cached-insights');
+                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
+
+                // Update button states but don't trigger auto-display (content already shown)
+                const claudeText = document.getElementById('claudeInsightsText');
+                const claudeRefresh = document.getElementById('claudeRefreshBtn');
+                if (claudeText) claudeText.textContent = 'Claude Insights (Cached)';
+                if (claudeRefresh) claudeRefresh.style.display = 'flex';
+
+                console.warn('⚠️ SAVE COMPLETE: Claude button highlighted, skipping showAIInsightsButtons');
             }
         }
         
@@ -5608,26 +5689,40 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
         function saveGeminiAnalysis() {
             if (pendingGeminiAnalysis) {
                 const cacheKey = getCurrentDataSource();
-                console.log('Saving Gemini analysis to cache with key:', cacheKey);
-                
-                
+                console.warn('⚠️ SAVING GEMINI ANALYSIS to cache');
+
+
                 // Save to cache
                 aiInsightsCache[cacheKey] = pendingGeminiAnalysis;
                 localStorage.setItem('aiInsightsCache', JSON.stringify(aiInsightsCache));
-                
+
                 // Clear pending analysis
                 pendingGeminiAnalysis = null;
-                
+
                 // Re-display without Save/Cancel buttons
                 displaySharedGeminiInsights(
-                    aiInsightsCache[cacheKey].analysis, 
-                    aiInsightsCache[cacheKey].totalRecords, 
-                    aiInsightsCache[cacheKey].sampleSize, 
+                    aiInsightsCache[cacheKey].analysis,
+                    aiInsightsCache[cacheKey].totalRecords,
+                    aiInsightsCache[cacheKey].sampleSize,
                     false,
                     aiInsightsCache[cacheKey].customPrompt
                 );
-                
-                showAIInsightsButtons(); // Update button states
+
+                console.warn('⚠️ AFTER SAVE: Re-displayed Gemini insights');
+
+                // Highlight Gemini button to indicate which insights are displayed
+                const claudeBtn = document.getElementById('claudeInsightsBtn');
+                const geminiBtn = document.getElementById('geminiInsightsBtn');
+                if (geminiBtn) geminiBtn.classList.add('cached-insights');
+                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
+
+                // Update button states but don't trigger auto-display (content already shown)
+                const geminiText = document.getElementById('geminiInsightsText');
+                const geminiRefresh = document.getElementById('geminiRefreshBtn');
+                if (geminiText) geminiText.textContent = 'Gemini Insights (Cached)';
+                if (geminiRefresh) geminiRefresh.style.display = 'flex';
+
+                console.warn('⚠️ SAVE COMPLETE: Gemini button highlighted, skipping showAIInsightsButtons');
             }
         }
         
@@ -10415,7 +10510,7 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             // Use getComputedStyle to check actual visibility since we use CSS !important
             const computedStyle = window.getComputedStyle(aiInsights);
             const isCurrentlyVisible = computedStyle.display === 'block';
-            
+
             if (isCurrentlyVisible) {
                 // Hide insights
                 aiInsights.style.setProperty('display', 'none', 'important');
@@ -10426,6 +10521,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 aiInsights.style.setProperty('display', 'block', 'important');
                 insightsBtn.textContent = 'Hide Insights';
                 setURLHashParam('insights', 'all');
+
+                // Automatically display cached insights if available
+                showAIInsightsButtons();
             }
         }
         
@@ -10452,6 +10550,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     insightsBtn.textContent = 'Hide Insights';
                 }
                 console.log('Insights panel shown from URL parameter');
+
+                // Automatically display cached insights if available
+                showAIInsightsButtons();
             } else {
                 aiInsights.style.setProperty('display', 'none', 'important');
                 if (insightsBtn) {
