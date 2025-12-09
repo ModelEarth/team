@@ -26,6 +26,7 @@ use std::sync::mpsc::channel;
 mod import;
 mod gemini_insights;
 mod claude_insights;
+mod unified_insights;
 mod recommendations;
 mod oauth;
 mod prompts;
@@ -2962,6 +2963,10 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/usage/cli", web::get().to(get_gemini_usage_cli))
                             .route("/usage/website", web::get().to(get_gemini_usage_website))
                             .route("/analyze", web::post().to(gemini_insights::analyze_with_gemini))
+                    )
+                    .service(
+                        web::scope("/insights")
+                            .route("/analyze", web::post().to(unified_insights::analyze_with_llm))
                     )
                     .service(
                         web::scope("/github")

@@ -2399,7 +2399,7 @@
 
         .insight-button-group {
             display: flex;
-            gap: 1px;
+            gap: 0;
             align-items: center;
         }
 
@@ -2422,6 +2422,13 @@
             border-bottom-right-radius: 0;
         }
 
+        /* Remove right border from main button when refresh button is visible (for seamless connection) */
+        .insight-button-group .btn.btn-secondary:has(+ .refresh-btn:not([style*="display: none"])),
+        .insight-button-group .btn.btn-secondary:has(+ .refresh-btn[style*="display: block"]),
+        .insight-button-group .btn.btn-secondary:has(+ .refresh-btn[style=""]) {
+            border-right: none !important;
+        }
+
         .insight-button-group .refresh-btn:not([style*="display: none"]),
         .insight-button-group .refresh-btn[style*="display: block"],
         .insight-button-group .refresh-btn[style=""] {
@@ -2431,7 +2438,7 @@
 
         .refresh-btn {
             width: 40px;
-            height: 34px;
+            height: 40px;
             min-width: 40px;
             max-width: 40px;
             padding: 0;
@@ -2464,6 +2471,18 @@
             line-height: 1;
             font-weight: normal;
             margin-top: -4px;
+        }
+
+        /* Match border on 3 sides of refresh button (exclude left edge that touches main button) */
+        .insights-refresh-btn.refresh-btn.btn-primary {
+            border: none !important;
+        }
+
+        .insights-refresh-btn.refresh-btn.btn-secondary {
+            border-top: 1px solid var(--border-light) !important;
+            border-right: 1px solid var(--border-light) !important;
+            border-bottom: 1px solid var(--border-light) !important;
+            border-left: none !important;
         }
 
         /* AI Insights Styles */
@@ -2514,11 +2533,37 @@
             box-shadow: var(--shadow-lg);
         }
 
-        .prompt-modal-content h3 {
+        .prompt-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 16px;
+            gap: 16px;
+        }
+
+        .prompt-modal-content h3 {
+            margin: 0;
             color: var(--text-primary);
             font-size: 20px;
             font-weight: 600;
+        }
+
+        .prompt-modal-max-rows {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .prompt-modal-max-rows input {
+            width: 50px;
+            padding: 4px 6px;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
         }
 
         .prompt-modal-content textarea {
@@ -2864,10 +2909,6 @@
                 <div class="insights-header">
                     <div class="insights-status" id="insightsStatus">
                         <!-- Buttons will be dynamically generated here -->
-                        <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
-                            <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
-                            <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to AI APIs">
-                        </div>
                     </div>
                 </div>
                 <div id="insightsContent" class="insights-content">
@@ -3078,7 +3119,14 @@
         <!-- Prompt Modal for custom AI prompts -->
         <div class="prompt-modal hidden" id="promptModal">
             <div class="prompt-modal-content">
-                <h3 id="promptModalTitle">Refresh AI Insights</h3>
+                <div class="prompt-modal-header">
+                    <h3 id="promptModalTitle">Refresh AI Insights</h3>
+                    <div class="prompt-modal-max-rows">
+                        <label for="maxRowsInput">Max rows:</label>
+                        <input type="number" id="maxRowsInput" value="50" min="1" max="100" title="Maximum number of rows to send to AI APIs">
+                        <span id="totalRowsDisplay">of 0</span>
+                    </div>
+                </div>
                 <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">
                     Enter a custom prompt to send with your dataset:
                 </div>
@@ -3103,6 +3151,7 @@
     <script src="../js/common.js"></script>
     <script src="../js/setup.js"></script>
     <script src="../js/list.js"></script>
+    <script src="../../docker/js/llm-configs.js"></script>
     <script>
             // Leaflet heatmap helpers
             let _participantsMap = null;
@@ -3886,32 +3935,10 @@
                         }
                     }
             });
-        const GEMINI_API_BASE = 'http://localhost:8081/api';
+        const GEMINI_API_BASE = 'http://localhost:8081';
 
-        // LLM Configuration - Add new LLMs here
-        const LLM_CONFIGS = [
-            {
-                id: 'claude',
-                name: 'Claude',
-                endpoint: '/claude/analyze',
-                buttonClass: 'btn-secondary',
-                cacheKey: 'claudeInsightsCache'
-            },
-            {
-                id: 'gemini',
-                name: 'Gemini',
-                endpoint: '/gemini/analyze',
-                buttonClass: 'btn-primary',
-                cacheKey: 'aiInsightsCache'
-            },
-            {
-                id: 'openai',
-                name: 'OpenAI',
-                endpoint: '/openai/analyze',
-                buttonClass: 'btn-secondary',
-                cacheKey: 'openaiInsightsCache'
-            }
-        ];
+        // LLM_CONFIGS is loaded from shared docker/js/llm-configs.js
+        // LLM_API_ENDPOINT is also loaded from that file
 
         // AI Insights variables
         let currentActiveAI = null;
@@ -3924,7 +3951,7 @@
         });
 
         // Legacy support - keep old variable names for backward compatibility
-        const aiInsightsCache = insightsCache.gemini;
+        const geminiInsightsCache = insightsCache.gemini;
         const claudeInsightsCache = insightsCache.claude;
 
         // Pending analysis storage - dynamic for all LLMs
@@ -3942,14 +3969,14 @@
             const insightsStatus = document.getElementById('insightsStatus');
             if (!insightsStatus) return;
 
-            // Find the max-rows-control to insert buttons before it
-            const maxRowsControl = insightsStatus.querySelector('.max-rows-control');
+            // Add title before buttons
+            const titleHTML = '<div style="font-weight: 600; font-size: 16px; color: var(--text-primary); margin-bottom: 12px;">Insights</div>';
 
-            // Generate buttons for each LLM
+            // Generate buttons for each LLM (without "Insights" suffix)
             const buttonsHTML = LLM_CONFIGS.map(config => `
                 <div class="insight-button-group" insightsModel="${config.id}">
                     <button class="insights-btn btn ${config.buttonClass}" onclick="handleInsightsClick('${config.id}')">
-                        <span class="insights-btn-text">${config.name} Insights</span>
+                        <span class="insights-btn-text">${config.name}</span>
                     </button>
                     <button class="insights-refresh-btn btn ${config.buttonClass} refresh-btn" onclick="showRefreshPrompt('${config.id}')" title="Refresh with custom prompt" style="display: none;">
                         <span>↻</span>
@@ -3957,10 +3984,8 @@
                 </div>
             `).join('');
 
-            // Insert buttons before max-rows-control
-            if (maxRowsControl) {
-                maxRowsControl.insertAdjacentHTML('beforebegin', buttonsHTML);
-            }
+            // Insert title and buttons into insightsStatus
+            insightsStatus.innerHTML = titleHTML + buttonsHTML;
         }
 
         // Generic insights click handler
@@ -5293,7 +5318,7 @@
 
                 if (btn && btnText && refreshBtn) {
                     btn.disabled = false;
-                    btnText.textContent = hasCache ? `${config.name} Insights (Cached)` : `${config.name} Insights`;
+                    btnText.textContent = hasCache ? `${config.name} (Cached)` : config.name;
                     refreshBtn.style.display = hasCache ? 'flex' : 'none';
                 }
             });
@@ -5363,9 +5388,9 @@
                 appendStatusMessage('No data available for analysis. Please load a list first.', 'error');
                 return;
             }
-            
+
             const cacheKey = getCurrentDataSource();
-            if (aiInsightsCache[cacheKey]) {
+            if (geminiInsightsCache[cacheKey]) {
                 displayCachedInsights(cacheKey, 'gemini');
             } else {
                 showRefreshPrompt('gemini');
@@ -5373,41 +5398,51 @@
         }
         
         async function displayCachedInsights(cacheKey, aiType) {
-            const cache = aiType === 'claude' ? claudeInsightsCache : aiInsightsCache;
+            // Use dynamic cache lookup: insightsCache[aiType] (e.g., insightsCache['gemini'] = geminiInsightsCache)
+            const cache = insightsCache[aiType];
             const insights = cache[cacheKey];
-            
+
             if (insights) {
-                // Clear any existing highlighting first
-                const claudeBtn = document.getElementById('claudeInsightsBtn');
-                const geminiBtn = document.getElementById('geminiInsightsBtn');
-                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
-                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
-                
+                // Clear all button highlighting first
+                LLM_CONFIGS.forEach(config => {
+                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                    if (buttonGroup) {
+                        const btn = buttonGroup.querySelector('.insights-btn');
+                        if (btn) btn.classList.remove('cached-insights');
+                    }
+                });
+
                 // Highlight only the button for the currently displayed insights
-                const button = document.getElementById(aiType === 'claude' ? 'claudeInsightsBtn' : 'geminiInsightsBtn');
-                if (button) {
-                    button.classList.add('cached-insights');
+                const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${aiType}"]`);
+                if (buttonGroup) {
+                    const btn = buttonGroup.querySelector('.insights-btn');
+                    if (btn) btn.classList.add('cached-insights');
                 }
-                
+
                 // Use shared display functions
                 if (aiType === 'claude') {
                     await displaySharedClaudeInsights(
-                        insights.analysis, 
-                        insights.totalRecords || 0, 
-                        insights.sampleSize || 0, 
-                        false, 
+                        insights.analysis,
+                        insights.totalRecords || 0,
+                        insights.sampleSize || 0,
+                        false,
+                        insights.customPrompt || insights.prompt || 'Standard data analysis prompt'
+                    );
+                } else if (aiType === 'gemini') {
+                    await displaySharedGeminiInsights(
+                        insights.analysis,
+                        insights.totalRecords || 0,
+                        insights.sampleSize || 0,
+                        false,
                         insights.customPrompt || insights.prompt || 'Standard data analysis prompt'
                     );
                 } else {
-                    await displaySharedGeminiInsights(
-                        insights.analysis, 
-                        insights.totalRecords || 0, 
-                        insights.sampleSize || 0, 
-                        false, 
-                        insights.customPrompt || insights.prompt || 'Standard data analysis prompt'
-                    );
+                    // For other LLMs (like OpenAI), use a generic display or specific handler
+                    // TODO: Implement displaySharedOpenAIInsights when OpenAI is supported
+                    const content = document.getElementById('insightsContent');
+                    content.innerHTML = `<div style="padding: 16px;">${insights.analysis}</div>`;
                 }
-                
+
                 // Update button states
                 currentActiveAI = aiType;
                 updateActiveAIButtons();
@@ -5418,8 +5453,18 @@
             currentPromptAI = aiType;
             const modal = document.getElementById('promptModal');
             const title = document.getElementById('promptModalTitle');
-            
-            title.textContent = `${aiType === 'claude' ? 'Claude' : 'Gemini'} Analysis`;
+            const totalRowsDisplay = document.getElementById('totalRowsDisplay');
+
+            // Get LLM config for display name
+            const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+            title.textContent = `${llmConfig.name} Analysis`;
+
+            // Update total rows count based on currently filtered data
+            const currentlyDisplayedData = getCurrentlyDisplayedData();
+            if (totalRowsDisplay) {
+                totalRowsDisplay.textContent = `of ${currentlyDisplayedData.length}`;
+            }
+
             modal.classList.remove('hidden');
         }
         
@@ -5490,7 +5535,7 @@
 
                 // Get currently filtered and sorted data instead of raw data
                 const currentlyDisplayedData = getCurrentlyDisplayedData();
-                const maxRows = parseInt(document.getElementById('maxRowsInput')?.value || 20);
+                const maxRows = parseInt(document.getElementById('maxRowsInput')?.value || 50);
                 const analysisData = currentlyDisplayedData.slice(0, maxRows);
 
                 // Get all available headers from the original data to include complete row information
@@ -5512,62 +5557,56 @@
                     return completeRow;
                 });
 
-                updateLoadingProgress(`Sending ${analysisData.length} records to ${aiType === 'claude' ? 'Claude' : 'Gemini'}...`);
+                // Get LLM config for display name
+                const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+                updateLoadingProgress(`Sending ${analysisData.length} records to ${llmConfig.name}...`);
 
-                const endpoint = aiType === 'claude' ? '/claude/analyze' : '/gemini/analyze';
-                const response = await fetch(`${GEMINI_API_BASE}${endpoint}`, {
+                // Generic request body for unified endpoint
+                const requestBody = {
+                    model: aiType,
+                    prompt: prompt,
+                    dataset_info: {
+                        record_count: window.participantsData.length,
+                        filtered_count: currentlyDisplayedData.length,
+                        sample_data: completeAnalysisData,
+                        headers: allHeaders,
+                        sort_info: {
+                            column: currentSortColumn || null,
+                            order: currentSortOrder || null
+                        },
+                        filter_info: {
+                            status_filter: selectedStatuses.size > 0 && !selectedStatuses.has('All') ? Array.from(selectedStatuses) : null,
+                            team_filter: currentTeamFilter || null,
+                            group_filter: showOnlyGroup || false
+                        }
+                    }
+                };
+
+                const response = await fetch(`${GEMINI_API_BASE}${LLM_API_ENDPOINT}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(aiType === 'claude' ? {
-                        prompt: prompt,
-                        dataset_info: {
-                            record_count: window.participantsData.length,
-                            filtered_count: currentlyDisplayedData.length,
-                            sample_data: completeAnalysisData,
-                            headers: allHeaders,
-                            sort_info: {
-                                column: currentSortColumn || null,
-                                order: currentSortOrder || null
-                            },
-                            filter_info: {
-                                status_filter: selectedStatuses.size > 0 && !selectedStatuses.has('All') ? Array.from(selectedStatuses) : null,
-                                team_filter: currentTeamFilter || null,
-                                group_filter: showOnlyGroup || false
-                            }
-                        }
-                    } : {
-                        // For Gemini, include dataset directly in prompt with filter/sort context
-                        prompt: `${prompt}
-
-**Dataset Context:**
--- Original Total Records: ${window.participantsData.length}
--- After Filters Applied: ${currentlyDisplayedData.length}
--- Sample Size for Analysis: ${completeAnalysisData.length}
--- All Available Headers: ${allHeaders.join(', ')}
--- Current Sort Order: ${currentSortColumn ? `${currentSortColumn} (${currentSortOrder})` : 'Default order'}
--- Active Filters: ${(() => {
-    const filters = [];
-    if (selectedStatuses.size > 0 && !selectedStatuses.has('All')) {
-        filters.push(`Status: ${Array.from(selectedStatuses).join(', ')}`);
-    }
-    if (currentTeamFilter) {
-        filters.push(`Team: ${currentTeamFilter}`);
-    }
-    if (showOnlyGroup) {
-        filters.push('Group participants only');
-    }
-    return filters.length > 0 ? filters.join('; ') : 'None';
-})()}
-
-**Sample Data (JSON format - filtered/sorted as displayed):**
-${JSON.stringify(completeAnalysisData, null, 2)}`,
-                        data_context: null
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 updateLoadingProgress('Processing response...');
+
+                // Check if response is ok before parsing JSON
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                // Check content type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const responseText = await response.text();
+                    console.error('Unexpected response type:', contentType);
+                    console.error('Response body:', responseText);
+                    throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Body: ${responseText.substring(0, 200)}`);
+                }
+
                 const result = await response.json();
 
                 console.warn('⚠️ API RESPONSE:', {
@@ -5641,22 +5680,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${result.error || 'Unknown error'}</div>`;
-                    showTopMessage(`❌ ${aiType === 'claude' ? 'Claude' : 'Gemini'} analysis failed: ${result.error || 'Unknown error'}`, 'error', 5000);
+                    const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+                    showTopMessage(`❌ ${llmConfig.name} analysis failed: ${result.error || 'Unknown error'}`, 'error', 5000);
 
-                    // Clear button highlighting on error so fallback doesn't trigger
-                    const claudeBtn = document.getElementById('claudeInsightsBtn');
-                    const geminiBtn = document.getElementById('geminiInsightsBtn');
-                    if (claudeBtn) claudeBtn.classList.remove('cached-insights');
-                    if (geminiBtn) geminiBtn.classList.remove('cached-insights');
+                    // Clear all button highlighting on error so fallback doesn't trigger
+                    LLM_CONFIGS.forEach(config => {
+                        const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                        if (buttonGroup) {
+                            const btn = buttonGroup.querySelector('.insights-btn');
+                            if (btn) btn.classList.remove('cached-insights');
+                        }
+                    });
                 }
                 
             } catch (error) {
                 console.error('AI analysis error:', error);
                 // Check if this is likely a connection error (server not running)
-                const isConnectionError = error.message.includes('fetch') || 
-                                        error.message.includes('NetworkError') || 
+                const isConnectionError = error.message.includes('fetch') ||
+                                        error.message.includes('NetworkError') ||
                                         error.message.includes('Failed to fetch');
-                
+
+                const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+
                 if (isConnectionError) {
                     content.innerHTML = `<div style="padding: 16px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px;">
                         ⚠️ Analysis failed: Start the Rust API server first<br>
@@ -5665,26 +5710,31 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                     showTopMessage('⚠️ AI Analysis failed: Rust API server not running on port 8081', 'error', 8000);
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${error.message}</div>`;
-                    showTopMessage(`❌ ${aiType === 'claude' ? 'Claude' : 'Gemini'} analysis failed: ${error.message}`, 'error', 5000);
+                    showTopMessage(`❌ ${llmConfig.name} analysis failed: ${error.message}`, 'error', 5000);
                 }
 
-                // Clear button highlighting on error so fallback doesn't trigger
-                const claudeBtn = document.getElementById('claudeInsightsBtn');
-                const geminiBtn = document.getElementById('geminiInsightsBtn');
-                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
-                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
+                // Clear all button highlighting on error so fallback doesn't trigger
+                LLM_CONFIGS.forEach(config => {
+                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                    if (buttonGroup) {
+                        const btn = buttonGroup.querySelector('.insights-btn');
+                        if (btn) btn.classList.remove('cached-insights');
+                    }
+                });
             }
         }
         
         function updateActiveAIButtons() {
             // Update button states based on active AI
-            const claudeBtn = document.getElementById('claudeInsightsBtn');
-            const geminiBtn = document.getElementById('geminiInsightsBtn');
-            
-            if (claudeBtn && geminiBtn) {
-                claudeBtn.classList.toggle('active', currentActiveAI === 'claude');
-                geminiBtn.classList.toggle('active', currentActiveAI === 'gemini');
-            }
+            LLM_CONFIGS.forEach(config => {
+                const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                if (buttonGroup) {
+                    const btn = buttonGroup.querySelector('.insights-btn');
+                    if (btn) {
+                        btn.classList.toggle('active', currentActiveAI === config.id);
+                    }
+                }
+            });
         }
         
         // Save/Cancel functions for Claude analysis (required by shared functions)
@@ -5718,16 +5768,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 console.warn('⚠️ AFTER SAVE: Re-displayed Claude insights');
 
                 // Highlight Claude button to indicate which insights are displayed
-                const claudeBtn = document.getElementById('claudeInsightsBtn');
-                const geminiBtn = document.getElementById('geminiInsightsBtn');
-                if (claudeBtn) claudeBtn.classList.add('cached-insights');
-                if (geminiBtn) geminiBtn.classList.remove('cached-insights');
+                LLM_CONFIGS.forEach(config => {
+                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                    if (buttonGroup) {
+                        const btn = buttonGroup.querySelector('.insights-btn');
+                        if (btn) {
+                            if (config.id === 'claude') {
+                                btn.classList.add('cached-insights');
+                            } else {
+                                btn.classList.remove('cached-insights');
+                            }
+                        }
+                    }
+                });
 
                 // Update button states but don't trigger auto-display (content already shown)
-                const claudeText = document.getElementById('claudeInsightsText');
-                const claudeRefresh = document.getElementById('claudeRefreshBtn');
-                if (claudeText) claudeText.textContent = 'Claude Insights (Cached)';
-                if (claudeRefresh) claudeRefresh.style.display = 'flex';
+                const claudeButtonGroup = document.querySelector('.insight-button-group[insightsModel="claude"]');
+                if (claudeButtonGroup) {
+                    const claudeText = claudeButtonGroup.querySelector('.insights-btn-text');
+                    const claudeRefresh = claudeButtonGroup.querySelector('.insights-refresh-btn');
+                    if (claudeText) claudeText.textContent = 'Claude (Cached)';
+                    if (claudeRefresh) claudeRefresh.style.display = 'flex';
+                }
 
                 console.warn('⚠️ SAVE COMPLETE: Claude button highlighted, skipping showAIInsightsButtons');
             }
@@ -5761,34 +5823,46 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 }
 
                 // Save to cache
-                aiInsightsCache[cacheKey] = pendingGeminiAnalysis;
-                localStorage.setItem('aiInsightsCache', JSON.stringify(aiInsightsCache));
+                geminiInsightsCache[cacheKey] = pendingGeminiAnalysis;
+                localStorage.setItem('geminiInsightsCache', JSON.stringify(geminiInsightsCache));
 
                 // Clear pending analysis
                 pendingGeminiAnalysis = null;
 
                 // Re-display without Save/Cancel buttons
                 displaySharedGeminiInsights(
-                    aiInsightsCache[cacheKey].analysis,
-                    aiInsightsCache[cacheKey].totalRecords,
-                    aiInsightsCache[cacheKey].sampleSize,
+                    geminiInsightsCache[cacheKey].analysis,
+                    geminiInsightsCache[cacheKey].totalRecords,
+                    geminiInsightsCache[cacheKey].sampleSize,
                     false,
-                    aiInsightsCache[cacheKey].customPrompt
+                    geminiInsightsCache[cacheKey].customPrompt
                 );
 
                 console.warn('⚠️ AFTER SAVE: Re-displayed Gemini insights');
 
                 // Highlight Gemini button to indicate which insights are displayed
-                const claudeBtn = document.getElementById('claudeInsightsBtn');
-                const geminiBtn = document.getElementById('geminiInsightsBtn');
-                if (geminiBtn) geminiBtn.classList.add('cached-insights');
-                if (claudeBtn) claudeBtn.classList.remove('cached-insights');
+                LLM_CONFIGS.forEach(config => {
+                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                    if (buttonGroup) {
+                        const btn = buttonGroup.querySelector('.insights-btn');
+                        if (btn) {
+                            if (config.id === 'gemini') {
+                                btn.classList.add('cached-insights');
+                            } else {
+                                btn.classList.remove('cached-insights');
+                            }
+                        }
+                    }
+                });
 
                 // Update button states but don't trigger auto-display (content already shown)
-                const geminiText = document.getElementById('geminiInsightsText');
-                const geminiRefresh = document.getElementById('geminiRefreshBtn');
-                if (geminiText) geminiText.textContent = 'Gemini Insights (Cached)';
-                if (geminiRefresh) geminiRefresh.style.display = 'flex';
+                const geminiButtonGroup = document.querySelector('.insight-button-group[insightsModel="gemini"]');
+                if (geminiButtonGroup) {
+                    const geminiText = geminiButtonGroup.querySelector('.insights-btn-text');
+                    const geminiRefresh = geminiButtonGroup.querySelector('.insights-refresh-btn');
+                    if (geminiText) geminiText.textContent = 'Gemini (Cached)';
+                    if (geminiRefresh) geminiRefresh.style.display = 'flex';
+                }
 
                 console.warn('⚠️ SAVE COMPLETE: Gemini button highlighted, skipping showAIInsightsButtons');
             }
@@ -5798,9 +5872,9 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             if (pendingGeminiAnalysis) {
                 pendingGeminiAnalysis = null;
                 const cacheKey = getCurrentDataSource();
-                
+
                 // Check if there's a cached version to restore
-                if (aiInsightsCache[cacheKey]) {
+                if (geminiInsightsCache[cacheKey]) {
                     displayCachedInsights(cacheKey, 'gemini');
                 } else {
                     const content = document.getElementById('insightsContent');
