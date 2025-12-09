@@ -2863,31 +2863,16 @@
             <div id="aiInsights" style="display: none;">
                 <div class="insights-header">
                     <div class="insights-status" id="insightsStatus">
-                        <div class="insight-button-group">
-                            <button id="claudeInsightsBtn" class="btn btn-secondary" onclick="handleClaudeInsightsClick()">
-                                <span id="claudeInsightsText">Claude Insights</span>
-                            </button>
-                            <button id="claudeRefreshBtn" class="btn btn-secondary refresh-btn" onclick="showRefreshPrompt('claude')" title="Refresh with custom prompt" style="display: none;">
-                                <span>↻</span>
-                            </button>
-                        </div>
-                        <div class="insight-button-group">
-                            <button id="geminiInsightsBtn" class="btn btn-primary" onclick="handleGeminiInsightsClick()">
-                                <span id="geminiInsightsText">Gemini Insights</span>
-                            </button>
-                            <button id="geminiRefreshBtn" class="btn btn-primary refresh-btn" onclick="showRefreshPrompt('gemini')" title="Refresh with custom prompt" style="display: none;">
-                                <span>↻</span>
-                            </button>
-                        </div>
+                        <!-- Buttons will be dynamically generated here -->
                         <div class="max-rows-control" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
                             <label for="maxRowsInput" style="color: var(--text-secondary); white-space: nowrap;">Max rows:</label>
-                            <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to Gemini API">
+                            <input type="number" id="maxRowsInput" value="20" min="1" max="100" style="width: 50px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;" title="Maximum number of rows to send to AI APIs">
                         </div>
                     </div>
                 </div>
                 <div id="insightsContent" class="insights-content">
                     <div style="color: var(--text-secondary); font-style: italic; padding: 20px;">
-                        Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.
+                        Click an Insights button for AI analysis. Use the ↻ refresh button for custom prompts.
                     </div>
                 </div>
             </div>
@@ -3902,17 +3887,97 @@
                     }
             });
         const GEMINI_API_BASE = 'http://localhost:8081/api';
-        
+
+        // LLM Configuration - Add new LLMs here
+        const LLM_CONFIGS = [
+            {
+                id: 'claude',
+                name: 'Claude',
+                endpoint: '/claude/analyze',
+                buttonClass: 'btn-secondary',
+                cacheKey: 'claudeInsightsCache'
+            },
+            {
+                id: 'gemini',
+                name: 'Gemini',
+                endpoint: '/gemini/analyze',
+                buttonClass: 'btn-primary',
+                cacheKey: 'aiInsightsCache'
+            },
+            {
+                id: 'openai',
+                name: 'OpenAI',
+                endpoint: '/openai/analyze',
+                buttonClass: 'btn-secondary',
+                cacheKey: 'openaiInsightsCache'
+            }
+        ];
+
         // AI Insights variables
         let currentActiveAI = null;
         let currentPromptAI = null;
-        const aiInsightsCache = JSON.parse(localStorage.getItem('aiInsightsCache') || '{}');
-        const claudeInsightsCache = JSON.parse(localStorage.getItem('claudeInsightsCache') || '{}');
-        
-        // Pending analysis storage (like admin page)
+
+        // Dynamic cache objects for each LLM
+        const insightsCache = {};
+        LLM_CONFIGS.forEach(config => {
+            insightsCache[config.id] = JSON.parse(localStorage.getItem(config.cacheKey) || '{}');
+        });
+
+        // Legacy support - keep old variable names for backward compatibility
+        const aiInsightsCache = insightsCache.gemini;
+        const claudeInsightsCache = insightsCache.claude;
+
+        // Pending analysis storage - dynamic for all LLMs
+        const pendingAnalysis = {};
+        LLM_CONFIGS.forEach(config => {
+            pendingAnalysis[config.id] = null;
+        });
+
+        // Legacy support
         let pendingGeminiAnalysis = null;
         let pendingClaudeAnalysis = null;
-        
+
+        // Initialize LLM Insight Buttons
+        function initializeLLMButtons() {
+            const insightsStatus = document.getElementById('insightsStatus');
+            if (!insightsStatus) return;
+
+            // Find the max-rows-control to insert buttons before it
+            const maxRowsControl = insightsStatus.querySelector('.max-rows-control');
+
+            // Generate buttons for each LLM
+            const buttonsHTML = LLM_CONFIGS.map(config => `
+                <div class="insight-button-group" insightsModel="${config.id}">
+                    <button class="insights-btn btn ${config.buttonClass}" onclick="handleInsightsClick('${config.id}')">
+                        <span class="insights-btn-text">${config.name} Insights</span>
+                    </button>
+                    <button class="insights-refresh-btn btn ${config.buttonClass} refresh-btn" onclick="showRefreshPrompt('${config.id}')" title="Refresh with custom prompt" style="display: none;">
+                        <span>↻</span>
+                    </button>
+                </div>
+            `).join('');
+
+            // Insert buttons before max-rows-control
+            if (maxRowsControl) {
+                maxRowsControl.insertAdjacentHTML('beforebegin', buttonsHTML);
+            }
+        }
+
+        // Generic insights click handler
+        function handleInsightsClick(modelId) {
+            if (!window.participantsData || window.participantsData.length === 0) {
+                appendStatusMessage('No data available for analysis. Please load a list first.', 'error');
+                return;
+            }
+
+            const cacheKey = getCurrentDataSource();
+            if (insightsCache[modelId][cacheKey]) {
+                displayCachedInsights(cacheKey, modelId);
+            } else {
+                showRefreshPrompt(modelId);
+            }
+        }
+
         // AI Insights Functions
         function showAIInsightsSection() {
             const aiInsights = document.getElementById('aiInsights');
@@ -5214,76 +5279,61 @@
         try { prefetchRepoSummaries(); } catch(e){}
         function showAIInsightsButtons() {
             const cacheKey = getCurrentDataSource();
-            const hasGeminiCache = aiInsightsCache[cacheKey];
-            const hasClaudeCache = claudeInsightsCache[cacheKey];
-            
-            // Update button states
-            const claudeBtn = document.getElementById('claudeInsightsBtn');
-            const claudeText = document.getElementById('claudeInsightsText');
-            const claudeRefresh = document.getElementById('claudeRefreshBtn');
-            const geminiBtn = document.getElementById('geminiInsightsBtn');
-            const geminiText = document.getElementById('geminiInsightsText');
-            const geminiRefresh = document.getElementById('geminiRefreshBtn');
-            
-            if (claudeBtn && claudeText && claudeRefresh) {
-                claudeBtn.disabled = false;
-                claudeText.textContent = hasClaudeCache ? 'Claude Insights (Cached)' : 'Claude Insights';
-                claudeRefresh.style.display = hasClaudeCache ? 'flex' : 'none';
-                // Don't auto-highlight - highlighting only shows the currently displayed insights
-            }
-            
-            if (geminiBtn && geminiText && geminiRefresh) {
-                geminiBtn.disabled = false;
-                geminiText.textContent = hasGeminiCache ? 'Gemini Insights (Cached)' : 'Gemini Insights';
-                geminiRefresh.style.display = hasGeminiCache ? 'flex' : 'none';
-                // Don't auto-highlight - highlighting only shows the currently displayed insights
-            }
-            
-            // If aiInsights panel is visible and there are cached insights, show one that corresponds to highlighted button
             const aiInsights = document.getElementById('aiInsights');
+
+            // Update button states for each LLM dynamically
+            LLM_CONFIGS.forEach(config => {
+                const buttonGroup = document.querySelector(`[insightsModel="${config.id}"]`);
+                if (!buttonGroup) return;
+
+                const btn = buttonGroup.querySelector('.insights-btn');
+                const btnText = buttonGroup.querySelector('.insights-btn-text');
+                const refreshBtn = buttonGroup.querySelector('.insights-refresh-btn');
+                const hasCache = insightsCache[config.id][cacheKey];
+
+                if (btn && btnText && refreshBtn) {
+                    btn.disabled = false;
+                    btnText.textContent = hasCache ? `${config.name} Insights (Cached)` : `${config.name} Insights`;
+                    refreshBtn.style.display = hasCache ? 'flex' : 'none';
+                }
+            });
+
+            // If aiInsights panel is visible and there are cached insights, show one that corresponds to highlighted button
             if (aiInsights && window.getComputedStyle(aiInsights).display === 'block') {
-                // Check which button is currently highlighted (has cached-insights class)
-                const claudeHighlighted = claudeBtn && claudeBtn.classList.contains('cached-insights');
-                const geminiHighlighted = geminiBtn && geminiBtn.classList.contains('cached-insights');
+                // Check if any LLM has pending analysis - don't overwrite it!
+                const hasPendingAnalysis = LLM_CONFIGS.some(config =>
+                    pendingAnalysis[config.id] !== null
+                );
 
-                // Check if we have pending (new, unsaved) analysis - don't overwrite it!
-                const hasPendingClaudeAnalysis = typeof pendingClaudeAnalysis !== 'undefined' && pendingClaudeAnalysis !== null;
-                const hasPendingGeminiAnalysis = typeof pendingGeminiAnalysis !== 'undefined' && pendingGeminiAnalysis !== null;
-
-                console.warn('⚠️ showAIInsightsButtons check:', {
-                    claudeHighlighted,
-                    geminiHighlighted,
-                    hasPendingClaudeAnalysis,
-                    hasPendingGeminiAnalysis,
-                    hasClaudeCache,
-                    hasGeminiCache
-                });
-
-                // Don't overwrite pending (new) analysis with cached content
-                if (hasPendingClaudeAnalysis || hasPendingGeminiAnalysis) {
+                if (hasPendingAnalysis) {
                     console.warn('⚠️ Skipping auto-display: pending analysis exists');
                     return;
                 }
 
-                if (claudeHighlighted && hasClaudeCache) {
-                    // Claude is highlighted and has cache - display it
-                    displayCachedInsights(cacheKey, 'claude');
-                } else if (geminiHighlighted && hasGeminiCache) {
-                    // Gemini is highlighted and has cache - display it
-                    displayCachedInsights(cacheKey, 'gemini');
+                // Find which button is highlighted
+                let highlightedModel = null;
+                LLM_CONFIGS.forEach(config => {
+                    const buttonGroup = document.querySelector(`[insightsModel="${config.id}"]`);
+                    const btn = buttonGroup?.querySelector('.insights-btn');
+                    if (btn?.classList.contains('cached-insights')) {
+                        highlightedModel = config.id;
+                    }
+                });
+
+                // Display cached content based on what's highlighted
+                if (highlightedModel && insightsCache[highlightedModel][cacheKey]) {
+                    displayCachedInsights(cacheKey, highlightedModel);
                 }
-                // Only show fallback on initial load (no buttons highlighted yet)
-                else if (!claudeHighlighted && !geminiHighlighted) {
-                    // No button highlighted - show cached insights in priority order
-                    if (hasClaudeCache) {
-                        displayCachedInsights(cacheKey, 'claude');
-                    } else if (hasGeminiCache) {
-                        displayCachedInsights(cacheKey, 'gemini');
+                // Fallback: show first available cached content if no button is highlighted
+                else if (!highlightedModel) {
+                    for (const config of LLM_CONFIGS) {
+                        if (insightsCache[config.id][cacheKey]) {
+                            displayCachedInsights(cacheKey, config.id);
+                            break;
+                        }
                     }
                 }
-                // If a button is highlighted but cache doesn't match, don't show anything
             }
-            // Intentionally do not auto-open contributions panel; user must click to view it
         }
         
         function getCurrentDataSource() {
@@ -5561,20 +5611,28 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                         }
                     };
 
+                    // Store in both legacy and new pending analysis objects for compatibility
+                    pendingAnalysis[aiType] = pendingData;
+
                     if (aiType === 'claude') {
                         console.warn('⚠️ ABOUT TO DISPLAY CLAUDE INSIGHTS');
-                        pendingClaudeAnalysis = pendingData;
+                        pendingClaudeAnalysis = pendingData; // Legacy support
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedClaudeInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
                         console.warn('⚠️ CLAUDE END: displaySharedClaudeInsights completed');
                         showTopMessage('✅ Claude analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
-                    } else {
+                    } else if (aiType === 'gemini') {
                         console.warn('⚠️ ABOUT TO DISPLAY GEMINI INSIGHTS');
-                        pendingGeminiAnalysis = pendingData;
+                        pendingGeminiAnalysis = pendingData; // Legacy support
                         // Display with Save/Cancel buttons - show filtered count in UI
                         await displaySharedGeminiInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
                         console.warn('⚠️ GEMINI END: displaySharedGeminiInsights completed');
                         showTopMessage('✅ Gemini analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
+                    } else {
+                        // For other LLMs (like OpenAI), use generic display (to be implemented)
+                        console.warn(`⚠️ ABOUT TO DISPLAY ${aiType.toUpperCase()} INSIGHTS`);
+                        // TODO: Implement displaySharedOpenAIInsights or use a generic display function
+                        showTopMessage(`✅ ${aiType.charAt(0).toUpperCase() + aiType.slice(1)} analysis complete! Choose Save to keep or Cancel to revert.`, 'success', 0);
                     }
 
                     console.warn('⚠️ BEFORE showAIInsightsButtons - Content should be visible');
@@ -5635,6 +5693,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const cacheKey = getCurrentDataSource();
                 console.warn('⚠️ SAVING CLAUDE ANALYSIS to cache');
 
+                // Clean up double <br> tags after h1 tags
+                if (pendingClaudeAnalysis.analysis) {
+                    pendingClaudeAnalysis.analysis = pendingClaudeAnalysis.analysis
+                        .replace(/<\/h1><br><br>/gi, '</h1><br>');
+                }
 
                 // Save to cache
                 claudeInsightsCache[cacheKey] = pendingClaudeAnalysis;
@@ -5691,6 +5754,11 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
                 const cacheKey = getCurrentDataSource();
                 console.warn('⚠️ SAVING GEMINI ANALYSIS to cache');
 
+                // Clean up double <br> tags after h1 tags
+                if (pendingGeminiAnalysis.analysis) {
+                    pendingGeminiAnalysis.analysis = pendingGeminiAnalysis.analysis
+                        .replace(/<\/h1><br><br>/gi, '</h1><br>');
+                }
 
                 // Save to cache
                 aiInsightsCache[cacheKey] = pendingGeminiAnalysis;
@@ -11261,9 +11329,12 @@ ${JSON.stringify(completeAnalysisData, null, 2)}`,
             
             // Initialize condensed view buttons
             updateCondensedViewButtons();
-            
+
+            // Initialize LLM Insight buttons dynamically
+            initializeLLMButtons();
+
             // Note: loadGroupParticipants() is now called after file initialization
-            
+
             // Check and update group participants panel visibility on page load
             updateGroupParticipantsVisibility();
             
