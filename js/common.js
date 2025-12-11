@@ -388,7 +388,8 @@ function createOSDetectionPanel(containerId) {
 source env/bin/activate
 npx @anthropic-ai/claude-code</div>
             <div style="font-size: .8em;">
-                After a large interaction with Claude, if you're changing to a new topic, by starting a fresh terminal session you'll use fewer tokens. Claude Pro reserves the right to throttle you after 50 sessions/month, but if sessions are small we assume Anthropic will avoid throttling a fresh-session approach.
+                Since context grows is passed to Claude with each request, use a new terminal window when your context changes, or run /clear.<br>
+                Also, use /compact with instructions on what to keep. (These approaches will keep responses fast and will use fewer tokens.)
             </div>
         </div>
     </div>
@@ -842,9 +843,12 @@ ${claudeCmd}</code></pre>`;
                 updateCliCommands();
             });
         });
-        
+
         // Initial update of install text visibility
         updateInstallTextVisibility();
+
+        // Update CLI commands to reflect the correct radio button state
+        updateCliCommands();
     }, 200);
     
     // Add event listeners for GitHub CLI status radio buttons and userComputer text box
