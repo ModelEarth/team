@@ -3,7 +3,8 @@
 
 // Initialize API_BASE
 if (typeof API_BASE === 'undefined') {
-    var API_BASE = 'http://localhost:8081/api';
+    // Use getApiBase from common.js if available (handles localhost fallback)
+    var API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
     window.API_BASE = API_BASE;
 }
 

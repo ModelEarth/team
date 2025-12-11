@@ -162,9 +162,35 @@ function updateFaviconPath() {
     });
 }
 
-// API Configuration
+// API Configuration with localhost fallback for external domains
+function getApiBase() {
+    // Check if user has disabled localhost fallback
+    const pullLocalRust = localStorage.getItem('pullLocalRust');
+    if (pullLocalRust === 'false') {
+        // Fallback disabled, use current domain
+        return window.location.origin.includes('localhost')
+            ? 'http://localhost:8081/api'
+            : `${window.location.origin}/api`;
+    }
+
+    // Default behavior: always try localhost first when on external domains
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (!isLocalhost) {
+        // On external domain (model.earth, dreamstudio.com, etc.)
+        // Enable pullLocalRust flag to indicate we're using localhost fallback
+        if (pullLocalRust === null) {
+            localStorage.setItem('pullLocalRust', 'true');
+        }
+        return 'http://localhost:8081/api';
+    }
+
+    // On localhost, use localhost
+    return 'http://localhost:8081/api';
+}
+
 if (typeof API_BASE === 'undefined') {
-    var API_BASE = 'http://localhost:8081/api';
+    var API_BASE = getApiBase();
 }
 
 // OS Detection functionality
@@ -1717,13 +1743,39 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             // Backend is active
             indicator.className = 'status-indicator connected';
             title.textContent = 'Backend API and Database Status';
-            
+
+            // Check if we're using localhost fallback on an external domain
+            const isExternalDomain = !(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            const pullLocalRust = localStorage.getItem('pullLocalRust') !== 'false';
+            const showFallbackToggle = isExternalDomain && pullLocalRust;
+
+            const fallbackToggleHtml = showFallbackToggle ? `
+                <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div>
+                            <strong style="color: var(--text-primary);">Localhost Fallback Active</strong>
+                            <p style="color: var(--text-secondary); font-size: 14px; margin: 4px 0 0 0;">
+                                Using localhost:8081 API from ${window.location.hostname}
+                            </p>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="localhost-fallback-toggle"
+                                   checked
+                                   onchange="toggleLocalhostFallback(this)"
+                                   style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="color: var(--text-primary); font-size: 14px;">Enable</span>
+                        </label>
+                    </div>
+                </div>
+            ` : '';
+
             content.innerHTML = `
                 <div style="color: var(--accent-green); margin-bottom: 16px;">
                     ✅ Backend Rust API is accessible
                 </div>
+                ${fallbackToggleHtml}
             `;
-            
+
             // Show reload and stop buttons
             if (reloadBtn) {
                 reloadBtn.style.display = 'block';
@@ -1988,6 +2040,29 @@ async function checkDatabaseStatus() {
     checkIndividualDatabaseStatus();
 }
 
+// Function to toggle localhost fallback
+function toggleLocalhostFallback(checkbox) {
+    const enabled = checkbox.checked;
+    localStorage.setItem('pullLocalRust', enabled ? 'true' : 'false');
+
+    if (enabled) {
+        // Re-enable fallback
+        API_BASE = getApiBase();
+        showNotification('✅ Localhost fallback enabled. Page will reload.', 'success');
+    } else {
+        // Disable fallback
+        API_BASE = window.location.origin.includes('localhost')
+            ? 'http://localhost:8081/api'
+            : `${window.location.origin}/api`;
+        showNotification('⚠️ Localhost fallback disabled. Page will reload.', 'info');
+    }
+
+    // Reload page after a short delay
+    setTimeout(() => {
+        window.location.reload();
+    }, 1500);
+}
+
 // Make functions globally available
 // Function to stop Rust server
 async function stopRustServer() {
@@ -2041,6 +2116,8 @@ async function stopRustServer() {
     }
 }
 
+window.getApiBase = getApiBase;
+window.toggleLocalhostFallback = toggleLocalhostFallback;
 window.createOSDetectionPanel = createOSDetectionPanel;
 window.createRustApiStatusPanel = createRustApiStatusPanel;
 window.updateRustApiStatusPanel = updateRustApiStatusPanel;

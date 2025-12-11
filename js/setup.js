@@ -234,7 +234,8 @@ function setupBackendInfo(containerId) {
 
 // API Configuration (use existing API_BASE if available, otherwise define it)
 if (typeof API_BASE === 'undefined') {
-    var API_BASE = 'http://localhost:8081/api';
+    // Use getApiBase from common.js if available (handles localhost fallback)
+    var API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
 }
 
 // HTML content for the gemini resources section

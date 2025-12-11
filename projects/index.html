@@ -3995,7 +3995,8 @@
                         }
                     }
             });
-        const GEMINI_API_BASE = 'http://localhost:8081';
+        // Use getApiBase from common.js if available (handles localhost fallback for external domains)
+        const GEMINI_API_BASE = (typeof getApiBase === 'function') ? getApiBase().replace('/api', '') : 'http://localhost:8081';
 
         // LLM_CONFIGS is loaded from shared docker/js/llm-configs.js
         // LLM_API_ENDPOINT is also loaded from that file
@@ -5520,6 +5521,7 @@
             const totalRowsDisplay = document.getElementById('totalRowsDisplay');
             const maxRowsInput = document.getElementById('maxRowsInput');
             const submitBtn = document.getElementById('promptSubmitBtn');
+            const promptInput = document.getElementById('promptInput');
 
             // Get LLM config for display name
             const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
@@ -5548,6 +5550,11 @@
                 submitBtn.textContent = hasCache ? 'Refresh Insights' : 'Get Insights';
             }
 
+            // Load the prompt from the cache if it exists
+            if (promptInput && hasCache && insightsCache[aiType][cacheKey].customPrompt) {
+                promptInput.value = insightsCache[aiType][cacheKey].customPrompt;
+            }
+
             // Check if API key is required and available
             await checkAndShowApiKeyManagement(aiType, llmConfig);
 
@@ -5573,15 +5580,6 @@
             const promptSection = document.getElementById('prompt-section');
             const promptInput = document.getElementById('promptInput');
             const submitBtn = document.getElementById('promptSubmitBtn');
-
-            // Skip key management for Claude (uses CLI instead)
-            if (llmConfig.usesCliInstead) {
-                keyManagementDiv.style.display = 'none';
-                promptSection.style.display = 'block';
-                promptInput.disabled = false;
-                submitBtn.disabled = false;
-                return;
-            }
 
             // Check for keys in cache and .env
             const cacheKey = getCachedApiKey(aiType);
@@ -5634,24 +5632,13 @@
         }
 
         function getApiKeyInfo(aiType) {
-            const info = {
-                'gemini': {
-                    description: 'Your API key will be stored in your browser cache.',
-                    link: 'https://ai.google.dev/gemini-api/docs/quickstart',
-                    placeholder: 'AIza...'
-                },
-                'openai': {
-                    description: 'Your API key will be stored in your browser cache.',
-                    link: 'https://platform.openai.com/api-keys',
-                    placeholder: 'sk-...'
-                },
-                'claude': {
-                    description: 'Your API key will be stored in your browser cache.',
-                    link: 'https://console.anthropic.com/settings/keys',
-                    placeholder: 'sk-ant-...'
-                }
-            };
-            return info[aiType] || {
+            // Read from LLM config
+            const llmConfig = LLM_CONFIGS.find(c => c.id === aiType);
+            if (llmConfig && llmConfig.keyInfo) {
+                return llmConfig.keyInfo;
+            }
+            // Fallback if not found in config
+            return {
                 description: 'Your API key will be stored in your browser cache.',
                 link: '#',
                 placeholder: 'Enter API key...'
@@ -5928,9 +5915,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         async function submitPrompt() {
             const prompt = document.getElementById('promptInput').value;
             const aiType = currentPromptAI;
-            
+
             if (!prompt || !aiType || !window.participantsData) return;
-            
+
             closePromptModal();
 
             console.warn('⚠️ CLAUDE START: Beginning analysis for', aiType);
@@ -6253,6 +6240,18 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             }
 
             console.warn(`⚠️ SAVE COMPLETE: ${aiType} button highlighted, skipping showAIInsightsButtons`);
+
+            // Update insights button count
+            const insightsBtn = document.getElementById('insights-btn');
+            if (insightsBtn) {
+                const aiInsights = document.getElementById('aiInsights');
+                if (aiInsights) {
+                    const isHidden = window.getComputedStyle(aiInsights).display !== 'block';
+                    if (isHidden) {
+                        insightsBtn.textContent = getInsightsButtonText(true);
+                    }
+                }
+            }
         }
 
         function cancelAnalysis(aiType) {
@@ -11103,14 +11102,54 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             // Always show insights button for all lists
             if (insightsBtn) {
                 insightsBtn.style.display = 'inline-block';
+                // Update button text with count if panel is hidden
+                const aiInsights = document.getElementById('aiInsights');
+                if (aiInsights) {
+                    const isHidden = window.getComputedStyle(aiInsights).display !== 'block';
+                    if (isHidden) {
+                        insightsBtn.textContent = getInsightsButtonText(true);
+                    }
+                }
             }
-            // Also show Contributions button if present
+            // Only show Repos button for modelteam list
             const contribsBtn = document.getElementById('contribs-btn');
             if (contribsBtn) {
-                contribsBtn.style.display = 'inline-block';
+                const isModelTeam = getHash().list === 'modelteam';
+                contribsBtn.style.display = isModelTeam ? 'inline-block' : 'none';
             }
         }
         
+        // Count insights for the current list
+        function countInsightsForCurrentList() {
+            const cacheKey = getCurrentDataSource();
+            let count = 0;
+
+            // Count insights across all LLMs
+            LLM_CONFIGS.forEach(config => {
+                if (insightsCache[config.id] && insightsCache[config.id][cacheKey]) {
+                    count++;
+                }
+            });
+
+            return count;
+        }
+
+        // Get insights button text with count
+        function getInsightsButtonText(isHidden = false) {
+            if (isHidden) {
+                const count = countInsightsForCurrentList();
+                if (count === 0) {
+                    return 'Insights';
+                } else if (count === 1) {
+                    return '1 Insight';
+                } else {
+                    return `${count} Insights`;
+                }
+            } else {
+                return 'Hide Insights';
+            }
+        }
+
         // Insights toggle functionality
         function toggleInsights() {
             const aiInsights = document.getElementById('aiInsights');
@@ -11122,7 +11161,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             if (isCurrentlyVisible) {
                 // Hide insights
                 aiInsights.style.setProperty('display', 'none', 'important');
-                insightsBtn.textContent = 'Insights';
+                insightsBtn.textContent = getInsightsButtonText(true);
                 removeURLHashParam('insights');
             } else {
                 // Show insights
@@ -11164,7 +11203,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             } else {
                 aiInsights.style.setProperty('display', 'none', 'important');
                 if (insightsBtn) {
-                    insightsBtn.textContent = 'Insights';
+                    insightsBtn.textContent = getInsightsButtonText(true);
                 }
                 console.log('Insights panel hidden (no URL parameter)');
             }

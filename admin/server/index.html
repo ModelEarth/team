@@ -103,7 +103,8 @@
 
     <script src="../../js/common.js"></script>
     <script>
-        const GEMINI_API_BASE = 'http://localhost:8081/api';
+        // Use getApiBase from common.js if available (handles localhost fallback for external domains)
+        const GEMINI_API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
         
         
         // Web Server panel elements

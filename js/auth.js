@@ -3,7 +3,8 @@
 
 class AuthManager {
     constructor() {
-        this.API_BASE = 'http://localhost:8081/api';
+        // Use getApiBase from common.js if available (handles localhost fallback)
+        this.API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
         this.providers = ['google', 'github', 'linkedin', 'microsoft', 'facebook'];
         this.currentUser = null;
         this.initializeAuth();
