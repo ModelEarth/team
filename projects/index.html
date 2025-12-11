@@ -2414,6 +2414,11 @@
             flex: 1;
         }
 
+        /* Ensure btn-secondary buttons have consistent borders matching refresh button */
+        .insight-button-group .btn.btn-secondary {
+            border: 1px solid var(--border-light) !important;
+        }
+
         /* When refresh button is visible, adjust border radius for tighter connection */
         .insight-button-group .btn:has(+ .refresh-btn:not([style*="display: none"])),
         .insight-button-group .btn:has(+ .refresh-btn[style*="display: block"]),
@@ -2438,7 +2443,7 @@
 
         .refresh-btn {
             width: 40px;
-            height: 40px;
+            height: 38px;
             min-width: 40px;
             max-width: 40px;
             padding: 0;
@@ -2474,6 +2479,10 @@
         }
 
         /* Match border on 3 sides of refresh button (exclude left edge that touches main button) */
+        .insights-refresh-btn.refresh-btn {
+            background: #137AD1 !important;
+        }
+
         .insights-refresh-btn.refresh-btn.btn-primary {
             border: none !important;
         }
@@ -2483,6 +2492,19 @@
             border-right: 1px solid var(--border-light) !important;
             border-bottom: 1px solid var(--border-light) !important;
             border-left: none !important;
+        }
+
+        /* Match the cached-insights glow/border on refresh button when main button is cached */
+        .insight-button-group .btn.cached-insights + .insights-refresh-btn.refresh-btn {
+            box-shadow: 0 2px 0 0 rgba(59, 130, 246, 0.3),
+                        0 -2px 0 0 rgba(59, 130, 246, 0.3),
+                        2px 0 0 0 rgba(59, 130, 246, 0.3) !important;
+        }
+
+        .dark .insight-button-group .btn.cached-insights + .insights-refresh-btn.refresh-btn {
+            box-shadow: 0 2px 0 0 rgba(59, 130, 246, 0.4),
+                        0 -2px 0 0 rgba(59, 130, 246, 0.4),
+                        2px 0 0 0 rgba(59, 130, 246, 0.4) !important;
         }
 
         /* AI Insights Styles */
@@ -2564,6 +2586,10 @@
             border-radius: 4px;
             font-size: 12px;
             text-align: center;
+        }
+
+        .prompt-modal-max-rows span {
+            margin-left: -2px;
         }
 
         .prompt-modal-content textarea {
@@ -3122,9 +3148,9 @@
                 <div class="prompt-modal-header">
                     <h3 id="promptModalTitle">Refresh AI Insights</h3>
                     <div class="prompt-modal-max-rows">
-                        <label for="maxRowsInput">Max rows:</label>
+                        <label for="maxRowsInput">Analyze</label>
                         <input type="number" id="maxRowsInput" value="50" min="1" max="100" title="Maximum number of rows to send to AI APIs">
-                        <span id="totalRowsDisplay">of 0</span>
+                        <span id="totalRowsDisplay">rows of 0</span>
                     </div>
                 </div>
                 <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">
@@ -5462,7 +5488,7 @@
             // Update total rows count based on currently filtered data
             const currentlyDisplayedData = getCurrentlyDisplayedData();
             if (totalRowsDisplay) {
-                totalRowsDisplay.textContent = `of ${currentlyDisplayedData.length}`;
+                totalRowsDisplay.textContent = `rows of ${currentlyDisplayedData.length}`;
             }
 
             modal.classList.remove('hidden');
@@ -5624,6 +5650,9 @@
                         analysisWithTokens = appendTokenUsage(result.analysis, result.token_usage);
                     }
 
+                    // Clean up HTML formatting (reduce double <br> after h2, remove <br> after h3, etc.)
+                    analysisWithTokens = cleanupLLMAnalysis(analysisWithTokens);
+
                     console.warn('⚠️ ANALYSIS CONTENT:', {
                         aiType,
                         contentPreview: analysisWithTokens.substring(0, 100) + '...',
@@ -5743,10 +5772,9 @@
                 const cacheKey = getCurrentDataSource();
                 console.warn('⚠️ SAVING CLAUDE ANALYSIS to cache');
 
-                // Clean up double <br> tags after h1 tags
+                // Clean up HTML formatting before saving
                 if (pendingClaudeAnalysis.analysis) {
-                    pendingClaudeAnalysis.analysis = pendingClaudeAnalysis.analysis
-                        .replace(/<\/h1><br><br>/gi, '</h1><br>');
+                    pendingClaudeAnalysis.analysis = cleanupLLMAnalysis(pendingClaudeAnalysis.analysis);
                 }
 
                 // Save to cache
@@ -5816,10 +5844,9 @@
                 const cacheKey = getCurrentDataSource();
                 console.warn('⚠️ SAVING GEMINI ANALYSIS to cache');
 
-                // Clean up double <br> tags after h1 tags
+                // Clean up HTML formatting before saving
                 if (pendingGeminiAnalysis.analysis) {
-                    pendingGeminiAnalysis.analysis = pendingGeminiAnalysis.analysis
-                        .replace(/<\/h1><br><br>/gi, '</h1><br>');
+                    pendingGeminiAnalysis.analysis = cleanupLLMAnalysis(pendingGeminiAnalysis.analysis);
                 }
 
                 // Save to cache
@@ -5883,6 +5910,45 @@
             }
         }
 
+        // Clean up LLM analysis HTML formatting
+        function cleanupLLMAnalysis(analysis) {
+            if (!analysis) return analysis;
+
+            return analysis
+                // After h1: remove all <br> tags (handles <br>, <br/>, <br />, etc.)
+                .replace(/<\/h1>(\s*<br\s*\/?>)+/gi, '</h1>')
+                // After h2: remove all <br> tags
+                .replace(/<\/h2>(\s*<br\s*\/?>)+/gi, '</h2>')
+                // After h3: remove all <br> tags
+                .replace(/<\/h3>(\s*<br\s*\/?>)+/gi, '</h3>')
+                // After h4: remove all <br> tags
+                .replace(/<\/h4>(\s*<br\s*\/?>)+/gi, '</h4>')
+                // After h5: remove all <br> tags
+                .replace(/<\/h5>(\s*<br\s*\/?>)+/gi, '</h5>')
+                // After h6: remove all <br> tags
+                .replace(/<\/h6>(\s*<br\s*\/?>)+/gi, '</h6>');
+        }
+
+        // Clear insights when switching lists
+        function clearInsightsDisplay() {
+            const content = document.getElementById('insightsContent');
+            if (content) {
+                content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click an Insights button for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
+            }
+
+            // Clear all button highlighting
+            LLM_CONFIGS.forEach(config => {
+                const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                if (buttonGroup) {
+                    const btn = buttonGroup.querySelector('.insights-btn');
+                    if (btn) btn.classList.remove('cached-insights');
+                }
+            });
+
+            // Reset active AI state
+            currentActiveAI = null;
+        }
+
         // Google Meetup Participants
         const getParticipantsButton = document.getElementById('get-participants');
         const participantsSpinner = document.getElementById('participants-spinner');
@@ -5892,7 +5958,7 @@
         const fileInput = document.getElementById('excelFile');
         const fileDisplay = document.getElementById('fileDisplay');
         const statusMessages = document.getElementById('statusMessages');
-        
+
         let selectedFile = null;
         let customFiles = {};
 
@@ -5996,6 +6062,9 @@
         }
         
         async function getSubsetUsingSnapshot() {
+            // Clear any displayed insights from previous list
+            clearInsightsDisplay();
+
             // Check for admin=1 and list=modelteam in hash
             const hash = getHash();
             const isAdmin = hash.admin === '1';
@@ -10430,7 +10499,10 @@
         function handleCustomFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
+            // Clear any displayed insights from previous list
+            clearInsightsDisplay();
+
             // Store the file object
             customFiles[file.name] = file;
             selectedFile = file;
@@ -10847,6 +10919,9 @@
         }
 
         function showAllLists() {
+            // Clear any displayed insights from previous list
+            clearInsightsDisplay();
+
             // Show loading status for list of lists
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
             document.getElementById('loadStatus').style.display = 'block';
