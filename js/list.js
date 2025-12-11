@@ -1703,25 +1703,50 @@ function appendTokenUsage(analysis, tokenUsage) {
     return analysis + tokenInfo;
 }
 
-async function displaySharedGeminiInsights(analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
+// Unified display function for all LLM insights
+async function displayInsights(aiType, analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
     const insightsContent = document.getElementById('insightsContent');
-    if (!insightsContent) return;
-    
-    const saveButtonsHTML = createSaveButtons('gemini', isNewAnalysis);
-    const promptHTML = createPromptSection(customPrompt, 'gemini');
-    
+    if (!insightsContent) {
+        console.warn(`⚠️ ERROR: insightsContent element not found for ${aiType}`);
+        return;
+    }
+
+    // Get LLM-specific configuration
+    const config = {
+        'claude': { emoji: '🤖', color: 'var(--accent-blue)', name: 'Claude' },
+        'gemini': { emoji: '📊', color: 'var(--accent-green)', name: 'Gemini' },
+        'openai': { emoji: '📊', color: 'var(--accent-green)', name: 'OpenAI' }
+    };
+    const llmConfig = config[aiType] || { emoji: '🤖', color: 'var(--accent-blue)', name: aiType.charAt(0).toUpperCase() + aiType.slice(1) };
+
+    const saveButtonsHTML = createSaveButtons(aiType, isNewAnalysis);
+    const promptHTML = createPromptSection(customPrompt, aiType);
+
     // Check if this is cached data
     const isCached = !isNewAnalysis;
-    
+
+    console.warn(`⚠️ DISPLAY FUNCTION CALLED: ${aiType}`, {
+        analysisLength: analysis?.length,
+        totalRecords,
+        sampleSize,
+        isNewAnalysis,
+        hasInsightsContent: !!insightsContent
+    });
+
     try {
         // Use markdown processing similar to admin page
         const processedHTML = await processSharedMarkdownContent(analysis);
-        
+
+        console.warn(`⚠️ MARKDOWN PROCESSED for ${aiType}:`, {
+            processedLength: processedHTML?.length,
+            preview: processedHTML?.substring(0, 100)
+        });
+
         let html = `
             <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
-                <strong>📊 Gemini Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
-                ${isCached ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px; cursor: pointer; text-decoration: underline;" onclick="showRawMarkdown(\'gemini\')">💾 Cached Gemini Analysis</span>' : ''}
-                ${isNewAnalysis ? '<span style="color: var(--accent-green); font-size: 12px; margin-left: 8px;">✨ New Analysis</span>' : ''}
+                <strong>${llmConfig.emoji} ${llmConfig.name} Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
+                ${isCached ? `<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px; cursor: pointer; text-decoration: underline;" onclick="showRawMarkdown('${aiType}')">💾 Cached ${llmConfig.name} Analysis</span>` : ''}
+                ${isNewAnalysis ? `<span style="color: ${llmConfig.color}; font-size: 12px; margin-left: 8px;">✨ New Analysis</span>` : ''}
             </div>
             ${saveButtonsHTML}
             ${promptHTML}
@@ -1729,22 +1754,29 @@ async function displaySharedGeminiInsights(analysis, totalRecords, sampleSize, i
                 ${processedHTML}
             </div>
         `;
-        
+
+        console.warn(`⚠️ SETTING INNERHTML for ${aiType}:`, {
+            htmlLength: html.length,
+            htmlPreview: html.substring(0, 200)
+        });
+
         insightsContent.innerHTML = html;
-        
+
+        console.warn(`⚠️ INNERHTML SET SUCCESSFULLY for ${aiType}`);
+
         // Apply markdown styling if available
         if (typeof applyMarkdownStyling === 'function') {
             applyMarkdownStyling(insightsContent);
         }
-        
+
     } catch (error) {
-        console.error('Error processing Gemini markdown:', error);
+        console.error(`Error processing ${aiType} markdown:`, error);
         // Fallback to simple text display
         insightsContent.innerHTML = `
             <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
-                <strong>📊 Gemini Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
+                <strong>${llmConfig.emoji} ${llmConfig.name} Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
                 ${isCached ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">💾 Cached analysis</span>' : ''}
-                ${isNewAnalysis ? '<span style="color: var(--accent-green); font-size: 12px; margin-left: 8px;">✨ New Analysis</span>' : ''}
+                ${isNewAnalysis ? `<span style="color: ${llmConfig.color}; font-size: 12px; margin-left: 8px;">✨ New Analysis</span>` : ''}
             </div>
             ${saveButtonsHTML}
             ${promptHTML}
@@ -1755,79 +1787,17 @@ async function displaySharedGeminiInsights(analysis, totalRecords, sampleSize, i
     }
 }
 
+// Legacy wrapper functions for backward compatibility
+async function displaySharedGeminiInsights(analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
+    return displayInsights('gemini', analysis, totalRecords, sampleSize, isNewAnalysis, customPrompt);
+}
+
 async function displaySharedClaudeInsights(analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
-    console.warn('⚠️ DISPLAY FUNCTION CALLED: displaySharedClaudeInsights', {
-        analysisLength: analysis?.length,
-        totalRecords,
-        sampleSize,
-        isNewAnalysis,
-        hasInsightsContent: !!document.getElementById('insightsContent')
-    });
+    return displayInsights('claude', analysis, totalRecords, sampleSize, isNewAnalysis, customPrompt);
+}
 
-    const insightsContent = document.getElementById('insightsContent');
-    if (!insightsContent) {
-        console.warn('⚠️ ERROR: insightsContent element not found!');
-        return;
-    }
-
-    const saveButtonsHTML = createSaveButtons('claude', isNewAnalysis);
-    const promptHTML = createPromptSection(customPrompt, 'claude');
-
-    // Check if this is cached data
-    const isCached = !isNewAnalysis;
-
-    try {
-        // Use markdown processing similar to admin page
-        const processedHTML = await processSharedMarkdownContent(analysis);
-
-        console.warn('⚠️ MARKDOWN PROCESSED:', {
-            processedLength: processedHTML?.length,
-            preview: processedHTML?.substring(0, 100)
-        });
-
-        let html = `
-            <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
-                <strong>🤖 Claude Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
-                ${isCached ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px; cursor: pointer; text-decoration: underline;" onclick="showRawMarkdown(\'claude\')">💾 Cached Claude Analysis</span>' : ''}
-                ${isNewAnalysis ? '<span style="color: var(--accent-blue); font-size: 12px; margin-left: 8px;">✨ New Analysis</span>' : ''}
-            </div>
-            ${saveButtonsHTML}
-            ${promptHTML}
-            <div class="insight-section readme-content">
-                ${processedHTML}
-            </div>
-        `;
-
-        console.warn('⚠️ SETTING INNERHTML:', {
-            htmlLength: html.length,
-            htmlPreview: html.substring(0, 200)
-        });
-
-        insightsContent.innerHTML = html;
-
-        console.warn('⚠️ INNERHTML SET SUCCESSFULLY');
-        
-        // Apply markdown styling if available
-        if (typeof applyMarkdownStyling === 'function') {
-            applyMarkdownStyling(insightsContent);
-        }
-        
-    } catch (error) {
-        console.error('Error processing Claude markdown:', error);
-        // Fallback to simple text display
-        insightsContent.innerHTML = `
-            <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
-                <strong>🤖 Claude Analysis:</strong> ${sampleSize} records analyzed from a dataset of ${totalRecords}
-                ${isCached ? '<span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">💾 Cached analysis</span>' : ''}
-                ${isNewAnalysis ? '<span style="color: var(--accent-blue); font-size: 12px; margin-left: 8px;">✨ New Analysis</span>' : ''}
-            </div>
-            ${saveButtonsHTML}
-            ${promptHTML}
-            <div class="insight-section">
-                <pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(analysis)}</pre>
-            </div>
-        `;
-    }
+async function displaySharedOpenAIInsights(analysis, totalRecords, sampleSize, isNewAnalysis = false, customPrompt = 'Standard data analysis prompt') {
+    return displayInsights('openai', analysis, totalRecords, sampleSize, isNewAnalysis, customPrompt);
 }
 
 // Helper function for markdown processing (fallback if not available)

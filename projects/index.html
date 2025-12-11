@@ -3153,7 +3153,41 @@
                         <span id="totalRowsDisplay">rows of 0</span>
                     </div>
                 </div>
-                <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">
+
+                <!-- API Key Management UI (shown when key is missing) -->
+                <div id="api-key-management" style="display: none; margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 12px 0; color: var(--text-primary);" id="api-key-title">API Key Required</h4>
+
+                    <!-- Radio buttons for key selection (shown when both cache and .env keys exist) -->
+                    <div id="api-key-selection" style="display: none; margin-bottom: 12px;">
+                        <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Select which key to use:</div>
+                        <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                            <input type="radio" name="key-source" value="cache" checked style="margin-right: 8px;">
+                            <span>Browser Cache Key</span>
+                        </label>
+                        <label style="display: block; cursor: pointer;">
+                            <input type="radio" name="key-source" value="env" style="margin-right: 8px;">
+                            <span>Docker .env Key</span>
+                        </label>
+                    </div>
+
+                    <!-- Key input field -->
+                    <div id="api-key-input-section">
+                        <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;" id="api-key-description"></div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="password" id="api-key-input" placeholder="Enter API key..." style="flex: 1; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);">
+                            <button onclick="saveApiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save Key</button>
+                        </div>
+                        <div id="api-key-link" style="margin-top: 8px; font-size: 13px;"></div>
+                    </div>
+
+                    <!-- Change Key button (shown when key exists) -->
+                    <button id="change-key-btn" onclick="showApiKeyInput()" class="btn btn-secondary" style="display: none; padding: 8px 16px; font-size: 14px;">
+                        Change Key
+                    </button>
+                </div>
+
+                <div id="prompt-section" style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">
                     Enter a custom prompt to send with your dataset:
                 </div>
                 <textarea id="promptInput" placeholder="Tell me an amazing poem about this data.">Tell me an amazing poem about this data.</textarea>
@@ -3970,30 +4004,52 @@
         let currentActiveAI = null;
         let currentPromptAI = null;
 
-        // Dynamic cache objects for each LLM
+        // Dynamic cache objects for each LLM (will be populated after config loads)
         const insightsCache = {};
-        LLM_CONFIGS.forEach(config => {
-            insightsCache[config.id] = JSON.parse(localStorage.getItem(config.cacheKey) || '{}');
-        });
-
-        // Legacy support - keep old variable names for backward compatibility
-        const geminiInsightsCache = insightsCache.gemini;
-        const claudeInsightsCache = insightsCache.claude;
-
-        // Pending analysis storage - dynamic for all LLMs
         const pendingAnalysis = {};
-        LLM_CONFIGS.forEach(config => {
-            pendingAnalysis[config.id] = null;
-        });
 
-        // Legacy support
+        // Legacy support variables (will be assigned after config loads)
+        let geminiInsightsCache = {};
+        let claudeInsightsCache = {};
         let pendingGeminiAnalysis = null;
         let pendingClaudeAnalysis = null;
 
+        // Initialize caches after LLM config is loaded
+        async function initializeLLMCaches() {
+            // Wait for LLM configuration to load
+            if (typeof loadLLMConfig === 'function') {
+                await loadLLMConfig();
+            }
+
+            // Populate cache objects for each LLM
+            LLM_CONFIGS.forEach(config => {
+                insightsCache[config.id] = JSON.parse(localStorage.getItem(config.cacheKey) || '{}');
+                pendingAnalysis[config.id] = null;
+            });
+
+            // Legacy support - keep old variable names for backward compatibility
+            geminiInsightsCache = insightsCache.gemini || {};
+            claudeInsightsCache = insightsCache.claude || {};
+        }
+
+        // Auto-initialize caches when script loads
+        initializeLLMCaches();
+
         // Initialize LLM Insight Buttons
-        function initializeLLMButtons() {
+        async function initializeLLMButtons() {
+            // Wait for LLM configuration to load
+            if (typeof loadLLMConfig === 'function') {
+                await loadLLMConfig();
+            }
+
             const insightsStatus = document.getElementById('insightsStatus');
             if (!insightsStatus) return;
+
+            // Ensure LLM_CONFIGS is populated
+            if (!LLM_CONFIGS || LLM_CONFIGS.length === 0) {
+                console.warn('⚠️ No LLM configurations available');
+                return;
+            }
 
             // Add title before buttons
             const titleHTML = '<div style="font-weight: 600; font-size: 16px; color: var(--text-primary); margin-bottom: 12px;">Insights</div>';
@@ -5394,35 +5450,10 @@
             }
             return selectedFile || 'unknown';
         }
-        
-        function handleClaudeInsightsClick() {
-            if (!window.participantsData || window.participantsData.length === 0) {
-                appendStatusMessage('No data available for analysis. Please load a list first.', 'error');
-                return;
-            }
-            
-            const cacheKey = getCurrentDataSource();
-            if (claudeInsightsCache[cacheKey]) {
-                displayCachedInsights(cacheKey, 'claude');
-            } else {
-                showRefreshPrompt('claude');
-            }
-        }
-        
-        function handleGeminiInsightsClick() {
-            if (!window.participantsData || window.participantsData.length === 0) {
-                appendStatusMessage('No data available for analysis. Please load a list first.', 'error');
-                return;
-            }
 
-            const cacheKey = getCurrentDataSource();
-            if (geminiInsightsCache[cacheKey]) {
-                displayCachedInsights(cacheKey, 'gemini');
-            } else {
-                showRefreshPrompt('gemini');
-            }
-        }
-        
+        // Note: Legacy handleClaudeInsightsClick() and handleGeminiInsightsClick() removed
+        // Now using generic handleInsightsClick(modelId) defined above
+
         async function displayCachedInsights(cacheKey, aiType) {
             // Use dynamic cache lookup: insightsCache[aiType] (e.g., insightsCache['gemini'] = geminiInsightsCache)
             const cache = insightsCache[aiType];
@@ -5462,9 +5493,16 @@
                         false,
                         insights.customPrompt || insights.prompt || 'Standard data analysis prompt'
                     );
+                } else if (aiType === 'openai') {
+                    await displaySharedOpenAIInsights(
+                        insights.analysis,
+                        insights.totalRecords || 0,
+                        insights.sampleSize || 0,
+                        false,
+                        insights.customPrompt || insights.prompt || 'Standard data analysis prompt'
+                    );
                 } else {
-                    // For other LLMs (like OpenAI), use a generic display or specific handler
-                    // TODO: Implement displaySharedOpenAIInsights when OpenAI is supported
+                    // For other LLMs, use generic display
                     const content = document.getElementById('insightsContent');
                     content.innerHTML = `<div style="padding: 16px;">${insights.analysis}</div>`;
                 }
@@ -5475,11 +5513,13 @@
             }
         }
         
-        function showRefreshPrompt(aiType) {
+        async function showRefreshPrompt(aiType) {
             currentPromptAI = aiType;
             const modal = document.getElementById('promptModal');
             const title = document.getElementById('promptModalTitle');
             const totalRowsDisplay = document.getElementById('totalRowsDisplay');
+            const maxRowsInput = document.getElementById('maxRowsInput');
+            const submitBtn = document.getElementById('promptSubmitBtn');
 
             // Get LLM config for display name
             const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
@@ -5487,9 +5527,29 @@
 
             // Update total rows count based on currently filtered data
             const currentlyDisplayedData = getCurrentlyDisplayedData();
+            const totalRows = currentlyDisplayedData.length;
+
             if (totalRowsDisplay) {
-                totalRowsDisplay.textContent = `rows of ${currentlyDisplayedData.length}`;
+                totalRowsDisplay.textContent = `rows of ${totalRows}`;
             }
+
+            // Set maxRowsInput to the minimum of 50 and actual data length
+            if (maxRowsInput) {
+                const defaultMax = 50;
+                const actualMax = Math.min(defaultMax, totalRows);
+                maxRowsInput.value = actualMax;
+                maxRowsInput.max = totalRows; // Update max attribute to total rows
+            }
+
+            // Update button text based on whether insights are cached for this list
+            const cacheKey = getCurrentDataSource();
+            const hasCache = insightsCache[aiType] && insightsCache[aiType][cacheKey];
+            if (submitBtn) {
+                submitBtn.textContent = hasCache ? 'Refresh Insights' : 'Get Insights';
+            }
+
+            // Check if API key is required and available
+            await checkAndShowApiKeyManagement(aiType, llmConfig);
 
             modal.classList.remove('hidden');
         }
@@ -5499,7 +5559,333 @@
             modal.classList.add('hidden');
             currentPromptAI = null;
         }
-        
+
+        // API Key Management Functions
+        async function checkAndShowApiKeyManagement(aiType, llmConfig) {
+            const keyManagementDiv = document.getElementById('api-key-management');
+            const keyTitle = document.getElementById('api-key-title');
+            const keyDescription = document.getElementById('api-key-description');
+            const keyLink = document.getElementById('api-key-link');
+            const keyInput = document.getElementById('api-key-input');
+            const keySelection = document.getElementById('api-key-selection');
+            const keyInputSection = document.getElementById('api-key-input-section');
+            const changeKeyBtn = document.getElementById('change-key-btn');
+            const promptSection = document.getElementById('prompt-section');
+            const promptInput = document.getElementById('promptInput');
+            const submitBtn = document.getElementById('promptSubmitBtn');
+
+            // Skip key management for Claude (uses CLI instead)
+            if (llmConfig.usesCliInstead) {
+                keyManagementDiv.style.display = 'none';
+                promptSection.style.display = 'block';
+                promptInput.disabled = false;
+                submitBtn.disabled = false;
+                return;
+            }
+
+            // Check for keys in cache and .env
+            const cacheKey = getCachedApiKey(aiType);
+            const envKeyAvailable = await checkEnvKeyAvailable(aiType);
+
+            // Determine key availability
+            const hasCacheKey = !!cacheKey;
+            const hasEnvKey = envKeyAvailable;
+            const hasAnyKey = hasCacheKey || hasEnvKey;
+
+            if (hasAnyKey) {
+                // Key is available - show Change Key button, hide input section
+                keyManagementDiv.style.display = 'block';
+                keyTitle.textContent = `✅ ${llmConfig.name} API Key Available`;
+                keyInputSection.style.display = 'none';
+                changeKeyBtn.style.display = 'block';
+
+                // Show radio buttons if both keys are available
+                if (hasCacheKey && hasEnvKey) {
+                    keySelection.style.display = 'block';
+                    // Set cache key as default
+                    document.querySelector('input[name="key-source"][value="cache"]').checked = true;
+                } else {
+                    keySelection.style.display = 'none';
+                }
+
+                // Enable prompt section
+                promptSection.style.display = 'block';
+                promptInput.disabled = false;
+                submitBtn.disabled = false;
+            } else {
+                // No key available - show input section
+                keyManagementDiv.style.display = 'block';
+                keyTitle.textContent = `Add ${llmConfig.name} API Key`;
+                keyInputSection.style.display = 'block';
+                changeKeyBtn.style.display = 'none';
+                keySelection.style.display = 'none';
+
+                // Set description and link based on LLM type
+                const apiKeyInfo = getApiKeyInfo(aiType);
+                keyDescription.textContent = apiKeyInfo.description;
+                keyLink.innerHTML = `<a href="${apiKeyInfo.link}" target="_blank" style="color: var(--accent-blue);">Get your ${llmConfig.name} API key</a>`;
+                keyInput.value = '';
+                keyInput.placeholder = apiKeyInfo.placeholder;
+
+                // Disable prompt section until key is added
+                promptSection.style.display = 'none';
+                submitBtn.disabled = true;
+            }
+        }
+
+        function getApiKeyInfo(aiType) {
+            const info = {
+                'gemini': {
+                    description: 'Your API key will be stored in your browser cache.',
+                    link: 'https://ai.google.dev/gemini-api/docs/quickstart',
+                    placeholder: 'AIza...'
+                },
+                'openai': {
+                    description: 'Your API key will be stored in your browser cache.',
+                    link: 'https://platform.openai.com/api-keys',
+                    placeholder: 'sk-...'
+                },
+                'claude': {
+                    description: 'Your API key will be stored in your browser cache.',
+                    link: 'https://console.anthropic.com/settings/keys',
+                    placeholder: 'sk-ant-...'
+                }
+            };
+            return info[aiType] || {
+                description: 'Your API key will be stored in your browser cache.',
+                link: '#',
+                placeholder: 'Enter API key...'
+            };
+        }
+
+        function getCachedApiKey(aiType) {
+            // Use specific cache key for each LLM
+            return localStorage.getItem(`${aiType}_api_key`);
+        }
+
+        async function checkEnvKeyAvailable(aiType) {
+            // Check if API server is running and has the key in .env
+            try {
+                const response = await fetch(`${API_BASE}/config/current`);
+                if (response.ok) {
+                    const config = await response.json();
+                    // Check for key based on LLM type
+                    if (aiType === 'gemini') {
+                        return config.gemini_api_key_present || false;
+                    } else if (aiType === 'openai') {
+                        return config.openai_api_key_present || false;
+                    } else if (aiType === 'claude') {
+                        return config.claude_api_key_present || false;
+                    }
+                }
+            } catch (error) {
+                // Server not running or error
+                return false;
+            }
+            return false;
+        }
+
+        function showApiKeyInput() {
+            const keyInputSection = document.getElementById('api-key-input-section');
+            const changeKeyBtn = document.getElementById('change-key-btn');
+            const keyInput = document.getElementById('api-key-input');
+
+            keyInputSection.style.display = 'block';
+            changeKeyBtn.style.display = 'none';
+
+            // Load cached key if available
+            const aiType = currentPromptAI;
+            const cachedKey = getCachedApiKey(aiType);
+            if (cachedKey) {
+                keyInput.value = cachedKey;
+            }
+            setTimeout(() => keyInput.focus(), 100);
+        }
+
+        async function saveApiKey() {
+            const keyInput = document.getElementById('api-key-input');
+            const aiType = currentPromptAI;
+
+            const key = keyInput.value.trim();
+            if (key) {
+                localStorage.setItem(`${aiType}_api_key`, key);
+
+                // Re-check and update UI
+                const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+                await checkAndShowApiKeyManagement(aiType, llmConfig);
+            }
+        }
+
+        function getSelectedApiKey(aiType) {
+            // Priority: cache key > .env key
+            // But allow user to select via radio buttons if both exist
+            const cacheKey = getCachedApiKey(aiType);
+            const keySelection = document.getElementById('api-key-selection');
+
+            // If selection radio buttons are visible, respect user choice
+            if (keySelection && keySelection.style.display !== 'none') {
+                const selectedSource = document.querySelector('input[name="key-source"]:checked')?.value;
+                if (selectedSource === 'cache' && cacheKey) {
+                    return cacheKey;
+                } else if (selectedSource === 'env') {
+                    return 'use-env'; // Signal to use .env key on backend
+                }
+            }
+
+            // Otherwise, use cache key if available (priority)
+            if (cacheKey) {
+                return cacheKey;
+            }
+
+            // Fall back to .env key
+            return 'use-env';
+        }
+
+        // Unified client-side API call function for all LLM providers
+        async function callModelClientSide(aiType, apiKey, prompt, dataInfo) {
+            // Get model configuration
+            const llmConfig = LLM_CONFIGS.find(c => c.id === aiType);
+            if (!llmConfig) {
+                throw new Error(`Unknown AI type: ${aiType}`);
+            }
+
+            const model = llmConfig.defaultModel;
+            const providerName = llmConfig.name;
+
+            // Format the prompt with dataset information (shared across all providers)
+            const fullPrompt = `${prompt}
+
+Dataset Information:
+- Total records: ${dataInfo.record_count}
+- Filtered records: ${dataInfo.filtered_count}
+- Sample data (${dataInfo.sample_data.length} records):
+
+${JSON.stringify(dataInfo.sample_data, null, 2)}
+
+Column headers: ${dataInfo.headers.join(', ')}`;
+
+            // Get API configuration from llmConfig
+            const apiConfig = llmConfig.apiConfig;
+            if (!apiConfig) {
+                throw new Error(`No API configuration found for ${aiType}`);
+            }
+
+            // Build endpoint with variable substitution
+            let endpoint = apiConfig.endpoint
+                .replace('{model}', model)
+                .replace('{apiKey}', apiKey);
+
+            // Build headers with variable substitution
+            const headers = {};
+            for (const [key, value] of Object.entries(apiConfig.headers)) {
+                headers[key] = value.replace('{apiKey}', apiKey);
+            }
+
+            // Build request body based on format
+            let requestBody;
+            const format = apiConfig.requestFormat;
+
+            if (format === 'gemini') {
+                requestBody = {
+                    contents: [{
+                        parts: [{ text: fullPrompt }]
+                    }],
+                    generationConfig: {
+                        temperature: apiConfig.temperature,
+                        topK: apiConfig.topK,
+                        topP: apiConfig.topP,
+                        maxOutputTokens: apiConfig.maxOutputTokens,
+                    }
+                };
+            } else if (format === 'openai') {
+                requestBody = {
+                    model: model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: apiConfig.systemPrompt || 'You are a helpful data analyst.'
+                        },
+                        {
+                            role: 'user',
+                            content: fullPrompt
+                        }
+                    ],
+                    temperature: apiConfig.temperature,
+                    max_tokens: apiConfig.maxTokens
+                };
+            } else if (format === 'anthropic') {
+                requestBody = {
+                    model: model,
+                    max_tokens: apiConfig.maxTokens,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: fullPrompt
+                        }
+                    ],
+                    system: apiConfig.systemPrompt || 'You are a helpful data analyst.',
+                    temperature: apiConfig.temperature
+                };
+            } else {
+                throw new Error(`Unknown request format: ${format}`);
+            }
+
+            // Make API request
+            const response = await fetch(endpoint, {
+                method: apiConfig.method || 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`${providerName} API error: ${response.status} - ${errorText}`);
+            }
+
+            const result = await response.json();
+
+            // Parse response based on format
+            let extractedText;
+            const responseFormat = apiConfig.responseFormat;
+
+            if (responseFormat === 'gemini') {
+                if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+                    extractedText = result.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error(`Unexpected ${providerName} API response format`);
+                }
+            } else if (responseFormat === 'openai') {
+                if (result.choices && result.choices[0] && result.choices[0].message) {
+                    extractedText = result.choices[0].message.content;
+                } else {
+                    throw new Error(`Unexpected ${providerName} API response format`);
+                }
+            } else if (responseFormat === 'anthropic') {
+                if (result.content && result.content[0] && result.content[0].text) {
+                    extractedText = result.content[0].text;
+                } else {
+                    throw new Error(`Unexpected ${providerName} API response format`);
+                }
+            } else {
+                throw new Error(`Unknown response format: ${responseFormat}`);
+            }
+
+            return {
+                success: true,
+                analysis: extractedText,
+                model: result.model || model
+            };
+        }
+
+        // Legacy wrapper functions for backward compatibility
+        async function callGeminiClientSide(apiKey, prompt, dataInfo) {
+            return callModelClientSide('gemini', apiKey, prompt, dataInfo);
+        }
+
+        async function callOpenAIClientSide(apiKey, prompt, dataInfo) {
+            return callModelClientSide('openai', apiKey, prompt, dataInfo);
+        }
+
         // Function to get currently filtered and sorted data for AI analysis
         function getCurrentlyDisplayedData() {
             // Start with the sorted data (allRowsData has sort order applied)
@@ -5587,53 +5973,70 @@
                 const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
                 updateLoadingProgress(`Sending ${analysisData.length} records to ${llmConfig.name}...`);
 
-                // Generic request body for unified endpoint
-                const requestBody = {
-                    model: aiType,
-                    prompt: prompt,
-                    dataset_info: {
-                        record_count: window.participantsData.length,
-                        filtered_count: currentlyDisplayedData.length,
-                        sample_data: completeAnalysisData,
-                        headers: allHeaders,
-                        sort_info: {
-                            column: currentSortColumn || null,
-                            order: currentSortOrder || null
-                        },
-                        filter_info: {
-                            status_filter: selectedStatuses.size > 0 && !selectedStatuses.has('All') ? Array.from(selectedStatuses) : null,
-                            team_filter: currentTeamFilter || null,
-                            group_filter: showOnlyGroup || false
-                        }
+                // Get selected API key (cache or .env)
+                const selectedKey = getSelectedApiKey(aiType);
+
+                // Prepare dataset info for API calls
+                const datasetInfo = {
+                    record_count: window.participantsData.length,
+                    filtered_count: currentlyDisplayedData.length,
+                    sample_data: completeAnalysisData,
+                    headers: allHeaders,
+                    sort_info: {
+                        column: currentSortColumn || null,
+                        order: currentSortOrder || null
+                    },
+                    filter_info: {
+                        status_filter: selectedStatuses.size > 0 && !selectedStatuses.has('All') ? Array.from(selectedStatuses) : null,
+                        team_filter: currentTeamFilter || null,
+                        group_filter: showOnlyGroup || false
                     }
                 };
 
-                const response = await fetch(`${GEMINI_API_BASE}${LLM_API_ENDPOINT}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                });
+                let result;
 
-                updateLoadingProgress('Processing response...');
+                // Route to client-side or server-side API based on key source
+                if (selectedKey && selectedKey !== 'use-env') {
+                    // Use client-side API calls (cached key)
+                    console.log(`🔑 Using cached API key for ${aiType} - calling client-side`);
+                    result = await callModelClientSide(aiType, selectedKey, prompt, datasetInfo);
+                } else {
+                    // Use server-side API (backend with .env key)
+                    console.log(`🔑 Using .env API key for ${aiType} - calling backend server`);
 
-                // Check if response is ok before parsing JSON
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                    const requestBody = {
+                        model: aiType,
+                        prompt: prompt,
+                        dataset_info: datasetInfo
+                    };
+
+                    const response = await fetch(`${GEMINI_API_BASE}${LLM_API_ENDPOINT}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    updateLoadingProgress('Processing response...');
+
+                    // Check if response is ok before parsing JSON
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                    }
+
+                    // Check content type
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const responseText = await response.text();
+                        console.error('Unexpected response type:', contentType);
+                        console.error('Response body:', responseText);
+                        throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Body: ${responseText.substring(0, 200)}`);
+                    }
+
+                    result = await response.json();
                 }
-
-                // Check content type
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const responseText = await response.text();
-                    console.error('Unexpected response type:', contentType);
-                    console.error('Response body:', responseText);
-                    throw new Error(`Expected JSON response but got ${contentType || 'unknown type'}. Body: ${responseText.substring(0, 200)}`);
-                }
-
-                const result = await response.json();
 
                 console.warn('⚠️ API RESPONSE:', {
                     aiType,
@@ -5696,10 +6099,16 @@
                         await displaySharedGeminiInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
                         console.warn('⚠️ GEMINI END: displaySharedGeminiInsights completed');
                         showTopMessage('✅ Gemini analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
+                    } else if (aiType === 'openai') {
+                        // OpenAI display
+                        console.warn('⚠️ ABOUT TO DISPLAY OPENAI INSIGHTS');
+                        await displaySharedOpenAIInsights(analysisWithTokens, currentlyDisplayedData.length, completeAnalysisData.length, true, prompt);
+                        console.warn('⚠️ OPENAI END: displaySharedOpenAIInsights completed');
+                        showTopMessage('✅ OpenAI analysis complete! Choose Save to keep or Cancel to revert.', 'success', 0);
                     } else {
-                        // For other LLMs (like OpenAI), use generic display (to be implemented)
+                        // For other LLMs, use generic display
                         console.warn(`⚠️ ABOUT TO DISPLAY ${aiType.toUpperCase()} INSIGHTS`);
-                        // TODO: Implement displaySharedOpenAIInsights or use a generic display function
+                        content.innerHTML = `<div style="padding: 16px;">${analysisWithTokens}</div>`;
                         showTopMessage(`✅ ${aiType.charAt(0).toUpperCase() + aiType.slice(1)} analysis complete! Choose Save to keep or Cancel to revert.`, 'success', 0);
                     }
 
@@ -5730,13 +6139,25 @@
                                         error.message.includes('Failed to fetch');
 
                 const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+                const selectedKey = getSelectedApiKey(aiType);
+                const usingCachedKey = selectedKey && selectedKey !== 'use-env';
 
                 if (isConnectionError) {
-                    content.innerHTML = `<div style="padding: 16px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px;">
-                        ⚠️ Analysis failed: Start the Rust API server first<br>
-                        <small style="margin-top: 4px; display: block; opacity: 0.8;">The AI insights require the backend server to be running on port 8081</small>
-                    </div>`;
-                    showTopMessage('⚠️ AI Analysis failed: Rust API server not running on port 8081', 'error', 8000);
+                    if (usingCachedKey) {
+                        // Using cached key - API provider connection issue
+                        content.innerHTML = `<div style="padding: 16px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px;">
+                            ⚠️ Analysis failed: Unable to connect to ${llmConfig.name} API<br>
+                            <small style="margin-top: 4px; display: block; opacity: 0.8;">Check your internet connection and API key validity</small>
+                        </div>`;
+                        showTopMessage(`⚠️ Unable to connect to ${llmConfig.name} API`, 'error', 8000);
+                    } else {
+                        // Using .env key - backend server connection issue
+                        content.innerHTML = `<div style="padding: 16px; color: #92400E; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 4px;">
+                            ⚠️ Analysis failed: Start the Rust API server first<br>
+                            <small style="margin-top: 4px; display: block; opacity: 0.8;">The AI insights require the backend server to be running on port 8081</small>
+                        </div>`;
+                        showTopMessage('⚠️ AI Analysis failed: Rust API server not running on port 8081', 'error', 8000);
+                    }
                 } else {
                     content.innerHTML = `<div style="padding: 16px; color: var(--error-color);">Analysis failed: ${error.message}</div>`;
                     showTopMessage(`❌ ${llmConfig.name} analysis failed: ${error.message}`, 'error', 5000);
@@ -5766,149 +6187,122 @@
             });
         }
         
-        // Save/Cancel functions for Claude analysis (required by shared functions)
+        // Unified save/cancel functions for all LLM analysis
+        function saveAnalysis(aiType) {
+            const pending = pendingAnalysis[aiType];
+            if (!pending) return;
+
+            const cacheKey = getCurrentDataSource();
+            const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };
+
+            console.warn(`⚠️ SAVING ${aiType.toUpperCase()} ANALYSIS to cache`);
+
+            // Clean up HTML formatting before saving
+            if (pending.analysis) {
+                pending.analysis = cleanupLLMAnalysis(pending.analysis);
+            }
+
+            // Save to cache
+            insightsCache[aiType][cacheKey] = pending;
+            const llmCacheKey = LLM_CONFIGS.find(c => c.id === aiType)?.cacheKey;
+            if (llmCacheKey) {
+                localStorage.setItem(llmCacheKey, JSON.stringify(insightsCache[aiType]));
+            }
+
+            // Clear pending analysis
+            pendingAnalysis[aiType] = null;
+
+            // Update legacy variables for backward compatibility
+            if (aiType === 'claude') pendingClaudeAnalysis = null;
+            if (aiType === 'gemini') pendingGeminiAnalysis = null;
+
+            // Re-display without Save/Cancel buttons using unified display function
+            displayInsights(
+                aiType,
+                insightsCache[aiType][cacheKey].analysis,
+                insightsCache[aiType][cacheKey].totalRecords,
+                insightsCache[aiType][cacheKey].sampleSize,
+                false,
+                insightsCache[aiType][cacheKey].customPrompt
+            );
+
+            console.warn(`⚠️ AFTER SAVE: Re-displayed ${aiType} insights`);
+
+            // Highlight button to indicate which insights are displayed
+            LLM_CONFIGS.forEach(config => {
+                const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
+                if (buttonGroup) {
+                    const btn = buttonGroup.querySelector('.insights-btn');
+                    if (btn) {
+                        if (config.id === aiType) {
+                            btn.classList.add('cached-insights');
+                        } else {
+                            btn.classList.remove('cached-insights');
+                        }
+                    }
+                }
+            });
+
+            // Update button states but don't trigger auto-display (content already shown)
+            const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${aiType}"]`);
+            if (buttonGroup) {
+                const btnText = buttonGroup.querySelector('.insights-btn-text');
+                const refreshBtn = buttonGroup.querySelector('.insights-refresh-btn');
+                if (btnText) btnText.textContent = `${llmConfig.name} (Cached)`;
+                if (refreshBtn) refreshBtn.style.display = 'flex';
+            }
+
+            console.warn(`⚠️ SAVE COMPLETE: ${aiType} button highlighted, skipping showAIInsightsButtons`);
+        }
+
+        function cancelAnalysis(aiType) {
+            const pending = pendingAnalysis[aiType];
+            if (!pending) return;
+
+            pendingAnalysis[aiType] = null;
+
+            // Update legacy variables for backward compatibility
+            if (aiType === 'claude') pendingClaudeAnalysis = null;
+            if (aiType === 'gemini') pendingGeminiAnalysis = null;
+
+            const cacheKey = getCurrentDataSource();
+
+            // Check if there's a cached version to restore
+            if (insightsCache[aiType][cacheKey]) {
+                displayCachedInsights(cacheKey, aiType);
+            } else {
+                const content = document.getElementById('insightsContent');
+                content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click an Insights button for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
+            }
+        }
+
+        // Legacy wrapper functions for backward compatibility (required by createSaveButtons in list.js)
         function saveClaudeAnalysis() {
-            if (pendingClaudeAnalysis) {
-                const cacheKey = getCurrentDataSource();
-                console.warn('⚠️ SAVING CLAUDE ANALYSIS to cache');
-
-                // Clean up HTML formatting before saving
-                if (pendingClaudeAnalysis.analysis) {
-                    pendingClaudeAnalysis.analysis = cleanupLLMAnalysis(pendingClaudeAnalysis.analysis);
-                }
-
-                // Save to cache
-                claudeInsightsCache[cacheKey] = pendingClaudeAnalysis;
-                localStorage.setItem('claudeInsightsCache', JSON.stringify(claudeInsightsCache));
-
-                // Clear pending analysis
-                pendingClaudeAnalysis = null;
-
-                // Re-display without Save/Cancel buttons
-                displaySharedClaudeInsights(
-                    claudeInsightsCache[cacheKey].analysis,
-                    claudeInsightsCache[cacheKey].totalRecords,
-                    claudeInsightsCache[cacheKey].sampleSize,
-                    false,
-                    claudeInsightsCache[cacheKey].customPrompt
-                );
-
-                console.warn('⚠️ AFTER SAVE: Re-displayed Claude insights');
-
-                // Highlight Claude button to indicate which insights are displayed
-                LLM_CONFIGS.forEach(config => {
-                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
-                    if (buttonGroup) {
-                        const btn = buttonGroup.querySelector('.insights-btn');
-                        if (btn) {
-                            if (config.id === 'claude') {
-                                btn.classList.add('cached-insights');
-                            } else {
-                                btn.classList.remove('cached-insights');
-                            }
-                        }
-                    }
-                });
-
-                // Update button states but don't trigger auto-display (content already shown)
-                const claudeButtonGroup = document.querySelector('.insight-button-group[insightsModel="claude"]');
-                if (claudeButtonGroup) {
-                    const claudeText = claudeButtonGroup.querySelector('.insights-btn-text');
-                    const claudeRefresh = claudeButtonGroup.querySelector('.insights-refresh-btn');
-                    if (claudeText) claudeText.textContent = 'Claude (Cached)';
-                    if (claudeRefresh) claudeRefresh.style.display = 'flex';
-                }
-
-                console.warn('⚠️ SAVE COMPLETE: Claude button highlighted, skipping showAIInsightsButtons');
-            }
+            saveAnalysis('claude');
         }
-        
+
         function cancelClaudeAnalysis() {
-            if (pendingClaudeAnalysis) {
-                pendingClaudeAnalysis = null;
-                const cacheKey = getCurrentDataSource();
-                
-                // Check if there's a cached version to restore
-                if (claudeInsightsCache[cacheKey]) {
-                    displayCachedInsights(cacheKey, 'claude');
-                } else {
-                    const content = document.getElementById('insightsContent');
-                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
-                }
-            }
+            cancelAnalysis('claude');
         }
-        
-        // Save/Cancel functions for Gemini analysis (required by shared functions)
+
         function saveGeminiAnalysis() {
-            if (pendingGeminiAnalysis) {
-                const cacheKey = getCurrentDataSource();
-                console.warn('⚠️ SAVING GEMINI ANALYSIS to cache');
-
-                // Clean up HTML formatting before saving
-                if (pendingGeminiAnalysis.analysis) {
-                    pendingGeminiAnalysis.analysis = cleanupLLMAnalysis(pendingGeminiAnalysis.analysis);
-                }
-
-                // Save to cache
-                geminiInsightsCache[cacheKey] = pendingGeminiAnalysis;
-                localStorage.setItem('geminiInsightsCache', JSON.stringify(geminiInsightsCache));
-
-                // Clear pending analysis
-                pendingGeminiAnalysis = null;
-
-                // Re-display without Save/Cancel buttons
-                displaySharedGeminiInsights(
-                    geminiInsightsCache[cacheKey].analysis,
-                    geminiInsightsCache[cacheKey].totalRecords,
-                    geminiInsightsCache[cacheKey].sampleSize,
-                    false,
-                    geminiInsightsCache[cacheKey].customPrompt
-                );
-
-                console.warn('⚠️ AFTER SAVE: Re-displayed Gemini insights');
-
-                // Highlight Gemini button to indicate which insights are displayed
-                LLM_CONFIGS.forEach(config => {
-                    const buttonGroup = document.querySelector(`.insight-button-group[insightsModel="${config.id}"]`);
-                    if (buttonGroup) {
-                        const btn = buttonGroup.querySelector('.insights-btn');
-                        if (btn) {
-                            if (config.id === 'gemini') {
-                                btn.classList.add('cached-insights');
-                            } else {
-                                btn.classList.remove('cached-insights');
-                            }
-                        }
-                    }
-                });
-
-                // Update button states but don't trigger auto-display (content already shown)
-                const geminiButtonGroup = document.querySelector('.insight-button-group[insightsModel="gemini"]');
-                if (geminiButtonGroup) {
-                    const geminiText = geminiButtonGroup.querySelector('.insights-btn-text');
-                    const geminiRefresh = geminiButtonGroup.querySelector('.insights-refresh-btn');
-                    if (geminiText) geminiText.textContent = 'Gemini (Cached)';
-                    if (geminiRefresh) geminiRefresh.style.display = 'flex';
-                }
-
-                console.warn('⚠️ SAVE COMPLETE: Gemini button highlighted, skipping showAIInsightsButtons');
-            }
+            saveAnalysis('gemini');
         }
-        
+
         function cancelGeminiAnalysis() {
-            if (pendingGeminiAnalysis) {
-                pendingGeminiAnalysis = null;
-                const cacheKey = getCurrentDataSource();
-
-                // Check if there's a cached version to restore
-                if (geminiInsightsCache[cacheKey]) {
-                    displayCachedInsights(cacheKey, 'gemini');
-                } else {
-                    const content = document.getElementById('insightsContent');
-                    content.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">Click "Claude Insights" or "Gemini Insights" for AI analysis. Use the ↻ refresh button for custom prompts.</div>';
-                }
-            }
+            cancelAnalysis('gemini');
         }
+
+        function saveOpenAIAnalysis() {
+            saveAnalysis('openai');
+        }
+
+        function cancelOpenAIAnalysis() {
+            cancelAnalysis('openai');
+        }
+
+        // Note: displaySharedOpenAIInsights, displaySharedGeminiInsights, and displaySharedClaudeInsights
+        // are now defined in team/js/list.js as wrapper functions for the unified displayInsights() function
 
         // Clean up LLM analysis HTML formatting
         function cleanupLLMAnalysis(analysis) {
