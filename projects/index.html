@@ -4001,10 +4001,10 @@
             // Generate buttons for each LLM (without "Insights" suffix)
             const buttonsHTML = LLM_CONFIGS.map(config => `
                 <div class="insight-button-group" insightsModel="${config.id}">
-                    <button class="insights-btn btn ${config.buttonClass}" onclick="handleInsightsClick('${config.id}')">
+                    <button class="insights-btn btn btn-secondary" onclick="handleInsightsClick('${config.id}')">
                         <span class="insights-btn-text">${config.name}</span>
                     </button>
-                    <button class="insights-refresh-btn btn ${config.buttonClass} refresh-btn" onclick="showRefreshPrompt('${config.id}')" title="Refresh with custom prompt" style="display: none;">
+                    <button class="insights-refresh-btn btn btn-secondary refresh-btn" onclick="showRefreshPrompt('${config.id}')" title="Refresh with custom prompt" style="display: none;">
                         <span>↻</span>
                     </button>
                 </div>
