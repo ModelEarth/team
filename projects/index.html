@@ -3139,6 +3139,7 @@
                 <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
                     <span id="emailCount">0 emails</span> • Click to select all
                 </div>
+                <div id="unmatchedEmailsReport"></div>
             </div>
         </div>
         
@@ -3161,8 +3162,12 @@
                     <!-- Radio buttons for key selection (shown when both cache and .env keys exist) -->
                     <div id="api-key-selection" style="display: none; margin-bottom: 12px;">
                         <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Select which key to use:</div>
+                        <label id="rust-cli-option" style="display: none; margin-bottom: 8px; cursor: pointer;">
+                            <input type="radio" name="key-source" value="rust" style="margin-right: 8px;">
+                            <span>Rust/Claude Code CLI (Default)</span>
+                        </label>
                         <label style="display: block; margin-bottom: 8px; cursor: pointer;">
-                            <input type="radio" name="key-source" value="cache" checked style="margin-right: 8px;">
+                            <input type="radio" name="key-source" value="cache" style="margin-right: 8px;">
                             <span>Browser Cache Key</span>
                         </label>
                         <label style="display: block; cursor: pointer;">
@@ -3219,68 +3224,6 @@
             let _participantsStateLayer = null;
             let _cityDetailLayer = null;
             let heatmapVisible = true;
-
-            // Simple state centroids (abbr -> { name, lat, lng }) for US states
-            // Used to render state-count circle markers without needing full GeoJSON.
-            const US_STATE_CENTROIDS = {
-                'AL': { name: 'Alabama', lat: 32.806671, lng: -86.791130 },
-                'AK': { name: 'Alaska', lat: 61.370716, lng: -152.404419 },
-                'AZ': { name: 'Arizona', lat: 33.729759, lng: -111.431221 },
-                'AR': { name: 'Arkansas', lat: 34.969704, lng: -92.373123 },
-                'CA': { name: 'California', lat: 36.116203, lng: -119.681564 },
-                'CO': { name: 'Colorado', lat: 39.059811, lng: -105.311104 },
-                'CT': { name: 'Connecticut', lat: 41.597782, lng: -72.755371 },
-                'DE': { name: 'Delaware', lat: 39.318523, lng: -75.507141 },
-                'FL': { name: 'Florida', lat: 27.766279, lng: -81.686783 },
-                'GA': { name: 'Georgia', lat: 33.040619, lng: -83.643074 },
-                'HI': { name: 'Hawaii', lat: 21.094318, lng: -157.498337 },
-                'ID': { name: 'Idaho', lat: 44.240459, lng: -114.478828 },
-                'IL': { name: 'Illinois', lat: 40.349457, lng: -88.986137 },
-                'IN': { name: 'Indiana', lat: 39.849426, lng: -86.258278 },
-                'IA': { name: 'Iowa', lat: 42.011539, lng: -93.210526 },
-                'KS': { name: 'Kansas', lat: 38.526600, lng: -96.726486 },
-                'KY': { name: 'Kentucky', lat: 37.668140, lng: -84.670067 },
-                'LA': { name: 'Louisiana', lat: 31.169546, lng: -91.867805 },
-                'ME': { name: 'Maine', lat: 44.693947, lng: -69.381927 },
-                'MD': { name: 'Maryland', lat: 39.063946, lng: -76.802101 },
-                'MA': { name: 'Massachusetts', lat: 42.230171, lng: -71.530106 },
-                'MI': { name: 'Michigan', lat: 43.326618, lng: -84.536095 },
-                'MN': { name: 'Minnesota', lat: 45.694454, lng: -93.900192 },
-                'MS': { name: 'Mississippi', lat: 32.741646, lng: -89.678696 },
-                'MO': { name: 'Missouri', lat: 38.456085, lng: -92.288368 },
-                'MT': { name: 'Montana', lat: 46.921925, lng: -110.454353 },
-                'NE': { name: 'Nebraska', lat: 41.125370, lng: -98.268082 },
-                'NV': { name: 'Nevada', lat: 38.313515, lng: -117.055374 },
-                'NH': { name: 'New Hampshire', lat: 43.452492, lng: -71.563896 },
-                'NJ': { name: 'New Jersey', lat: 40.298904, lng: -74.521011 },
-                'NM': { name: 'New Mexico', lat: 34.840515, lng: -106.248482 },
-                'NY': { name: 'New York', lat: 42.165726, lng: -74.948051 },
-                'NC': { name: 'North Carolina', lat: 35.630066, lng: -79.806419 },
-                'ND': { name: 'North Dakota', lat: 47.528912, lng: -99.784012 },
-                'OH': { name: 'Ohio', lat: 40.388783, lng: -82.764915 },
-                'OK': { name: 'Oklahoma', lat: 35.565342, lng: -96.928917 },
-                'OR': { name: 'Oregon', lat: 44.572021, lng: -122.070938 },
-                'PA': { name: 'Pennsylvania', lat: 40.590752, lng: -77.209755 },
-                'RI': { name: 'Rhode Island', lat: 41.680893, lng: -71.511780 },
-                'SC': { name: 'South Carolina', lat: 33.856892, lng: -80.945007 },
-                'SD': { name: 'South Dakota', lat: 44.299782, lng: -99.438828 },
-                'TN': { name: 'Tennessee', lat: 35.747845, lng: -86.692345 },
-                'TX': { name: 'Texas', lat: 31.054487, lng: -97.563461 },
-                'UT': { name: 'Utah', lat: 40.150032, lng: -111.862434 },
-                'VT': { name: 'Vermont', lat: 44.045876, lng: -72.710686 },
-                'VA': { name: 'Virginia', lat: 37.769337, lng: -78.169968 },
-                'WA': { name: 'Washington', lat: 47.400902, lng: -121.490494 },
-                'WV': { name: 'West Virginia', lat: 38.491226, lng: -80.954456 },
-                'WI': { name: 'Wisconsin', lat: 44.268543, lng: -89.616508 },
-                'WY': { name: 'Wyoming', lat: 42.755966, lng: -107.302490 }
-            };
-
-            // Map of lowercased state names to abbr for parsing full names
-            const US_STATE_NAME_TO_ABBR = (function(){
-                const m = {};
-                Object.keys(US_STATE_CENTROIDS).forEach(abbr => { m[US_STATE_CENTROIDS[abbr].name.toLowerCase()] = abbr; });
-                return m;
-            })();
 
             function initParticipantsHeatmap() {
                 if (_participantsMap) return _participantsMap;
@@ -5580,6 +5523,7 @@
             const promptSection = document.getElementById('prompt-section');
             const promptInput = document.getElementById('promptInput');
             const submitBtn = document.getElementById('promptSubmitBtn');
+            const rustCliOption = document.getElementById('rust-cli-option');
 
             // Check for keys in cache and .env
             const cacheKey = getCachedApiKey(aiType);
@@ -5588,20 +5532,40 @@
             // Determine key availability
             const hasCacheKey = !!cacheKey;
             const hasEnvKey = envKeyAvailable;
-            const hasAnyKey = hasCacheKey || hasEnvKey;
+            const isClaude = aiType === 'claude';
+            const hasRustCli = isClaude; // Rust CLI is always available for Claude
+            const hasAnyKey = hasCacheKey || hasEnvKey || hasRustCli;
 
             if (hasAnyKey) {
                 // Key is available - show Change Key button, hide input section
                 keyManagementDiv.style.display = 'block';
-                keyTitle.textContent = `✅ ${llmConfig.name} API Key Available`;
+                keyTitle.textContent = `✅ ${llmConfig.name} ${isClaude ? 'Available' : 'API Key Available'}`;
                 keyInputSection.style.display = 'none';
                 changeKeyBtn.style.display = 'block';
 
-                // Show radio buttons if both keys are available
-                if (hasCacheKey && hasEnvKey) {
+                // Show/hide Rust CLI option based on whether this is Claude
+                if (rustCliOption) {
+                    rustCliOption.style.display = isClaude ? 'block' : 'none';
+                }
+
+                // Show radio buttons if multiple options are available
+                if ((hasCacheKey && hasEnvKey) || (isClaude && (hasCacheKey || hasEnvKey))) {
                     keySelection.style.display = 'block';
-                    // Set cache key as default
-                    document.querySelector('input[name="key-source"][value="cache"]').checked = true;
+
+                    // Set default based on aiType
+                    if (isClaude) {
+                        // For Claude, default to Rust CLI
+                        document.querySelector('input[name="key-source"][value="rust"]').checked = true;
+                    } else if (hasCacheKey) {
+                        // For others, default to cache key if available
+                        document.querySelector('input[name="key-source"][value="cache"]').checked = true;
+                    } else if (hasEnvKey) {
+                        document.querySelector('input[name="key-source"][value="env"]').checked = true;
+                    }
+                } else if (isClaude && !hasCacheKey && !hasEnvKey) {
+                    // Claude with only Rust CLI - show selection with only Rust option
+                    keySelection.style.display = 'block';
+                    document.querySelector('input[name="key-source"][value="rust"]').checked = true;
                 } else {
                     keySelection.style.display = 'none';
                 }
@@ -5617,6 +5581,11 @@
                 keyInputSection.style.display = 'block';
                 changeKeyBtn.style.display = 'none';
                 keySelection.style.display = 'none';
+
+                // Hide Rust CLI option for non-Claude LLMs
+                if (rustCliOption) {
+                    rustCliOption.style.display = 'none';
+                }
 
                 // Set description and link based on LLM type
                 const apiKeyInfo = getApiKeyInfo(aiType);
@@ -5704,8 +5673,8 @@
         }
 
         function getSelectedApiKey(aiType) {
-            // Priority: cache key > .env key
-            // But allow user to select via radio buttons if both exist
+            // Priority: user selection > cache key > .env key > rust CLI (for Claude)
+            // But allow user to select via radio buttons if multiple options exist
             const cacheKey = getCachedApiKey(aiType);
             const keySelection = document.getElementById('api-key-selection');
 
@@ -5716,6 +5685,8 @@
                     return cacheKey;
                 } else if (selectedSource === 'env') {
                     return 'use-env'; // Signal to use .env key on backend
+                } else if (selectedSource === 'rust') {
+                    return 'use-rust'; // Signal to use Rust/Claude Code CLI
                 }
             }
 
@@ -5983,13 +5954,14 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 let result;
 
                 // Route to client-side or server-side API based on key source
-                if (selectedKey && selectedKey !== 'use-env') {
+                if (selectedKey && selectedKey !== 'use-env' && selectedKey !== 'use-rust') {
                     // Use client-side API calls (cached key)
                     console.log(`🔑 Using cached API key for ${aiType} - calling client-side`);
                     result = await callModelClientSide(aiType, selectedKey, prompt, datasetInfo);
                 } else {
-                    // Use server-side API (backend with .env key)
-                    console.log(`🔑 Using .env API key for ${aiType} - calling backend server`);
+                    // Use server-side API (backend with .env key or Rust CLI)
+                    const backendMethod = selectedKey === 'use-rust' ? 'Rust/Claude Code CLI' : '.env API key';
+                    console.log(`🔑 Using ${backendMethod} for ${aiType} - calling backend server`);
 
                     const requestBody = {
                         model: aiType,
@@ -6305,21 +6277,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
         // Clean up LLM analysis HTML formatting
         function cleanupLLMAnalysis(analysis) {
-            if (!analysis) return analysis;
-
-            return analysis
-                // After h1: remove all <br> tags (handles <br>, <br/>, <br />, etc.)
-                .replace(/<\/h1>(\s*<br\s*\/?>)+/gi, '</h1>')
-                // After h2: remove all <br> tags
-                .replace(/<\/h2>(\s*<br\s*\/?>)+/gi, '</h2>')
-                // After h3: remove all <br> tags
-                .replace(/<\/h3>(\s*<br\s*\/?>)+/gi, '</h3>')
-                // After h4: remove all <br> tags
-                .replace(/<\/h4>(\s*<br\s*\/?>)+/gi, '</h4>')
-                // After h5: remove all <br> tags
-                .replace(/<\/h5>(\s*<br\s*\/?>)+/gi, '</h5>')
-                // After h6: remove all <br> tags
-                .replace(/<\/h6>(\s*<br\s*\/?>)+/gi, '</h6>');
+            // Note: BR tag cleanup is now handled in the markdown conversion
+            // in team/js/list.js processSharedMarkdownContent() function
+            return analysis;
         }
 
         // Clear insights when switching lists
@@ -6453,7 +6413,92 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 console.warn('updateContribsButtonVisibility error', e);
             }
         }
-        
+
+        /**
+         * Reusable function to merge external data into existing data
+         * @param {Array} targetData - Array of objects to merge data into
+         * @param {Object} options - Merge configuration
+         * @param {string} [options.url] - URL to load external data from (mutually exclusive with data)
+         * @param {Array} [options.data] - Direct data array (mutually exclusive with url)
+         * @param {Array<string>} options.keyFields - Fields to use as match keys
+         * @param {Array<string>} [options.mergeFields] - Fields to merge from external data (if not specified, merges all fields)
+         * @param {boolean} [options.forceCSV=false] - Force CSV parsing
+         * @returns {Promise<Object>} - { matched: number }
+         */
+        async function mergeExternalData(targetData, options) {
+            const {
+                url,
+                data,
+                keyFields,
+                mergeFields,
+                forceCSV = false
+            } = options;
+
+            try {
+                let externalData;
+
+                // Load external data from URL or use provided data
+                if (url) {
+                    const externalResult = await loadUnifiedData(url, {
+                        forceCorsProxy: false,
+                        API_BASE: GEMINI_API_BASE,
+                        forceCSV: forceCSV || url.includes('.env')
+                    });
+
+                    if (!externalResult.data || externalResult.data.length === 0) {
+                        return { matched: 0 };
+                    }
+
+                    externalData = externalResult.data;
+                } else if (data) {
+                    externalData = data;
+                } else {
+                    return { matched: 0 };
+                }
+
+                // Determine which fields to merge
+                let fieldsToMerge = mergeFields;
+                if (!fieldsToMerge && externalData.length > 0) {
+                    // If no specific fields specified, merge all fields from external data
+                    fieldsToMerge = Object.keys(externalData[0]);
+                }
+
+                // Create a map of external data keyed by the specified key fields
+                const dataMap = new Map();
+                externalData.forEach(item => {
+                    const key = keyFields.map(field => String(item[field] || '')).join('|').toLowerCase();
+                    dataMap.set(key, item);
+                });
+
+                // Merge external data into target data
+                let matchedCount = 0;
+
+                targetData.forEach((row) => {
+                    const key = keyFields.map(field => String(row[field] || '')).join('|').toLowerCase();
+                    const externalRow = dataMap.get(key);
+
+                    if (externalRow) {
+                        // Merge specified fields from external data
+                        // Only merge if the field doesn't already have a value
+                        fieldsToMerge.forEach(field => {
+                            if (externalRow[field] && !row[field]) {
+                                row[field] = externalRow[field];
+                            }
+                        });
+                        matchedCount++;
+                    }
+                });
+
+                return {
+                    matched: matchedCount
+                };
+
+            } catch (error) {
+                console.log(`Could not merge data from ${url}:`, error.message);
+                return { matched: 0 };
+            }
+        }
+
         async function getSubsetUsingSnapshot() {
             // Clear any displayed insights from previous list
             clearInsightsDisplay();
@@ -6469,41 +6514,34 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             let isCors;
             let allFields;
             let config = null; // Declare config in broader scope
-            
-            if (isAdmin && isModelTeam) {
-                // Use community/people.env for admin modelteam (treated as CSV)
-                meetupLink = '../../community/people.csv';
-                isCors = false;
-                console.log('Admin mode: Loading from community/people.env (treated as CSV)');
-            } else {
-                // Normal processing
-                const currentValue = fileSelect.value;
-                const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
-                meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
-                isCors = selectedOption?.getAttribute('data-cors') === 'true';
-                allFields = selectedOption?.getAttribute('data-all-fields');
-                
-                // Get config for filtering (e.g., int_required)
-                const intRequired = selectedOption?.getAttribute('data-int-required');
-                config = intRequired ? { int_required: intRequired } : null;
-                
-                console.log('=== getSubsetUsingSnapshot DEBUG ===');
-                console.log('Current fileSelect value:', currentValue);
-                console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
-                console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
-                console.log('Option data-cors attribute:', selectedOption?.getAttribute('data-cors'));
-                console.log('Option data-all-fields attribute:', selectedOption?.getAttribute('data-all-fields'));
-                console.log('isCors resolved to:', isCors);
-                console.log('selectedFile variable:', selectedFile);
-                console.log('Final meetupLink:', meetupLink);
-                
-                // If no valid URL found, try to get modelteam URL from dropdown
+
+            // Always load main data (not people.env as primary)
+            const currentValue = fileSelect.value;
+            const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
+            meetupLink = selectedOption?.getAttribute('data-url') || selectedFile;
+            isCors = selectedOption?.getAttribute('data-cors') === 'true';
+            allFields = selectedOption?.getAttribute('data-all-fields');
+
+            // Get config for filtering (e.g., int_required)
+            const intRequired = selectedOption?.getAttribute('data-int-required');
+            config = intRequired ? { int_required: intRequired } : null;
+
+            console.log('=== getSubsetUsingSnapshot DEBUG ===');
+            console.log('Current fileSelect value:', currentValue);
+            console.log('Found option:', selectedOption ? selectedOption.textContent : 'Not found');
+            console.log('Option data-url:', selectedOption?.getAttribute('data-url'));
+            console.log('Option data-cors attribute:', selectedOption?.getAttribute('data-cors'));
+            console.log('Option data-all-fields attribute:', selectedOption?.getAttribute('data-all-fields'));
+            console.log('isCors resolved to:', isCors);
+            console.log('selectedFile variable:', selectedFile);
+            console.log('Final meetupLink:', meetupLink);
+
+            // If no valid URL found, try to get modelteam URL from dropdown
+            if (!meetupLink) {
+                meetupLink = getModelteamUrl();
                 if (!meetupLink) {
-                    meetupLink = getModelteamUrl();
-                    if (!meetupLink) {
-                        appendStatusMessage('Please select a valid data source or wait for options to load.', 'error');
-                        return;
-                    }
+                    appendStatusMessage('Please select a valid data source or wait for options to load.', 'error');
+                    return;
                 }
             }
 
@@ -6685,11 +6723,19 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 console.log(`Loading data from: ${meetupLink}, CORS: ${isCors}`);
                 console.log('API_BASE:', GEMINI_API_BASE);
                 console.log('Config for filtering:', config);
+
+                // Check if this is people.env file (should be treated as CSV)
+                const isPeopleEnv = meetupLink.includes('people.env');
+                if (isPeopleEnv) {
+                    console.log('Detected people.env file - will treat as CSV instead of JSON');
+                }
+
                 const loadResult = await loadUnifiedData(meetupLink, {
                     forceCorsProxy: isCors,
                     API_BASE: GEMINI_API_BASE,
                     allFields: allFields,
-                    config: config
+                    config: config,
+                    forceCSV: isPeopleEnv
                 });
                 console.log('Load result status:', loadResult.success, 'data length:', loadResult.data?.length);
                 
@@ -6792,25 +6838,88 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 
                 // Reset team legend flag for new data
                 initialTeamLegendGenerated = false;
-                
+
+                // Merge state coordinates and people.env data if modelteam
+                let unmatchedRows = [];
+                if (isModelTeam) {
+                    // Step 1: Merge state lat/lng coordinates for all rows based on Location field
+                    // Create state coordinates lookup data from US_STATE_CENTROIDS
+                    const stateCoordinatesData = Object.keys(US_STATE_CENTROIDS).map(abbr => ({
+                        Location: US_STATE_CENTROIDS[abbr].name,
+                        lat: US_STATE_CENTROIDS[abbr].lat,
+                        lng: US_STATE_CENTROIDS[abbr].lng
+                    }));
+
+                    await mergeExternalData(validData, {
+                        data: stateCoordinatesData,
+                        keyFields: ['Location'],
+                        mergeFields: ['lat', 'lng']
+                    });
+
+                    // Step 2: Merge people.env data only on localhost
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    if (isLocalhost) {
+                        // First, normalize the people.env data to match our column names
+                        const peopleEnvResult = await loadUnifiedData('../../community/people.env', {
+                            forceCorsProxy: false,
+                            API_BASE: GEMINI_API_BASE,
+                            forceCSV: true
+                        });
+
+                        if (peopleEnvResult.data && peopleEnvResult.data.length > 0) {
+                            // Map people.env columns to match target data columns
+                            const normalizedPeopleData = peopleEnvResult.data.map(row => {
+                                // Extract first name from full name for matching
+                                const fullName = row['Name'] || '';
+                                const firstName = fullName.split(' ')[0];
+
+                                return {
+                                    ...row,
+                                    // Keep original Name as backup
+                                    'FullName': fullName,
+                                    // Use first name for matching (if target data only has first names)
+                                    'Name': firstName,
+                                    // Add Location field from "Your Location" if it exists
+                                    'Location': row['Your Location'] || row['Location'] || ''
+                                };
+                            });
+
+                            await mergeExternalData(validData, {
+                                data: normalizedPeopleData,
+                                keyFields: ['Name', 'Location']
+                            });
+
+                            // After merge, find all rows with blank emails
+                            unmatchedRows = validData.filter(row => {
+                                const email = row['Email'] || '';
+                                return !email || email.trim() === '';
+                            }).map(row => ({
+                                'Name': row['Name'] || '',
+                                'Location': row['Location'] || '',
+                                'Github': row['Github'] || ''
+                            }));
+                        }
+                    }
+                }
+
                 // Always populate Raw Data Editor when data is successfully fetched
                 const rawDataEditor = document.getElementById('raw-data-editor');
                 const rawDataSource = document.getElementById('raw-data-source');
-                
+
                 if (rawDataEditor) {
                     // Use the raw data before preprocessing
                     originalRawData = JSON.parse(JSON.stringify(loadResult.data));
                     rawDataEditor.value = JSON.stringify(loadResult.data, null, 2);
                 }
-                
+
                 if (rawDataSource) {
                     rawDataSource.value = meetupLink;
                 }
-                
+
                 displayTableLayout(validData);
-                
+
                 // Extract and display emails if Email column exists
-                extractAndDisplayEmails(validData);
+                extractAndDisplayEmails(validData, unmatchedRows);
                 
                 // Store the original loaded count for pagination
                 originalLoadedCount = validData.length;
@@ -6959,11 +7068,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
 
         // Extract and display emails from data when Email column exists
-        function extractAndDisplayEmails(data) {
-            const emailContainer = document.getElementById('emailListContainer');
-            const emailTextarea = document.getElementById('emailList');
-            const emailCountSpan = document.getElementById('emailCount');
-            
+        async function extractAndDisplayEmails(data, unmatchedRows = []) {
             // Check if we should show emails (localsite + modelteam)
             const isLocalsite = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const hash = getHash ? getHash() : {};
@@ -6972,21 +7077,29 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             updateContribsButtonVisibility();
             // Ensure contribs button visibility reflects current hash
             updateContribsButtonVisibility();
-            
+
             if (!isLocalsite || !isModelteam) {
+                const emailContainer = document.getElementById('emailListContainer');
                 if (emailContainer) emailContainer.style.display = 'none';
                 return;
             }
-            
+
             if (!data || !Array.isArray(data) || data.length === 0) {
+                const emailContainer = document.getElementById('emailListContainer');
                 if (emailContainer) emailContainer.style.display = 'none';
                 return;
             }
-            
-            // Find the "Email" column specifically (case-insensitive)
+
+            // Wait for elements to be ready
+            const emailContainer = await waitForElm('#emailListContainer');
+            const emailTextarea = document.getElementById('emailList');
+            const emailCountSpan = document.getElementById('emailCount');
+            const unmatchedReportDiv = document.getElementById('unmatchedEmailsReport');
+
+            // Find the "Email" column (case-insensitive)
             const headers = Object.keys(data[0] || {});
             const emailColumn = headers.find(header => header.toLowerCase() === 'email');
-            
+
             if (!emailColumn) {
                 // Show message about admin mode and community/people.csv file
                 if (emailContainer) {
@@ -7056,14 +7169,51 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 });
             }
             
+            // Update email count
             if (emailCountSpan) {
-                emailCountSpan.textContent = `${uniqueEmails.length} email${uniqueEmails.length !== 1 ? 's' : ''}`;
+                const emailCountHtml = `${uniqueEmails.length} email${uniqueEmails.length !== 1 ? 's' : ''}`;
+                emailCountSpan.innerHTML = emailCountHtml;
             }
-            
+
+            // Update unmatched rows report in separate div
+            if (unmatchedReportDiv) {
+                if (unmatchedRows && unmatchedRows.length > 0) {
+                    const unmatchedTable = `
+                        <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                            <strong style="color: var(--text-primary);">No email found in people.env for:</strong>
+                            <div style="margin-top: 8px; font-size: 14px;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: var(--bg-tertiary);">
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Name</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Location</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Github</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${unmatchedRows.map(row => `
+                                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                                <td style="padding: 6px 8px;">${row.Name || ''}</td>
+                                                <td style="padding: 6px 8px;">${row.Location || ''}</td>
+                                                <td style="padding: 6px 8px;">${row.Github || ''}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+
+                    unmatchedReportDiv.innerHTML = unmatchedTable;
+                } else {
+                    unmatchedReportDiv.innerHTML = '';
+                }
+            }
+
             if (emailContainer) {
                 emailContainer.style.display = 'block';
             }
-            
+
             // Store emails for filtering
             window.extractedEmails = uniqueEmails;
             window.allExtractedEmails = uniqueEmails;
@@ -7162,6 +7312,68 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         // File selection state
         const STORAGE_KEY = 'listObject';
         let allRowsData = [];
+
+        // US State centroids for coordinate merging
+        const US_STATE_CENTROIDS = {
+            'AL': { name: 'Alabama', lat: 32.806671, lng: -86.791130 },
+            'AK': { name: 'Alaska', lat: 61.370716, lng: -152.404419 },
+            'AZ': { name: 'Arizona', lat: 33.729759, lng: -111.431221 },
+            'AR': { name: 'Arkansas', lat: 34.969704, lng: -92.373123 },
+            'CA': { name: 'California', lat: 36.116203, lng: -119.681564 },
+            'CO': { name: 'Colorado', lat: 39.059811, lng: -105.311104 },
+            'CT': { name: 'Connecticut', lat: 41.597782, lng: -72.755371 },
+            'DE': { name: 'Delaware', lat: 39.318523, lng: -75.507141 },
+            'FL': { name: 'Florida', lat: 27.766279, lng: -81.686783 },
+            'GA': { name: 'Georgia', lat: 33.040619, lng: -83.643074 },
+            'HI': { name: 'Hawaii', lat: 21.094318, lng: -157.498337 },
+            'ID': { name: 'Idaho', lat: 44.240459, lng: -114.478828 },
+            'IL': { name: 'Illinois', lat: 40.349457, lng: -88.986137 },
+            'IN': { name: 'Indiana', lat: 39.849426, lng: -86.258278 },
+            'IA': { name: 'Iowa', lat: 42.011539, lng: -93.210526 },
+            'KS': { name: 'Kansas', lat: 38.526600, lng: -96.726486 },
+            'KY': { name: 'Kentucky', lat: 37.668140, lng: -84.670067 },
+            'LA': { name: 'Louisiana', lat: 31.169546, lng: -91.867805 },
+            'ME': { name: 'Maine', lat: 44.693947, lng: -69.381927 },
+            'MD': { name: 'Maryland', lat: 39.063946, lng: -76.802101 },
+            'MA': { name: 'Massachusetts', lat: 42.230171, lng: -71.530106 },
+            'MI': { name: 'Michigan', lat: 43.326618, lng: -84.536095 },
+            'MN': { name: 'Minnesota', lat: 45.694454, lng: -93.900192 },
+            'MS': { name: 'Mississippi', lat: 32.741646, lng: -89.678696 },
+            'MO': { name: 'Missouri', lat: 38.456085, lng: -92.288368 },
+            'MT': { name: 'Montana', lat: 46.921925, lng: -110.454353 },
+            'NE': { name: 'Nebraska', lat: 41.125370, lng: -98.268082 },
+            'NV': { name: 'Nevada', lat: 38.313515, lng: -117.055374 },
+            'NH': { name: 'New Hampshire', lat: 43.452492, lng: -71.563896 },
+            'NJ': { name: 'New Jersey', lat: 40.298904, lng: -74.521011 },
+            'NM': { name: 'New Mexico', lat: 34.840515, lng: -106.248482 },
+            'NY': { name: 'New York', lat: 42.165726, lng: -74.948051 },
+            'NC': { name: 'North Carolina', lat: 35.630066, lng: -79.806419 },
+            'ND': { name: 'North Dakota', lat: 47.528912, lng: -99.784012 },
+            'OH': { name: 'Ohio', lat: 40.388783, lng: -82.764915 },
+            'OK': { name: 'Oklahoma', lat: 35.565342, lng: -96.928917 },
+            'OR': { name: 'Oregon', lat: 44.572021, lng: -122.070938 },
+            'PA': { name: 'Pennsylvania', lat: 40.590752, lng: -77.209755 },
+            'RI': { name: 'Rhode Island', lat: 41.680893, lng: -71.511780 },
+            'SC': { name: 'South Carolina', lat: 33.856892, lng: -80.945007 },
+            'SD': { name: 'South Dakota', lat: 44.299782, lng: -99.438828 },
+            'TN': { name: 'Tennessee', lat: 35.747845, lng: -86.692345 },
+            'TX': { name: 'Texas', lat: 31.054487, lng: -97.563461 },
+            'UT': { name: 'Utah', lat: 40.150032, lng: -111.862434 },
+            'VT': { name: 'Vermont', lat: 44.045876, lng: -72.710686 },
+            'VA': { name: 'Virginia', lat: 37.769337, lng: -78.169968 },
+            'WA': { name: 'Washington', lat: 47.400902, lng: -121.490494 },
+            'WV': { name: 'West Virginia', lat: 38.491226, lng: -80.954456 },
+            'WI': { name: 'Wisconsin', lat: 44.268543, lng: -89.616508 },
+            'WY': { name: 'Wyoming', lat: 42.755966, lng: -107.302490 }
+        };
+
+        // Map of lowercased state names to abbr for parsing full names
+        const US_STATE_NAME_TO_ABBR = (function(){
+            const m = {};
+            Object.keys(US_STATE_CENTROIDS).forEach(abbr => { m[US_STATE_CENTROIDS[abbr].name.toLowerCase()] = abbr; });
+            return m;
+        })();
+
         let originalLoadedCount = 0; // Track total records loaded from source
         let groupParticipants = new Set();
         

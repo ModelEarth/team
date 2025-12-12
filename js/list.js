@@ -542,9 +542,9 @@ async function fetchListFeed(url, options = {}, forceCorsProxy = false, API_BASE
             
             // Check for common backend connection issues
             if (proxyResponse.status === 404) {
-                consol.log('CORS Proxy - 404 ERROR:\n\nPath: ' + url + '\nProxy Endpoint: ' + `${API_BASE}/proxy/external` + 
-                      '\nStatus: ' + proxyResponse.status + ' ' + proxyResponse.statusText + 
-                      '\n\nLIKELY ISSUE: Rust backend not running on ' + API_BASE + 
+                console.log('CORS Proxy - 404 ERROR:\n\nPath: ' + url + '\nProxy Endpoint: ' + `${API_BASE}/proxy/external` +
+                      '\nStatus: ' + proxyResponse.status + ' ' + proxyResponse.statusText +
+                      '\n\nLIKELY ISSUE: Rust backend not running on ' + API_BASE +
                       '\nSOLUTION: Start the Rust server with: cargo run serve' +
                       '\n\nResponse: ' + responseText.substring(0, 500));
             } else {
@@ -1383,29 +1383,33 @@ function applyIntRequiredFilter(data, config) {
 
 // Unified data loading function that handles JSON, RSS, CSV, and Excel formats
 async function loadUnifiedData(url, options = {}) {
-    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null, config = null } = options;
-    
+    const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null, config = null, forceCSV = false } = options;
+
     try {
         console.log('=== LOAD UNIFIED DATA DEBUG ===');
         console.log('Loading unified data from:', url);
         console.log('forceCorsProxy:', forceCorsProxy);
+        console.log('forceCSV:', forceCSV);
         console.log('API_BASE:', API_BASE);
-        
+
         // Determine if this URL needs CSV parsing (Google Sheets or CSV files)
-        const isCSVData = url.includes('output=csv') || url.endsWith('.csv') || url.includes('docs.google.com/spreadsheets');
+        const isCSVData = forceCSV || url.includes('output=csv') || url.endsWith('.csv') || url.includes('docs.google.com/spreadsheets');
         
         if (isCSVData) {
             // Handle CSV data (Google Sheets, CSV files)
             let csvText;
-            
-            if (forceCorsProxy) {
-                // CORS is required - go directly to backend proxy
-                console.log('CORS required - using backend proxy for CSV fetch...');
+
+            // Check if this is a local file path (relative or absolute local path)
+            const isLocalFile = url.startsWith('./') || url.startsWith('../') || url.startsWith('/') || (!url.includes('://') && !url.includes('http'));
+
+            if (forceCorsProxy && !isLocalFile) {
+                // CORS is required for external URLs - use backend proxy
+                console.log('CORS required for external URL - using backend proxy for CSV fetch...');
                 try {
                     // Use appropriate endpoint based on URL type
                     const isGoogleSheets = url.includes('docs.google.com/spreadsheets');
                     const endpoint = isGoogleSheets ? '/proxy/csv' : '/proxy/external';
-                    
+
                     const proxyResponse = await fetch(`${API_BASE}${endpoint}`, {
                         method: 'POST',
                         headers: {
@@ -1413,7 +1417,7 @@ async function loadUnifiedData(url, options = {}) {
                         },
                         body: JSON.stringify({ url: url })
                     });
-                    
+
                     if (proxyResponse.ok) {
                         const proxyData = await proxyResponse.json();
                         if (proxyData.success) {
@@ -1430,8 +1434,12 @@ async function loadUnifiedData(url, options = {}) {
                     throw new Error(`Rust server not accessible, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
                 }
             } else {
-                // No CORS restriction - try direct fetch only
-                console.log('No CORS restriction - attempting direct CSV fetch...');
+                // No CORS restriction or local file - try direct fetch
+                if (isLocalFile) {
+                    console.log('Local file detected - attempting direct CSV fetch...');
+                } else {
+                    console.log('No CORS restriction - attempting direct CSV fetch...');
+                }
                 try {
                     const directResponse = await fetch(url, {
                         cache: 'no-cache',
@@ -1802,19 +1810,41 @@ async function displaySharedOpenAIInsights(analysis, totalRecords, sampleSize, i
 
 // Helper function for markdown processing (fallback if not available)
 async function processSharedMarkdownContent(markdown) {
-    // Try to use displayFile's markdown processing if available
-    if (typeof processReadmeMarkdown === 'function') {
-        return await processReadmeMarkdown(markdown);
+    // Use showdown for proper markdown conversion
+    if (!window.showdown) {
+        // Load showdown if not loaded
+        await new Promise((resolve, reject) => {
+            if (window.showdown) {
+                resolve();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Showdown'));
+            document.head.appendChild(script);
+        });
     }
-    
-    // Fallback to basic HTML conversion
-    return markdown
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/\n/g, '<br>');
+
+    if (window.showdown) {
+        // Configure showdown converter with proper options
+        const converter = new showdown.Converter({
+            tables: true,
+            metadata: true,
+            simpleLineBreaks: false,  // Don't convert single line breaks to <br>
+            ghCodeBlocks: true,
+            tasklists: true,
+            strikethrough: true,
+            emoji: true,
+            underline: true
+        });
+
+        // Convert markdown to HTML
+        return converter.makeHtml(markdown);
+    }
+
+    // Final fallback if showdown fails to load
+    return markdown.replace(/\n/g, '<br>');
 }
 
 // =============================================================================
