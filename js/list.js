@@ -1808,6 +1808,95 @@ async function displaySharedOpenAIInsights(analysis, totalRecords, sampleSize, i
     return displayInsights('openai', analysis, totalRecords, sampleSize, isNewAnalysis, customPrompt);
 }
 
+// Escape underscores outside of code blocks to prevent markdown interpretation
+function escapeUnderscoresOutsideCodeBlocks(markdown) {
+    // Split the markdown into lines for processing
+    const lines = markdown.split('\n');
+    const processedLines = [];
+
+    let inCodeFence = false;
+    let codeBlockType = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        // Check for code fences (```bash, ```javascript, etc.)
+        if (line.trim().startsWith('```')) {
+            inCodeFence = !inCodeFence;
+            if (inCodeFence) {
+                codeBlockType = line.trim().substring(3);
+            } else {
+                codeBlockType = null;
+            }
+            processedLines.push(line);
+            continue;
+        }
+
+        // Check for tab-indented code blocks (4 spaces or tab at start)
+        const isTabIndented = line.match(/^(\t|    )/);
+
+        // If we're in a code block or this line is tab-indented, don't process underscores
+        if (inCodeFence || isTabIndented) {
+            processedLines.push(line);
+            continue;
+        }
+
+        // Process inline code spans (`code`) by temporarily replacing them
+        // Match pairs of backticks with content between them (including empty)
+        const inlineCodeRegex = /`[^`]*`/g;
+        const inlineCodeBlocks = [];
+        let tempLine = line.replace(inlineCodeRegex, (match) => {
+            const placeholder = `XYZINLINECODEXYZ${inlineCodeBlocks.length}XYZENDXYZ`;
+            inlineCodeBlocks.push(match);
+            return placeholder;
+        });
+
+        // Process HTML elements by temporarily replacing them
+        // Match HTML tags with attributes that might contain underscores
+        const htmlElementRegex = /<(a|img|pre|code|script|style|link|meta)[^>]*>.*?<\/\1>|<(a|img|pre|code|script|style|link|meta|br|hr|input)[^>]*\/?>/gi;
+        const htmlElements = [];
+        tempLine = tempLine.replace(htmlElementRegex, (match) => {
+            const placeholder = `XYZHTMLELEMENTXYZ${htmlElements.length}XYZENDXYZ`;
+            htmlElements.push(match);
+            return placeholder;
+        });
+
+        // Also handle HTML attributes specifically (href, src, etc.) that might span lines or be standalone
+        const attributeRegex = /\b(href|src|action|data-[a-z-]+|class|id|style|alt|title)\s*=\s*(['"]?)([^'">\s]*)\2/gi;
+        const attributes = [];
+        tempLine = tempLine.replace(attributeRegex, (match) => {
+            const placeholder = `XYZATTRIBUTEXYZ${attributes.length}XYZENDXYZ`;
+            attributes.push(match);
+            return placeholder;
+        });
+
+        // Now escape underscores in the remaining text (not already escaped)
+        tempLine = tempLine.replace(/(?<!\\)_/g, '\\_');
+
+        // Restore attributes
+        attributes.forEach((attribute, index) => {
+            const placeholder = `XYZATTRIBUTEXYZ${index}XYZENDXYZ`;
+            tempLine = tempLine.split(placeholder).join(attribute);
+        });
+
+        // Restore HTML elements
+        htmlElements.forEach((htmlElement, index) => {
+            const placeholder = `XYZHTMLELEMENTXYZ${index}XYZENDXYZ`;
+            tempLine = tempLine.split(placeholder).join(htmlElement);
+        });
+
+        // Restore inline code blocks
+        inlineCodeBlocks.forEach((codeBlock, index) => {
+            const placeholder = `XYZINLINECODEXYZ${index}XYZENDXYZ`;
+            tempLine = tempLine.split(placeholder).join(codeBlock);
+        });
+
+        processedLines.push(tempLine);
+    }
+
+    return processedLines.join('\n');
+}
+
 // Helper function for markdown processing (fallback if not available)
 async function processSharedMarkdownContent(markdown) {
     // Use showdown for proper markdown conversion
@@ -1827,11 +1916,14 @@ async function processSharedMarkdownContent(markdown) {
     }
 
     if (window.showdown) {
-        // Configure showdown converter with proper options
+        // Escape underscores outside of code blocks (same as localsite)
+        const processedMarkdown = escapeUnderscoresOutsideCodeBlocks(markdown);
+
+        // Configure showdown converter with localsite-compatible options
         const converter = new showdown.Converter({
             tables: true,
             metadata: true,
-            simpleLineBreaks: false,  // Don't convert single line breaks to <br>
+            simpleLineBreaks: true,  // Match localsite behavior - convert single line breaks to <br>
             ghCodeBlocks: true,
             tasklists: true,
             strikethrough: true,
@@ -1840,7 +1932,7 @@ async function processSharedMarkdownContent(markdown) {
         });
 
         // Convert markdown to HTML
-        return converter.makeHtml(markdown);
+        return converter.makeHtml(processedMarkdown);
     }
 
     // Final fallback if showdown fails to load

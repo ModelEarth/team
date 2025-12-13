@@ -61,8 +61,6 @@ pre code {
 
 .readme-content h1 {
     font-size: 24px;
-    border-bottom: 2px solid var(--border-light);
-    padding-bottom: 8px;
 }
 
 .readme-content h2 {
