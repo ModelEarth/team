@@ -14,6 +14,9 @@
     "geoDataset": "cities.csv",
     "geoColumns": ["City"],
     "geoAggregate": ["TotalParticipants"],
+    "latitude": "32.8",
+    "longitude": "-83.4",
+    "zoom": "7",
     "search": {
       "In City": "City",
       "In Team": "Team",

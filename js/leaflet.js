@@ -202,6 +202,10 @@ class LeafletMapManager {
             defaultZoom: 9,
             ...options
         };
+
+        // Track if custom center/zoom was provided from config (to skip auto-fitting to markers)
+        this.hasCustomCenter = options.defaultLat !== undefined || options.defaultLng !== undefined;
+        this.hasCustomZoom = options.defaultZoom !== undefined;
         
         // Map style configurations
         this.mapStyles = {
@@ -597,52 +601,87 @@ class LeafletMapManager {
         if (validMarkers.length > 0) {
             const group = new L.featureGroup(validMarkers.map(m => m.marker));
             const newBounds = group.getBounds();
-            
-            // Use persistent flags that survive map recreation
-            if (!window.mapHasEverLoaded) {
-                // Very first load - fit bounds to show all points and establish baseline
-                debugAlert('INITIAL LOAD: About to fit bounds - current zoom:' + this.map.getZoom());
-                this.map.fitBounds(newBounds, { 
-                    padding: [10, 10],
-                    maxZoom: 15
-                });
-                window.mapHasEverLoaded = true;
-                
-                // Store the baseline zoom level after fitBounds completes
-                setTimeout(() => {
-                    window.mapBaselineZoom = this.map.getZoom();
-                    window.mapUserZoom = null; // No user zoom yet
-                    debugAlert('INITIAL LOAD: Fitted bounds completed - baseline zoom:' + window.mapBaselineZoom);
-                }, 100);
-            } else {
-                // Subsequent calls - smart zoom behavior
-                const currentZoom = this.map.getZoom();
-                const baselineZoom = window.mapBaselineZoom || 7; // fallback to 7
-                
-                // Check if user has manually zoomed closer than baseline
-                if (window.mapUserZoom && window.mapUserZoom > baselineZoom) {
-                    // User has zoomed in - check if new points are outside current view
-                    const currentBounds = this.map.getBounds();
-                    if (newBounds.intersects(currentBounds)) {
-                        // New points are within current view - maintain user zoom
-                        debugAlert('SUBSEQUENT LOAD: Maintained user zoom:' + window.mapUserZoom + ' (baseline:' + baselineZoom + ')');
+
+            // Check if custom center/zoom was provided from config
+            if (this.hasCustomCenter || this.hasCustomZoom) {
+                // Custom center/zoom provided - maintain configured position and zoom
+                // Do NOT auto-fit to marker bounds
+                if (!window.mapHasEverLoaded) {
+                    debugAlert('INITIAL LOAD: Using custom center/zoom from config - lat:' + this.options.defaultLat + ' lng:' + this.options.defaultLng + ' zoom:' + this.options.defaultZoom);
+
+                    // Set the baseline zoom to the configured value
+                    window.mapBaselineZoom = this.options.defaultZoom;
+                    window.mapUserZoom = null;
+                    window.mapHasEverLoaded = true;
+
+                    // Ensure map is centered and zoomed to configured values
+                    this.programmaticZoomInProgress = true;
+                    this.map.setView([this.options.defaultLat, this.options.defaultLng], this.options.defaultZoom);
+                    setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
+                } else {
+                    // Subsequent loads - maintain configured center and zoom unless user has zoomed
+                    if (window.mapUserZoom && window.mapUserZoom > this.options.defaultZoom) {
+                        // User has zoomed in - maintain user zoom but keep configured center
+                        debugAlert('SUBSEQUENT LOAD: Maintained user zoom:' + window.mapUserZoom + ' with custom center');
                         this.programmaticZoomInProgress = true;
-                        this.map.setZoom(window.mapUserZoom);
+                        this.map.setView([this.options.defaultLat, this.options.defaultLng], window.mapUserZoom);
                         setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
                     } else {
-                        // New points outside view - zoom out to baseline to show all
-                        debugAlert('SUBSEQUENT LOAD: Zooming out to baseline:' + baselineZoom + ' (was user zoom:' + window.mapUserZoom + ')');
+                        // No user zoom - maintain configured center and zoom
+                        debugAlert('SUBSEQUENT LOAD: Maintained custom center/zoom from config');
+                        this.programmaticZoomInProgress = true;
+                        this.map.setView([this.options.defaultLat, this.options.defaultLng], this.options.defaultZoom);
+                        setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
+                    }
+                }
+            } else {
+                // No custom center/zoom - use original auto-fit behavior
+                // Use persistent flags that survive map recreation
+                if (!window.mapHasEverLoaded) {
+                    // Very first load - fit bounds to show all points and establish baseline
+                    debugAlert('INITIAL LOAD: About to fit bounds - current zoom:' + this.map.getZoom());
+                    this.map.fitBounds(newBounds, {
+                        padding: [10, 10],
+                        maxZoom: 15
+                    });
+                    window.mapHasEverLoaded = true;
+
+                    // Store the baseline zoom level after fitBounds completes
+                    setTimeout(() => {
+                        window.mapBaselineZoom = this.map.getZoom();
+                        window.mapUserZoom = null; // No user zoom yet
+                        debugAlert('INITIAL LOAD: Fitted bounds completed - baseline zoom:' + window.mapBaselineZoom);
+                    }, 100);
+                } else {
+                    // Subsequent calls - smart zoom behavior
+                    const currentZoom = this.map.getZoom();
+                    const baselineZoom = window.mapBaselineZoom || 7; // fallback to 7
+
+                    // Check if user has manually zoomed closer than baseline
+                    if (window.mapUserZoom && window.mapUserZoom > baselineZoom) {
+                        // User has zoomed in - check if new points are outside current view
+                        const currentBounds = this.map.getBounds();
+                        if (newBounds.intersects(currentBounds)) {
+                            // New points are within current view - maintain user zoom
+                            debugAlert('SUBSEQUENT LOAD: Maintained user zoom:' + window.mapUserZoom + ' (baseline:' + baselineZoom + ')');
+                            this.programmaticZoomInProgress = true;
+                            this.map.setZoom(window.mapUserZoom);
+                            setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
+                        } else {
+                            // New points outside view - zoom out to baseline to show all
+                            debugAlert('SUBSEQUENT LOAD: Zooming out to baseline:' + baselineZoom + ' (was user zoom:' + window.mapUserZoom + ')');
+                            this.programmaticZoomInProgress = true;
+                            this.map.setZoom(baselineZoom);
+                            setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
+                            window.mapUserZoom = null; // Reset user zoom
+                        }
+                    } else {
+                        // No user zoom or user zoom is not closer than baseline - maintain baseline
+                        debugAlert('SUBSEQUENT LOAD: Maintained baseline zoom:' + baselineZoom + ' (current:' + currentZoom + ')');
                         this.programmaticZoomInProgress = true;
                         this.map.setZoom(baselineZoom);
                         setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
-                        window.mapUserZoom = null; // Reset user zoom
                     }
-                } else {
-                    // No user zoom or user zoom is not closer than baseline - maintain baseline
-                    debugAlert('SUBSEQUENT LOAD: Maintained baseline zoom:' + baselineZoom + ' (current:' + currentZoom + ')');
-                    this.programmaticZoomInProgress = true;
-                    this.map.setZoom(baselineZoom);
-                    setTimeout(() => { this.programmaticZoomInProgress = false; }, 100);
                 }
             }
         }

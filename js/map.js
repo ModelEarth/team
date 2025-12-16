@@ -772,6 +772,7 @@ Do not include any explanation or additional text.`;
             });
             
             debugAlert('🌍 GEO MERGE: Merged ' + mergedCount + ' records, added columns: ' + Array.from(addedColumns).join(', '));
+            console.log(`🌍 GEO MERGE: Merged ${mergedCount} of ${primaryData.length} records (${Math.round(mergedCount/primaryData.length*100)}%) from ${geoData.length} geo locations`);
 
             // Store merge information for search results display
             this.geoMergeInfo = {
@@ -841,15 +842,19 @@ Do not include any explanation or additional text.`;
             } else if (unmatchedValues.size > 0) {
                 // Report unmatched values for non-refresh operations
                 debugAlert(`❌ GEO MERGE FAILED: ${unmatchedValues.size} unique location(s) not found in geo dataset`);
+                console.log(`❌ GEO MERGE FAILED: ${unmatchedValues.size} unique location(s) not found in geo dataset`);
 
                 const sortedUnmatched = Array.from(unmatchedValues.entries())
                     .sort((a, b) => b[1] - a[1]);
 
                 sortedUnmatched.forEach(([location, count]) => {
-                    debugAlert(`📍 Missing location: "${location}" (${count} record${count > 1 ? 's' : ''} failed to merge - no lat/lon available for map)`);
+                    const message = `📍 Missing location: "${location}" (${count} record${count > 1 ? 's' : ''} failed to merge - no lat/lon available for map)`;
+                    debugAlert(message);
+                    console.log(message);
                 });
             } else {
                 debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
+                console.log(`✅ GEO MERGE: All ${mergedCount} locations matched successfully in geo dataset`);
             }
 
             // Check for any rows still missing coordinates and report them
@@ -867,7 +872,11 @@ Do not include any explanation or additional text.`;
             });
 
             if (rowsMissingCoords.length > 0) {
-                debugAlert(`⚠️ ${rowsMissingCoords.length} row(s) still missing coordinates: ${rowsMissingCoords.join(', ')}`);
+                const message = `⚠️ ${rowsMissingCoords.length} of ${primaryData.length} row(s) still missing coordinates: ${rowsMissingCoords.join(', ')}`;
+                debugAlert(message);
+                console.log(message);
+            } else {
+                console.log(`✅ All ${primaryData.length} rows have coordinates`);
             }
 
             // Save updated coordinates back to CSV only during "Refresh Locally" operations
@@ -2925,10 +2934,25 @@ Do not include any explanation or additional text.`;
                 // Create new map instance - only during initial load or dataset changes
                 if (this.initialMapLoad) {
                     debugAlert("🗺️ CREATING NEW MAP - only during initial/dataset load");
-                    window.leafletMap = new LeafletMapManager('widgetmap', {
+
+                    // Prepare map options with center and zoom from configuration if available
+                    const mapOptions = {
                         height: '500px',
                         width: '100%'
-                    });
+                    };
+
+                    // Add latitude, longitude, and zoom from show.json config if they exist
+                    if (this.config?.latitude) {
+                        mapOptions.defaultLat = parseFloat(this.config.latitude);
+                    }
+                    if (this.config?.longitude) {
+                        mapOptions.defaultLng = parseFloat(this.config.longitude);
+                    }
+                    if (this.config?.zoom) {
+                        mapOptions.defaultZoom = parseInt(this.config.zoom);
+                    }
+
+                    window.leafletMap = new LeafletMapManager('widgetmap', mapOptions);
                 } else {
                     debugAlert("🔄 SKIPPING MAP RECREATION - using existing map to avoid tile reload. Map exists: " + !!window.leafletMap);
                 }
