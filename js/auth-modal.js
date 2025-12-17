@@ -185,23 +185,28 @@ class AuthModal {
                 justify-content: center;
                 gap: 12px;
                 padding: 12px 16px;
-                border: 1px solid #e5e5e5;
+                border: 1px solid #E5E7EB;
                 border-radius: 8px;
-                background: white;
-                color: #333;
+                background: #FFFFFF;
+                color: #374151;
                 text-decoration: none;
-                font-size: 1.1rem;
+                font-size: 14px;
                 font-weight: 500;
                 cursor: pointer;
-                transition: all 0.2s;
+                transition: all 0.2s ease;
                 width: 100%;
             }
 
             .auth-btn:hover {
-                background: #f8f9fa;
-                border-color: #007bff;
+                background: #F9FAFB;
+                border-color: #D1D5DB;
                 transform: translateY(-1px);
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .auth-btn:active {
+                transform: translateY(0);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             }
         `;
         document.head.appendChild(styles);
@@ -301,39 +306,173 @@ class AuthModal {
     async signInWith(provider) {
         console.log('Starting OAuth flow for provider:', provider);
         this.hide();
-        
+
         try {
-            // For localhost development, use the local backend
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                // Redirect to backend OAuth endpoint
-                const response = await fetch(`http://localhost:8081/api/auth/${provider}/url`);
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.auth_url) {
-                        window.location.href = result.auth_url;
-                    } else {
-                        console.error('No auth URL received');
-                        alert(`Failed to get authentication URL for ${provider}`);
-                    }
-                } else {
-                    const error = await response.json();
-                    console.error('OAuth URL error:', error);
-                    alert(`${provider} authentication: ${error.message || 'Configuration needed'}`);
-                }
-            } else {
-                // For production deployments, use existing signInWith function if available
-                if (typeof signInWith === 'function') {
-                    await signInWith(provider);
-                } else {
-                    console.log(`Production OAuth for ${provider} - would redirect to appropriate OAuth flow`);
-                    alert(`${provider} authentication would be handled by production OAuth system`);
-                }
+            // Redirect back to the current page after OAuth completes
+            const callbackURL = window.location.href;
+
+            // Better Auth OAuth flow - POST to get OAuth URL
+            const authApiUrl = window.AUTH_API_URL || 'http://localhost:3002/api';
+            const response = await fetch(`${authApiUrl}/auth/sign-in/social`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    provider: provider,
+                    callbackURL: callbackURL
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+
+            const data = await response.json();
+
+            if (data.url) {
+                console.log(`[Auth Modal] Redirecting to ${provider} OAuth...`);
+                window.location.href = data.url;
+            } else {
+                throw new Error('No OAuth URL received from server');
+            }
+
         } catch (error) {
             console.error('OAuth error:', error);
-            alert(`Failed to start ${provider} authentication. Please check your connection.`);
+            alert(`Failed to start ${provider} authentication: ${error.message}`);
         }
     }
+
+    /**
+     * Decode JWT token (client-side, no verification)
+     */
+    decodeToken(token) {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+                atob(base64)
+                    .split('')
+                    .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                    .join('')
+            );
+            return JSON.parse(jsonPayload);
+        } catch (error) {
+            console.error('[Auth Modal] Failed to decode token:', error);
+            return null;
+        }
+    }
+
+    listenForAuthCompletion(popup) {
+        // Generate unique message ID to prevent replay attacks
+        const messageId = crypto.randomUUID();
+        sessionStorage.setItem('auth_message_id', messageId);
+
+        // Listen for messages from the popup
+        const messageHandler = (event) => {
+            // Strict origin verification
+            if (event.origin !== window.location.origin) {
+                console.warn('[Auth Modal] Rejected message from untrusted origin:', event.origin);
+                return;
+            }
+
+            // Verify message ID to prevent replay attacks
+            if (event.data.messageId !== messageId) {
+                console.warn('[Auth Modal] Message ID mismatch - possible replay attack');
+                return;
+            }
+
+            if (event.data && event.data.type === 'auth-success') {
+                console.log('[Auth Modal] Received auth success from popup');
+
+                // Session is stored in httpOnly cookie by backend
+                // No need to store tokens in localStorage (security risk)
+
+                // Close popup
+                if (popup && !popup.closed) {
+                    popup.close();
+                }
+
+                // Remove event listener
+                window.removeEventListener('message', messageHandler);
+                sessionStorage.removeItem('auth_message_id');
+
+                // Update auth UI - check if authManager is available
+                if (typeof authManager !== 'undefined' && authManager.initializeAuth) {
+                    authManager.initializeAuth();
+                } else if (typeof updateAuthUI === 'function') {
+                    updateAuthUI();
+                }
+
+                // Open side tab with user info
+                if (typeof goHash === 'function') {
+                    goHash({'sidetab': 'account'});
+                } else if (typeof updateHash === 'function') {
+                    updateHash({'sidetab': 'account'});
+                    // Manually trigger UI update if goHash is not available
+                    window.location.hash = 'sidetab=account';
+                }
+            } else if (event.data && event.data.type === 'auth-error') {
+                console.error('[Auth Modal] Auth error from popup:', event.data.error);
+                alert(`Authentication failed: ${event.data.error}`);
+
+                // Close popup
+                if (popup && !popup.closed) {
+                    popup.close();
+                }
+
+                // Remove event listener
+                window.removeEventListener('message', messageHandler);
+                sessionStorage.removeItem('auth_message_id');
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Check if popup was closed without completing auth
+        const popupCheckInterval = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(popupCheckInterval);
+                window.removeEventListener('message', messageHandler);
+                sessionStorage.removeItem('auth_message_id');
+                console.log('[Auth Modal] Popup closed');
+            }
+        }, 500);
+    }
+}
+
+// Check if user is authenticated and update UI
+async function checkAuthSession() {
+    try {
+        const authApiUrl = window.AUTH_API_URL || 'http://localhost:3002/api';
+        const response = await fetch(`${authApiUrl}/auth-status`, {
+            credentials: 'include' // Send httpOnly cookie
+        });
+
+        if (response.ok) {
+            const session = await response.json();
+            if (session && session.authenticated && session.user) {
+                console.log('[Auth Modal] User is authenticated:', session.user);
+
+                // Session is stored in httpOnly cookie on backend
+                // No need to store in localStorage (security risk)
+
+                // Update auth UI if authManager exists
+                if (typeof authManager !== 'undefined' && authManager.initializeAuth) {
+                    authManager.currentUser = session.user;
+                    authManager.updateUI(true);
+                } else if (typeof updateAuthUI === 'function') {
+                    updateAuthUI();
+                }
+
+                return session.user;
+            }
+        }
+    } catch (error) {
+        console.error('[Auth Modal] Error checking session:', error);
+    }
+    return null;
 }
 
 // Initialize auth modal when DOM is loaded or immediately if DOM is already loaded
@@ -341,6 +480,9 @@ function initAuthModal() {
     if (!window.authModal) {
         window.authModal = new AuthModal();
     }
+
+    // Check for authenticated session on page load
+    checkAuthSession();
 }
 
 // Check if DOM is already loaded

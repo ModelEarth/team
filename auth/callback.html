@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Authentication Success</title>
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f9fafb;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+        }
+        .success-icon {
+            color: #10b981;
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .message {
+            color: #374151;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .button {
+            padding: 12px 24px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="content">
+        <div class="message">Loading...</div>
+    </div>
+
+    <script>
+        // Helper function to safely escape HTML to prevent XSS
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const success = params.get('success');
+        const error = params.get('error');
+        const content = document.getElementById('content');
+
+        // Check if this is a popup window
+        const isPopup = window.opener && window.opener !== window;
+
+        // Get message ID from sessionStorage for validation
+        const messageId = isPopup ? sessionStorage.getItem('auth_message_id') : null;
+
+        if (error) {
+            // Create error element safely (prevent XSS)
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.style.fontSize = '48px';
+            errorDiv.style.marginBottom = '16px';
+            errorDiv.textContent = '✗';
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message error';
+            messageDiv.textContent = `Authentication failed: ${error}`;
+
+            content.innerHTML = '';
+            content.appendChild(errorDiv);
+            content.appendChild(messageDiv);
+
+            if (isPopup && window.opener) {
+                // Send error message to parent window with messageId
+                window.opener.postMessage({
+                    type: 'auth-error',
+                    error: error,
+                    messageId: messageId
+                }, window.location.origin);
+
+                // Close popup after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 2000);
+            }
+        } else if (success === 'true') {
+            // Session is stored in httpOnly cookie by backend
+            // No token storage needed (security best practice)
+
+            console.log('[Auth Callback] Authentication successful - session stored in httpOnly cookie');
+
+            if (isPopup && window.opener) {
+                content.innerHTML = `
+                    <div class="success-icon">✓</div>
+                    <div class="message">Authentication successful!</div>
+                    <div class="message" style="font-size: 14px; color: #6b7280;">This window will close automatically...</div>
+                `;
+
+                // Send success message to parent window with messageId
+                window.opener.postMessage({
+                    type: 'auth-success',
+                    messageId: messageId
+                }, window.location.origin);
+
+                // Close popup after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 1500);
+            } else {
+                // Check if user was redirected here (popup was blocked)
+                const returnIntent = sessionStorage.getItem('auth_return_intent');
+
+                if (returnIntent === 'sidetab') {
+                    // Clear the intent
+                    sessionStorage.removeItem('auth_return_intent');
+
+                    content.innerHTML = `
+                        <div class="success-icon">✓</div>
+                        <div class="message">Authentication successful!</div>
+                        <div class="message" style="font-size: 14px; color: #6b7280;">Redirecting back...</div>
+                    `;
+
+                    // Redirect back to the page with account sidetab open
+                    setTimeout(() => {
+                        // Validate referrer to prevent open redirect attacks
+                        const referrer = document.referrer;
+
+                        if (referrer) {
+                            try {
+                                const referrerUrl = new URL(referrer);
+                                const currentHost = window.location.host;
+
+                                // Only allow same-origin redirects
+                                if (referrerUrl.host === currentHost &&
+                                    (referrerUrl.protocol === 'http:' || referrerUrl.protocol === 'https:')) {
+                                    const baseUrl = referrerUrl.origin + referrerUrl.pathname;
+                                    window.location.href = baseUrl + '#sidetab=account';
+                                    return;
+                                }
+                            } catch (e) {
+                                console.warn('Invalid referrer URL');
+                            }
+                        }
+
+                        // Safe fallback
+                        window.location.href = '../index.html#sidetab=account';
+                    }, 1000);
+                } else {
+                    // Default behavior - show continue button
+                    content.innerHTML = `
+                        <div class="success-icon">✓</div>
+                        <div class="message">Authentication successful!</div>
+                    `;
+
+                    setTimeout(() => {
+                        content.innerHTML += `<a href="../index.html" class="button">Continue</a>`;
+                    }, 1000);
+                }
+            }
+        } else {
+            content.innerHTML = `
+                <div class="error" style="font-size: 48px; margin-bottom: 16px;">✗</div>
+                <div class="message error">No authentication data received</div>
+            `;
+
+            if (isPopup && window.opener) {
+                // Send error message to parent window
+                window.opener.postMessage({
+                    type: 'auth-error',
+                    error: 'No authentication data received',
+                    messageId: messageId
+                }, window.location.origin);
+
+                // Close popup after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 2000);
+            }
+        }
+    </script>
+</body>
+</html>

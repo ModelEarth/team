@@ -18,22 +18,7 @@
     <script src="../localsite/js/localsite.js?showheader=true"></script>
 
     <script src="../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
-
-    <script>
-    // Sign In button testing under localhost or harimayooram.github.io
-    document.addEventListener('DOMContentLoaded', function() {
-        const currentHost = window.location.hostname;
-        const currentPath = window.location.href;
-        const allowSignIn = currentHost.includes('localhost') || 
-                           currentHost === '127.0.0.1' || 
-                           currentPath.includes('harimayooram.github.io') ||
-                           currentHost.includes('geo') ||
-                           currentHost.includes('location');
-        if (allowSignIn) {
-            //document.getElementById('signInTeam').style.display = 'inline-block';
-        }
-    });
-    </script>
+    <script src="../auth-system/public/js/env-config.js"></script>
     <style>
         #sideIcons, #main-footer {
             displayX:none !important;
@@ -1522,7 +1507,6 @@
         
         // Application State
         const AppState = {
-            currentUser: null,
             currentSection: 'home',
             currentTab: 'welcome',
             isAuthenticated: false,
@@ -2087,8 +2071,10 @@
         }
 
         // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
+ document.addEventListener('DOMContentLoaded', async function() { // <--- 1. MAKE IT ASYNC
             
+            await initializeAuth(); // <--- 2. ADD THIS LINE
+
             // Setup tab click handlers
             setupTabHandlers();
             
@@ -2114,7 +2100,7 @@
             setupFilterHandlers();
             
             // Close modal when clicking outside
-            document.getElementById('auth-modal').addEventListener('click', function(e) {
+          document.getElementById('auth-modal').addEventListener('click', function(e) {
                 if (e.target === this) {
                     hideAuthModal();
                 }

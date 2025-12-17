@@ -162,36 +162,45 @@ function updateFaviconPath() {
     });
 }
 
-// API Configuration with localhost fallback for external domains
-function getApiBase() {
-    // Check if user has disabled localhost fallback
-    const pullLocalRust = localStorage.getItem('pullLocalRust');
-    if (pullLocalRust === 'false') {
-        // Fallback disabled, use current domain
-        return window.location.origin.includes('localhost')
-            ? 'http://localhost:8081/api'
-            : `${window.location.origin}/api`;
+// Rust API Configuration with localhost fallback for external domains
+(function() {
+    // Prevent redefinition if already set
+    if (typeof window.API_BASE !== 'undefined') {
+        console.log('API_BASE is already defined:', window.API_BASE);
+        return;
     }
 
-    // Default behavior: always try localhost first when on external domains
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    if (!isLocalhost) {
-        // On external domain (model.earth, dreamstudio.com, etc.)
-        // Enable pullLocalRust flag to indicate we're using localhost fallback
-        if (pullLocalRust === null) {
-            localStorage.setItem('pullLocalRust', 'true');
+    // Check if user has disabled localhost fallback
+    const pullLocalRust = localStorage.getItem('pullLocalRust');
+
+    let apiUrl;
+
+    if (pullLocalRust === 'false') {
+        // Fallback disabled, use current domain's API endpoint
+        if (isLocalhost) {
+            apiUrl = 'http://localhost:8081/api';
+        } else {
+            // Use current domain's API endpoint (for when Rust API is deployed on same domain)
+            apiUrl = `${window.location.origin}/api`;
         }
-        return 'http://localhost:8081/api';
+    } else {
+        // Default behavior: try localhost Rust API first
+        if (isLocalhost) {
+            apiUrl = 'http://localhost:8081/api';
+        } else {
+            // On external domain, try localhost first (can be disabled via localStorage)
+            if (pullLocalRust === null) {
+                localStorage.setItem('pullLocalRust', 'true');
+            }
+            apiUrl = 'http://localhost:8081/api';
+        }
     }
 
-    // On localhost, use localhost
-    return 'http://localhost:8081/api';
-}
-
-if (typeof API_BASE === 'undefined') {
-    var API_BASE = getApiBase();
-}
+    window.API_BASE = apiUrl;
+    console.log(`[Rust API] API_BASE set to: ${window.API_BASE}`);
+})();
 
 // OS Detection functionality
 function detectOS() {

@@ -15,6 +15,7 @@
     <!-- GitHub Auth Styling for minimal widget -->
     <link rel="stylesheet" href="../../projects/css/issues.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <script>
         // Load submodule names by parsing .gitmodules from GitHub.
         if (!window.teamSubmodulesPromise) {
@@ -1689,7 +1690,7 @@
         /* Small icon style inside buttons */
         .submodule-card .btn-pull svg, .submodule-card .btn-push svg { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
 
-        
+
         #list-title {
             border: none !important;
         }
@@ -11570,97 +11571,6 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             // Show loading status for list of lists
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
             document.getElementById('loadStatus').style.display = 'block';
-            
-            // Check if this is a geo site - if so, load from show.json
-            if (isGeoSite()) {
-                console.log('Geo site detected - loading list of lists from show.json');
-
-                // Calculate the correct relative path to show.json
-                let showJsonPath;
-                const currentPath = window.location.pathname;
-
-                if (currentPath.includes('/team/projects')) {
-                    showJsonPath = 'map/show.json';
-                } else if (currentPath.includes('/team/')) {
-                    showJsonPath = 'projects/map/show.json';
-                } else {
-                    showJsonPath = 'team/projects/map/show.json';
-                }
-
-                console.log('Loading show.json from:', showJsonPath);
-
-                // Update the dropdown to show "all" is selected
-                fileSelect.value = 'all';
-
-                // Clear current data immediately to prevent flash
-                const tableContainer = document.getElementById('participants-table-container');
-                const participantsTableCard = document.getElementById('participants-table-card');
-
-                // Hide the table card first to prevent flash
-                if (participantsTableCard) {
-                    participantsTableCard.style.display = 'none';
-                }
-
-                // Clear table content and show loading state
-                if (tableContainer) {
-                    tableContainer.innerHTML = '<div class="loading-state">Loading lists from show.json...</div>';
-                }
-
-                // Load show.json and parse it to display all entries
-                fetch(showJsonPath)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(showConfig => {
-                        console.log('Loaded show.json config:', showConfig);
-
-                        // Convert show.json entries to feed data format
-                        const feedsData = [];
-
-                        Object.entries(showConfig).forEach(([key, config]) => {
-                            const feedEntry = {
-                                'List': key,
-                                'Title': config.shortTitle || config.listTitle || config.menuTitle || key,
-                                'URL': config.dataset || '',
-                                'CORS': 'false', // Local files don't need CORS
-                                'TopFields': config.featuredColumns ? config.featuredColumns.join(',') : '',
-                                'AllFields': config.featuredColumns ? config.featuredColumns.join(',') : ''
-                            };
-
-                            feedsData.push(feedEntry);
-                        });
-
-                        console.log(`Parsed ${feedsData.length} lists from show.json`);
-
-                        // Display the feeds data using the existing display system
-                        currentData = feedsData;
-                        // Reset team legend flag for new data
-                        initialTeamLegendGenerated = false;
-                        displayTableLayout(feedsData, 'All Available Lists');
-
-                        // Show UI elements after successful feeds load
-                        showListDisplayElements();
-
-                        // Update status to show completion
-                        document.getElementById('loadStatus').innerHTML = `<div class="success-message">Loaded ${feedsData.length} lists from show.json.</div>`;
-                        document.getElementById('loadStatus').style.display = 'block';
-
-                        // Hide the loading message after a delay
-                        setTimeout(() => {
-                            document.getElementById('loadStatus').style.display = 'none';
-                        }, 3000);
-                    })
-                    .catch(error => {
-                        console.error('Error loading show.json:', error);
-                        document.getElementById('loadStatus').innerHTML = `<div class="error-message">Error loading lists: ${error.message}</div>`;
-                        document.getElementById('loadStatus').style.display = 'block';
-                    });
-
-                return;
-            }
             
             // Load and display the meta-list Google Sheet with all feeds
             const masterSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';

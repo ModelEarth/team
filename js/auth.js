@@ -3,28 +3,49 @@
 
 class AuthManager {
     constructor() {
-        // Use getApiBase from common.js if available (handles localhost fallback)
-        this.API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
+        // Detect environment and set appropriate API base for Auth API
+        const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+
+        if (isLocal) {
+            // Local development - Auth API on port 3002
+            this.API_BASE = 'http://localhost:3002/api';
+        } else {
+            // Production - use Cloud Run Auth API URL
+            // This can be overridden by setting window.AUTH_API_URL in index.html
+            this.API_BASE = window.AUTH_API_URL || 'https://webroot-auth-api-336235334145.us-central1.run.app/api';
+        }
+
         this.providers = ['google', 'github', 'linkedin', 'microsoft', 'facebook'];
         this.currentUser = null;
         this.initializeAuth();
+
+        console.log(`[Auth API] API_BASE set to: ${this.API_BASE}`);
     }
 
     async initializeAuth() {
-        // Check if user is already authenticated
+        // Check session via httpOnly cookie (secure)
         try {
-            const response = await fetch(`${this.API_BASE}/auth/user`, {
-                credentials: 'include'
+            // Get session from server (uses httpOnly cookie)
+            const response = await fetch(`${this.API_BASE}/auth-status`, {
+                method: 'GET',
+                credentials: 'include' // Send httpOnly cookies
             });
-            const result = await response.json();
-            if (result.success) {
-                this.currentUser = result.user;
-                this.updateUI(true);
-            } else {
-                this.updateUI(false);
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result && result.authenticated && result.user) {
+                    this.currentUser = result.user;
+                    this.updateUI(true);
+                    return;
+                }
             }
+
+            // No valid session
+            this.currentUser = null;
+            this.updateUI(false);
         } catch (error) {
-            console.log('Not authenticated:', error);
+            console.log('[Auth] Error:', error);
+            this.currentUser = null;
             this.updateUI(false);
         }
     }
@@ -108,7 +129,7 @@ class AuthManager {
 
         // Initialize dropdown behavior
         this.initializeDropdown();
-        
+
         // Initialize feather icons
         if (typeof feather !== 'undefined') {
             feather.replace();
@@ -136,17 +157,25 @@ class AuthManager {
 
     async startAuth(provider) {
         try {
-            // Special handling for demo provider
+            // Special handling for demo provider (disabled in production)
             if (provider === 'demo') {
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    alert('Demo login is only available in development mode');
+                    return;
+                }
+
                 const response = await fetch(`${this.API_BASE}/auth/demo/login`, {
                     method: 'POST',
-                    credentials: 'include'
+                    credentials: 'include' // Backend sets httpOnly cookie
                 });
-                const result = await response.json();
-                if (result.success) {
-                    this.currentUser = result.user;
-                    this.updateUI(true);
-                    window.location.hash = '#account/preferences';
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('[Auth] Demo login successful');
+                        // Session is now stored in httpOnly cookie
+                        await this.initializeAuth();
+                    }
                 }
                 return;
             }
@@ -155,20 +184,23 @@ class AuthManager {
             const response = await fetch(`${this.API_BASE}/auth/${provider}/url`, {
                 credentials: 'include'
             });
-            
+
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || `${provider} OAuth not configured`);
             }
 
             const result = await response.json();
-            
+
             // Store the provider for callback handling
             sessionStorage.setItem('oauth_provider', provider);
-            
-            // Redirect to OAuth provider
+
+            // Store current page URL for return after auth
+            sessionStorage.setItem('auth_return_url', window.location.pathname + window.location.search + window.location.hash);
+
+            // Redirect to OAuth provider (required for OAuth flow)
             window.location.href = result.auth_url;
-            
+
         } catch (error) {
             console.error('Auth error:', error);
             alert(`Authentication failed: ${error.message}`);
@@ -177,13 +209,18 @@ class AuthManager {
 
     async logout() {
         try {
-            await fetch(`${this.API_BASE}/auth/logout`, {
+            // Call server logout endpoint to clear httpOnly cookie
+            await fetch(`${this.API_BASE}/auth/sign-out`, {
                 method: 'POST',
-                credentials: 'include'
+                credentials: 'include' // Send httpOnly cookie to be cleared
             });
+
+            // Clear client-side session data
+            sessionStorage.removeItem('just_authenticated');
+            sessionStorage.removeItem('oauth_provider');
             this.currentUser = null;
             this.updateUI(false);
-            window.location.hash = '#home';
+            console.log('[Auth] User logged out successfully');
         } catch (error) {
             console.error('Logout error:', error);
             // Force UI update even if request fails
@@ -208,16 +245,16 @@ class AuthManager {
             authText.textContent = this.currentUser.name || 'User';
             authProviders.style.display = 'none';
             authUserInfo.style.display = 'block';
-            
+
             if (userName) userName.textContent = this.currentUser.name;
             if (userEmail) userEmail.textContent = this.currentUser.email;
             if (userAvatar) {
-                userAvatar.src = this.currentUser.picture || '/img/default-avatar.png';
+                userAvatar.src = this.currentUser.image || '/img/default-avatar.png';
                 userAvatar.onerror = () => {
                     userAvatar.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0yMCAyMXYtMmE0IDQgMCAwIDAtNC00SDhhNCA0IDAgMCAwLTQgNHYyIiBzdHJva2U9IiM2QjcyODAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxjaXJjbGUgY3g9IjEyIiBjeT0iNyIgcj0iNCIgc3Ryb2tlPSIjNkI3MjgwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4KPC9zdmc+';
                 };
             }
-            
+
             authButton.classList.add('authenticated');
         } else {
             // Show providers, hide user info
@@ -238,7 +275,6 @@ class AuthManager {
         const urlParams = new URLSearchParams(window.location.search);
         const error = urlParams.get('error');
         const code = urlParams.get('code');
-        const state = urlParams.get('state');
 
         if (error) {
             console.error('OAuth error:', error);
@@ -258,7 +294,7 @@ class AuthManager {
 let authManager;
 document.addEventListener('DOMContentLoaded', () => {
     authManager = new AuthManager();
-    
+
     // Handle OAuth callback if present
     if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
         authManager.handleAuthCallback();
