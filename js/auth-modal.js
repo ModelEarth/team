@@ -446,13 +446,14 @@ class AuthModal {
 async function checkAuthSession() {
     try {
         const authApiUrl = window.AUTH_API_URL || 'http://localhost:3002/api';
-        const response = await fetch(`${authApiUrl}/auth-status`, {
+        const response = await fetch(`${authApiUrl}/auth/get-session`, {
             credentials: 'include' // Send httpOnly cookie
         });
 
         if (response.ok) {
             const session = await response.json();
-            if (session && session.authenticated && session.user) {
+            // Better-auth returns { session, user } structure
+            if (session && session.user) {
                 console.log('[Auth Modal] User is authenticated:', session.user);
 
                 // Session is stored in httpOnly cookie on backend

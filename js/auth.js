@@ -26,14 +26,15 @@ class AuthManager {
         // Check session via httpOnly cookie (secure)
         try {
             // Get session from server (uses httpOnly cookie)
-            const response = await fetch(`${this.API_BASE}/auth-status`, {
+            const response = await fetch(`${this.API_BASE}/auth/get-session`, {
                 method: 'GET',
                 credentials: 'include' // Send httpOnly cookies
             });
 
             if (response.ok) {
                 const result = await response.json();
-                if (result && result.authenticated && result.user) {
+                // Better-auth returns { session, user } structure
+                if (result && result.user) {
                     this.currentUser = result.user;
                     this.updateUI(true);
                     return;
