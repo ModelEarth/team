@@ -911,7 +911,12 @@ async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
             if (config.int_required) {
                 option.setAttribute('data-int-required', config.int_required);
             }
-            
+
+            // Store imgOnly config for filtering
+            if (config.imgOnly) {
+                option.setAttribute('data-img-only', config.imgOnly);
+            }
+
             // Insert before the "Choose File..." option
             fileSelect.insertBefore(option, customOption);
             

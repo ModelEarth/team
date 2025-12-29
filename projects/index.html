@@ -2666,6 +2666,112 @@
             background: rgba(255, 255, 255, 0.8);
         }
 
+        /* Item Detail Gallery Styles */
+        #item-detail-gallery {
+            position: relative;
+            width: 100%;
+            max-height: 500px;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .detail-gallery-image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
+        }
+
+        .detail-gallery-image-wrapper.center-content {
+            align-items: center;
+        }
+
+        .detail-gallery-image-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .detail-gallery-image-wrapper::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .detail-gallery-image-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(128, 128, 128, 0.5);
+            border-radius: 4px;
+        }
+
+        .detail-gallery-image-wrapper::-webkit-scrollbar-thumb:hover {
+            background: rgba(128, 128, 128, 0.7);
+        }
+
+        .detail-gallery-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+            min-height: 100%;
+        }
+
+        .detail-gallery-image.landscape {
+            object-fit: cover;
+            height: 100%;
+            min-height: unset;
+        }
+
+        #item-detail-gallery .image-dots-container {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+
+        #item-detail-gallery .image-dot {
+            width: 10px;
+            height: 10px;
+        }
+
+        .detail-gallery-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            display: none;
+        }
+
+        .detail-gallery-loading.active {
+            display: block;
+        }
+
+        .detail-loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         /* Gallery View Image Styles */
         .gallery-card {
             position: relative;
@@ -2914,6 +3020,20 @@
             
             <div style="border-top: 1px solid var(--border-light); padding-top: 20px;">
                 <div id="readme-content"></div>
+            </div>
+        </div>
+
+        <!-- Item Detail View -->
+        <div class="card" id="item-detail" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="card-title" id="item-detail-title" style="margin: 0;">Item Details</h2>
+                <button class="btn btn-secondary" onclick="closeItemDetail()" style="padding: 8px 16px;">Close</button>
+            </div>
+
+            <div id="item-detail-gallery"></div>
+
+            <div id="item-detail-fields" style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                <!-- Field details will be populated here -->
             </div>
         </div>
 
@@ -6522,9 +6642,15 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             isCors = selectedOption?.getAttribute('data-cors') === 'true';
             allFields = selectedOption?.getAttribute('data-all-fields');
 
-            // Get config for filtering (e.g., int_required)
+            // Get config for filtering (e.g., int_required, imgOnly)
             const intRequired = selectedOption?.getAttribute('data-int-required');
-            config = intRequired ? { int_required: intRequired } : null;
+            const imgOnly = selectedOption?.getAttribute('data-img-only');
+            config = {};
+            if (intRequired) config.int_required = intRequired;
+            if (imgOnly) config.imgOnly = imgOnly;
+
+            // Store config globally for detail view
+            currentListConfig = config;
 
             console.log('=== getSubsetUsingSnapshot DEBUG ===');
             console.log('Current fileSelect value:', currentValue);
@@ -6787,7 +6913,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 }
                 
                 // Filter out any null/undefined rows
-                const validData = loadResult.data.filter(row => row && typeof row === 'object');
+                let validData = loadResult.data.filter(row => row && typeof row === 'object');
                 
                 if (validData.length === 0) {
                     const errorMessage = `No valid data found in the source\n\nPath attempted: ${meetupLink}`;
@@ -6838,6 +6964,20 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 
                 // Reset team legend flag for new data
                 initialTeamLegendGenerated = false;
+
+                // Filter by Photo1 column if imgOnly is set and showall is not true
+                const showAll = hash.showall === 'true';
+                if (config.imgOnly === 'true' && !showAll) {
+                    const originalCount = validData.length;
+                    validData = validData.filter(row => {
+                        const photo1 = row['Photo1'] || row['photo1'] || '';
+                        return photo1 && photo1.trim() !== '';
+                    });
+                    console.log(`Filtered by Photo1: ${validData.length} of ${originalCount} have images`);
+                    // Store counts for display in results count
+                    window.imgOnlyFilteredCount = validData.length;
+                    window.imgOnlyTotalCount = originalCount;
+                }
 
                 // Merge state coordinates and people.env data if modelteam
                 let unmatchedRows = [];
@@ -12264,7 +12404,14 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 if (listParam && listParam !== currentLoadedList) {
                     console.log('HASHCHANGE: List changed from', currentLoadedList, 'to', listParam);
                     currentLoadedList = listParam;
-                    
+
+                    // Hide detail view when list changes
+                    const detailDiv = document.getElementById('item-detail');
+                    if (detailDiv && detailDiv.style.display !== 'none') {
+                        detailDiv.style.display = 'none';
+                        currentDetailItem = null;
+                    }
+
                     // Hide UI elements and clear filters when list changes
                     hideListDisplayElements();
                     clearAllFilters();
@@ -12342,8 +12489,60 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     // Apply filters
                     applyAllFilters();
                 }
+
+                // Handle showall parameter for imgOnly filtering
+                const showAllParam = getHash().showall;
+                const previousShowAll = window.currentShowAllState;
+
+                // Track state change to avoid infinite loops
+                if (showAllParam !== previousShowAll) {
+                    console.log('🔗 ShowAll parameter changed in URL hash:', showAllParam);
+                    window.currentShowAllState = showAllParam;
+
+                    // Reload data if we're on a list with imgOnly filtering
+                    const currentValue = fileSelect.value;
+                    const selectedOption = Array.from(fileSelect.options).find(opt => opt.value === currentValue);
+                    const imgOnly = selectedOption?.getAttribute('data-img-only');
+
+                    if (imgOnly === 'true' && currentLoadedList) {
+                        console.log('HASHCHANGE: Reloading list due to showall change');
+                        getSubsetUsingSnapshot();
+                    }
+                }
+
+                // Handle id parameter for detail view
+                const idParam = getHash().id;
+                const previousId = window.currentDetailId;
+
+                if (idParam !== previousId) {
+                    console.log('🔗 ID parameter changed in URL hash:', idParam);
+                    window.currentDetailId = idParam;
+
+                    if (idParam && window.participantsData) {
+                        // Find participant by id using the int_required field
+                        const idFieldName = currentListConfig.int_required || 'id';
+                        const participant = window.participantsData.find(p => {
+                            return String(p[idFieldName]) === String(idParam);
+                        });
+
+                        if (participant) {
+                            // Extract image paths and show detail
+                            const imagePaths = extractImagePaths(participant);
+                            showItemDetail(participant, imagePaths);
+                        } else {
+                            console.warn('No participant found with', idFieldName, '=', idParam);
+                        }
+                    } else if (!idParam) {
+                        // Close detail view when id is removed from hash
+                        const detailDiv = document.getElementById('item-detail');
+                        if (detailDiv && detailDiv.style.display !== 'none') {
+                            detailDiv.style.display = 'none';
+                            currentDetailItem = null;
+                        }
+                    }
+                }
             });
-            
+
             // Initialize file selection
             await initializeFileSelection();
 
@@ -12530,27 +12729,64 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         function updateResultsCount(filteredData) {
             const resultsCount = document.getElementById('results-count');
             if (!resultsCount) return;
-            
+
             totalRecords = filteredData.length;
             const originalTotal = originalLoadedCount || totalRecords;
             const totalPages = Math.ceil(totalRecords / recordsPerPage);
             const startRecord = Math.min((currentPage - 1) * recordsPerPage + 1, totalRecords);
             const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
-            
+
+            // Check if imgOnly filtering is active
+            const hash = getHash();
+            const showAll = hash.showall === 'true';
+            const hasImgOnlyFilter = window.imgOnlyFilteredCount !== undefined && window.imgOnlyTotalCount !== undefined;
+
+            let countText = '';
             if (totalRecords === 0) {
-                resultsCount.textContent = `0 results in ${totalRecords} (of ${originalTotal})`;
+                countText = `0 results in ${totalRecords} (of ${originalTotal})`;
             } else if (totalRecords <= recordsPerPage) {
                 if (totalRecords === originalTotal) {
                     // No filtering applied
-                    resultsCount.textContent = `${totalRecords} result${totalRecords !== 1 ? 's' : ''}`;
+                    countText = `${totalRecords} result${totalRecords !== 1 ? 's' : ''}`;
                 } else {
                     // Filtering applied
-                    resultsCount.textContent = `${totalRecords} result${totalRecords !== 1 ? 's' : ''} (of ${originalTotal})`;
+                    countText = `${totalRecords} result${totalRecords !== 1 ? 's' : ''} (of ${originalTotal})`;
                 }
             } else {
-                resultsCount.textContent = `${startRecord} to ${endRecord} results in ${totalRecords} (of ${originalTotal})`;
+                countText = `${startRecord} to ${endRecord} results in ${totalRecords} (of ${originalTotal})`;
             }
-            
+
+            // Add imgOnly filter toggle links
+            if (hasImgOnlyFilter) {
+                if (!showAll) {
+                    // Currently showing only images - add "Show All" link
+                    countText = `${window.imgOnlyFilteredCount} have images in ${window.imgOnlyTotalCount}. <a href="#" class="img-filter-toggle" data-action="showall" style="color: #4CAF50; text-decoration: underline; cursor: pointer;">Show All</a>`;
+                } else {
+                    // Currently showing all - add "Images Only" link
+                    countText += ` <a href="#" class="img-filter-toggle" data-action="imagesonly" style="color: #4CAF50; text-decoration: underline; cursor: pointer; margin-left: 8px;">Images Only</a>`;
+                }
+            }
+
+            resultsCount.innerHTML = countText;
+
+            // Add click handlers for the toggle links
+            const toggleLinks = resultsCount.querySelectorAll('.img-filter-toggle');
+            toggleLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const action = this.getAttribute('data-action');
+                    if (action === 'showall') {
+                        if (typeof goHash === 'function') {
+                            goHash({'showall': 'true'});
+                        }
+                    } else if (action === 'imagesonly') {
+                        if (typeof goHash === 'function') {
+                            goHash({'showall': ''});
+                        }
+                    }
+                });
+            });
+
             updatePaginationControls();
         }
         
@@ -12658,10 +12894,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             const height = isGalleryView ? 140 : 120;
             
             let html = `<div class="columns-image-container" id="${containerId}" data-current="0" data-auto-advance="false" data-image-paths='${JSON.stringify(imagePaths)}'>`;
-            
-            // Add the first image
-            html += `<img class="columns-image" src="${imagePaths[0]}" alt="Project Image" style="height: ${height}px" onclick="openImageInNewTab('${imagePaths[0]}')" onerror="this.style.display='none'; this.nextElementSibling?.style.display='flex';">`;
-            
+
+            // Add the first image - store participant data for detail view
+            html += `<img class="columns-image" src="${imagePaths[0]}" alt="Project Image" style="height: ${height}px" onclick="showItemDetailFromImage('${containerId}')" onerror="this.style.display='none'; this.nextElementSibling?.style.display='flex';">`;
+
             // Add placeholder for failed images
             html += `<div class="no-image-placeholder" style="display: none;">Image not found</div>`;
             
@@ -12781,6 +13017,211 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         // Open image in new tab
         function openImageInNewTab(imagePath) {
             window.open(imagePath, '_blank');
+        }
+
+        // Item Detail View Functions
+        let currentDetailItem = null;
+        let currentListConfig = {}; // Store current list config globally
+
+        function showItemDetailFromImage(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Find the parent card element to get participant data
+            const card = container.closest('.columns-card') || container.closest('.gallery-card');
+            if (!card) return;
+
+            const participantName = card.dataset.participantName;
+            if (!participantName) return;
+
+            // Find the participant data
+            const participant = window.participantsData?.find(p => {
+                const name = getParticipantName(p);
+                return name === participantName;
+            });
+
+            if (participant) {
+                // Get the int_required field name from config
+                const idFieldName = currentListConfig.int_required || 'id';
+                const idValue = participant[idFieldName];
+
+                if (idValue) {
+                    // Use goHash to set the id parameter, which will trigger hash change event
+                    if (typeof goHash === 'function') {
+                        goHash({'id': idValue});
+                    }
+                } else {
+                    // Fallback: directly show detail if no id field
+                    const imagePaths = JSON.parse(container.dataset.imagePaths || '[]');
+                    showItemDetail(participant, imagePaths);
+                }
+            }
+        }
+
+        function showItemDetail(participant, imagePaths) {
+            currentDetailItem = { participant, imagePaths };
+
+            const detailDiv = document.getElementById('item-detail');
+            const titleDiv = document.getElementById('item-detail-title');
+            const galleryDiv = document.getElementById('item-detail-gallery');
+            const fieldsDiv = document.getElementById('item-detail-fields');
+
+            if (!detailDiv || !galleryDiv || !fieldsDiv) return;
+
+            // Set title
+            const name = getParticipantName(participant);
+            titleDiv.textContent = name;
+
+            // Create gallery with images
+            if (imagePaths && imagePaths.length > 0) {
+                let galleryHTML = '';
+                const detailContainerId = 'detail-gallery-' + Math.random().toString(36).substr(2, 9);
+
+                // Loading spinner
+                galleryHTML += `<div class="detail-gallery-loading" id="detail-gallery-loading">`;
+                galleryHTML += `<div class="detail-loading-spinner"></div>`;
+                galleryHTML += `</div>`;
+
+                // Wrapper for the current image
+                galleryHTML += `<div class="detail-gallery-image-wrapper" id="${detailContainerId}-wrapper">`;
+                galleryHTML += `<img class="detail-gallery-image" id="${detailContainerId}-img" src="${imagePaths[0]}" alt="${name}" onload="checkImageOrientation(this); hideDetailLoadingSpinner()">`;
+                galleryHTML += `</div>`;
+
+                // Add navigation dots if multiple images
+                if (imagePaths.length > 1) {
+                    galleryHTML += `<div class="image-dots-container">`;
+                    imagePaths.forEach((_, index) => {
+                        const activeClass = index === 0 ? ' active' : '';
+                        galleryHTML += `<div class="image-dot${activeClass}" onclick="showDetailImageByIndex(${index})"></div>`;
+                    });
+                    galleryHTML += `</div>`;
+                }
+
+                galleryDiv.innerHTML = galleryHTML;
+                galleryDiv.dataset.currentIndex = '0';
+                galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
+            } else {
+                galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
+            }
+
+            // Display all fields
+            let fieldsHTML = '';
+            Object.keys(participant).forEach(key => {
+                const value = participant[key];
+                // Skip empty values and internal fields
+                if (!value || key.startsWith('_') || key === 'Rows') return;
+
+                // Skip Photo and Phototext fields as they're shown in gallery
+                if (key.match(/^Photo\d+$/) || key.match(/^Phototext\d+$/)) return;
+
+                fieldsHTML += `
+                    <div style="padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">${key}</div>
+                        <div style="font-size: 14px; color: var(--text-primary);">${value}</div>
+                    </div>
+                `;
+            });
+            fieldsDiv.innerHTML = fieldsHTML;
+
+            // Show detail div and scroll to it
+            detailDiv.style.display = 'block';
+            detailDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function showDetailImageByIndex(index) {
+            const galleryDiv = document.getElementById('item-detail-gallery');
+            if (!galleryDiv) return;
+
+            const imagePaths = JSON.parse(galleryDiv.dataset.imagePaths || '[]');
+            if (index >= imagePaths.length) return;
+
+            // Show loading spinner
+            showDetailLoadingSpinner();
+
+            const img = galleryDiv.querySelector('.detail-gallery-image');
+            const dots = galleryDiv.querySelectorAll('.image-dot');
+
+            if (img) {
+                // Set up onload handler to hide spinner and check orientation
+                img.onload = function() {
+                    checkImageOrientation(this);
+                    hideDetailLoadingSpinner();
+                };
+
+                // Change image source
+                img.src = imagePaths[index];
+
+                // Reset scroll position when changing images
+                const wrapper = img.parentElement;
+                if (wrapper) wrapper.scrollTop = 0;
+            }
+
+            // Update dots
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+
+            galleryDiv.dataset.currentIndex = index;
+        }
+
+        function showDetailLoadingSpinner() {
+            const spinner = document.getElementById('detail-gallery-loading');
+            if (spinner) {
+                spinner.classList.add('active');
+            }
+        }
+
+        function hideDetailLoadingSpinner() {
+            const spinner = document.getElementById('detail-gallery-loading');
+            if (spinner) {
+                spinner.classList.remove('active');
+            }
+        }
+
+        function checkImageOrientation(img) {
+            // Check if image is landscape or portrait/tall
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            const wrapper = img.closest('.detail-gallery-image-wrapper');
+
+            if (aspectRatio >= 1.0) {
+                // Landscape or square - use object-fit: cover
+                img.classList.add('landscape');
+            } else {
+                // Portrait/tall - allow scrolling
+                img.classList.remove('landscape');
+            }
+
+            // Center image if it fits within the 500px wrapper height
+            // Otherwise start at top to allow scrolling
+            if (wrapper) {
+                if (img.naturalHeight <= 500) {
+                    // Image is short enough to center
+                    wrapper.classList.add('center-content');
+                } else {
+                    // Image is tall - start at top for scrolling
+                    wrapper.classList.remove('center-content');
+                }
+            }
+        }
+
+        function closeItemDetail() {
+            // Use goHash to clear the id parameter, which triggers hash change event
+            if (typeof goHash === 'function') {
+                goHash({'id': ''});
+            } else {
+                // Fallback: directly close if goHash not available
+                const detailDiv = document.getElementById('item-detail');
+                if (detailDiv) {
+                    detailDiv.style.display = 'none';
+                }
+                currentDetailItem = null;
+            }
+
+            // Scroll back to table
+            const tableCard = document.getElementById('participants-table-card');
+            if (tableCard) {
+                tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
 
         // Gallery view toggle functionality
