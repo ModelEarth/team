@@ -11,6 +11,9 @@
 
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/shared-styles.css">
+    
+    <!-- Load GitHub User IDs mapping -->
+    <script src="github-user-ids.js"></script>
 
     <style>
         .participant-container {
@@ -119,9 +122,22 @@
 
         /* Fields Grid */
         .participant-fields {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .location-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .location-icon {
+            width: 18px;
+            height: 18px;
+            color: var(--text-muted);
+            flex-shrink: 0;
         }
 
         .field-item {
@@ -435,9 +451,12 @@
 
                     <!-- Fields -->
                     <div id="participant-fields" class="participant-fields">
-                        <div class="field-item">
-                            <div class="field-label">Location</div>
-                            <div class="field-value" id="field-location">-</div>
+                        <div id="location-field" class="location-inline" style="display: none;">
+                            <svg class="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span id="field-location">-</span>
                         </div>
                     </div>
 
@@ -546,6 +565,7 @@
 
         // Render image gallery
         function renderGallery(imagePaths, name, githubAvatarUrl = null) {
+            console.log('renderGallery called with imagePaths:', imagePaths, 'githubAvatarUrl:', githubAvatarUrl);
             const galleryDiv = document.getElementById('participant-gallery');
             
             // If no images from data, use GitHub avatar if available
@@ -553,39 +573,45 @@
                 imagePaths = [githubAvatarUrl];
             }
             
+            console.log('Final imagePaths:', imagePaths);
+            
             if (!imagePaths || imagePaths.length === 0) {
                 galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
                 return;
             }
             
-            let html = `<img id="main-image" class="gallery-main-image" src="${imagePaths[0]}" alt="${name}">`;
+            let html = `<img id="main-image" class="gallery-main-image" src="${imagePaths[0]}" alt="${escapeHtml(name)}">`;
             
             if (imagePaths.length > 1) {
                 html += '<div class="gallery-thumbnails">';
                 imagePaths.forEach((path, index) => {
                     const activeClass = index === 0 ? ' active' : '';
-                    html += `<img class="gallery-thumbnail${activeClass}" src="${path}" alt="${name} ${index + 1}" onclick="showImage(${index})">`;
+                    html += `<img class="gallery-thumbnail${activeClass}" src="${path}" alt="${escapeHtml(name)} ${index + 1}" onclick="showImage(${index})">`;
                 });
                 html += '</div>';
             }
             
+            console.log('Gallery HTML:', html);
             galleryDiv.innerHTML = html;
             galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
         }
 
-        // Fetch GitHub user's avatar URL
-        async function fetchGitHubAvatar(username) {
-            try {
-                const response = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
-                });
-                if (!response.ok) return null;
-                const data = await response.json();
-                return data.avatar_url || null;
-            } catch (error) {
-                console.error('Error fetching GitHub avatar:', error);
-                return null;
+        // Get GitHub user's avatar URL using USER_IDS mapping
+        function getGitHubAvatarUrl(username) {
+            // Check if USER_IDS is loaded from external file
+            if (typeof USER_IDS !== 'undefined') {
+                // First try to find user ID in our mapping (case-insensitive lookup)
+                const userId = USER_IDS[username] || 
+                    Object.entries(USER_IDS).find(([key]) => key.toLowerCase() === username.toLowerCase())?.[1];
+                
+                if (userId) {
+                    // Use direct avatar URL with user ID (fastest, no redirect)
+                    return `https://avatars.githubusercontent.com/u/${userId}?v=4`;
+                }
             }
+            
+            // Fallback to username-based URL (GitHub will redirect)
+            return `https://github.com/${encodeURIComponent(username)}.png`;
         }
 
         // Show specific image
@@ -610,34 +636,26 @@
         function renderFields(participant) {
             console.log('renderFields called');
             
-            // Map of field IDs to possible participant data keys
-            const fieldMappings = {
-                'field-name': ['Name', 'name', 'Title', 'title'],
-                'field-location': ['Location', 'location', 'City', 'city', 'Country', 'country']
-            };
+            // Handle Location field with icon
+            const locationField = document.getElementById('location-field');
+            const locationElement = document.getElementById('field-location');
             
-            // Populate each field
-            Object.keys(fieldMappings).forEach(fieldId => {
-                const element = document.getElementById(fieldId);
-                if (!element) return;
-                
-                const possibleKeys = fieldMappings[fieldId];
-                let value = '-';
-                
-                for (const key of possibleKeys) {
-                    if (participant[key] && String(participant[key]).trim()) {
-                        value = String(participant[key]).trim();
-                        break;
-                    }
+            const locationKeys = ['Location', 'location', 'City', 'city', 'Country', 'country'];
+            let locationValue = null;
+            
+            for (const key of locationKeys) {
+                if (participant[key] && String(participant[key]).trim()) {
+                    locationValue = String(participant[key]).trim();
+                    break;
                 }
-                
-                // Format as link if it's a URL
-                if (value.match(/^https?:\/\//i)) {
-                    element.innerHTML = '<a href="' + value + '" target="_blank">' + value + '</a>';
-                } else {
-                    element.textContent = value;
-                }
-            });
+            }
+            
+            if (locationValue && locationValue !== '-') {
+                locationField.style.display = 'inline-flex';
+                locationElement.textContent = locationValue;
+            } else {
+                locationField.style.display = 'none';
+            }
             
             // Handle GitHub field separately with @ prefix and hyperlink
             const githubElement = document.getElementById('field-github');
@@ -669,7 +687,7 @@
             console.log('Fields populated');
         }
 
-        // Map of ModelEarth repos to their primary languages
+        // Hardcoded map of ModelEarth repos to their primary languages (no API calls)
         const REPO_LANGUAGES = {
             'feed': ['JavaScript', 'HTML', 'CSS'],
             'localsite': ['JavaScript', 'HTML', 'CSS'],
@@ -701,7 +719,14 @@
             'machine-learning': ['Python', 'Jupyter Notebook'],
             'sql': ['SQL', 'Python'],
             'chat': ['JavaScript', 'Python'],
-            'exiobase': ['Python', 'C#']
+            'exiobase': ['Python', 'C#'],
+            'team': ['JavaScript', 'HTML', 'CSS'],
+            'members': ['JavaScript', 'HTML'],
+            'open-footprint': ['Python', 'JavaScript'],
+            'useeio-widgets': ['JavaScript', 'TypeScript'],
+            'github-actions': ['YAML', 'Shell'],
+            'data-pipeline': ['Python'],
+            'apps': ['JavaScript', 'HTML', 'CSS']
         };
 
         // Language colors (GitHub-style)
@@ -735,19 +760,25 @@
                 return;
             }
             
-            // Collect languages from repos
-            const languageSet = new Set();
+            // Collect languages from repos using hardcoded map
+            const languageCount = {};
             uniqueRepos.forEach(repo => {
                 const langs = REPO_LANGUAGES[repo] || REPO_LANGUAGES[repo.toLowerCase()];
                 if (langs) {
-                    langs.forEach(lang => languageSet.add(lang));
+                    langs.forEach((lang, index) => {
+                        // Give higher weight to primary languages (first in list)
+                        const weight = Math.max(1, 5 - index);
+                        languageCount[lang] = (languageCount[lang] || 0) + weight;
+                    });
                 }
             });
             
-            // Convert to array and sort
-            const languages = [...languageSet].sort();
+            // Sort by weighted count
+            const sortedLanguages = Object.entries(languageCount)
+                .sort((a, b) => b[1] - a[1])
+                .map(([lang]) => lang);
             
-            if (languages.length === 0) {
+            if (sortedLanguages.length === 0) {
                 // Fallback: show repo names if no language mapping found
                 skillsSection.style.display = 'block';
                 let html = '';
@@ -762,7 +793,7 @@
             skillsSection.style.display = 'block';
             
             let html = '';
-            languages.forEach(lang => {
+            sortedLanguages.forEach(lang => {
                 const color = LANG_COLORS[lang] || '#6e7681';
                 html += `<span class="project-tag" style="border-left: 3px solid ${color};">${lang}</span>`;
             });
@@ -1171,23 +1202,42 @@
                     githubUsername = participant[field].trim();
                     if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
                     if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    console.log('Found GitHub username from field:', field, '=', githubUsername);
                     break;
                 }
             }
             
-            // If no images but have GitHub username, fetch avatar
-            if (imagePaths.length === 0 && githubUsername) {
-                // Show loading placeholder while fetching avatar
-                const galleryDiv = document.getElementById('participant-gallery');
-                galleryDiv.innerHTML = '<div class="no-image-placeholder">Loading...</div>';
-                
-                // Fetch GitHub avatar asynchronously
-                fetchGitHubAvatar(githubUsername).then(avatarUrl => {
-                    renderGallery(imagePaths, name, avatarUrl);
+            // Case-insensitive fallback
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key].trim();
+                            if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                            if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                            console.log('Found GitHub username from case-insensitive field:', key, '=', githubUsername);
+                        }
+                    }
                 });
-            } else {
-                renderGallery(imagePaths, name);
             }
+            
+            console.log('GitHub username:', githubUsername);
+            console.log('USER_IDS available:', typeof USER_IDS !== 'undefined');
+            if (typeof USER_IDS !== 'undefined') {
+                console.log('USER_IDS keys sample:', Object.keys(USER_IDS).slice(0, 5));
+            }
+            
+            // Always use GitHub avatar if we have a username
+            if (githubUsername) {
+                const avatarUrl = getGitHubAvatarUrl(githubUsername);
+                console.log('Avatar URL:', avatarUrl);
+                // Add GitHub avatar to the beginning if not already in imagePaths
+                if (!imagePaths.includes(avatarUrl)) {
+                    imagePaths.unshift(avatarUrl);
+                }
+            }
+            
+            renderGallery(imagePaths, name);
             
             // Render fields
             console.log('Rendering fields...');
