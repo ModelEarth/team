@@ -6997,7 +6997,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     });
 
                     // Step 2: Merge people.env data only on localhost
-                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    const isLocalhost = window.location.hostname === 'model.earth' || window.location.hostname === '127.0.0.1';
                     if (isLocalhost) {
                         // First, normalize the people.env data to match our column names
                         const peopleEnvResult = await loadUnifiedData('../../community/people.env', {
@@ -7983,6 +7983,19 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         setURLHashParam('list', participant.List);
                         updateParticipantListTitle(participant.Title || participant.List);
                     });
+                } else {
+                    // Add clickable functionality for regular participant cards to open participant page
+                    card.style.cursor = 'pointer';
+                    card.title = `Click to view details for: ${name}`;
+                    card.addEventListener('click', (e) => {
+                        // Don't trigger if clicking on checkbox or menu
+                        if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu')) {
+                            return;
+                        }
+                        // Navigate to participant.html with list and id parameters
+                        const currentList = getHash().list || 'modelteam';
+                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(name)}`;
+                    });
                 }
                 
                 // Create image container if images are found
@@ -8314,7 +8327,13 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         return;
                     }
 
-                    // No row-level navigation here; anchors inside cells handle navigation.
+                    // Navigate to participant page on click (for non-meta lists)
+                    if (!isMetaList) {
+                        const currentList = getHash().list || 'modelteam';
+                        const rowName = getParticipantName(row);
+                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(rowName)}`;
+                        return;
+                    }
                     
                     // Toggle expanded class for all cells in this row
                     const allCellsInRow = tr.querySelectorAll('td');
@@ -8823,13 +8842,26 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 // Get the actual field name being used as title
                 const titleFieldName = getTitleFieldName(participant, firstTopField);
                 
-                // Add clickable functionality for meta list
+                // Add clickable functionality for meta list or participant detail
                 if (isMetaList && participant.List) {
                     card.style.cursor = 'pointer';
                     card.title = `Click to view data from: ${participant.Title || participant.List}`;
                     card.addEventListener('click', () => {
                         setURLHashParam('list', participant.List);
                         updateParticipantListTitle(participant.Title || participant.List);
+                    });
+                } else {
+                    // Add clickable functionality for regular participant cards to open participant page
+                    card.style.cursor = 'pointer';
+                    card.title = `Click to view details for: ${name}`;
+                    card.addEventListener('click', (e) => {
+                        // Don't trigger if clicking on checkbox, menu, or toggle button
+                        if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu') || e.target.closest('.gallery-toggle-btn')) {
+                            return;
+                        }
+                        // Navigate to participant.html with list and id parameters
+                        const currentList = getHash().list || 'modelteam';
+                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(name)}`;
                     });
                 }
                 

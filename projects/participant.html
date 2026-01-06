@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participant Profile</title>
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+
+    <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
+
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shared-styles.css">
+
+    <style>
+        .participant-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .participant-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .participant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+
+        .participant-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--accent-blue-dark, #1d4ed8);
+        }
+
+        .participant-content {
+            padding: 24px;
+        }
+
+        /* Image Gallery */
+        .participant-gallery {
+            margin-bottom: 24px;
+        }
+
+        .gallery-main-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+        }
+
+        .gallery-thumbnails {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .gallery-thumbnail {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s ease;
+        }
+
+        .gallery-thumbnail:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .gallery-thumbnail.active {
+            border-color: var(--accent-blue);
+        }
+
+        .no-image-placeholder {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Fields Grid */
+        .participant-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .field-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .field-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .field-value {
+            font-size: 15px;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .field-value a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .field-value a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading State */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-light);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Projects Section */
+        .projects-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .projects-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .project-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .project-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+
+        .project-tag:hover {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        /* GitHub Section */
+        .github-section {
+            margin-top: 24px;
+            padding: 16px;
+            background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .github-icon {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+
+        .github-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        /* PR History Section */
+        .pr-history-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .pr-history-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .pr-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            color: var(--text-secondary);
+        }
+
+        .pr-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .pr-stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+        }
+
+        .pr-stat-count {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .pr-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pr-card {
+            display: flex;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            gap: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pr-card:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .pr-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 14px;
+        }
+
+        .pr-icon.merged {
+            background: #8250df;
+            color: white;
+        }
+
+        .pr-icon.open {
+            background: #238636;
+            color: white;
+        }
+
+        .pr-icon.closed {
+            background: #da3633;
+            color: white;
+        }
+
+        .pr-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pr-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .pr-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .pr-repo {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .pr-date {
+            color: var(--text-secondary);
+        }
+
+        .pr-number {
+            color: var(--text-secondary);
+        }
+
+        .pr-empty {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+        }
+
+        .pr-error {
+            padding: 16px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-md);
+            color: #dc2626;
+            font-size: 14px;
+        }
+
+        .repo-group {
+            margin-bottom: 24px;
+        }
+
+        .repo-group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .repo-group-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .repo-group-count {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Dark mode adjustments */
+        .dark .participant-card {
+            background: var(--bg-primary);
+        }
+
+        .dark .field-item {
+            background: var(--bg-tertiary);
+        }
+
+        .dark .pr-error {
+            background: #450a0a;
+            border-color: #7f1d1d;
+            color: #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="participant-container">
+        <div class="participant-card">
+            <div class="participant-header">
+                <h1 id="participant-name">Loading...</h1>
+                <a href="#" id="back-btn" class="back-btn" onclick="goBack(event)">
+                    ← Back to List
+                </a>
+            </div>
+
+            <div class="participant-content">
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading participant data...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="error-state" class="error-state" style="display: none;">
+                    <div class="error-icon">⚠️</div>
+                    <p id="error-message">Participant not found</p>
+                    <a href="#" id="error-back-btn" class="back-btn" style="margin-top: 16px;" onclick="goBack(event)">
+                        ← Back to List
+                    </a>
+                </div>
+
+                <!-- Main Content -->
+                <div id="main-content" style="display: none;">
+                    <!-- Image Gallery -->
+                    <div id="participant-gallery" class="participant-gallery"></div>
+
+                    <!-- Fields -->
+                    <div id="participant-fields" class="participant-fields"></div>
+
+                    <!-- Projects Section -->
+                    <div id="projects-section" class="projects-section" style="display: none;">
+                        <h3>🚀 Projects</h3>
+                        <div id="project-tags" class="project-tags"></div>
+                    </div>
+
+                    <!-- GitHub Section -->
+                    <div id="github-section" class="github-section" style="display: none;">
+                        <svg class="github-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        <a id="github-link" class="github-link" href="#" target="_blank">View on GitHub</a>
+                    </div>
+
+                    <!-- PR History Section -->
+                    <div id="pr-history-section" class="pr-history-section" style="display: none;">
+                        <h3>📋 Pull Request History</h3>
+                        <div id="pr-history-loading" class="pr-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading PR history across repositories...</p>
+                        </div>
+                        <div id="pr-history-content"></div>
+                        <div id="pr-history-stats" class="pr-stats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script>
+        // Get parameters from URL hash
+        function getHashParams() {
+            const hash = window.location.hash.substring(1);
+            const params = {};
+            hash.split('&').forEach(pair => {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    params[decodeURIComponent(key)] = decodeURIComponent(value);
+                }
+            });
+            return params;
+        }
+
+        // Go back to list
+        function goBack(event) {
+            event.preventDefault();
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            window.location.href = `index.html#list=${list}`;
+        }
+
+        // Extract image paths from participant data
+        function extractImagePaths(participant) {
+            const imagePaths = [];
+            
+            // Check for Photo1, Photo2, etc. fields
+            for (let i = 1; i <= 10; i++) {
+                const photoKey = `Photo${i}`;
+                if (participant[photoKey] && participant[photoKey].trim()) {
+                    imagePaths.push(participant[photoKey].trim());
+                }
+            }
+            
+            // Check for common image field names
+            const imageFields = ['Photo', 'Image', 'Avatar', 'Picture', 'Headshot', 'ProfileImage', 'img', 'url'];
+            imageFields.forEach(field => {
+                if (participant[field] && participant[field].trim()) {
+                    const url = participant[field].trim();
+                    // Check if it looks like an image URL
+                    if (url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || url.includes('images') || url.includes('photo')) {
+                        if (!imagePaths.includes(url)) {
+                            imagePaths.push(url);
+                        }
+                    }
+                }
+            });
+            
+            return imagePaths;
+        }
+
+        // Format value for display (handle URLs, etc.)
+        function formatValueForDisplay(value) {
+            if (!value) return '';
+            const strValue = String(value);
+            
+            // Check if it's a URL
+            if (strValue.match(/^https?:\/\//i)) {
+                return `<a href="${strValue}" target="_blank">${strValue}</a>`;
+            }
+            
+            return strValue;
+        }
+
+        // Render image gallery
+        function renderGallery(imagePaths, name) {
+            const galleryDiv = document.getElementById('participant-gallery');
+            
+            if (!imagePaths || imagePaths.length === 0) {
+                galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
+                return;
+            }
+            
+            let html = `<img id="main-image" class="gallery-main-image" src="${imagePaths[0]}" alt="${name}">`;
+            
+            if (imagePaths.length > 1) {
+                html += '<div class="gallery-thumbnails">';
+                imagePaths.forEach((path, index) => {
+                    const activeClass = index === 0 ? ' active' : '';
+                    html += `<img class="gallery-thumbnail${activeClass}" src="${path}" alt="${name} ${index + 1}" onclick="showImage(${index})">`;
+                });
+                html += '</div>';
+            }
+            
+            galleryDiv.innerHTML = html;
+            galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
+        }
+
+        // Show specific image
+        function showImage(index) {
+            const galleryDiv = document.getElementById('participant-gallery');
+            const imagePaths = JSON.parse(galleryDiv.dataset.imagePaths || '[]');
+            
+            if (index >= imagePaths.length) return;
+            
+            const mainImage = document.getElementById('main-image');
+            if (mainImage) {
+                mainImage.src = imagePaths[index];
+            }
+            
+            // Update active thumbnail
+            document.querySelectorAll('.gallery-thumbnail').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+        }
+
+        // Render participant fields
+        function renderFields(participant) {
+            const fieldsDiv = document.getElementById('participant-fields');
+            const skipFields = ['Rows', '_index'];
+            const imageFields = ['Photo', 'Photo1', 'Photo2', 'Photo3', 'Photo4', 'Photo5', 'Photo6', 'Photo7', 'Photo8', 'Photo9', 'Photo10', 
+                                'Phototext1', 'Phototext2', 'Phototext3', 'Image', 'Avatar', 'Picture'];
+            
+            let html = '';
+            
+            Object.keys(participant).forEach(key => {
+                const value = participant[key];
+                
+                // Skip empty values, internal fields, and image fields
+                if (!value || key.startsWith('_') || skipFields.includes(key) || imageFields.includes(key)) return;
+                if (key.match(/^Photo\d+$/) || key.match(/^Phototext\d+$/)) return;
+                
+                // Display ALL fields including Projects and Github
+                html += `
+                    <div class="field-item">
+                        <div class="field-label">${key}</div>
+                        <div class="field-value">${formatValueForDisplay(value)}</div>
+                    </div>
+                `;
+            });
+            
+            fieldsDiv.innerHTML = html;
+        }
+
+        // Render projects section
+        function renderProjects(participant) {
+            const projectsSection = document.getElementById('projects-section');
+            const projectTags = document.getElementById('project-tags');
+            
+            const projects = participant.Projects;
+            if (!projects) {
+                projectsSection.style.display = 'none';
+                return;
+            }
+            
+            // Split projects by comma
+            const projectList = projects.split(',').map(p => p.trim()).filter(p => p);
+            
+            if (projectList.length === 0) {
+                projectsSection.style.display = 'none';
+                return;
+            }
+            
+            let html = '';
+            projectList.forEach(project => {
+                // Create a link to the projects hub search
+                const searchUrl = `https://model.earth/projects/hub/#search=${encodeURIComponent(project)}`;
+                html += `<a href="${searchUrl}" target="_blank" class="project-tag">${project}</a>`;
+            });
+            
+            projectTags.innerHTML = html;
+            projectsSection.style.display = 'block';
+        }
+
+        // Render GitHub section
+        function renderGitHub(participant) {
+            const githubSection = document.getElementById('github-section');
+            const githubLink = document.getElementById('github-link');
+            
+            // Check for GitHub field (various naming conventions)
+            let githubUsername = null;
+            const githubFieldNames = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github', 'githubusername', 'GitHubUsername', 'git_username', 'github_username'];
+            
+            for (const fieldName of githubFieldNames) {
+                if (participant[fieldName] && participant[fieldName].trim()) {
+                    githubUsername = participant[fieldName];
+                    break;
+                }
+            }
+            
+            // Also check case-insensitive
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key];
+                        }
+                    }
+                });
+            }
+            
+            if (!githubUsername) {
+                githubSection.style.display = 'none';
+                document.getElementById('pr-history-section').style.display = 'none';
+                return null;
+            }
+            
+            // Clean up the username (remove @ if present, handle full URLs)
+            githubUsername = githubUsername.trim();
+            if (githubUsername.startsWith('@')) {
+                githubUsername = githubUsername.substring(1);
+            }
+            if (githubUsername.includes('github.com/')) {
+                githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+            }
+            
+            githubLink.href = `https://github.com/${githubUsername}`;
+            githubLink.textContent = `@${githubUsername}`;
+            githubSection.style.display = 'flex';
+            
+            return githubUsername;
+        }
+
+        // Fetch .gitmodules and parse repository list
+        async function fetchRepositories() {
+            try {
+                // Fetch .gitmodules from the webroot repo
+                const response = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch .gitmodules: ${response.status}`);
+                }
+                const text = await response.text();
+                
+                // Parse the .gitmodules format
+                const repos = [];
+                const lines = text.split('\n');
+                let currentUrl = null;
+                
+                for (const line of lines) {
+                    const urlMatch = line.match(/url\s*=\s*https:\/\/github\.com\/([^\/]+)\/([^\/\s]+)/i);
+                    if (urlMatch) {
+                        repos.push({
+                            owner: urlMatch[1],
+                            repo: urlMatch[2].replace(/\.git$/, '')
+                        });
+                    }
+                }
+                
+                console.log('Parsed repositories:', repos);
+                return repos;
+            } catch (error) {
+                console.error('Error fetching repositories:', error);
+                return [];
+            }
+        }
+
+        // Fetch PRs for a user from a single repository
+        async function fetchRepoUserPRs(owner, repo, username) {
+            try {
+                // Fetch all PRs from the repository and filter by author
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=100`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (response.status === 403) {
+                    // Rate limited
+                    console.warn(`Rate limited when fetching ${owner}/${repo}`);
+                    return { items: [], rateLimited: true };
+                }
+                
+                if (!response.ok) {
+                    console.warn(`Failed to fetch PRs for ${owner}/${repo}: ${response.status}`);
+                    return { items: [], error: true };
+                }
+                
+                const allPRs = await response.json();
+                
+                // Filter PRs by the username (case-insensitive)
+                const usernameLower = username.toLowerCase();
+                const userPRs = allPRs.filter(pr => 
+                    pr.user && pr.user.login && pr.user.login.toLowerCase() === usernameLower
+                );
+                
+                // Add repo info to each PR and normalize the structure
+                return {
+                    items: userPRs.map(pr => ({
+                        number: pr.number,
+                        title: pr.title,
+                        state: pr.state,
+                        html_url: pr.html_url,
+                        created_at: pr.created_at,
+                        merged_at: pr.merged_at,
+                        user: pr.user,
+                        repo_owner: owner,
+                        repo_name: repo
+                    })),
+                    rateLimited: false
+                };
+            } catch (error) {
+                console.error(`Error fetching PRs for ${owner}/${repo}:`, error);
+                return { items: [], error: true };
+            }
+        }
+
+        // Load and display PR history for a GitHub user
+        async function loadPRHistory(githubUsername) {
+            const prHistorySection = document.getElementById('pr-history-section');
+            const prHistoryLoading = document.getElementById('pr-history-loading');
+            const prHistoryContent = document.getElementById('pr-history-content');
+            const prHistoryStats = document.getElementById('pr-history-stats');
+            
+            if (!githubUsername) {
+                prHistorySection.style.display = 'none';
+                return;
+            }
+            
+            // Show section with loading state
+            prHistorySection.style.display = 'block';
+            prHistoryLoading.style.display = 'flex';
+            prHistoryContent.innerHTML = '';
+            prHistoryStats.innerHTML = '';
+            
+            try {
+                // Fetch repository list from .gitmodules
+                const repos = await fetchRepositories();
+                
+                if (repos.length === 0) {
+                    prHistoryLoading.style.display = 'none';
+                    prHistoryContent.innerHTML = '<div class="pr-error">Could not load repository list.</div>';
+                    return;
+                }
+                
+                // Fetch PRs from all repos in parallel (batch to avoid rate limiting)
+                const allPRs = [];
+                let rateLimited = false;
+                const batchSize = 5; // Process 5 repos at a time to avoid rate limiting
+                
+                for (let i = 0; i < repos.length; i += batchSize) {
+                    const batch = repos.slice(i, i + batchSize);
+                    const results = await Promise.all(
+                        batch.map(({ owner, repo }) => fetchRepoUserPRs(owner, repo, githubUsername))
+                    );
+                    
+                    for (const result of results) {
+                        if (result.rateLimited) {
+                            rateLimited = true;
+                        }
+                        allPRs.push(...result.items);
+                    }
+                    
+                    // Small delay between batches to help with rate limiting
+                    if (i + batchSize < repos.length) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+                
+                console.log(`Found ${allPRs.length} PRs for ${githubUsername}`);
+                
+                // Hide loading
+                prHistoryLoading.style.display = 'none';
+                
+                if (allPRs.length === 0) {
+                    let message = `No pull requests found for @${githubUsername} in ModelEarth repositories.`;
+                    if (rateLimited) {
+                        message += ' (Some requests may have been rate limited)';
+                    }
+                    prHistoryContent.innerHTML = `<div class="pr-empty">${message}</div>`;
+                    return;
+                }
+                
+                // Sort PRs by created date (newest first)
+                allPRs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                
+                // Calculate stats
+                const stats = {
+                    total: allPRs.length,
+                    merged: allPRs.filter(pr => pr.merged_at).length,
+                    open: allPRs.filter(pr => pr.state === 'open').length,
+                    closed: allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length,
+                    repos: new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`)).size
+                };
+                
+                // Render stats
+                prHistoryStats.innerHTML = `
+                    <div class="pr-stat-item">
+                        <span class="pr-stat-count">${stats.total}</span> Total PRs
+                    </div>
+                    <div class="pr-stat-item">
+                        <span class="pr-stat-count" style="color: #8250df;">${stats.merged}</span> Merged
+                    </div>
+                    <div class="pr-stat-item">
+                        <span class="pr-stat-count" style="color: #238636;">${stats.open}</span> Open
+                    </div>
+                    <div class="pr-stat-item">
+                        <span class="pr-stat-count" style="color: #da3633;">${stats.closed}</span> Closed
+                    </div>
+                    <div class="pr-stat-item">
+                        <span class="pr-stat-count">${stats.repos}</span> Repositories
+                    </div>
+                `;
+                
+                // Group PRs by repository
+                const prsByRepo = {};
+                allPRs.forEach(pr => {
+                    const repoKey = `${pr.repo_owner}/${pr.repo_name}`;
+                    if (!prsByRepo[repoKey]) {
+                        prsByRepo[repoKey] = [];
+                    }
+                    prsByRepo[repoKey].push(pr);
+                });
+                
+                // Render PRs grouped by repository
+                let html = '<div class="pr-list">';
+                
+                for (const [repoKey, prs] of Object.entries(prsByRepo)) {
+                    html += `
+                        <div class="repo-group">
+                            <div class="repo-group-header">
+                                <span class="repo-group-name">📁 ${repoKey}</span>
+                                <span class="repo-group-count">${prs.length} PR${prs.length !== 1 ? 's' : ''}</span>
+                            </div>
+                    `;
+                    
+                    for (const pr of prs) {
+                        const isMerged = pr.merged_at;
+                        const isOpen = pr.state === 'open';
+                        const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                        const statusIcon = isMerged ? '🟣' : (isOpen ? '🟢' : '🔴');
+                        const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
+                        
+                        const createdDate = new Date(pr.created_at);
+                        const dateStr = createdDate.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        
+                        html += `
+                            <a href="${pr.html_url}" target="_blank" class="pr-card">
+                                <div class="pr-icon ${statusClass}">${statusIcon}</div>
+                                <div class="pr-content">
+                                    <div class="pr-title">${escapeHtml(pr.title)}</div>
+                                    <div class="pr-meta">
+                                        <span class="pr-number">#${pr.number}</span>
+                                        <span class="pr-date">${dateStr}</span>
+                                        <span style="color: var(--text-secondary);">• ${statusText}</span>
+                                    </div>
+                                </div>
+                            </a>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                
+                if (rateLimited) {
+                    html += '<div class="pr-error" style="margin-top: 16px;">Note: Some API requests were rate limited. Results may be incomplete.</div>';
+                }
+                
+                prHistoryContent.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading PR history:', error);
+                prHistoryLoading.style.display = 'none';
+                prHistoryContent.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
+            }
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load participant data
+        async function loadParticipant() {
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            const id = params.id;
+            
+            console.log('Loading participant:', { list, id });
+            
+            if (!id) {
+                showError('No participant ID specified');
+                return;
+            }
+            
+            try {
+                // Fetch the lists.csv to get the data URL for the list
+                console.log('Fetching lists.csv...');
+                const listsResponse = await fetch('lists.csv');
+                if (!listsResponse.ok) {
+                    throw new Error(`Failed to fetch lists.csv: ${listsResponse.status}`);
+                }
+                const listsText = await listsResponse.text();
+                const lists = parseCSV(listsText);
+                console.log('Lists loaded:', lists.length, 'entries');
+                
+                // Find the list config
+                const listConfig = lists.find(l => l.List === list);
+                console.log('List config:', listConfig);
+                
+                if (!listConfig || !listConfig.URL) {
+                    showError(`List "${list}" not found or has no URL`);
+                    return;
+                }
+                
+                // Fetch the participant data
+                console.log('Fetching data from:', listConfig.URL);
+                const dataResponse = await fetch(listConfig.URL);
+                if (!dataResponse.ok) {
+                    throw new Error(`Failed to fetch data: ${dataResponse.status}`);
+                }
+                const dataText = await dataResponse.text();
+                console.log('Data response length:', dataText.length);
+                
+                // Try to parse as JSON first, then CSV
+                let participants = [];
+                try {
+                    const jsonData = JSON.parse(dataText);
+                    // Handle array or object with data property
+                    participants = Array.isArray(jsonData) ? jsonData : (jsonData.data || jsonData.results || [jsonData]);
+                    console.log('Parsed as JSON:', participants.length, 'records');
+                } catch (e) {
+                    // Not JSON, try CSV
+                    participants = parseCSV(dataText);
+                    console.log('Parsed as CSV:', participants.length, 'records');
+                }
+                
+                if (participants.length === 0) {
+                    showError('No participant data found');
+                    return;
+                }
+                
+                // Log first participant to see structure
+                console.log('First participant:', participants[0]);
+                console.log('Looking for id:', id);
+                
+                // Find the participant by ID (check common ID fields)
+                const idFields = ['id', 'ID', 'Id', 'Name', 'name', 'Email', 'email', 'Title', 'title'];
+                let participant = null;
+                
+                for (const field of idFields) {
+                    participant = participants.find(p => {
+                        const fieldValue = String(p[field] || '').trim();
+                        const searchId = String(id).trim();
+                        return fieldValue.toLowerCase() === searchId.toLowerCase();
+                    });
+                    if (participant) {
+                        console.log('Found participant by field:', field);
+                        break;
+                    }
+                }
+                
+                // Also try matching by row index
+                if (!participant) {
+                    const index = parseInt(id);
+                    if (!isNaN(index) && index >= 0 && index < participants.length) {
+                        participant = participants[index];
+                        console.log('Found participant by index:', index);
+                    }
+                }
+                
+                // Try partial match on Name field
+                if (!participant) {
+                    const searchId = String(id).trim().toLowerCase();
+                    participant = participants.find(p => {
+                        const name = String(p.Name || p.name || '').trim().toLowerCase();
+                        return name.includes(searchId) || searchId.includes(name);
+                    });
+                    if (participant) {
+                        console.log('Found participant by partial name match');
+                    }
+                }
+                
+                if (!participant) {
+                    console.log('Available names:', participants.map(p => p.Name || p.name).slice(0, 10));
+                    showError(`Participant "${id}" not found in ${participants.length} records`);
+                    return;
+                }
+                
+                console.log('Displaying participant:', participant);
+                // Display the participant
+                displayParticipant(participant, listConfig);
+                
+            } catch (error) {
+                console.error('Error loading participant:', error);
+                showError(`Failed to load participant data: ${error.message}`);
+            }
+        }
+
+        // Parse CSV to array of objects
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            // Parse header
+            const headers = parseCSVLine(lines[0]);
+            
+            // Parse data rows
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] || '';
+                });
+                data.push(row);
+            }
+            
+            return data;
+        }
+
+        // Parse a single CSV line (handles quoted values)
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            values.push(current.trim());
+            return values;
+        }
+
+        // Display participant data
+        function displayParticipant(participant, listConfig) {
+            // Hide loading, show content
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+            
+            // Get participant name
+            const nameFields = ['Name', 'name', 'Title', 'title'];
+            let name = 'Unknown';
+            for (const field of nameFields) {
+                if (participant[field]) {
+                    name = participant[field];
+                    break;
+                }
+            }
+            
+            // Update page title
+            document.getElementById('participant-name').textContent = name;
+            document.title = `${name} - Participant Profile`;
+            
+            // Extract and render images
+            const imagePaths = extractImagePaths(participant);
+            renderGallery(imagePaths, name);
+            
+            // Render fields
+            renderFields(participant);
+            
+            // Render projects
+            renderProjects(participant);
+            
+            // Render GitHub and get username for PR history
+            const githubUsername = renderGitHub(participant);
+            
+            // Load PR history if GitHub username is available
+            if (githubUsername) {
+                loadPRHistory(githubUsername);
+            }
+        }
+
+        // Show error state
+        function showError(message) {
+            console.error('showError called:', message);
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'flex';
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - starting loadParticipant');
+            console.log('Current hash:', window.location.hash);
+            loadParticipant();
+        });
+        
+        // Re-load if hash changes
+        window.addEventListener('hashchange', function() {
+            console.log('Hash changed:', window.location.hash);
+            loadParticipant();
+        });
+    </script>
+</body>
+</html>
