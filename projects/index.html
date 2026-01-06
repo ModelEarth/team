@@ -4217,13 +4217,33 @@
 
             prsContainer.innerHTML = createLoadingSpinner('Loading open PRs across submodules...', { fontSize: '14px', spinnerSize: '16px' });
             try {
-                // Fetch .gitmodules from GitHub repository
-                const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
-                if (!gmResp.ok) {
-                    prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-secondary);">.gitmodules not available from GitHub repository. Live PR fetch requires access to the .gitmodules file.</div>`;
-                    return;
+                // Check sessionStorage cache for .gitmodules content
+                const GITMODULES_CACHE_KEY = 'gitmodules_cache';
+                const GITMODULES_CACHE_EXPIRY_KEY = 'gitmodules_cache_expiry';
+                const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+                let gitmodulesText = null;
+                try {
+                    const cachedExpiry = sessionStorage.getItem(GITMODULES_CACHE_EXPIRY_KEY);
+                    if (cachedExpiry && Date.now() < parseInt(cachedExpiry, 10)) {
+                        gitmodulesText = sessionStorage.getItem(GITMODULES_CACHE_KEY);
+                    }
+                } catch (e) { /* sessionStorage not available */ }
+
+                // Fetch .gitmodules from GitHub repository if not cached
+                if (!gitmodulesText) {
+                    const gmResp = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules', { cache: 'no-store' });
+                    if (!gmResp.ok) {
+                        prsContainer.innerHTML = `<div style="padding:12px; color:var(--text-secondary);">.gitmodules not available from GitHub repository. Live PR fetch requires access to the .gitmodules file.</div>`;
+                        return;
+                    }
+                    gitmodulesText = await gmResp.text();
+                    // Cache in sessionStorage
+                    try {
+                        sessionStorage.setItem(GITMODULES_CACHE_KEY, gitmodulesText);
+                        sessionStorage.setItem(GITMODULES_CACHE_EXPIRY_KEY, String(Date.now() + CACHE_DURATION_MS));
+                    } catch (e) { /* sessionStorage not available or quota exceeded */ }
                 }
-                const gitmodulesText = await gmResp.text();
                 // Extract GitHub owner/repo pairs
                 const urlRegex = /url = (.*)/g;
                 const repos = [];

@@ -275,15 +275,22 @@
 
         .pr-loading {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            padding: 30px;
+            gap: 12px;
+            padding: 20px;
             color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pr-loading .loading-spinner {
+            width: 20px;
+            height: 20px;
+            margin-bottom: 0;
         }
 
         .pr-stats {
             display: flex;
-            gap: 16px;
+            gap: 12px;
             margin-bottom: 16px;
             flex-wrap: wrap;
         }
@@ -296,6 +303,7 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm);
             font-size: 13px;
+            color: var(--text-secondary);
         }
 
         .pr-stat-count {
@@ -306,12 +314,12 @@
         .pr-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .pr-card {
             display: flex;
-            padding: 16px;
+            padding: 12px 16px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-light);
             border-radius: var(--radius-md);
@@ -322,45 +330,31 @@
 
         .pr-card:hover {
             border-color: var(--accent-blue);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            background: var(--bg-tertiary);
         }
 
-        .pr-icon {
+        .pr-status {
             flex-shrink: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            font-size: 14px;
+            margin-top: 5px;
         }
 
-        .pr-icon.merged {
-            background: #8250df;
-            color: white;
-        }
+        .pr-status.merged { background: #8250df; }
+        .pr-status.open { background: #238636; }
+        .pr-status.closed { background: #da3633; }
 
-        .pr-icon.open {
-            background: #238636;
-            color: white;
-        }
-
-        .pr-icon.closed {
-            background: #da3633;
-            color: white;
-        }
-
-        .pr-content {
+        .pr-info {
             flex: 1;
             min-width: 0;
         }
 
-        .pr-title {
+        .pr-title-text {
             font-size: 14px;
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             line-height: 1.4;
         }
 
@@ -373,63 +367,24 @@
             color: var(--text-secondary);
         }
 
-        .pr-repo {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+        .pr-repo-name {
             padding: 2px 8px;
             background: var(--bg-tertiary);
-            border-radius: 12px;
+            border-radius: 10px;
             font-weight: 500;
         }
 
-        .pr-date {
-            color: var(--text-secondary);
-        }
-
-        .pr-number {
-            color: var(--text-secondary);
-        }
-
-        .pr-empty {
+        .pr-empty, .pr-error {
+            padding: 20px;
             text-align: center;
-            padding: 30px;
             color: var(--text-secondary);
-        }
-
-        .pr-error {
-            padding: 16px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: var(--radius-md);
-            color: #dc2626;
             font-size: 14px;
         }
 
-        .repo-group {
-            margin-bottom: 24px;
-        }
-
-        .repo-group-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-light);
-        }
-
-        .repo-group-name {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .repo-group-count {
-            padding: 2px 8px;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            font-size: 12px;
-            color: var(--text-secondary);
+        .pr-error {
+            color: #dc2626;
+            background: #fef2f2;
+            border-radius: var(--radius-md);
         }
 
         /* Dark mode adjustments */
@@ -443,7 +398,6 @@
 
         .dark .pr-error {
             background: #450a0a;
-            border-color: #7f1d1d;
             color: #fca5a5;
         }
     </style>
@@ -460,7 +414,7 @@
 
             <div class="participant-content">
                 <!-- Loading State -->
-                <div id="loading-state" class="loading-state">
+                <div id="loading-state" class="loading-state" style="display: none;">
                     <div class="loading-spinner"></div>
                     <p>Loading participant data...</p>
                 </div>
@@ -475,17 +429,22 @@
                 </div>
 
                 <!-- Main Content -->
-                <div id="main-content" style="display: none;">
+                <div id="main-content">
                     <!-- Image Gallery -->
                     <div id="participant-gallery" class="participant-gallery"></div>
 
                     <!-- Fields -->
-                    <div id="participant-fields" class="participant-fields"></div>
+                    <div id="participant-fields" class="participant-fields">
+                        <div class="field-item">
+                            <div class="field-label">Location</div>
+                            <div class="field-value" id="field-location">-</div>
+                        </div>
+                    </div>
 
-                    <!-- Projects Section -->
-                    <div id="projects-section" class="projects-section" style="display: none;">
-                        <h3>🚀 Projects</h3>
-                        <div id="project-tags" class="project-tags"></div>
+                    <!-- Skills Section -->
+                    <div id="skills-section" class="projects-section" style="display: none;">
+                        <h3>💻 Skills</h3>
+                        <div id="skill-tags" class="project-tags"></div>
                     </div>
 
                     <!-- GitHub Section -->
@@ -499,12 +458,12 @@
                     <!-- PR History Section -->
                     <div id="pr-history-section" class="pr-history-section" style="display: none;">
                         <h3>📋 Pull Request History</h3>
-                        <div id="pr-history-loading" class="pr-loading">
+                        <div id="pr-stats" class="pr-stats"></div>
+                        <div id="pr-loading" class="pr-loading">
                             <div class="loading-spinner"></div>
-                            <p>Loading PR history across repositories...</p>
+                            <span>Loading PRs across repositories...</span>
                         </div>
-                        <div id="pr-history-content"></div>
-                        <div id="pr-history-stats" class="pr-stats"></div>
+                        <div id="pr-list" class="pr-list"></div>
                     </div>
                 </div>
             </div>
@@ -568,17 +527,31 @@
             if (!value) return '';
             const strValue = String(value);
             
+            // Escape HTML first
+            const escaped = strValue.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
             // Check if it's a URL
             if (strValue.match(/^https?:\/\//i)) {
-                return `<a href="${strValue}" target="_blank">${strValue}</a>`;
+                return '<a href="' + strValue + '" target="_blank">' + escaped + '</a>';
             }
             
-            return strValue;
+            return escaped;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         // Render image gallery
-        function renderGallery(imagePaths, name) {
+        function renderGallery(imagePaths, name, githubAvatarUrl = null) {
             const galleryDiv = document.getElementById('participant-gallery');
+            
+            // If no images from data, use GitHub avatar if available
+            if ((!imagePaths || imagePaths.length === 0) && githubAvatarUrl) {
+                imagePaths = [githubAvatarUrl];
+            }
             
             if (!imagePaths || imagePaths.length === 0) {
                 galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
@@ -598,6 +571,21 @@
             
             galleryDiv.innerHTML = html;
             galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
+        }
+
+        // Fetch GitHub user's avatar URL
+        async function fetchGitHubAvatar(username) {
+            try {
+                const response = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!response.ok) return null;
+                const data = await response.json();
+                return data.avatar_url || null;
+            } catch (error) {
+                console.error('Error fetching GitHub avatar:', error);
+                return null;
+            }
         }
 
         // Show specific image
@@ -620,60 +608,166 @@
 
         // Render participant fields
         function renderFields(participant) {
-            const fieldsDiv = document.getElementById('participant-fields');
-            const skipFields = ['Rows', '_index'];
-            const imageFields = ['Photo', 'Photo1', 'Photo2', 'Photo3', 'Photo4', 'Photo5', 'Photo6', 'Photo7', 'Photo8', 'Photo9', 'Photo10', 
-                                'Phototext1', 'Phototext2', 'Phototext3', 'Image', 'Avatar', 'Picture'];
+            console.log('renderFields called');
             
-            let html = '';
+            // Map of field IDs to possible participant data keys
+            const fieldMappings = {
+                'field-name': ['Name', 'name', 'Title', 'title'],
+                'field-location': ['Location', 'location', 'City', 'city', 'Country', 'country']
+            };
             
-            Object.keys(participant).forEach(key => {
-                const value = participant[key];
+            // Populate each field
+            Object.keys(fieldMappings).forEach(fieldId => {
+                const element = document.getElementById(fieldId);
+                if (!element) return;
                 
-                // Skip empty values, internal fields, and image fields
-                if (!value || key.startsWith('_') || skipFields.includes(key) || imageFields.includes(key)) return;
-                if (key.match(/^Photo\d+$/) || key.match(/^Phototext\d+$/)) return;
+                const possibleKeys = fieldMappings[fieldId];
+                let value = '-';
                 
-                // Display ALL fields including Projects and Github
-                html += `
-                    <div class="field-item">
-                        <div class="field-label">${key}</div>
-                        <div class="field-value">${formatValueForDisplay(value)}</div>
-                    </div>
-                `;
+                for (const key of possibleKeys) {
+                    if (participant[key] && String(participant[key]).trim()) {
+                        value = String(participant[key]).trim();
+                        break;
+                    }
+                }
+                
+                // Format as link if it's a URL
+                if (value.match(/^https?:\/\//i)) {
+                    element.innerHTML = '<a href="' + value + '" target="_blank">' + value + '</a>';
+                } else {
+                    element.textContent = value;
+                }
             });
             
-            fieldsDiv.innerHTML = html;
+            // Handle GitHub field separately with @ prefix and hyperlink
+            const githubElement = document.getElementById('field-github');
+            if (githubElement) {
+                const githubKeys = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github'];
+                let githubUsername = null;
+                
+                for (const key of githubKeys) {
+                    if (participant[key] && String(participant[key]).trim()) {
+                        githubUsername = String(participant[key]).trim();
+                        break;
+                    }
+                }
+                
+                if (githubUsername) {
+                    // Clean up username
+                    if (githubUsername.startsWith('@')) {
+                        githubUsername = githubUsername.substring(1);
+                    }
+                    if (githubUsername.includes('github.com/')) {
+                        githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    }
+                    githubElement.innerHTML = '<a href="https://github.com/' + githubUsername + '" target="_blank">@' + githubUsername + '</a>';
+                } else {
+                    githubElement.textContent = '-';
+                }
+            }
+            
+            console.log('Fields populated');
         }
 
-        // Render projects section
-        function renderProjects(participant) {
-            const projectsSection = document.getElementById('projects-section');
-            const projectTags = document.getElementById('project-tags');
+        // Map of ModelEarth repos to their primary languages
+        const REPO_LANGUAGES = {
+            'feed': ['JavaScript', 'HTML', 'CSS'],
+            'localsite': ['JavaScript', 'HTML', 'CSS'],
+            'io': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'data-commons': ['Python', 'JavaScript'],
+            'realitystream': ['Python', 'Jupyter Notebook'],
+            'community-forecasting': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'useeio.js': ['JavaScript'],
+            'useeior': ['R'],
+            'community': ['JavaScript', 'HTML', 'CSS'],
+            'earthscape': ['JavaScript', 'Python'],
+            'home': ['HTML', 'CSS', 'JavaScript'],
+            'projects': ['JavaScript', 'HTML', 'CSS'],
+            'profile': ['JavaScript', 'HTML', 'CSS'],
+            'charts': ['JavaScript', 'D3'],
+            'impact': ['JavaScript', 'Python'],
+            'requests': ['Markdown'],
+            'webroot': ['Shell', 'JavaScript'],
+            'open-data-viz': ['JavaScript', 'D3'],
+            'industries': ['JavaScript', 'HTML'],
+            'commodities': ['JavaScript', 'HTML'],
+            'map': ['JavaScript', 'Leaflet'],
+            'zip': ['JavaScript', 'HTML'],
+            'foodweb': ['Python', 'JavaScript'],
+            'building-transparency': ['Python', 'JavaScript'],
+            'carbon-footprint': ['Python', 'JavaScript'],
+            'datapipeline': ['Python'],
+            'OpenFootprint': ['Python', 'JavaScript'],
+            'machine-learning': ['Python', 'Jupyter Notebook'],
+            'sql': ['SQL', 'Python'],
+            'chat': ['JavaScript', 'Python'],
+            'exiobase': ['Python', 'C#']
+        };
+
+        // Language colors (GitHub-style)
+        const LANG_COLORS = {
+            'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Python': '#3572A5',
+            'Java': '#b07219', 'HTML': '#e34c26', 'CSS': '#563d7c',
+            'Ruby': '#701516', 'Go': '#00ADD8', 'Rust': '#dea584',
+            'C++': '#f34b7d', 'C': '#555555', 'C#': '#178600',
+            'PHP': '#4F5D95', 'Swift': '#F05138', 'Kotlin': '#A97BFF',
+            'R': '#198CE7', 'Shell': '#89e051', 'Jupyter Notebook': '#DA5B0B',
+            'Vue': '#41b883', 'Svelte': '#ff3e00', 'SCSS': '#c6538c',
+            'D3': '#f9a03c', 'Leaflet': '#199900', 'SQL': '#e38c00',
+            'Markdown': '#083fa1'
+        };
+
+        // Render skills section (languages from repos user contributed to)
+        function renderSkills(repos) {
+            const skillsSection = document.getElementById('skills-section');
+            const skillTags = document.getElementById('skill-tags');
             
-            const projects = participant.Projects;
-            if (!projects) {
-                projectsSection.style.display = 'none';
+            if (!repos || repos.length === 0) {
+                skillsSection.style.display = 'none';
                 return;
             }
             
-            // Split projects by comma
-            const projectList = projects.split(',').map(p => p.trim()).filter(p => p);
+            // Get unique repo names
+            const uniqueRepos = [...new Set(repos.map(r => r.repo.toLowerCase()))];
             
-            if (projectList.length === 0) {
-                projectsSection.style.display = 'none';
+            if (uniqueRepos.length === 0) {
+                skillsSection.style.display = 'none';
                 return;
             }
             
-            let html = '';
-            projectList.forEach(project => {
-                // Create a link to the projects hub search
-                const searchUrl = `https://model.earth/projects/hub/#search=${encodeURIComponent(project)}`;
-                html += `<a href="${searchUrl}" target="_blank" class="project-tag">${project}</a>`;
+            // Collect languages from repos
+            const languageSet = new Set();
+            uniqueRepos.forEach(repo => {
+                const langs = REPO_LANGUAGES[repo] || REPO_LANGUAGES[repo.toLowerCase()];
+                if (langs) {
+                    langs.forEach(lang => languageSet.add(lang));
+                }
             });
             
-            projectTags.innerHTML = html;
-            projectsSection.style.display = 'block';
+            // Convert to array and sort
+            const languages = [...languageSet].sort();
+            
+            if (languages.length === 0) {
+                // Fallback: show repo names if no language mapping found
+                skillsSection.style.display = 'block';
+                let html = '';
+                uniqueRepos.forEach(repo => {
+                    const repoUrl = `https://github.com/ModelEarth/${repo}`;
+                    html += `<a href="${repoUrl}" target="_blank" class="project-tag">${repo}</a>`;
+                });
+                skillTags.innerHTML = html;
+                return;
+            }
+            
+            skillsSection.style.display = 'block';
+            
+            let html = '';
+            languages.forEach(lang => {
+                const color = LANG_COLORS[lang] || '#6e7681';
+                html += `<span class="project-tag" style="border-left: 3px solid ${color};">${lang}</span>`;
+            });
+            
+            skillTags.innerHTML = html;
         }
 
         // Render GitHub section
@@ -722,265 +816,148 @@
             githubLink.textContent = `@${githubUsername}`;
             githubSection.style.display = 'flex';
             
+            // Load PR history for this user
+            loadPRHistory(githubUsername);
+            
             return githubUsername;
         }
 
-        // Fetch .gitmodules and parse repository list
-        async function fetchRepositories() {
+        // Fetch repositories from .gitmodules (cached in sessionStorage)
+        // Fetch all PRs by a user in ModelEarth org using Search API
+        async function fetchUserPRsInOrg(username) {
             try {
-                // Fetch .gitmodules from the webroot repo
-                const response = await fetch('https://raw.githubusercontent.com/ModelEarth/webroot/main/.gitmodules');
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch .gitmodules: ${response.status}`);
-                }
-                const text = await response.text();
-                
-                // Parse the .gitmodules format
-                const repos = [];
-                const lines = text.split('\n');
-                let currentUrl = null;
-                
-                for (const line of lines) {
-                    const urlMatch = line.match(/url\s*=\s*https:\/\/github\.com\/([^\/]+)\/([^\/\s]+)/i);
-                    if (urlMatch) {
-                        repos.push({
-                            owner: urlMatch[1],
-                            repo: urlMatch[2].replace(/\.git$/, '')
-                        });
-                    }
-                }
-                
-                console.log('Parsed repositories:', repos);
-                return repos;
-            } catch (error) {
-                console.error('Error fetching repositories:', error);
-                return [];
-            }
-        }
-
-        // Fetch PRs for a user from a single repository
-        async function fetchRepoUserPRs(owner, repo, username) {
-            try {
-                // Fetch all PRs from the repository and filter by author
-                const url = `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=100`;
-                
+                // Search for all PRs by this author in ModelEarth org
+                const url = `https://api.github.com/search/issues?q=author:${encodeURIComponent(username)}+org:ModelEarth+type:pr&per_page=100&sort=created&order=desc`;
                 const response = await fetch(url, {
-                    headers: {
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
                 });
                 
                 if (response.status === 403) {
-                    // Rate limited
-                    console.warn(`Rate limited when fetching ${owner}/${repo}`);
-                    return { items: [], rateLimited: true };
+                    return { prs: [], rateLimited: true };
                 }
-                
                 if (!response.ok) {
-                    console.warn(`Failed to fetch PRs for ${owner}/${repo}: ${response.status}`);
-                    return { items: [], error: true };
+                    return { prs: [], error: true };
                 }
                 
-                const allPRs = await response.json();
+                const data = await response.json();
+                const items = data.items || [];
                 
-                // Filter PRs by the username (case-insensitive)
-                const usernameLower = username.toLowerCase();
-                const userPRs = allPRs.filter(pr => 
-                    pr.user && pr.user.login && pr.user.login.toLowerCase() === usernameLower
-                );
-                
-                // Add repo info to each PR and normalize the structure
                 return {
-                    items: userPRs.map(pr => ({
-                        number: pr.number,
-                        title: pr.title,
-                        state: pr.state,
-                        html_url: pr.html_url,
-                        created_at: pr.created_at,
-                        merged_at: pr.merged_at,
-                        user: pr.user,
-                        repo_owner: owner,
-                        repo_name: repo
-                    })),
-                    rateLimited: false
+                    prs: items.map(pr => {
+                        // Extract repo name from repository_url
+                        const repoMatch = pr.repository_url?.match(/repos\/([^\/]+)\/([^\/]+)$/);
+                        return {
+                            number: pr.number,
+                            title: pr.title,
+                            state: pr.state,
+                            merged_at: pr.pull_request?.merged_at || null,
+                            html_url: pr.html_url,
+                            created_at: pr.created_at,
+                            repo_owner: repoMatch ? repoMatch[1] : 'ModelEarth',
+                            repo_name: repoMatch ? repoMatch[2] : 'unknown'
+                        };
+                    }),
+                    total_count: data.total_count || items.length
                 };
             } catch (error) {
-                console.error(`Error fetching PRs for ${owner}/${repo}:`, error);
-                return { items: [], error: true };
+                console.error('Error fetching PRs:', error);
+                return { prs: [], error: true };
             }
         }
 
-        // Load and display PR history for a GitHub user
-        async function loadPRHistory(githubUsername) {
-            const prHistorySection = document.getElementById('pr-history-section');
-            const prHistoryLoading = document.getElementById('pr-history-loading');
-            const prHistoryContent = document.getElementById('pr-history-content');
-            const prHistoryStats = document.getElementById('pr-history-stats');
+        // Load and display PR history
+        async function loadPRHistory(username) {
+            const prSection = document.getElementById('pr-history-section');
+            const prLoading = document.getElementById('pr-loading');
+            const prList = document.getElementById('pr-list');
+            const prStats = document.getElementById('pr-stats');
             
-            if (!githubUsername) {
-                prHistorySection.style.display = 'none';
-                return;
-            }
-            
-            // Show section with loading state
-            prHistorySection.style.display = 'block';
-            prHistoryLoading.style.display = 'flex';
-            prHistoryContent.innerHTML = '';
-            prHistoryStats.innerHTML = '';
+            // Show section with loading
+            prSection.style.display = 'block';
+            prLoading.style.display = 'flex';
+            prLoading.innerHTML = '<div class="loading-spinner"></div><span>Fetching pull requests...</span>';
+            prList.innerHTML = '';
+            prStats.innerHTML = '';
             
             try {
-                // Fetch repository list from .gitmodules
-                const repos = await fetchRepositories();
-                
-                if (repos.length === 0) {
-                    prHistoryLoading.style.display = 'none';
-                    prHistoryContent.innerHTML = '<div class="pr-error">Could not load repository list.</div>';
-                    return;
-                }
-                
-                // Fetch PRs from all repos in parallel (batch to avoid rate limiting)
-                const allPRs = [];
-                let rateLimited = false;
-                const batchSize = 5; // Process 5 repos at a time to avoid rate limiting
-                
-                for (let i = 0; i < repos.length; i += batchSize) {
-                    const batch = repos.slice(i, i + batchSize);
-                    const results = await Promise.all(
-                        batch.map(({ owner, repo }) => fetchRepoUserPRs(owner, repo, githubUsername))
-                    );
-                    
-                    for (const result of results) {
-                        if (result.rateLimited) {
-                            rateLimited = true;
-                        }
-                        allPRs.push(...result.items);
-                    }
-                    
-                    // Small delay between batches to help with rate limiting
-                    if (i + batchSize < repos.length) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                    }
-                }
-                
-                console.log(`Found ${allPRs.length} PRs for ${githubUsername}`);
+                // Single API call to get all PRs by user in ModelEarth org
+                const result = await fetchUserPRsInOrg(username);
                 
                 // Hide loading
-                prHistoryLoading.style.display = 'none';
+                prLoading.style.display = 'none';
                 
-                if (allPRs.length === 0) {
-                    let message = `No pull requests found for @${githubUsername} in ModelEarth repositories.`;
-                    if (rateLimited) {
-                        message += ' (Some requests may have been rate limited)';
-                    }
-                    prHistoryContent.innerHTML = `<div class="pr-empty">${message}</div>`;
+                if (result.rateLimited) {
+                    prList.innerHTML = '<div class="pr-error">GitHub API rate limit reached. Please try again later.</div>';
                     return;
                 }
                 
-                // Sort PRs by created date (newest first)
-                allPRs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                if (result.error) {
+                    prList.innerHTML = '<div class="pr-error">Failed to fetch pull requests.</div>';
+                    return;
+                }
+                
+                const allPRs = result.prs;
+                
+                if (allPRs.length === 0) {
+                    prList.innerHTML = `<div class="pr-empty">No pull requests found for @${username} in ModelEarth repositories.</div>`;
+                    return;
+                }
                 
                 // Calculate stats
-                const stats = {
-                    total: allPRs.length,
-                    merged: allPRs.filter(pr => pr.merged_at).length,
-                    open: allPRs.filter(pr => pr.state === 'open').length,
-                    closed: allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length,
-                    repos: new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`)).size
-                };
+                const merged = allPRs.filter(pr => pr.merged_at).length;
+                const open = allPRs.filter(pr => pr.state === 'open').length;
+                const closed = allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length;
+                const repoCount = new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`)).size;
                 
                 // Render stats
-                prHistoryStats.innerHTML = `
-                    <div class="pr-stat-item">
-                        <span class="pr-stat-count">${stats.total}</span> Total PRs
-                    </div>
-                    <div class="pr-stat-item">
-                        <span class="pr-stat-count" style="color: #8250df;">${stats.merged}</span> Merged
-                    </div>
-                    <div class="pr-stat-item">
-                        <span class="pr-stat-count" style="color: #238636;">${stats.open}</span> Open
-                    </div>
-                    <div class="pr-stat-item">
-                        <span class="pr-stat-count" style="color: #da3633;">${stats.closed}</span> Closed
-                    </div>
-                    <div class="pr-stat-item">
-                        <span class="pr-stat-count">${stats.repos}</span> Repositories
-                    </div>
+                prStats.innerHTML = `
+                    <div class="pr-stat-item"><span class="pr-stat-count">${allPRs.length}</span> Total</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#8250df">${merged}</span> Merged</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#238636">${open}</span> Open</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#da3633">${closed}</span> Closed</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count">${repoCount}</span> Repos</div>
                 `;
                 
-                // Group PRs by repository
-                const prsByRepo = {};
-                allPRs.forEach(pr => {
-                    const repoKey = `${pr.repo_owner}/${pr.repo_name}`;
-                    if (!prsByRepo[repoKey]) {
-                        prsByRepo[repoKey] = [];
-                    }
-                    prsByRepo[repoKey].push(pr);
-                });
-                
-                // Render PRs grouped by repository
-                let html = '<div class="pr-list">';
-                
-                for (const [repoKey, prs] of Object.entries(prsByRepo)) {
+                // Render PR list
+                let html = '';
+                for (const pr of allPRs) {
+                    const isMerged = pr.merged_at;
+                    const isOpen = pr.state === 'open';
+                    const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                    const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
+                    const date = new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                    
                     html += `
-                        <div class="repo-group">
-                            <div class="repo-group-header">
-                                <span class="repo-group-name">📁 ${repoKey}</span>
-                                <span class="repo-group-count">${prs.length} PR${prs.length !== 1 ? 's' : ''}</span>
-                            </div>
-                    `;
-                    
-                    for (const pr of prs) {
-                        const isMerged = pr.merged_at;
-                        const isOpen = pr.state === 'open';
-                        const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
-                        const statusIcon = isMerged ? '🟣' : (isOpen ? '🟢' : '🔴');
-                        const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
-                        
-                        const createdDate = new Date(pr.created_at);
-                        const dateStr = createdDate.toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                        });
-                        
-                        html += `
-                            <a href="${pr.html_url}" target="_blank" class="pr-card">
-                                <div class="pr-icon ${statusClass}">${statusIcon}</div>
-                                <div class="pr-content">
-                                    <div class="pr-title">${escapeHtml(pr.title)}</div>
-                                    <div class="pr-meta">
-                                        <span class="pr-number">#${pr.number}</span>
-                                        <span class="pr-date">${dateStr}</span>
-                                        <span style="color: var(--text-secondary);">• ${statusText}</span>
-                                    </div>
+                        <a href="${pr.html_url}" target="_blank" class="pr-card">
+                            <div class="pr-status ${statusClass}"></div>
+                            <div class="pr-info">
+                                <div class="pr-title-text">${escapeHtml(pr.title)}</div>
+                                <div class="pr-meta">
+                                    <span class="pr-repo-name">${pr.repo_name}</span>
+                                    <span>#${pr.number}</span>
+                                    <span>${date}</span>
+                                    <span>• ${statusText}</span>
                                 </div>
-                            </a>
-                        `;
-                    }
-                    
-                    html += '</div>';
+                            </div>
+                        </a>
+                    `;
                 }
                 
-                html += '</div>';
+                prList.innerHTML = html;
                 
-                if (rateLimited) {
-                    html += '<div class="pr-error" style="margin-top: 16px;">Note: Some API requests were rate limited. Results may be incomplete.</div>';
-                }
-                
-                prHistoryContent.innerHTML = html;
+                // Extract unique repos and render skills (languages)
+                const repos = [...new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`))]
+                    .map(r => {
+                        const [owner, repo] = r.split('/');
+                        return { owner, repo };
+                    });
+                renderSkills(repos);
                 
             } catch (error) {
                 console.error('Error loading PR history:', error);
-                prHistoryLoading.style.display = 'none';
-                prHistoryContent.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
+                prLoading.style.display = 'none';
+                prList.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
             }
-        }
-
-        // Helper function to escape HTML
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         // Load participant data
@@ -1152,9 +1129,21 @@
 
         // Display participant data
         function displayParticipant(participant, listConfig) {
+            console.log('displayParticipant called with:', participant);
+            console.log('Participant keys:', Object.keys(participant));
+            
             // Hide loading, show content
-            document.getElementById('loading-state').style.display = 'none';
-            document.getElementById('main-content').style.display = 'block';
+            const loadingState = document.getElementById('loading-state');
+            const mainContent = document.getElementById('main-content');
+            
+            console.log('Before: loading-state display:', loadingState.style.display);
+            console.log('Before: main-content display:', mainContent.style.display);
+            
+            loadingState.style.display = 'none';
+            mainContent.style.display = 'block';
+            
+            console.log('After: loading-state display:', loadingState.style.display);
+            console.log('After: main-content display:', mainContent.style.display);
             
             // Get participant name
             const nameFields = ['Name', 'name', 'Title', 'title'];
@@ -1170,23 +1159,45 @@
             document.getElementById('participant-name').textContent = name;
             document.title = `${name} - Participant Profile`;
             
-            // Extract and render images
+            // Extract images from participant data
             const imagePaths = extractImagePaths(participant);
-            renderGallery(imagePaths, name);
+            console.log('Image paths:', imagePaths);
+            
+            // Get GitHub username for avatar fallback
+            const githubFields = ['GitUsername', 'gitusername', 'GitHub', 'github', 'GithubUsername', 'githubUsername'];
+            let githubUsername = null;
+            for (const field of githubFields) {
+                if (participant[field] && participant[field].trim()) {
+                    githubUsername = participant[field].trim();
+                    if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                    if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    break;
+                }
+            }
+            
+            // If no images but have GitHub username, fetch avatar
+            if (imagePaths.length === 0 && githubUsername) {
+                // Show loading placeholder while fetching avatar
+                const galleryDiv = document.getElementById('participant-gallery');
+                galleryDiv.innerHTML = '<div class="no-image-placeholder">Loading...</div>';
+                
+                // Fetch GitHub avatar asynchronously
+                fetchGitHubAvatar(githubUsername).then(avatarUrl => {
+                    renderGallery(imagePaths, name, avatarUrl);
+                });
+            } else {
+                renderGallery(imagePaths, name);
+            }
             
             // Render fields
+            console.log('Rendering fields...');
             renderFields(participant);
             
-            // Render projects
-            renderProjects(participant);
+            // Render GitHub section (this will also trigger skills loading via PR history)
+            console.log('Rendering GitHub...');
+            renderGitHub(participant);
             
-            // Render GitHub and get username for PR history
-            const githubUsername = renderGitHub(participant);
-            
-            // Load PR history if GitHub username is available
-            if (githubUsername) {
-                loadPRHistory(githubUsername);
-            }
+            console.log('displayParticipant complete');
         }
 
         // Show error state
