@@ -69,15 +69,41 @@
             padding: 24px;
         }
 
+        /* Two-column layout: Image left, Details right */
+        .participant-profile-layout {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .participant-profile-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .participant-profile-right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .participant-profile-layout {
+                flex-direction: column;
+            }
+        }
+
         /* Image Gallery */
         .participant-gallery {
-            margin-bottom: 24px;
+            margin-bottom: 0;
         }
 
         .gallery-main-image {
             width: 100%;
-            max-height: 400px;
-            object-fit: contain;
+            height: 300px;
+            object-fit: cover;
             border-radius: var(--radius-md);
             background: var(--bg-tertiary);
         }
@@ -122,13 +148,13 @@
 
         /* Fields Grid */
         .participant-fields {
-            margin-bottom: 16px;
+            margin-bottom: 0;
         }
 
         .location-inline {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             font-size: 15px;
             color: var(--text-secondary);
         }
@@ -136,7 +162,7 @@
         .location-icon {
             width: 18px;
             height: 18px;
-            color: var(--text-muted);
+            color: var(--accent-blue);
             flex-shrink: 0;
         }
 
@@ -210,7 +236,80 @@
             margin-bottom: 16px;
         }
 
-        /* Projects Section */
+        /* Skills Section (in right panel) */
+        .skills-section-inline {
+            padding: 0;
+        }
+
+        .skills-section-inline h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Skills Stacked Bar */
+        .skills-stacked-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .skills-bar-container {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+        }
+
+        .skill-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            position: relative;
+            cursor: default;
+            transition: opacity 0.2s;
+        }
+
+        .skill-segment:hover {
+            opacity: 0.85;
+        }
+
+        .skill-segment-label {
+            font-size: 10px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 4px;
+        }
+
+        .skills-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+
+        .skill-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .skill-legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Projects Section (for PR history) */
         .projects-section {
             margin-top: 24px;
             padding-top: 24px;
@@ -248,10 +347,10 @@
             border-color: var(--accent-blue);
         }
 
-        /* GitHub Section */
+        /* GitHub Section (in right panel) */
         .github-section {
-            margin-top: 24px;
-            padding: 16px;
+            margin-top: 0;
+            padding: 14px 16px;
             background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
             border-radius: var(--radius-md);
             display: flex;
@@ -260,8 +359,8 @@
         }
 
         .github-icon {
-            width: 32px;
-            height: 32px;
+            width: 24px;
+            height: 24px;
             fill: white;
         }
 
@@ -269,7 +368,7 @@
             color: white;
             text-decoration: none;
             font-weight: 500;
-            font-size: 15px;
+            font-size: 14px;
         }
 
         .github-link:hover {
@@ -446,35 +545,42 @@
 
                 <!-- Main Content -->
                 <div id="main-content">
-                    <!-- Image Gallery -->
-                    <div id="participant-gallery" class="participant-gallery"></div>
+                    <!-- Two-column layout: Image left, Details right -->
+                    <div class="participant-profile-layout">
+                        <!-- Left: Image Gallery -->
+                        <div class="participant-profile-left">
+                            <div id="participant-gallery" class="participant-gallery"></div>
+                        </div>
 
-                    <!-- Fields -->
-                    <div id="participant-fields" class="participant-fields">
-                        <div id="location-field" class="location-inline" style="display: none;">
-                            <svg class="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                            <span id="field-location">-</span>
+                        <!-- Right: Location, Skills, GitHub -->
+                        <div class="participant-profile-right">
+                            <!-- Location -->
+                            <div id="participant-fields" class="participant-fields">
+                                <div id="location-field" class="location-inline" style="display: none;">
+                                    <svg class="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    <span id="field-location">-</span>
+                                </div>
+                            </div>
+
+                            <!-- Skills Section -->
+                            <div id="skills-section" class="skills-section-inline" style="display: none;">
+                                <div id="skill-tags" class="skills-stacked-bar"></div>
+                            </div>
+
+                            <!-- GitHub Section -->
+                            <div id="github-section" class="github-section" style="display: none;">
+                                <svg class="github-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                </svg>
+                                <a id="github-link" class="github-link" href="#" target="_blank">View on GitHub</a>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Skills Section -->
-                    <div id="skills-section" class="projects-section" style="display: none;">
-                        <h3>💻 Skills</h3>
-                        <div id="skill-tags" class="project-tags"></div>
-                    </div>
-
-                    <!-- GitHub Section -->
-                    <div id="github-section" class="github-section" style="display: none;">
-                        <svg class="github-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        <a id="github-link" class="github-link" href="#" target="_blank">View on GitHub</a>
-                    </div>
-
-                    <!-- PR History Section -->
+                    <!-- PR History Section (full width below) -->
                     <div id="pr-history-section" class="pr-history-section" style="display: none;">
                         <h3>📋 Pull Request History</h3>
                         <div id="pr-stats" class="pr-stats"></div>
@@ -742,7 +848,7 @@
             'Markdown': '#083fa1'
         };
 
-        // Render skills section (languages from repos user contributed to)
+        // Render skills section as single stacked bar (languages from repos user contributed to)
         function renderSkills(repos) {
             const skillsSection = document.getElementById('skills-section');
             const skillTags = document.getElementById('skill-tags');
@@ -752,53 +858,88 @@
                 return;
             }
             
+            // Count PRs per repo
+            const repoPRCount = {};
+            repos.forEach(r => {
+                const repoName = r.repo.toLowerCase();
+                repoPRCount[repoName] = (repoPRCount[repoName] || 0) + 1;
+            });
+            
             // Get unique repo names
-            const uniqueRepos = [...new Set(repos.map(r => r.repo.toLowerCase()))];
+            const uniqueRepos = Object.keys(repoPRCount);
             
             if (uniqueRepos.length === 0) {
                 skillsSection.style.display = 'none';
                 return;
             }
             
-            // Collect languages from repos using hardcoded map
-            const languageCount = {};
+            // Collect languages weighted by PR count in each repo
+            const languageScore = {};
             uniqueRepos.forEach(repo => {
                 const langs = REPO_LANGUAGES[repo] || REPO_LANGUAGES[repo.toLowerCase()];
+                const prCount = repoPRCount[repo];
                 if (langs) {
                     langs.forEach((lang, index) => {
-                        // Give higher weight to primary languages (first in list)
-                        const weight = Math.max(1, 5 - index);
-                        languageCount[lang] = (languageCount[lang] || 0) + weight;
+                        // Weight = PR count * position weight (primary langs get higher weight)
+                        const positionWeight = Math.max(1, 4 - index);
+                        const score = prCount * positionWeight;
+                        languageScore[lang] = (languageScore[lang] || 0) + score;
                     });
                 }
             });
             
-            // Sort by weighted count
-            const sortedLanguages = Object.entries(languageCount)
+            // Sort by score and get top languages
+            const sortedLanguages = Object.entries(languageScore)
                 .sort((a, b) => b[1] - a[1])
-                .map(([lang]) => lang);
+                .slice(0, 8); // Top 8 languages
             
             if (sortedLanguages.length === 0) {
-                // Fallback: show repo names if no language mapping found
+                // Fallback: show repos as stacked bar by PR count
                 skillsSection.style.display = 'block';
-                let html = '';
-                uniqueRepos.forEach(repo => {
-                    const repoUrl = `https://github.com/ModelEarth/${repo}`;
-                    html += `<a href="${repoUrl}" target="_blank" class="project-tag">${repo}</a>`;
+                const sortedRepos = Object.entries(repoPRCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 8);
+                const totalCount = sortedRepos.reduce((sum, [, count]) => sum + count, 0);
+                
+                let barHtml = '<div class="skills-bar-container">';
+                let legendHtml = '<div class="skills-legend">';
+                
+                sortedRepos.forEach(([repo, count]) => {
+                    const percentage = (count / totalCount) * 100;
+                    barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: #6e7681;" title="${repo}: ${count} PRs">
+                        <span class="skill-segment-label">${percentage > 12 ? repo : ''}</span>
+                    </div>`;
+                    legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: #6e7681;"></span>${repo}</span>`;
                 });
-                skillTags.innerHTML = html;
+                
+                barHtml += '</div>';
+                legendHtml += '</div>';
+                skillTags.innerHTML = barHtml + legendHtml;
                 return;
             }
             
             skillsSection.style.display = 'block';
             
-            let html = '';
-            sortedLanguages.forEach(lang => {
+            // Calculate total score for percentage
+            const totalScore = sortedLanguages.reduce((sum, [, score]) => sum + score, 0);
+            
+            let barHtml = '<div class="skills-bar-container">';
+            let legendHtml = '<div class="skills-legend">';
+            
+            sortedLanguages.forEach(([lang, score]) => {
                 const color = LANG_COLORS[lang] || '#6e7681';
-                html += `<span class="project-tag" style="border-left: 3px solid ${color};">${lang}</span>`;
+                const percentage = (score / totalScore) * 100;
+                
+                barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: ${color};" title="${lang}: ${Math.round(percentage)}%">
+                    <span class="skill-segment-label">${percentage > 12 ? lang : ''}</span>
+                </div>`;
+                legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: ${color};"></span>${lang}</span>`;
             });
             
-            skillTags.innerHTML = html;
+            barHtml += '</div>';
+            legendHtml += '</div>';
+            
+            skillTags.innerHTML = barHtml + legendHtml;
         }
 
         // Render GitHub section
