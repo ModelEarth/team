@@ -1165,18 +1165,30 @@ Do not include any explanation or additional text.`;
             // Get the merge column from geoColumns config (for coordinate preservation)
             const mergeColumn = this.config?.geoColumns?.[0] || 'Location';
 
+            // Get the merge source file from geoDataset config (e.g., "cities.csv", "counties.csv", "countries.csv")
+            // This specifies which reference CSV to merge data from
+            const mergeSourceFile = this.config?.geoDataset;
+
+            // Build request body
+            const requestBody = {
+                api_url: apiUrl,
+                local_file_path: localFilePath,
+                omit_fields: omitFields,
+                merge_column: mergeColumn
+            };
+
+            // Add merge_source_file if specified in config
+            if (mergeSourceFile) {
+                requestBody.merge_source_file = mergeSourceFile;
+            }
+
             // Call the Rust endpoint to refresh the local file
             const response = await fetch('http://localhost:8081/api/refresh-local', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    api_url: apiUrl,
-                    local_file_path: localFilePath,
-                    omit_fields: omitFields,
-                    merge_column: mergeColumn
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {

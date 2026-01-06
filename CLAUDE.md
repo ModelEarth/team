@@ -238,7 +238,7 @@ When you switch GitHub accounts, the script will:
 
 ## Submodule Management
 
-This repository contains the following git submodules configured in `.gitmodules`:
+This repository contains git submodules configured in `.gitmodules` including:
 - **localsite** - https://github.com/ModelEarth/localsite
 - **feed** - https://github.com/modelearth/feed  
 - **swiper** - https://github.com/modelearth/swiper
@@ -296,6 +296,11 @@ Site repositories are used for specialized functionality and are cloned to the w
 **IMPORTANT**: These site repos are cloned to the webroot root directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of webroot.
 
 ## Development Standards
+
+Unless instructed otherwise, create generic processes that are reusable using generic terms. 
+Generic term examples in use: geoDataset and jsonList.
+Transition away from the term "participants" to use "list" and other generic terms for any type of dataset.
+The term "stream" will be used for a wide variety of parameter objects, including the variables from parameters.yaml which define feature datasets and a target dataset.
 
 ### HTML File Standards
 **UTF-8 Character Encoding**: Always include `<meta charset="UTF-8">` in the `<head>` section of new HTML pages to ensure proper character rendering and prevent display issues with special characters.
