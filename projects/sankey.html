@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contribution Sankey Diagram</title>
+    <title>Contribution Tree</title>
     <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
 
     <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
@@ -224,6 +224,33 @@
             box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
         }
 
+        /* Tooltip for repo last update */
+        .tree-node-level2::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-node-level2:hover::after {
+            opacity: 1;
+        }
+
         .tree-node-level2 .tree-node-icon {
             display: none;
         }
@@ -296,6 +323,33 @@
         .tree-node-level3:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        }
+
+        /* Tooltip for branch last commit */
+        .tree-node-level3::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-node-level3:hover::after {
+            opacity: 1;
         }
 
         .tree-node-level3 .tree-node-icon {
@@ -869,9 +923,27 @@
             `;
             
             sortedRepos.forEach(([repoName, repoPRs]) => {
+                // Calculate last update date from PRs in this repo
+                let lastUpdateDate = null;
+                if (repoPRs.length > 0) {
+                    const dates = repoPRs
+                        .map(pr => new Date(pr.created_at).getTime())
+                        .filter(d => !isNaN(d));
+                    if (dates.length > 0) {
+                        lastUpdateDate = new Date(Math.max(...dates));
+                    }
+                }
+                
+                const lastUpdateText = lastUpdateDate 
+                    ? lastUpdateDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Unknown';
+                const tooltipText = `Last updated: ${lastUpdateText}`;
+                
+                console.log(`Repo ${repoName} (${repoPRs.length} PRs): ${lastUpdateText}`);
+                
                 html += `
                     <div class="tree-repo-group">
-                        <div class="tree-node-level2" data-repo="${repoName}" onclick="navigateToRepo('${repoName}')">
+                        <div class="tree-node-level2" data-repo="${repoName}" onclick="navigateToRepo('${repoName}')" data-tooltip="${tooltipText}">
                             <svg class="tree-node-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8z"/>
                             </svg>
@@ -884,7 +956,7 @@
                 
                 const branchGroups = {};
                 repoPRs.forEach(pr => {
-                    const branch = pr.branch;
+                    const branch = pr.branch || 'Unknown Branch';
                     if (!branchGroups[branch]) {
                         branchGroups[branch] = [];
                     }
@@ -897,9 +969,27 @@
                 sortedBranches.forEach(([branchName, branchPRs]) => {
                     const shortBranch = branchName.length > 40 ? branchName.substring(0, 40) + '...' : branchName;
                     
+                    // Calculate last commit date from PRs in this branch
+                    let lastCommitDate = null;
+                    if (branchPRs.length > 0) {
+                        const dates = branchPRs
+                            .map(pr => new Date(pr.created_at).getTime())
+                            .filter(d => !isNaN(d));
+                        if (dates.length > 0) {
+                            lastCommitDate = new Date(Math.max(...dates));
+                        }
+                    }
+                    
+                    const lastCommitText = lastCommitDate 
+                        ? lastCommitDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                        : 'Unknown';
+                    const tooltipText = `Last committed: ${lastCommitText}`;
+                    
+                    console.log(`Branch ${branchName} (${branchPRs.length} PRs): ${lastCommitText}`);
+                    
                     html += `
                         <div class="tree-branch-pr-pair">
-                            <div class="tree-node-level3" data-branch="${escapeHtml(branchName)}" data-repo="${repoName}" title="${escapeHtml(branchName)}">
+                            <div class="tree-node-level3" data-branch="${escapeHtml(branchName)}" data-repo="${repoName}" title="${escapeHtml(branchName)}" data-tooltip="${tooltipText}">
                                 <span class="tree-node-label">${escapeHtml(shortBranch)}</span>
                                 <span class="tree-node-count">${branchPRs.length}</span>
                             </div>
