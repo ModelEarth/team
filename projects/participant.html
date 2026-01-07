@@ -502,6 +502,631 @@
             border-radius: var(--radius-md);
         }
 
+        /* Contribution Sankey Tree */
+        .sankey-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .sankey-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .sankey-container {
+            position: relative;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+
+        .sankey-tree {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            min-width: fit-content;
+        }
+
+        .sankey-column {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+
+        .sankey-column-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .sankey-node {
+            position: relative;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: default;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sankey-node:hover {
+            transform: translateX(2px);
+        }
+
+        .sankey-node.root {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sankey-node.repo {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .sankey-node.branch {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+            font-size: 11px;
+            padding: 5px 10px;
+        }
+
+        .sankey-node.pr {
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+        }
+
+        .sankey-node.pr.merged {
+            background: #f3e8ff;
+            border: 1px solid #c4b5fd;
+            color: #6b21a8;
+        }
+
+        .sankey-node.pr.open {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .sankey-node.pr.closed {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .sankey-node.commit {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 10px;
+            padding: 3px 8px;
+            font-family: monospace;
+        }
+
+        .sankey-connector {
+            position: relative;
+            width: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .sankey-line {
+            position: absolute;
+            height: 2px;
+            background: var(--border-light);
+            left: 0;
+            right: 0;
+        }
+
+        .sankey-branch-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin: 2px 0;
+        }
+
+        .sankey-repo-group {
+            display: flex;
+            align-items: flex-start;
+            margin: 8px 0;
+        }
+
+        .sankey-repo-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sankey-pr-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sankey-flow-line {
+            width: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--border-light), transparent);
+        }
+
+        .sankey-vertical-line {
+            width: 2px;
+            background: var(--border-light);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .sankey-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        .sankey-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .sankey-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .sankey-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .sankey-legend-dot.merged { background: #8250df; }
+        .sankey-legend-dot.open { background: #238636; }
+        .sankey-legend-dot.closed { background: #da3633; }
+
+        /* Horizontal contribution tree */
+        .contribution-tree {
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .tree-horizontal {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            min-width: fit-content;
+        }
+
+        .tree-root {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            min-height: 60px;
+            flex-shrink: 0;
+        }
+
+        .tree-root-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .tree-root-label {
+            font-size: 13px;
+        }
+
+        .tree-connector {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 30px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        /* Tree structure - SVG-based with curved lines */
+        .tree-horizontal {
+            padding: 40px 20px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            overflow: auto;
+            position: relative;
+            min-height: 600px;
+        }
+
+        .tree-svg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .tree-level-row {
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Tree nodes - circular style */
+        .tree-node-level1, .tree-node-level2, .tree-node-level3, .tree-node-level4, .tree-node-level5 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .tree-node-level1, .tree-node-level2, .tree-node-level3, .tree-node-level4, .tree-node-level5:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .tree-node-level1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            width: 90px;
+            height: 90px;
+        }
+
+        .tree-node-level2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .tree-node-level3 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: #001;
+        }
+
+        .tree-node-level4 {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #001;
+        }
+
+        .tree-node-level5 {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #001;
+        }
+
+        .tree-node-icon {
+            width: 20px;
+            height: 20px;
+            margin-bottom: 2px;
+        }
+
+        .tree-node-label {
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 70px;
+        }
+
+        .tree-node-count {
+            font-size: 9px;
+            padding: 1px 4px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-top: 2px;
+        }
+
+        .tree-connector {
+            font-size: 18px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .tree-subnodes {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .tree-node-pr {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .tree-node-pr:hover {
+            opacity: 0.9;
+        }
+
+        .tree-node-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-bottom: 4px;
+        }
+
+        .tree-node-pr.merged .tree-node-status {
+            background: #8250df;
+        }
+
+        .tree-node-pr.open .tree-node-status {
+            background: #238636;
+        }
+
+        .tree-node-pr.closed .tree-node-status {
+            background: #da3633;
+        }
+
+        .tree-node-commits {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .tree-node-commits:hover {
+            opacity: 0.9;
+        }
+
+        .tree-connector-line {
+            height: 2px;
+            background: var(--border-light);
+        }
+
+        .tree-repos {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tree-repo-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .tree-repo-connector {
+            width: 20px;
+            height: 2px;
+            background: var(--border-light);
+            flex-shrink: 0;
+        }
+
+        .tree-repo-node {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+
+        .tree-repo-icon {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .tree-repo-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .tree-repo-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--bg-secondary);
+            padding: 1px 5px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .tree-pr-connector {
+            width: 15px;
+            height: 2px;
+            background: var(--border-light);
+            flex-shrink: 0;
+        }
+
+        /* Branch container and styling */
+        .tree-branches-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tree-branch-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tree-branch-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #1e40af;
+            font-family: ui-monospace, monospace;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-branch-name svg {
+            flex-shrink: 0;
+            color: #3b82f6;
+        }
+
+        .tree-branch-arrow {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .tree-branch-target {
+            padding: 3px 8px;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #166534;
+            font-family: ui-monospace, monospace;
+        }
+
+        .tree-prs-horizontal {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 300px;
+            margin-left: 8px;
+        }
+
+        .tree-pr-node {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-decoration: none;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tree-pr-node:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .tree-pr-node.merged {
+            background: #f3e8ff;
+            border: 1px solid #c4b5fd;
+            color: #6b21a8;
+        }
+
+        .tree-pr-node.open {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .tree-pr-node.closed {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .tree-pr-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tree-pr-status.merged { background: #8250df; }
+        .tree-pr-status.open { background: #238636; }
+        .tree-pr-status.closed { background: #da3633; }
+
+        .tree-pr-number {
+            font-weight: 600;
+        }
+
+        .tree-pr-with-commits {
+            display: flex;
+            align-items: center;
+        }
+
+        .tree-commits-connector {
+            color: var(--border-light);
+            margin: 0 -2px;
+            font-size: 10px;
+        }
+
+        .tree-commits-node {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            font-size: 10px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tree-commits-node:hover {
+            background: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        /* Vertical spine connecting repos */
+        .tree-repos-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .tree-vertical-spine {
+            width: 2px;
+            background: var(--border-light);
+            margin-right: -1px;
+            flex-shrink: 0;
+        }
+
         /* Dark mode adjustments */
         .dark .participant-card {
             background: var(--bg-primary);
@@ -589,6 +1214,17 @@
                             <span>Loading PRs across repositories...</span>
                         </div>
                         <div id="pr-list" class="pr-list"></div>
+                    </div>
+
+                    <!-- Contribution Tree Sankey Section -->
+                    <div id="sankey-section" class="sankey-section" style="display: none;">
+                        <h3>🌳 Contribution Tree</h3>
+                        <div id="contribution-tree" class="contribution-tree"></div>
+                        <div class="sankey-legend">
+                            <span class="sankey-legend-item"><span class="sankey-legend-dot merged"></span> Merged</span>
+                            <span class="sankey-legend-item"><span class="sankey-legend-dot open"></span> Open</span>
+                            <span class="sankey-legend-item"><span class="sankey-legend-dot closed"></span> Closed</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1043,6 +1679,7 @@
             const prLoading = document.getElementById('pr-loading');
             const prList = document.getElementById('pr-list');
             const prStats = document.getElementById('pr-stats');
+            const sankeySection = document.getElementById('sankey-section');
             
             // Show section with loading
             prSection.style.display = 'block';
@@ -1050,6 +1687,7 @@
             prLoading.innerHTML = '<div class="loading-spinner"></div><span>Fetching pull requests...</span>';
             prList.innerHTML = '';
             prStats.innerHTML = '';
+            sankeySection.style.display = 'none';
             
             try {
                 // Single API call to get all PRs by user in ModelEarth org
@@ -1125,11 +1763,206 @@
                     });
                 renderSkills(repos);
                 
+                // Render contribution tree (Sankey diagram)
+                renderContributionTree(allPRs);
+                
             } catch (error) {
                 console.error('Error loading PR history:', error);
                 prLoading.style.display = 'none';
                 prList.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
             }
+        }
+
+        // Fetch PR details from GitHub API
+        async function fetchPRDetails(owner, repo, prNumber) {
+            try {
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+                const response = await fetch(url, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                
+                // Rate limited or not found
+                if (response.status === 403 || response.status === 404 || !response.ok) {
+                    return { branch: null, commits: null };
+                }
+                
+                const data = await response.json();
+                return {
+                    branch: data.head?.ref || null,
+                    commits: data.commits || 0
+                };
+            } catch (error) {
+                console.error('Error fetching PR details:', error);
+                return { branch: null, commits: null };
+            }
+        }
+
+        // Fetch PR details for all PRs
+        async function fetchAllPRDetails(prs) {
+            const detailsMap = {};
+            
+            // Initialize all PRs with fallback values
+            prs.forEach(pr => {
+                detailsMap[pr.html_url] = {
+                    branch: 'branch',
+                    commits: null
+                };
+            });
+            
+            // Only fetch the first 5 PRs to avoid hitting rate limits
+            // (60 requests per hour for unauthenticated)
+            const maxFetch = Math.min(5, prs.length);
+            
+            for (let i = 0; i < maxFetch; i++) {
+                const pr = prs[i];
+                const details = await fetchPRDetails(pr.repo_owner, pr.repo_name, pr.number);
+                if (details.branch) {
+                    detailsMap[pr.html_url].branch = details.branch;
+                }
+                detailsMap[pr.html_url].commits = details.commits;
+                
+                // Wait between requests to avoid rate limiting
+                if (i < maxFetch - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            return detailsMap;
+        }
+
+        // Render contribution tree (Sankey-style diagram)
+        async function renderContributionTree(prs) {
+            const sankeySection = document.getElementById('sankey-section');
+            const treeContainer = document.getElementById('contribution-tree');
+            
+            if (!prs || prs.length === 0) {
+                sankeySection.style.display = 'none';
+                return;
+            }
+            
+            sankeySection.style.display = 'block';
+            
+            // Show loading state
+            treeContainer.innerHTML = '<div class="pr-loading"><div class="loading-spinner"></div><span>Building contribution tree...</span></div>';
+            
+            // Fetch PR details (branch names and commits) for all PRs
+            const detailsMap = await fetchAllPRDetails(prs);
+            
+            // Group PRs by repository
+            const repoGroups = {};
+            prs.forEach(pr => {
+                const repoKey = pr.repo_name;
+                if (!repoGroups[repoKey]) {
+                    repoGroups[repoKey] = [];
+                }
+                const details = detailsMap[pr.html_url] || { branch: `pr-${pr.number}`, commits: null };
+                pr.branch = details.branch;
+                pr.commits = details.commits;
+                repoGroups[repoKey].push(pr);
+            });
+            
+            // Sort repos by PR count
+            const sortedRepos = Object.entries(repoGroups)
+                .sort((a, b) => b[1].length - a[1].length);
+            
+            // Build horizontal tree HTML - Level 1: webroot
+            let html = `
+                <div class="tree-horizontal">
+                    <div class="tree-level-row">
+                        <div class="tree-node-level1">
+                            <span class="tree-node-icon">📦</span>
+                            <span class="tree-node-label">webroot</span>
+                        </div>
+                        <div class="tree-connector">→</div>
+            `;
+            
+            // Level 2: Repos
+            html += `<div class="tree-level-row">`;
+            sortedRepos.forEach(([repoName, repoPRs]) => {
+                html += `
+                    <div class="tree-node-level2" data-repo="${repoName}">
+                        <svg class="tree-node-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8z"/>
+                        </svg>
+                        <span class="tree-node-label">${repoName}</span>
+                        <span class="tree-node-count">${repoPRs.length}</span>
+                        <div class="tree-connector">→</div>
+                        <div class="tree-subnodes">
+                `;
+                
+                // Level 3: Branches
+                const branchGroups = {};
+                repoPRs.forEach(pr => {
+                    const branch = pr.branch || 'unknown';
+                    if (!branchGroups[branch]) {
+                        branchGroups[branch] = [];
+                    }
+                    branchGroups[branch].push(pr);
+                });
+                
+                Object.entries(branchGroups).forEach(([branchName, branchPRs]) => {
+                    const shortBranch = branchName.length > 20 ? branchName.substring(0, 20) + '...' : branchName;
+                    
+                    html += `
+                        <div class="tree-node-level3" data-branch="${branchName}">
+                            <svg class="tree-node-icon" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                <path fill-rule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/>
+                            </svg>
+                            <span class="tree-node-label" title="${escapeHtml(branchName)}">${escapeHtml(shortBranch)}</span>
+                            <span class="tree-node-count">${branchPRs.length}</span>
+                            <div class="tree-connector">→</div>
+                            <div class="tree-subnodes">
+                    `;
+                    
+                    // Level 4: PRs
+                    branchPRs.forEach(pr => {
+                        const isMerged = pr.merged_at;
+                        const isOpen = pr.state === 'open';
+                        const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                        const commitCount = pr.commits;
+                        const hasCommits = commitCount !== null && commitCount !== undefined;
+                        
+                        html += `
+                            <div class="tree-node-level4">
+                                <a href="${pr.html_url}" target="_blank" class="tree-node-pr ${statusClass}" title="${escapeHtml(pr.title)}">
+                                    <span class="tree-node-status ${statusClass}"></span>
+                                    <span class="tree-node-label">#${pr.number}</span>
+                                </a>
+                                ${hasCommits ? `
+                                <div class="tree-connector">→</div>
+                                <div class="tree-subnodes">
+                                    <div class="tree-node-level5">
+                                        <a href="${pr.html_url}/commits" target="_blank" class="tree-node-commits" title="${commitCount} commit${commitCount !== 1 ? 's' : ''}">
+                                            <svg class="tree-node-icon" width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10.5 7.75a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm1.43.75a4.002 4.002 0 01-7.86 0H.75a.75.75 0 110-1.5h3.32a4.001 4.001 0 017.86 0h3.32a.75.75 0 110 1.5h-3.32z"/>
+                                            </svg>
+                                            <span class="tree-node-label">${commitCount} commit${commitCount !== 1 ? 's' : ''}</span>
+                                        </a>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            treeContainer.innerHTML = html;
         }
 
         // Load participant data
