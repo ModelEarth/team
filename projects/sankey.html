@@ -488,12 +488,62 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
             flex-shrink: 0;
             border: 1px solid #d35400;
+            position: relative;
         }
 
         .tree-commit-dot:hover {
             width: 11px;
             height: 11px;
             background: #d35400;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Tooltip for commit details */
+        .tree-commit-dot::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-commit-dot:hover::after {
+            opacity: 1;
+        }
+
+        /* Change commit colors for open PRs */
+        .tree-node-level4.open ~ .tree-commits-cluster .tree-commit-dot {
+            background: #27ae60;
+            border-color: #229954;
+        }
+
+        .tree-node-level4.open ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #229954;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Change commit colors for merged PRs */
+        .tree-node-level4.merged ~ .tree-commits-cluster .tree-commit-dot {
+            background: #8e7cc3;
+            border-color: #7d6fa3;
+        }
+
+        .tree-node-level4.merged ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #7d6fa3;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
 
@@ -1086,9 +1136,9 @@
                         
                         // Add commit dots as a circular bubble cluster positioned to the right
                         if (commits > 0) {
-                            html += `<div class="tree-commits-cluster" data-count="${commits}">`;
+                            html += `<div class="tree-commits-cluster" data-count="${commits}" data-pr="${pr.number}" data-repo="${pr.repo_name}" data-owner="${pr.repo_owner}">`;
                             for (let c = 0; c < commits; c++) {
-                                html += `<div class="tree-commit-dot" title="commit ${c + 1}"></div>`;
+                                html += `<div class="tree-commit-dot" data-index="${c}" data-pr="${pr.number}" data-repo="${pr.repo_name}" data-owner="${pr.repo_owner}" onclick="viewCommitChanges('${pr.repo_owner}', '${pr.repo_name}', ${pr.number}, ${c})" style="cursor: pointer;" data-tooltip="Loading..."></div>`;
                             }
                             html += `</div>`;
                         }
@@ -1097,6 +1147,18 @@
                             </div>
                         `;
                     });
+                    
+                    // Fetch commit details for all PRs asynchronously
+                    setTimeout(() => {
+                        document.querySelectorAll('.tree-commit-dot').forEach(dot => {
+                            const owner = dot.getAttribute('data-owner');
+                            const repo = dot.getAttribute('data-repo');
+                            const prNumber = dot.getAttribute('data-pr');
+                            const index = parseInt(dot.getAttribute('data-index'));
+                            
+                            fetchCommitDetails(owner, repo, prNumber, index, dot);
+                        });
+                    }, 100);
                     
                     html += `
                             </div>
@@ -1239,6 +1301,104 @@
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', loadSankey);
+
+        // Function to fetch commit details and update tooltip
+        async function fetchCommitDetails(owner, repo, prNumber, commitIndex, dotElement) {
+            try {
+                // First, fetch PR commits to get the commit SHA
+                const prCommitsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const prCommitsResponse = await fetch(prCommitsUrl, { headers });
+                
+                if (!prCommitsResponse.ok) {
+                    dotElement.setAttribute('data-tooltip', 'Error loading');
+                    return;
+                }
+                
+                const prCommits = await prCommitsResponse.json();
+                
+                if (commitIndex >= prCommits.length) {
+                    dotElement.setAttribute('data-tooltip', 'Commit not found');
+                    return;
+                }
+                
+                const commitSha = prCommits[commitIndex].sha;
+                
+                // Now fetch the full commit details with file information
+                const commitUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`;
+                const commitResponse = await fetch(commitUrl, { headers });
+                
+                if (!commitResponse.ok) {
+                    dotElement.setAttribute('data-tooltip', 'Error loading');
+                    return;
+                }
+                
+                const commit = await commitResponse.json();
+                const filesChanged = commit.files ? commit.files.length : 0;
+                
+                // Calculate total changes (additions + deletions)
+                let totalChanges = 0;
+                if (commit.files) {
+                    commit.files.forEach(file => {
+                        totalChanges += (file.additions || 0) + (file.deletions || 0);
+                    });
+                }
+                
+                const shortSha = commit.sha.substring(0, 7);
+                const tooltipText = `${shortSha} • ${filesChanged} files`;
+                
+                dotElement.setAttribute('data-tooltip', tooltipText);
+                console.log(`Commit ${shortSha}: ${filesChanged} files`);
+                
+            } catch (error) {
+                console.error('Error fetching commit details:', error);
+                dotElement.setAttribute('data-tooltip', 'Error loading');
+            }
+        }
+
+        // Function to view commit changes
+        async function viewCommitChanges(owner, repo, prNumber, commitIndex) {
+            try {
+                // Fetch PR commits to get the specific commit SHA
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                if (!response.ok) {
+                    alert('Failed to fetch commits. Please try again.');
+                    return;
+                }
+                
+                const commits = await response.json();
+                
+                if (commitIndex >= commits.length) {
+                    alert('Commit not found');
+                    return;
+                }
+                
+                const commit = commits[commitIndex];
+                const commitUrl = `https://github.com/${owner}/${repo}/commit/${commit.sha}`;
+                
+                // Open the commit page showing file changes
+                window.open(commitUrl, '_blank');
+                
+            } catch (error) {
+                console.error('Error fetching commits:', error);
+                alert('Error loading commit details. Please try again.');
+            }
+        }
     </script>
 </body>
 </html>
