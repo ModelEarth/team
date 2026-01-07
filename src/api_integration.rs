@@ -406,6 +406,10 @@ pub struct RefreshLocalRequest {
     pub omit_fields: Vec<String>,
     #[serde(default = "default_merge_column")]
     pub merge_column: String,
+    /// Optional path to the merge source file (e.g., "cities.csv", "counties.csv", "countries.csv")
+    /// Path is relative to the jsonList's directory (e.g., show.json)
+    #[serde(default)]
+    pub merge_source_file: Option<String>,
 }
 
 fn default_merge_column() -> String {
@@ -438,6 +442,98 @@ fn normalize_path(path: &std::path::Path) -> std::path::PathBuf {
     components.iter().collect()
 }
 
+// Structure to hold merge data from any source CSV (cities, counties, countries, etc.)
+#[derive(Clone, Debug)]
+struct MergeData {
+    // Store all fields from the merge source dynamically
+    fields: std::collections::HashMap<String, String>,
+}
+
+
+// Read merge source CSV and extract all fields dynamically
+// The merge_source_file path is relative to the jsonList's directory
+async fn read_merge_source_data(
+    merge_source_file: &str,
+    merge_column: &str,
+    json_list_dir: &std::path::Path
+) -> std::collections::HashMap<String, MergeData> {
+    use std::collections::HashMap;
+
+    let mut merge_data_map = HashMap::new();
+
+    // Resolve the merge source file path - it's relative to the jsonList's directory
+    let source_file_path = if merge_source_file.starts_with('/') {
+        // Absolute path
+        merge_source_file.to_string()
+    } else {
+        // Relative path - resolve from jsonList directory (same as local_file_path resolution)
+        let source_path = json_list_dir.join(merge_source_file);
+        normalize_path(&source_path).to_string_lossy().to_string()
+    };
+
+    log::info!("Attempting to read merge source data from: {}", source_file_path);
+
+    // Try to read the merge source file
+    match std::fs::read_to_string(&source_file_path) {
+        Ok(contents) => {
+            let mut rdr = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(contents.as_bytes());
+
+            // Get headers
+            let headers = match rdr.headers() {
+                Ok(h) => h.clone(),
+                Err(e) => {
+                    log::warn!("Failed to read {} headers: {}", merge_source_file, e);
+                    return merge_data_map;
+                }
+            };
+
+            // Find the merge column index (the key field - City, County, Country, etc.)
+            let key_idx = headers.iter().position(|h| h.eq_ignore_ascii_case(merge_column));
+
+            if key_idx.is_none() {
+                log::warn!("{} missing {} column", merge_source_file, merge_column);
+                return merge_data_map;
+            }
+
+            let key_idx = key_idx.unwrap();
+
+            // Read each record
+            for result in rdr.records() {
+                if let Ok(record) = result {
+                    if let Some(key_value) = record.get(key_idx) {
+                        if !key_value.is_empty() {
+                            // Store all fields dynamically
+                            let mut fields = HashMap::new();
+                            for (i, header) in headers.iter().enumerate() {
+                                // Skip the key column itself, we use it as the map key
+                                if i != key_idx {
+                                    if let Some(value) = record.get(i) {
+                                        fields.insert(header.to_string(), value.to_string());
+                                    }
+                                }
+                            }
+
+                            merge_data_map.insert(
+                                key_value.to_string(),
+                                MergeData { fields }
+                            );
+                        }
+                    }
+                }
+            }
+
+            log::info!("Read {} entries from {}", merge_data_map.len(), merge_source_file);
+        }
+        Err(e) => {
+            log::info!("Could not read {} ({}), will not populate extra columns", merge_source_file, e);
+        }
+    }
+
+    merge_data_map
+}
+
 // Read existing CSV and extract Latitude/Longitude values
 async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) -> std::collections::HashMap<String, (String, String)> {
     use std::collections::HashMap;
@@ -449,8 +545,8 @@ async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) ->
         local_file_path.to_string()
     } else {
         let current_dir = std::env::current_dir().unwrap_or_default();
-        let show_json_dir = current_dir.join("projects/map");
-        let full_path = show_json_dir.join(local_file_path);
+        let json_list_dir = current_dir.join("projects/map");
+        let full_path = json_list_dir.join(local_file_path);
         normalize_path(&full_path).to_string_lossy().to_string()
     };
 
@@ -501,33 +597,57 @@ async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) ->
     coordinates
 }
 
-// Merge old coordinates into new entries
-fn merge_coordinates(
+// Merge data from any source CSV into new entries (generic for cities, counties, countries, etc.)
+fn merge_data(
     mut entries: Vec<serde_json::Value>,
-    old_coordinates: std::collections::HashMap<String, (String, String)>,
+    merge_data_map: std::collections::HashMap<String, MergeData>,
     merge_column: &str,
+    all_field_names: &[String], // All possible field names from the merge source
 ) -> Vec<serde_json::Value> {
     for entry in entries.iter_mut() {
         if let Some(obj) = entry.as_object_mut() {
-            // Get the merge column field (Location, City, etc.)
-            if let Some(location_value) = obj.get(merge_column) {
-                if let Some(location) = location_value.as_str() {
-                    // Check if we have old coordinates for this location
-                    if let Some((lat, lon)) = old_coordinates.get(location) {
-                        // Only add if not already present (use mixed case to match cities.csv)
-                        if !obj.contains_key("Latitude") && !obj.contains_key("LATITUDE") && !obj.contains_key("latitude") {
-                            obj.insert("Latitude".to_string(), serde_json::Value::String(lat.clone()));
-                        }
-                        if !obj.contains_key("Longitude") && !obj.contains_key("LONGITUDE") && !obj.contains_key("longitude") {
-                            obj.insert("Longitude".to_string(), serde_json::Value::String(lon.clone()));
+            // Get the merge column field (Location, City, County, Country, etc.)
+            if let Some(key_value) = obj.get(merge_column) {
+                if let Some(key) = key_value.as_str() {
+                    // Check if we have merge data for this key
+                    if let Some(merge_data) = merge_data_map.get(key) {
+                        // Dynamically merge all fields from the merge source
+                        for (field_name, field_value) in &merge_data.fields {
+                            // Only add if not already present in the entry
+                            // Handle special case for Latitude/Longitude with case-insensitive check
+                            let should_skip = if field_name.eq_ignore_ascii_case("latitude") {
+                                obj.contains_key("Latitude") || obj.contains_key("LATITUDE") || obj.contains_key("latitude")
+                            } else if field_name.eq_ignore_ascii_case("longitude") {
+                                obj.contains_key("Longitude") || obj.contains_key("LONGITUDE") || obj.contains_key("longitude")
+                            } else {
+                                obj.contains_key(field_name)
+                            };
+
+                            if !should_skip {
+                                // Only insert if we have actual data (non-empty)
+                                if !field_value.is_empty() {
+                                    obj.insert(field_name.clone(), serde_json::Value::String(field_value.clone()));
+                                } else {
+                                    // Insert empty string to maintain column consistency
+                                    obj.insert(field_name.clone(), serde_json::Value::String("".to_string()));
+                                }
+                            }
                         }
                     } else {
-                        // No old coordinates - add empty Latitude/Longitude columns for consistency (use mixed case)
-                        if !obj.contains_key("Latitude") && !obj.contains_key("LATITUDE") && !obj.contains_key("latitude") {
-                            obj.insert("Latitude".to_string(), serde_json::Value::String("".to_string()));
-                        }
-                        if !obj.contains_key("Longitude") && !obj.contains_key("LONGITUDE") && !obj.contains_key("longitude") {
-                            obj.insert("Longitude".to_string(), serde_json::Value::String("".to_string()));
+                        // No merge data found - add empty columns for consistency
+                        for field_name in all_field_names {
+                            // Handle special case for Latitude/Longitude with case-insensitive check
+                            let should_skip = if field_name.eq_ignore_ascii_case("latitude") {
+                                obj.contains_key("Latitude") || obj.contains_key("LATITUDE") || obj.contains_key("latitude")
+                            } else if field_name.eq_ignore_ascii_case("longitude") {
+                                obj.contains_key("Longitude") || obj.contains_key("LONGITUDE") || obj.contains_key("longitude")
+                            } else {
+                                obj.contains_key(field_name)
+                            };
+
+                            if !should_skip {
+                                obj.insert(field_name.clone(), serde_json::Value::String("".to_string()));
+                            }
                         }
                     }
                 }
@@ -549,9 +669,35 @@ pub async fn refresh_local_file(
     log::info!("Refreshing local file {} with data from {}", local_file_path, api_url);
     log::info!("Using merge column: {}", req.merge_column);
 
-    // First, read the existing CSV to extract Latitude/Longitude values
-    let old_coordinates = read_existing_coordinates(local_file_path, &req.merge_column).await;
-    log::info!("Found {} existing coordinate entries", old_coordinates.len());
+    // Get the jsonList's directory (where config files and reference CSVs are located)
+    let current_dir = std::env::current_dir().map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
+    })?;
+    let json_list_dir = current_dir.join("projects/map");
+
+    // Check if a merge source file is provided (from geoDataset in config)
+    let (merge_data_map, all_field_names) = if let Some(merge_source_file) = &req.merge_source_file {
+        log::info!("Using merge source file from config: {}", merge_source_file);
+
+        // Read merge source data (cities.csv, counties.csv, countries.csv, etc.)
+        let merge_data_map = read_merge_source_data(merge_source_file, &req.merge_column, &json_list_dir).await;
+        log::info!("Loaded {} entries from {}", merge_data_map.len(), merge_source_file);
+
+        // Extract all unique field names from the merge data for consistency
+        let mut all_field_names = std::collections::HashSet::new();
+        for merge_data in merge_data_map.values() {
+            for field_name in merge_data.fields.keys() {
+                all_field_names.insert(field_name.clone());
+            }
+        }
+        let all_field_names: Vec<String> = all_field_names.into_iter().collect();
+        log::info!("Found {} unique fields to merge: {:?}", all_field_names.len(), all_field_names);
+
+        (merge_data_map, all_field_names)
+    } else {
+        log::info!("No merge source file specified in config, skipping merge process");
+        (std::collections::HashMap::new(), Vec::new())
+    };
 
     // Check if this is a Cognito Forms URL that needs special handling
     let entries = if api_url.starts_with("https://www.cognitoforms.com") && api_url.ends_with("/entries") {
@@ -623,31 +769,36 @@ pub async fn refresh_local_file(
 
     log::info!("Converting {} entries to CSV", entries.len());
 
-    // Merge old coordinates into new entries
-    let entries_with_coords = merge_coordinates(entries.clone(), old_coordinates, &req.merge_column);
+    // Merge data from source file if a geoDataset is provided
+    let entries_with_merged_data = if req.merge_source_file.is_some() && !merge_data_map.is_empty() {
+        log::info!("Merging data from geoDataset into entries");
+        merge_data(
+            entries.clone(),
+            merge_data_map,
+            &req.merge_column,
+            &all_field_names
+        )
+    } else {
+        log::info!("No merge source or no merge data, using entries as-is");
+        entries.clone()
+    };
 
-    // Convert JSON entries to CSV (now includes Latitude/Longitude columns)
-    let csv_data = json_to_csv(&entries_with_coords).map_err(|e| {
+    // Convert JSON entries to CSV
+    let csv_data = json_to_csv(&entries_with_merged_data).map_err(|e| {
         let err_msg = format!("Failed to convert JSON to CSV: {}", e);
         log::error!("{}", err_msg);
         actix_web::error::ErrorInternalServerError(err_msg)
     })?;
 
     // Determine the absolute file path
-    // Relative paths are relative to team/projects/map/ (where show.json is located)
+    // Relative paths are relative to the jsonList's directory (already calculated above)
     let file_path = if local_file_path.starts_with('/') {
         local_file_path.clone()
     } else {
-        // Get current working directory (team/)
-        let current_dir = std::env::current_dir().map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
-        })?;
+        // The path is relative to the jsonList's directory
 
-        // The path is relative to team/projects/map/ where show.json is located
-        let show_json_dir = current_dir.join("projects/map");
-
-        // Join the relative path with the show.json directory
-        let full_path = show_json_dir.join(local_file_path);
+        // Join the relative path with the jsonList's directory
+        let full_path = json_list_dir.join(local_file_path);
 
         // Normalize by resolving all .. components
         normalize_path(&full_path).to_string_lossy().to_string()
@@ -750,8 +901,8 @@ pub async fn save_dataset(
         let current_dir = std::env::current_dir().map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
         })?;
-        let show_json_dir = current_dir.join("projects/map");
-        let full_path = show_json_dir.join(file_path);
+        let json_list_dir = current_dir.join("projects/map");
+        let full_path = json_list_dir.join(file_path);
         normalize_path(&full_path).to_string_lossy().to_string()
     };
 

@@ -10,7 +10,7 @@
     "dataset": "../../../display/team/map/visits.csv",
     "markerType": "google",
     "nameColumn": "City",
-    "featuredColumns": ["Team", "Description", "StartDate", "TotalParticipants"],
+    "featuredColumns": ["County", "Team", "Names", "Description", "StartDate", "TotalParticipants"],
     "geoDataset": "cities.csv",
     "geoColumns": ["City"],
     "geoAggregate": ["TotalParticipants"],
