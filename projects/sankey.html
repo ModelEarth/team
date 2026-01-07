@@ -143,26 +143,26 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 18px;
+            background: #2c3e50;
             color: white;
-            border: none;
-            border-radius: 6px;
+            border: 1px solid #34495e;
+            border-radius: 4px;
             font-weight: 600;
             font-size: 14px;
             flex-shrink: 0;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             position: relative;
             z-index: 1;
-            font-family: inherit;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             min-width: 100px;
             text-align: center;
         }
 
         .tree-node-level1:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            background: #34495e;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         .tree-node-level1 .tree-node-icon {
@@ -198,17 +198,17 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 10px 12px;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 9px 14px;
+            background: #5a6c7d;
             color: white;
-            border: none;
-            border-radius: 6px;
+            border: 1px solid #4a5c6d;
+            border-radius: 4px;
             font-weight: 500;
             font-size: 13px;
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
-            font-family: inherit;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin-bottom: 0;
             flex-shrink: 0;
             min-width: 120px;
@@ -220,8 +220,8 @@
         }
 
         .tree-node-level2:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+            background: #6a7c8d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Tooltip for repo last update */
@@ -298,17 +298,17 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 8px 10px;
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: #001;
-            border: none;
-            border-radius: 6px;
+            padding: 8px 12px;
+            background: #16a085;
+            color: white;
+            border: 1px solid #138d75;
+            border-radius: 4px;
             font-weight: 400;
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
-            font-family: inherit;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin-bottom: 0;
             flex-shrink: 0;
             min-width: fit-content;
@@ -321,8 +321,8 @@
         }
 
         .tree-node-level3:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+            background: #138d75;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Tooltip for branch last commit */
@@ -396,16 +396,16 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 6px 10px;
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: #001;
-            border: none;
-            border-radius: 6px;
+            padding: 6px 12px;
+            background: #2980b9;
+            color: white;
+            border: 1px solid #2471a3;
+            border-radius: 4px;
             font-size: 11px;
             text-decoration: none;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-family: inherit;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin-bottom: 0;
             flex-shrink: 0;
         }
@@ -415,13 +415,14 @@
         }
 
         .tree-node-level4:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
+            background: #2471a3;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Tooltip for PR details */
         .tree-node-pr {
             position: relative;
+            color: white !important;
         }
 
         .tree-node-pr::after {
@@ -478,21 +479,34 @@
 
         /* Individual commit dot */
         .tree-commit-dot {
-            width: 10px;
-            height: 10px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #ffa751 0%, #ffe259 100%);
+            background: #e67e22;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(255, 167, 81, 0.3);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
             flex-shrink: 0;
+            border: 1px solid #d35400;
         }
 
         .tree-commit-dot:hover {
-            width: 12px;
-            height: 12px;
-            box-shadow: 0 3px 8px rgba(255, 167, 81, 0.6);
-            transform: scale(1.2);
+            width: 11px;
+            height: 11px;
+            background: #d35400;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Grey out commits for closed PRs */
+        .tree-node-level4.closed ~ .tree-commits-cluster .tree-commit-dot {
+            background: #95a5a6;
+            border-color: #7f8c8d;
+            opacity: 0.6;
+        }
+
+        .tree-node-level4.closed ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #7f8c8d;
+            opacity: 0.8;
         }
 
         .tree-node-status {
@@ -500,6 +514,58 @@
             height: 6px;
             border-radius: 50%;
             flex-shrink: 0;
+        }
+
+        /* PR node colors by status */
+        .tree-node-level4.merged {
+            background: #6f42c1;
+            border-color: #5a32a3;
+        }
+
+        .tree-node-level4.merged:hover {
+            background: #5a32a3;
+        }
+
+        .tree-node-level4.open {
+            background: #1e8449;
+            border-color: #186a3b;
+        }
+
+        .tree-node-level4.open:hover {
+            background: #186a3b;
+        }
+
+        .tree-node-level4.closed {
+            background: #c0392b;
+            border-color: #a93226;
+        }
+
+        .tree-node-level4.closed:hover {
+            background: #a93226;
+        }
+
+        .tree-node-pr.merged {
+            background: transparent;
+        }
+
+        .tree-node-pr.open {
+            background: transparent;
+        }
+
+        .tree-node-pr.closed {
+            background: transparent;
+        }
+
+        .tree-node-pr.merged:hover {
+            background: transparent;
+        }
+
+        .tree-node-pr.open:hover {
+            background: transparent;
+        }
+
+        .tree-node-pr.closed:hover {
+            background: transparent;
         }
 
         .tree-node-pr.merged .tree-node-status {
@@ -1010,7 +1076,7 @@
                         
                         html += `
                             <div class="tree-node-level4-wrapper">
-                                <div class="tree-node-level4">
+                                <div class="tree-node-level4 ${statusClass}">
                                     <a href="${pr.html_url}" target="_blank" class="tree-node-pr ${statusClass}" data-tooltip="${tooltipText}">
                                         <span class="tree-node-status ${statusClass}"></span>
                                         <span class="tree-node-label">#${pr.number}</span>
