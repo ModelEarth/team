@@ -43,6 +43,36 @@
             margin: 0;
             font-size: 24px;
             color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sankey-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            height: auto;
+            padding: 0;
+            background: none;
+            color: inherit;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 20px;
+            transition: transform 0.2s ease;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+
+        .sankey-link:hover {
+            background: none;
+            transform: scale(1.15);
+        }
+
+        .sankey-link:active {
+            transform: scale(0.95);
         }
 
         .back-btn {
@@ -703,187 +733,318 @@
         .sankey-legend-dot.open { background: #238636; }
         .sankey-legend-dot.closed { background: #da3633; }
 
-        /* Horizontal contribution tree */
+        /* Git-style contribution tree */
         .contribution-tree {
-            font-family: system-ui, -apple-system, sans-serif;
-            overflow-x: auto;
-            padding-bottom: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow: hidden;
+            padding: 20px 0;
+            width: 100%;
         }
 
         .tree-horizontal {
-            display: flex;
-            align-items: flex-start;
-            gap: 0;
-            min-width: fit-content;
-        }
-
-        .tree-root {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-            color: white;
-            border-radius: 8px;
-            font-weight: 600;
-            min-height: 60px;
-            flex-shrink: 0;
-        }
-
-        .tree-root-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
-        }
-
-        .tree-root-label {
-            font-size: 13px;
-        }
-
-        .tree-connector {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            width: 30px;
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        /* Tree structure - SVG-based with curved lines */
-        .tree-horizontal {
-            padding: 40px 20px;
+            padding: 40px 30px;
             background: var(--bg-secondary);
             border-radius: 8px;
             border: 1px solid var(--border-light);
-            overflow: auto;
+            overflow-x: auto;
+            overflow-y: hidden;
             position: relative;
-            min-height: 600px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            min-height: 700px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 120px;
+            min-width: fit-content;
+            width: 100%;
         }
 
-        .tree-svg-container {
+        /* Custom scrollbar styling */
+        .tree-horizontal::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* SVG Sankey connectors */
+        .tree-svg-connectors {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             pointer-events: none;
+            z-index: 0;
+            overflow: visible;
         }
 
-        .tree-level-row {
-            display: flex;
-            align-items: center;
-            gap: 60px;
-            padding: 20px;
-            position: relative;
-            z-index: 10;
+        .sankey-path {
+            fill: none;
+            stroke-opacity: 0.35;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke-opacity 0.2s ease;
         }
 
-        /* Tree nodes - circular style */
-        .tree-node-level1, .tree-node-level2, .tree-node-level3, .tree-node-level4, .tree-node-level5 {
+        .tree-horizontal:hover .sankey-path {
+            stroke-opacity: 0.5;
+        }
+
+        /* Root node - webroot */
+        .tree-node-level1 {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
+            gap: 8px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
             flex-shrink: 0;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             cursor: pointer;
             transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+            font-family: inherit;
+            min-width: 100px;
             text-align: center;
         }
 
-        .tree-node-level1, .tree-node-level2, .tree-node-level3, .tree-node-level4, .tree-node-level5:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        .tree-node-level1:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
-        .tree-node-level1 {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: 600;
-            width: 90px;
-            height: 90px;
+        .tree-node-level1 .tree-node-icon {
+            display: none;
         }
 
-        .tree-node-level2 {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        .tree-node-level3 {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: #001;
-        }
-
-        .tree-node-level4 {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: #001;
-        }
-
-        .tree-node-level5 {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: #001;
-        }
-
-        .tree-node-icon {
-            width: 20px;
-            height: 20px;
-            margin-bottom: 2px;
-        }
-
-        .tree-node-label {
-            font-size: 11px;
-            font-weight: 500;
-            line-height: 1.2;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 70px;
-        }
-
-        .tree-node-count {
-            font-size: 9px;
-            padding: 1px 4px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            margin-top: 2px;
-        }
-
-        .tree-connector {
-            font-size: 18px;
-            color: var(--text-muted);
-            flex-shrink: 0;
-        }
-
-        .tree-subnodes {
+        /* Repository level containers */
+        .tree-repos {
             display: flex;
             flex-direction: column;
             gap: 40px;
+            position: relative;
+            z-index: 1;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-repo-group {
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            gap: 0;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        /* Repository nodes - Level 2 */
+        .tree-node-level2 {
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: inherit;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .tree-node-level2::before {
+            display: none;
+        }
+
+        .tree-node-level2:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+        }
+
+        .tree-node-level2 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level2 .tree-node-label {
+            font-size: 13px;
+            max-width: none;
+            overflow: visible;
+            font-family: inherit;
+        }
+
+        .tree-node-count {
+            font-size: 11px;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            margin-left: 4px;
+            flex-shrink: 0;
+            color: white;
+            font-family: inherit;
+        }
+
+        /* Branches container */
+        .tree-subnodes {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 0;
+            margin-left: 150px;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-subnodes::before {
+            display: none;
+        }
+
+        /* Branch nodes - Level 3 */
+        .tree-node-level3 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 10px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: #001;
+            border: none;
+            border-radius: 6px;
+            font-weight: 400;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: inherit;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: fit-content;
+            max-width: 200px;
+            text-align: center;
+        }
+
+        .tree-node-level3::before {
+            display: none;
+        }
+
+        .tree-node-level3:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        }
+
+        .tree-node-level3 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level3 .tree-node-label {
+            font-size: 12px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        /* PR container - Level 4 */
+        .tree-pr-nodes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 0;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        /* Wrapper for branch and its PRs */
+        .tree-branch-pr-pair {
+            display: flex;
+            flex-direction: row;
+            gap: 100px;
+            align-items: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .tree-node-level4 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #001;
+            border: none;
+            border-radius: 6px;
+            font-size: 11px;
+            width: fit-content;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            margin-bottom: 0;
+        }
+
+        .tree-node-level4::before {
+            display: none;
+        }
+
+        .tree-node-level4:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
         }
 
         .tree-node-pr {
             text-decoration: none;
             color: inherit;
-            display: flex;
-            flex-direction: column;
+            display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             cursor: pointer;
-        }
-
-        .tree-node-pr:hover {
-            opacity: 0.9;
+            font-family: inherit;
         }
 
         .tree-node-status {
-            width: 10px;
-            height: 10px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             flex-shrink: 0;
-            margin-bottom: 4px;
         }
 
         .tree-node-pr.merged .tree-node-status {
@@ -901,38 +1062,40 @@
         .tree-node-commits {
             text-decoration: none;
             color: inherit;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
             cursor: pointer;
+            font-size: 11px;
+            font-family: inherit;
         }
 
         .tree-node-commits:hover {
-            opacity: 0.9;
+            color: var(--accent-blue);
         }
 
-        .tree-connector-line {
-            height: 2px;
-            background: var(--border-light);
-        }
-
-        .tree-repos {
+        .tree-level-row {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .tree-repo-row {
-            display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0;
+            position: relative;
+            z-index: 10;
         }
 
-        .tree-repo-connector {
-            width: 20px;
-            height: 2px;
-            background: var(--border-light);
+        .tree-connector {
+            display: none;
+        }
+
+        .tree-node-icon {
+            width: 14px;
+            height: 14px;
             flex-shrink: 0;
+        }
+
+        .tree-node-label {
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
         }
 
         .tree-repo-node {
@@ -1146,7 +1309,12 @@
     <div class="participant-container">
         <div class="participant-card">
             <div class="participant-header">
-                <h1 id="participant-name">Loading...</h1>
+                <h1 id="participant-name">
+                    <span id="name-text">Loading...</span>
+                    <a href="#" id="sankey-link" class="sankey-link" title="View Contribution Sankey" onclick="openSankey(event)">
+                        👁️
+                    </a>
+                </h1>
                 <a href="#" id="back-btn" class="back-btn" onclick="goBack(event)">
                     ← Back to List
                 </a>
@@ -1214,17 +1382,6 @@
                             <span>Loading PRs across repositories...</span>
                         </div>
                         <div id="pr-list" class="pr-list"></div>
-                    </div>
-
-                    <!-- Contribution Tree Sankey Section -->
-                    <div id="sankey-section" class="sankey-section" style="display: none;">
-                        <h3>🌳 Contribution Tree</h3>
-                        <div id="contribution-tree" class="contribution-tree"></div>
-                        <div class="sankey-legend">
-                            <span class="sankey-legend-item"><span class="sankey-legend-dot merged"></span> Merged</span>
-                            <span class="sankey-legend-item"><span class="sankey-legend-dot open"></span> Open</span>
-                            <span class="sankey-legend-item"><span class="sankey-legend-dot closed"></span> Closed</span>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1636,9 +1793,15 @@
             try {
                 // Search for all PRs by this author in ModelEarth org
                 const url = `https://api.github.com/search/issues?q=author:${encodeURIComponent(username)}+org:ModelEarth+type:pr&per_page=100&sort=created&order=desc`;
-                const response = await fetch(url, {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
-                });
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
                 
                 if (response.status === 403) {
                     return { prs: [], rateLimited: true };
@@ -1679,7 +1842,6 @@
             const prLoading = document.getElementById('pr-loading');
             const prList = document.getElementById('pr-list');
             const prStats = document.getElementById('pr-stats');
-            const sankeySection = document.getElementById('sankey-section');
             
             // Show section with loading
             prSection.style.display = 'block';
@@ -1687,7 +1849,6 @@
             prLoading.innerHTML = '<div class="loading-spinner"></div><span>Fetching pull requests...</span>';
             prList.innerHTML = '';
             prStats.innerHTML = '';
-            sankeySection.style.display = 'none';
             
             try {
                 // Single API call to get all PRs by user in ModelEarth org
@@ -1777,9 +1938,15 @@
         async function fetchPRDetails(owner, repo, prNumber) {
             try {
                 const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-                const response = await fetch(url, {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
-                });
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
                 
                 // Rate limited or not found
                 if (response.status === 403 || response.status === 404 || !response.ok) {
@@ -1797,173 +1964,212 @@
             }
         }
 
-        // Fetch PR details for all PRs
+        // Fetch PR details for all PRs and build branch-to-PR cache
         async function fetchAllPRDetails(prs) {
             const detailsMap = {};
+            const branchCache = {};  // branch -> [PR numbers]
             
-            // Initialize all PRs with fallback values
+            // Initialize all PRs
             prs.forEach(pr => {
                 detailsMap[pr.html_url] = {
-                    branch: 'branch',
+                    branch: null,
                     commits: null
                 };
             });
             
-            // Only fetch the first 5 PRs to avoid hitting rate limits
-            // (60 requests per hour for unauthenticated)
-            const maxFetch = Math.min(5, prs.length);
-            
-            for (let i = 0; i < maxFetch; i++) {
-                const pr = prs[i];
-                const details = await fetchPRDetails(pr.repo_owner, pr.repo_name, pr.number);
-                if (details.branch) {
-                    detailsMap[pr.html_url].branch = details.branch;
-                }
-                detailsMap[pr.html_url].commits = details.commits;
+            // Fetch all PR details in batches to avoid overwhelming API
+            const batchSize = 10;
+            for (let i = 0; i < prs.length; i += batchSize) {
+                const batch = prs.slice(i, i + batchSize);
+                const promises = batch.map(pr => 
+                    fetchPRDetails(pr.repo_owner, pr.repo_name, pr.number)
+                );
+                const results = await Promise.all(promises);
                 
-                // Wait between requests to avoid rate limiting
-                if (i < maxFetch - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                batch.forEach((pr, index) => {
+                    const details = results[index];
+                    detailsMap[pr.html_url].branch = details.branch;
+                    detailsMap[pr.html_url].commits = details.commits;
+
+                    // Build repo-aware branch cache using composite key: owner/repo:branch
+                    if (details.branch) {
+                        const branchKey = `${pr.repo_owner}/${pr.repo_name}:${details.branch}`;
+                        if (!branchCache[branchKey]) {
+                            branchCache[branchKey] = [];
+                        }
+                        branchCache[branchKey].push(pr.number);
+                    }
+                });
+                
+                // Wait between batches to avoid rate limiting
+                if (i + batchSize < prs.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
+            
+            // Store cache in sessionStorage for reuse
+            sessionStorage.setItem('branchCache', JSON.stringify(branchCache));
+            console.log('Branch-to-PR Map:', branchCache);
+            console.log('PR List:', prs);
             
             return detailsMap;
         }
 
-        // Render contribution tree (Sankey-style diagram)
-        async function renderContributionTree(prs) {
-            const sankeySection = document.getElementById('sankey-section');
-            const treeContainer = document.getElementById('contribution-tree');
+        // Draw SVG Sankey connector paths between tree nodes
+        function drawTreeConnectors() {
+            const container = document.querySelector('.tree-horizontal');
+            const svg = document.querySelector('.tree-svg-connectors');
+            const root = document.getElementById('tree-root');
             
-            if (!prs || prs.length === 0) {
-                sankeySection.style.display = 'none';
+            if (!svg || !root || !container) return;
+            
+            // Get container dimensions - use scrollWidth for full content width
+            const scrollWidth = container.scrollWidth;
+            const scrollHeight = container.scrollHeight;
+            
+            svg.setAttribute('width', scrollWidth);
+            svg.setAttribute('height', scrollHeight);
+            
+            // Clear existing paths
+            svg.innerHTML = '';
+            
+            // Color palette for Sankey paths
+            const pathColors = ['#667eea', '#f5576c', '#4facfe', '#43e97b'];
+            let colorIndex = 0;
+            
+            // Get all repo groups
+            const repoGroups = document.querySelectorAll('.tree-repo-group');
+            
+            // Calculate max PR count for scaling
+            let maxPRCount = 1;
+            repoGroups.forEach(repoGroup => {
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                maxPRCount = Math.max(maxPRCount, prNodes.length);
+            });
+            
+            repoGroups.forEach((repoGroup, repoIdx) => {
+                const repoNode = repoGroup.querySelector('.tree-node-level2');
+                const branchesContainer = repoGroup.querySelector('.tree-subnodes');
+                
+                if (!repoNode || !branchesContainer) return;
+                
+                // Count total PRs for this repo
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                const prCount = prNodes.length;
+                
+                // Calculate line width based on PR count (scaled 1-4)
+                const lineWidth = Math.max(1, Math.min(4, (prCount / maxPRCount) * 4));
+                
+                // Get position relative to container's scrollable area
+                const repoRect = repoNode.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const repoX = repoRect.left - containerRect.left + container.scrollLeft;
+                const repoCenterY = repoRect.top - containerRect.top + repoRect.height / 2;
+                const repoEndX = repoX + repoRect.width;
+                
+                // Draw path from root to repo
+                const rootRect = root.getBoundingClientRect();
+                const rootX = rootRect.left - containerRect.left + container.scrollLeft;
+                const rootCenterY = rootRect.top - containerRect.top + rootRect.height / 2;
+                const rootEndX = rootX + rootRect.width;
+                
+                const rootToRepoPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const color1 = pathColors[colorIndex % pathColors.length];
+                rootToRepoPath.setAttribute('d', `M ${rootEndX} ${rootCenterY} Q ${(rootEndX + repoX) / 2} ${rootCenterY} ${repoX} ${repoCenterY}`);
+                rootToRepoPath.setAttribute('stroke', color1);
+                rootToRepoPath.setAttribute('stroke-width', lineWidth);
+                rootToRepoPath.setAttribute('class', 'sankey-path');
+                svg.appendChild(rootToRepoPath);
+                
+                // Get all branches for this repo
+                const branchNodes = branchesContainer.querySelectorAll('.tree-node-level3');
+                const prNodesContainers = branchesContainer.querySelectorAll('.tree-pr-nodes');
+                
+                branchNodes.forEach((branchNode, branchIdx) => {
+                    const branchRect = branchNode.getBoundingClientRect();
+                    const branchX = branchRect.left - containerRect.left + container.scrollLeft;
+                    const branchCenterY = branchRect.top - containerRect.top + branchRect.height / 2;
+                    const branchEndX = branchX + branchRect.width;
+                    
+                    // Count PRs in this branch
+                    let branchPRCount = 0;
+                    if (branchIdx < prNodesContainers.length) {
+                        branchPRCount = prNodesContainers[branchIdx].querySelectorAll('.tree-node-level4').length;
+                    }
+                    
+                    // Calculate line width for branch (scaled 0.5-3)
+                    const branchLineWidth = Math.max(0.5, Math.min(3, (branchPRCount / maxPRCount) * 3));
+                    
+                    // Draw path from repo to branch
+                    const repoToBranchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const color2 = pathColors[(colorIndex + 1) % pathColors.length];
+                    repoToBranchPath.setAttribute('d', `M ${repoEndX} ${repoCenterY} Q ${(repoEndX + branchX) / 2} ${(repoCenterY + branchCenterY) / 2} ${branchX} ${branchCenterY}`);
+                    repoToBranchPath.setAttribute('stroke', color2);
+                    repoToBranchPath.setAttribute('stroke-width', branchLineWidth);
+                    repoToBranchPath.setAttribute('class', 'sankey-path');
+                    svg.appendChild(repoToBranchPath);
+                    
+                    // Draw paths from branch to PRs (if available)
+                    if (branchIdx < prNodesContainers.length) {
+                        const prContainer = prNodesContainers[branchIdx];
+                        const branchPRNodes = prContainer.querySelectorAll('.tree-node-level4');
+                        
+                        if (branchPRNodes.length > 0) {
+                            let avgPRY = 0;
+                            let prEndX = 0;
+                            
+                            branchPRNodes.forEach(pr => {
+                                const prRect = pr.getBoundingClientRect();
+                                avgPRY += prRect.top - containerRect.top + prRect.height / 2;
+                                prEndX = Math.max(prEndX, prRect.right - containerRect.left + container.scrollLeft);
+                            });
+                            
+                            avgPRY /= branchPRNodes.length;
+                            
+                            // Line width for individual branch (always thin)
+                            const prLineWidth = Math.max(0.5, Math.min(2, (branchPRNodes.length / Math.max(1, maxPRCount / 3)) * 1.5));
+                            
+                            const branchToPRPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            const color3 = pathColors[(colorIndex + 2) % pathColors.length];
+                            branchToPRPath.setAttribute('d', `M ${branchEndX} ${branchCenterY} Q ${(branchEndX + prEndX) / 2} ${(branchCenterY + avgPRY) / 2} ${prEndX} ${avgPRY}`);
+                            branchToPRPath.setAttribute('stroke', color3);
+                            branchToPRPath.setAttribute('stroke-width', prLineWidth);
+                            branchToPRPath.setAttribute('class', 'sankey-path');
+                            svg.appendChild(branchToPRPath);
+                        }
+                    }
+                });
+                
+                colorIndex++;
+            });
+        }
+
+        // Render contribution tree (hierarchical diagram)
+        async function renderContributionTree(prs) {
+            // Contribution tree is now on a separate page (sankey.html)
+            // This function is kept for compatibility but does nothing
+            return;
+        }
+
+        // Navigate to repository on GitHub
+        window.navigateToRepo = function(repoName) {
+            const username = window.currentGithubUsername || 'ModelEarth';
+            if (repoName === 'webroot') {
+                window.open(`https://github.com/${username}/webroot`, '_blank');
+            } else {
+                window.open(`https://github.com/${username}/${repoName}`, '_blank');
+            }
+        };
+
+        // Open Sankey diagram in new tab
+        window.openSankey = function(event) {
+            event.preventDefault();
+            if (!window.currentGithubUsername) {
+                alert('GitHub username not found');
                 return;
             }
-            
-            sankeySection.style.display = 'block';
-            
-            // Show loading state
-            treeContainer.innerHTML = '<div class="pr-loading"><div class="loading-spinner"></div><span>Building contribution tree...</span></div>';
-            
-            // Fetch PR details (branch names and commits) for all PRs
-            const detailsMap = await fetchAllPRDetails(prs);
-            
-            // Group PRs by repository
-            const repoGroups = {};
-            prs.forEach(pr => {
-                const repoKey = pr.repo_name;
-                if (!repoGroups[repoKey]) {
-                    repoGroups[repoKey] = [];
-                }
-                const details = detailsMap[pr.html_url] || { branch: `pr-${pr.number}`, commits: null };
-                pr.branch = details.branch;
-                pr.commits = details.commits;
-                repoGroups[repoKey].push(pr);
-            });
-            
-            // Sort repos by PR count
-            const sortedRepos = Object.entries(repoGroups)
-                .sort((a, b) => b[1].length - a[1].length);
-            
-            // Build horizontal tree HTML - Level 1: webroot
-            let html = `
-                <div class="tree-horizontal">
-                    <div class="tree-level-row">
-                        <div class="tree-node-level1">
-                            <span class="tree-node-icon">📦</span>
-                            <span class="tree-node-label">webroot</span>
-                        </div>
-                        <div class="tree-connector">→</div>
-            `;
-            
-            // Level 2: Repos
-            html += `<div class="tree-level-row">`;
-            sortedRepos.forEach(([repoName, repoPRs]) => {
-                html += `
-                    <div class="tree-node-level2" data-repo="${repoName}">
-                        <svg class="tree-node-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8z"/>
-                        </svg>
-                        <span class="tree-node-label">${repoName}</span>
-                        <span class="tree-node-count">${repoPRs.length}</span>
-                        <div class="tree-connector">→</div>
-                        <div class="tree-subnodes">
-                `;
-                
-                // Level 3: Branches
-                const branchGroups = {};
-                repoPRs.forEach(pr => {
-                    const branch = pr.branch || 'unknown';
-                    if (!branchGroups[branch]) {
-                        branchGroups[branch] = [];
-                    }
-                    branchGroups[branch].push(pr);
-                });
-                
-                Object.entries(branchGroups).forEach(([branchName, branchPRs]) => {
-                    const shortBranch = branchName.length > 20 ? branchName.substring(0, 20) + '...' : branchName;
-                    
-                    html += `
-                        <div class="tree-node-level3" data-branch="${branchName}">
-                            <svg class="tree-node-icon" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                                <path fill-rule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/>
-                            </svg>
-                            <span class="tree-node-label" title="${escapeHtml(branchName)}">${escapeHtml(shortBranch)}</span>
-                            <span class="tree-node-count">${branchPRs.length}</span>
-                            <div class="tree-connector">→</div>
-                            <div class="tree-subnodes">
-                    `;
-                    
-                    // Level 4: PRs
-                    branchPRs.forEach(pr => {
-                        const isMerged = pr.merged_at;
-                        const isOpen = pr.state === 'open';
-                        const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
-                        const commitCount = pr.commits;
-                        const hasCommits = commitCount !== null && commitCount !== undefined;
-                        
-                        html += `
-                            <div class="tree-node-level4">
-                                <a href="${pr.html_url}" target="_blank" class="tree-node-pr ${statusClass}" title="${escapeHtml(pr.title)}">
-                                    <span class="tree-node-status ${statusClass}"></span>
-                                    <span class="tree-node-label">#${pr.number}</span>
-                                </a>
-                                ${hasCommits ? `
-                                <div class="tree-connector">→</div>
-                                <div class="tree-subnodes">
-                                    <div class="tree-node-level5">
-                                        <a href="${pr.html_url}/commits" target="_blank" class="tree-node-commits" title="${commitCount} commit${commitCount !== 1 ? 's' : ''}">
-                                            <svg class="tree-node-icon" width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M10.5 7.75a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm1.43.75a4.002 4.002 0 01-7.86 0H.75a.75.75 0 110-1.5h3.32a4.001 4.001 0 017.86 0h3.32a.75.75 0 110 1.5h-3.32z"/>
-                                            </svg>
-                                            <span class="tree-node-label">${commitCount} commit${commitCount !== 1 ? 's' : ''}</span>
-                                        </a>
-                                    </div>
-                                </div>
-                                ` : ''}
-                            </div>
-                        `;
-                    });
-                    
-                    html += `
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += `
-                    </div>
-                </div>
-            `;
-            
-            treeContainer.innerHTML = html;
-        }
+            window.open(`sankey.html?id=${encodeURIComponent(window.currentGithubUsername)}`, '_blank');
+        };
 
         // Load participant data
         async function loadParticipant() {
@@ -2160,9 +2366,12 @@
                 }
             }
             
-            // Update page title
-            document.getElementById('participant-name').textContent = name;
+            // Update page title and name
+            document.getElementById('name-text').textContent = name;
             document.title = `${name} - Participant Profile`;
+            
+            // Update Sankey link with GitHub username
+            window.currentGithubUsername = null;
             
             // Extract images from participant data
             const imagePaths = extractImagePaths(participant);
@@ -2194,6 +2403,9 @@
                     }
                 });
             }
+            
+            // Store GitHub username globally for Sankey link
+            window.currentGithubUsername = githubUsername;
             
             console.log('GitHub username:', githubUsername);
             console.log('USER_IDS available:', typeof USER_IDS !== 'undefined');
