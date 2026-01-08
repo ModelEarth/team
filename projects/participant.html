@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participant Profile</title>
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+
+    <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
+
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shared-styles.css">
+    
+    <!-- Load GitHub User IDs mapping -->
+    <script src="github-user-ids.js"></script>
+
+    <style>
+        .participant-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .participant-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .participant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+
+        .participant-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--accent-blue-dark, #1d4ed8);
+        }
+
+        .participant-content {
+            padding: 24px;
+        }
+
+        /* Two-column layout: Image left, Details right */
+        .participant-profile-layout {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .participant-profile-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .participant-profile-right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .participant-profile-layout {
+                flex-direction: column;
+            }
+        }
+
+        /* Image Gallery */
+        .participant-gallery {
+            margin-bottom: 0;
+        }
+
+        .gallery-main-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+        }
+
+        .gallery-thumbnails {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .gallery-thumbnail {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s ease;
+        }
+
+        .gallery-thumbnail:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .gallery-thumbnail.active {
+            border-color: var(--accent-blue);
+        }
+
+        .no-image-placeholder {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Fields Grid */
+        .participant-fields {
+            margin-bottom: 0;
+        }
+
+        .location-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .location-icon {
+            width: 18px;
+            height: 18px;
+            color: var(--accent-blue);
+            flex-shrink: 0;
+        }
+
+        .field-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .field-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .field-value {
+            font-size: 15px;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .field-value a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .field-value a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading State */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-light);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Skills Section (in right panel) */
+        .skills-section-inline {
+            padding: 0;
+        }
+
+        .skills-section-inline h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Skills Stacked Bar */
+        .skills-stacked-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .skills-bar-container {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+        }
+
+        .skill-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            position: relative;
+            cursor: default;
+            transition: opacity 0.2s;
+        }
+
+        .skill-segment:hover {
+            opacity: 0.85;
+        }
+
+        .skill-segment-label {
+            font-size: 10px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 4px;
+        }
+
+        .skills-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+
+        .skill-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .skill-legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Projects Section (for PR history) */
+        .projects-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .projects-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .project-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .project-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+
+        .project-tag:hover {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        /* GitHub Section (in right panel) */
+        .github-section {
+            margin-top: 0;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .github-icon {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .github-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        /* PR History Section */
+        .pr-history-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .pr-history-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .pr-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pr-loading .loading-spinner {
+            width: 20px;
+            height: 20px;
+            margin-bottom: 0;
+        }
+
+        .pr-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .pr-stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .pr-stat-count {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .pr-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pr-card {
+            display: flex;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            gap: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pr-card:hover {
+            border-color: var(--accent-blue);
+            background: var(--bg-tertiary);
+        }
+
+        .pr-status {
+            flex-shrink: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 5px;
+        }
+
+        .pr-status.merged { background: #8250df; }
+        .pr-status.open { background: #238636; }
+        .pr-status.closed { background: #da3633; }
+
+        .pr-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pr-title-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .pr-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .pr-repo-name {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .pr-empty, .pr-error {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pr-error {
+            color: #dc2626;
+            background: #fef2f2;
+            border-radius: var(--radius-md);
+        }
+
+        /* Dark mode adjustments */
+        .dark .participant-card {
+            background: var(--bg-primary);
+        }
+
+        .dark .field-item {
+            background: var(--bg-tertiary);
+        }
+
+        .dark .pr-error {
+            background: #450a0a;
+            color: #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="participant-container">
+        <div class="participant-card">
+            <div class="participant-header">
+                <h1 id="participant-name">Loading...</h1>
+                <a href="#" id="back-btn" class="back-btn" onclick="goBack(event)">
+                    ← Back to List
+                </a>
+            </div>
+
+            <div class="participant-content">
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Loading participant data...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="error-state" class="error-state" style="display: none;">
+                    <div class="error-icon">⚠️</div>
+                    <p id="error-message">Participant not found</p>
+                    <a href="#" id="error-back-btn" class="back-btn" style="margin-top: 16px;" onclick="goBack(event)">
+                        ← Back to List
+                    </a>
+                </div>
+
+                <!-- Main Content -->
+                <div id="main-content">
+                    <!-- Two-column layout: Image left, Details right -->
+                    <div class="participant-profile-layout">
+                        <!-- Left: Image Gallery -->
+                        <div class="participant-profile-left">
+                            <div id="participant-gallery" class="participant-gallery"></div>
+                        </div>
+
+                        <!-- Right: Location, Skills, GitHub -->
+                        <div class="participant-profile-right">
+                            <!-- Location -->
+                            <div id="participant-fields" class="participant-fields">
+                                <div id="location-field" class="location-inline" style="display: none;">
+                                    <svg class="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    <span id="field-location">-</span>
+                                </div>
+                            </div>
+
+                            <!-- Skills Section -->
+                            <div id="skills-section" class="skills-section-inline" style="display: none;">
+                                <div id="skill-tags" class="skills-stacked-bar"></div>
+                            </div>
+
+                            <!-- GitHub Section -->
+                            <div id="github-section" class="github-section" style="display: none;">
+                                <svg class="github-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                </svg>
+                                <a id="github-link" class="github-link" href="#" target="_blank">View on GitHub</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PR History Section (full width below) -->
+                    <div id="pr-history-section" class="pr-history-section" style="display: none;">
+                        <h3>📋 Pull Request History</h3>
+                        <div id="pr-stats" class="pr-stats"></div>
+                        <div id="pr-loading" class="pr-loading">
+                            <div class="loading-spinner"></div>
+                            <span>Loading PRs across repositories...</span>
+                        </div>
+                        <div id="pr-list" class="pr-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script>
+        // Get parameters from URL hash
+        function getHashParams() {
+            const hash = window.location.hash.substring(1);
+            const params = {};
+            hash.split('&').forEach(pair => {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    params[decodeURIComponent(key)] = decodeURIComponent(value);
+                }
+            });
+            return params;
+        }
+
+        // Go back to list
+        function goBack(event) {
+            event.preventDefault();
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            window.location.href = `index.html#list=${list}`;
+        }
+
+        // Extract image paths from participant data
+        function extractImagePaths(participant) {
+            const imagePaths = [];
+            
+            // Check for Photo1, Photo2, etc. fields
+            for (let i = 1; i <= 10; i++) {
+                const photoKey = `Photo${i}`;
+                if (participant[photoKey] && participant[photoKey].trim()) {
+                    imagePaths.push(participant[photoKey].trim());
+                }
+            }
+            
+            // Check for common image field names
+            const imageFields = ['Photo', 'Image', 'Avatar', 'Picture', 'Headshot', 'ProfileImage', 'img', 'url'];
+            imageFields.forEach(field => {
+                if (participant[field] && participant[field].trim()) {
+                    const url = participant[field].trim();
+                    // Check if it looks like an image URL
+                    if (url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || url.includes('images') || url.includes('photo')) {
+                        if (!imagePaths.includes(url)) {
+                            imagePaths.push(url);
+                        }
+                    }
+                }
+            });
+            
+            return imagePaths;
+        }
+
+        // Format value for display (handle URLs, etc.)
+        function formatValueForDisplay(value) {
+            if (!value) return '';
+            const strValue = String(value);
+            
+            // Escape HTML first
+            const escaped = strValue.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Check if it's a URL
+            if (strValue.match(/^https?:\/\//i)) {
+                return '<a href="' + strValue + '" target="_blank">' + escaped + '</a>';
+            }
+            
+            return escaped;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Render image gallery
+        function renderGallery(imagePaths, name, githubAvatarUrl = null) {
+            console.log('renderGallery called with imagePaths:', imagePaths, 'githubAvatarUrl:', githubAvatarUrl);
+            const galleryDiv = document.getElementById('participant-gallery');
+            
+            // If no images from data, use GitHub avatar if available
+            if ((!imagePaths || imagePaths.length === 0) && githubAvatarUrl) {
+                imagePaths = [githubAvatarUrl];
+            }
+            
+            console.log('Final imagePaths:', imagePaths);
+            
+            if (!imagePaths || imagePaths.length === 0) {
+                galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
+                return;
+            }
+            
+            let html = `<img id="main-image" class="gallery-main-image" src="${imagePaths[0]}" alt="${escapeHtml(name)}">`;
+            
+            if (imagePaths.length > 1) {
+                html += '<div class="gallery-thumbnails">';
+                imagePaths.forEach((path, index) => {
+                    const activeClass = index === 0 ? ' active' : '';
+                    html += `<img class="gallery-thumbnail${activeClass}" src="${path}" alt="${escapeHtml(name)} ${index + 1}" onclick="showImage(${index})">`;
+                });
+                html += '</div>';
+            }
+            
+            console.log('Gallery HTML:', html);
+            galleryDiv.innerHTML = html;
+            galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
+        }
+
+        // Get GitHub user's avatar URL using USER_IDS mapping
+        function getGitHubAvatarUrl(username) {
+            // Check if USER_IDS is loaded from external file
+            if (typeof USER_IDS !== 'undefined') {
+                // First try to find user ID in our mapping (case-insensitive lookup)
+                const userId = USER_IDS[username] || 
+                    Object.entries(USER_IDS).find(([key]) => key.toLowerCase() === username.toLowerCase())?.[1];
+                
+                if (userId) {
+                    // Use direct avatar URL with user ID (fastest, no redirect)
+                    return `https://avatars.githubusercontent.com/u/${userId}?v=4`;
+                }
+            }
+            
+            // Fallback to username-based URL (GitHub will redirect)
+            return `https://github.com/${encodeURIComponent(username)}.png`;
+        }
+
+        // Show specific image
+        function showImage(index) {
+            const galleryDiv = document.getElementById('participant-gallery');
+            const imagePaths = JSON.parse(galleryDiv.dataset.imagePaths || '[]');
+            
+            if (index >= imagePaths.length) return;
+            
+            const mainImage = document.getElementById('main-image');
+            if (mainImage) {
+                mainImage.src = imagePaths[index];
+            }
+            
+            // Update active thumbnail
+            document.querySelectorAll('.gallery-thumbnail').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+        }
+
+        // Render participant fields
+        function renderFields(participant) {
+            console.log('renderFields called');
+            
+            // Handle Location field with icon
+            const locationField = document.getElementById('location-field');
+            const locationElement = document.getElementById('field-location');
+            
+            const locationKeys = ['Location', 'location', 'City', 'city', 'Country', 'country'];
+            let locationValue = null;
+            
+            for (const key of locationKeys) {
+                if (participant[key] && String(participant[key]).trim()) {
+                    locationValue = String(participant[key]).trim();
+                    break;
+                }
+            }
+            
+            if (locationValue && locationValue !== '-') {
+                locationField.style.display = 'inline-flex';
+                locationElement.textContent = locationValue;
+            } else {
+                locationField.style.display = 'none';
+            }
+            
+            // Handle GitHub field separately with @ prefix and hyperlink
+            const githubElement = document.getElementById('field-github');
+            if (githubElement) {
+                const githubKeys = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github'];
+                let githubUsername = null;
+                
+                for (const key of githubKeys) {
+                    if (participant[key] && String(participant[key]).trim()) {
+                        githubUsername = String(participant[key]).trim();
+                        break;
+                    }
+                }
+                
+                if (githubUsername) {
+                    // Clean up username
+                    if (githubUsername.startsWith('@')) {
+                        githubUsername = githubUsername.substring(1);
+                    }
+                    if (githubUsername.includes('github.com/')) {
+                        githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    }
+                    githubElement.innerHTML = '<a href="https://github.com/' + githubUsername + '" target="_blank">@' + githubUsername + '</a>';
+                } else {
+                    githubElement.textContent = '-';
+                }
+            }
+            
+            console.log('Fields populated');
+        }
+
+        // Hardcoded map of ModelEarth repos to their primary languages (no API calls)
+        const REPO_LANGUAGES = {
+            'feed': ['JavaScript', 'HTML', 'CSS'],
+            'localsite': ['JavaScript', 'HTML', 'CSS'],
+            'io': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'data-commons': ['Python', 'JavaScript'],
+            'realitystream': ['Python', 'Jupyter Notebook'],
+            'community-forecasting': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'useeio.js': ['JavaScript'],
+            'useeior': ['R'],
+            'community': ['JavaScript', 'HTML', 'CSS'],
+            'earthscape': ['JavaScript', 'Python'],
+            'home': ['HTML', 'CSS', 'JavaScript'],
+            'projects': ['JavaScript', 'HTML', 'CSS'],
+            'profile': ['JavaScript', 'HTML', 'CSS'],
+            'charts': ['JavaScript', 'D3'],
+            'impact': ['JavaScript', 'Python'],
+            'requests': ['Markdown'],
+            'webroot': ['Shell', 'JavaScript'],
+            'open-data-viz': ['JavaScript', 'D3'],
+            'industries': ['JavaScript', 'HTML'],
+            'commodities': ['JavaScript', 'HTML'],
+            'map': ['JavaScript', 'Leaflet'],
+            'zip': ['JavaScript', 'HTML'],
+            'foodweb': ['Python', 'JavaScript'],
+            'building-transparency': ['Python', 'JavaScript'],
+            'carbon-footprint': ['Python', 'JavaScript'],
+            'datapipeline': ['Python'],
+            'OpenFootprint': ['Python', 'JavaScript'],
+            'machine-learning': ['Python', 'Jupyter Notebook'],
+            'sql': ['SQL', 'Python'],
+            'chat': ['JavaScript', 'Python'],
+            'exiobase': ['Python', 'C#'],
+            'team': ['JavaScript', 'HTML', 'CSS'],
+            'members': ['JavaScript', 'HTML'],
+            'open-footprint': ['Python', 'JavaScript'],
+            'useeio-widgets': ['JavaScript', 'TypeScript'],
+            'github-actions': ['YAML', 'Shell'],
+            'data-pipeline': ['Python'],
+            'apps': ['JavaScript', 'HTML', 'CSS']
+        };
+
+        // Language colors (GitHub-style)
+        const LANG_COLORS = {
+            'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Python': '#3572A5',
+            'Java': '#b07219', 'HTML': '#e34c26', 'CSS': '#563d7c',
+            'Ruby': '#701516', 'Go': '#00ADD8', 'Rust': '#dea584',
+            'C++': '#f34b7d', 'C': '#555555', 'C#': '#178600',
+            'PHP': '#4F5D95', 'Swift': '#F05138', 'Kotlin': '#A97BFF',
+            'R': '#198CE7', 'Shell': '#89e051', 'Jupyter Notebook': '#DA5B0B',
+            'Vue': '#41b883', 'Svelte': '#ff3e00', 'SCSS': '#c6538c',
+            'D3': '#f9a03c', 'Leaflet': '#199900', 'SQL': '#e38c00',
+            'Markdown': '#083fa1'
+        };
+
+        // Render skills section as single stacked bar (languages from repos user contributed to)
+        function renderSkills(repos) {
+            const skillsSection = document.getElementById('skills-section');
+            const skillTags = document.getElementById('skill-tags');
+            
+            if (!repos || repos.length === 0) {
+                skillsSection.style.display = 'none';
+                return;
+            }
+            
+            // Count PRs per repo
+            const repoPRCount = {};
+            repos.forEach(r => {
+                const repoName = r.repo.toLowerCase();
+                repoPRCount[repoName] = (repoPRCount[repoName] || 0) + 1;
+            });
+            
+            // Get unique repo names
+            const uniqueRepos = Object.keys(repoPRCount);
+            
+            if (uniqueRepos.length === 0) {
+                skillsSection.style.display = 'none';
+                return;
+            }
+            
+            // Collect languages weighted by PR count in each repo
+            const languageScore = {};
+            uniqueRepos.forEach(repo => {
+                const langs = REPO_LANGUAGES[repo] || REPO_LANGUAGES[repo.toLowerCase()];
+                const prCount = repoPRCount[repo];
+                if (langs) {
+                    langs.forEach((lang, index) => {
+                        // Weight = PR count * position weight (primary langs get higher weight)
+                        const positionWeight = Math.max(1, 4 - index);
+                        const score = prCount * positionWeight;
+                        languageScore[lang] = (languageScore[lang] || 0) + score;
+                    });
+                }
+            });
+            
+            // Sort by score and get top languages
+            const sortedLanguages = Object.entries(languageScore)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8); // Top 8 languages
+            
+            if (sortedLanguages.length === 0) {
+                // Fallback: show repos as stacked bar by PR count
+                skillsSection.style.display = 'block';
+                const sortedRepos = Object.entries(repoPRCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 8);
+                const totalCount = sortedRepos.reduce((sum, [, count]) => sum + count, 0);
+                
+                let barHtml = '<div class="skills-bar-container">';
+                let legendHtml = '<div class="skills-legend">';
+                
+                sortedRepos.forEach(([repo, count]) => {
+                    const percentage = (count / totalCount) * 100;
+                    barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: #6e7681;" title="${repo}: ${count} PRs">
+                        <span class="skill-segment-label">${percentage > 12 ? repo : ''}</span>
+                    </div>`;
+                    legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: #6e7681;"></span>${repo}</span>`;
+                });
+                
+                barHtml += '</div>';
+                legendHtml += '</div>';
+                skillTags.innerHTML = barHtml + legendHtml;
+                return;
+            }
+            
+            skillsSection.style.display = 'block';
+            
+            // Calculate total score for percentage
+            const totalScore = sortedLanguages.reduce((sum, [, score]) => sum + score, 0);
+            
+            let barHtml = '<div class="skills-bar-container">';
+            let legendHtml = '<div class="skills-legend">';
+            
+            sortedLanguages.forEach(([lang, score]) => {
+                const color = LANG_COLORS[lang] || '#6e7681';
+                const percentage = (score / totalScore) * 100;
+                
+                barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: ${color};" title="${lang}: ${Math.round(percentage)}%">
+                    <span class="skill-segment-label">${percentage > 12 ? lang : ''}</span>
+                </div>`;
+                legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: ${color};"></span>${lang}</span>`;
+            });
+            
+            barHtml += '</div>';
+            legendHtml += '</div>';
+            
+            skillTags.innerHTML = barHtml + legendHtml;
+        }
+
+        // Render GitHub section
+        function renderGitHub(participant) {
+            const githubSection = document.getElementById('github-section');
+            const githubLink = document.getElementById('github-link');
+            
+            // Check for GitHub field (various naming conventions)
+            let githubUsername = null;
+            const githubFieldNames = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github', 'githubusername', 'GitHubUsername', 'git_username', 'github_username'];
+            
+            for (const fieldName of githubFieldNames) {
+                if (participant[fieldName] && participant[fieldName].trim()) {
+                    githubUsername = participant[fieldName];
+                    break;
+                }
+            }
+            
+            // Also check case-insensitive
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key];
+                        }
+                    }
+                });
+            }
+            
+            if (!githubUsername) {
+                githubSection.style.display = 'none';
+                document.getElementById('pr-history-section').style.display = 'none';
+                return null;
+            }
+            
+            // Clean up the username (remove @ if present, handle full URLs)
+            githubUsername = githubUsername.trim();
+            if (githubUsername.startsWith('@')) {
+                githubUsername = githubUsername.substring(1);
+            }
+            if (githubUsername.includes('github.com/')) {
+                githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+            }
+            
+            githubLink.href = `https://github.com/${githubUsername}`;
+            githubLink.textContent = `@${githubUsername}`;
+            githubSection.style.display = 'flex';
+            
+            // Load PR history for this user
+            loadPRHistory(githubUsername);
+            
+            return githubUsername;
+        }
+
+        // Fetch repositories from .gitmodules (cached in sessionStorage)
+        // Fetch all PRs by a user in ModelEarth org using Search API
+        async function fetchUserPRsInOrg(username) {
+            try {
+                // Search for all PRs by this author in ModelEarth org
+                const url = `https://api.github.com/search/issues?q=author:${encodeURIComponent(username)}+org:ModelEarth+type:pr&per_page=100&sort=created&order=desc`;
+                const response = await fetch(url, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                
+                if (response.status === 403) {
+                    return { prs: [], rateLimited: true };
+                }
+                if (!response.ok) {
+                    return { prs: [], error: true };
+                }
+                
+                const data = await response.json();
+                const items = data.items || [];
+                
+                return {
+                    prs: items.map(pr => {
+                        // Extract repo name from repository_url
+                        const repoMatch = pr.repository_url?.match(/repos\/([^\/]+)\/([^\/]+)$/);
+                        return {
+                            number: pr.number,
+                            title: pr.title,
+                            state: pr.state,
+                            merged_at: pr.pull_request?.merged_at || null,
+                            html_url: pr.html_url,
+                            created_at: pr.created_at,
+                            repo_owner: repoMatch ? repoMatch[1] : 'ModelEarth',
+                            repo_name: repoMatch ? repoMatch[2] : 'unknown'
+                        };
+                    }),
+                    total_count: data.total_count || items.length
+                };
+            } catch (error) {
+                console.error('Error fetching PRs:', error);
+                return { prs: [], error: true };
+            }
+        }
+
+        // Load and display PR history
+        async function loadPRHistory(username) {
+            const prSection = document.getElementById('pr-history-section');
+            const prLoading = document.getElementById('pr-loading');
+            const prList = document.getElementById('pr-list');
+            const prStats = document.getElementById('pr-stats');
+            
+            // Show section with loading
+            prSection.style.display = 'block';
+            prLoading.style.display = 'flex';
+            prLoading.innerHTML = '<div class="loading-spinner"></div><span>Fetching pull requests...</span>';
+            prList.innerHTML = '';
+            prStats.innerHTML = '';
+            
+            try {
+                // Single API call to get all PRs by user in ModelEarth org
+                const result = await fetchUserPRsInOrg(username);
+                
+                // Hide loading
+                prLoading.style.display = 'none';
+                
+                if (result.rateLimited) {
+                    prList.innerHTML = '<div class="pr-error">GitHub API rate limit reached. Please try again later.</div>';
+                    return;
+                }
+                
+                if (result.error) {
+                    prList.innerHTML = '<div class="pr-error">Failed to fetch pull requests.</div>';
+                    return;
+                }
+                
+                const allPRs = result.prs;
+                
+                if (allPRs.length === 0) {
+                    prList.innerHTML = `<div class="pr-empty">No pull requests found for @${username} in ModelEarth repositories.</div>`;
+                    return;
+                }
+                
+                // Calculate stats
+                const merged = allPRs.filter(pr => pr.merged_at).length;
+                const open = allPRs.filter(pr => pr.state === 'open').length;
+                const closed = allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length;
+                const repoCount = new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`)).size;
+                
+                // Render stats
+                prStats.innerHTML = `
+                    <div class="pr-stat-item"><span class="pr-stat-count">${allPRs.length}</span> Total</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#8250df">${merged}</span> Merged</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#238636">${open}</span> Open</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#da3633">${closed}</span> Closed</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count">${repoCount}</span> Repos</div>
+                `;
+                
+                // Render PR list
+                let html = '';
+                for (const pr of allPRs) {
+                    const isMerged = pr.merged_at;
+                    const isOpen = pr.state === 'open';
+                    const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                    const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
+                    const date = new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                    
+                    html += `
+                        <a href="${pr.html_url}" target="_blank" class="pr-card">
+                            <div class="pr-status ${statusClass}"></div>
+                            <div class="pr-info">
+                                <div class="pr-title-text">${escapeHtml(pr.title)}</div>
+                                <div class="pr-meta">
+                                    <span class="pr-repo-name">${pr.repo_name}</span>
+                                    <span>#${pr.number}</span>
+                                    <span>${date}</span>
+                                    <span>• ${statusText}</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                }
+                
+                prList.innerHTML = html;
+                
+                // Extract unique repos and render skills (languages)
+                const repos = [...new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`))]
+                    .map(r => {
+                        const [owner, repo] = r.split('/');
+                        return { owner, repo };
+                    });
+                renderSkills(repos);
+                
+            } catch (error) {
+                console.error('Error loading PR history:', error);
+                prLoading.style.display = 'none';
+                prList.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
+            }
+        }
+
+        // Load participant data
+        async function loadParticipant() {
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            const id = params.id;
+            
+            console.log('Loading participant:', { list, id });
+            
+            if (!id) {
+                showError('No participant ID specified');
+                return;
+            }
+            
+            try {
+                // Fetch the lists.csv to get the data URL for the list
+                console.log('Fetching lists.csv...');
+                const listsResponse = await fetch('lists.csv');
+                if (!listsResponse.ok) {
+                    throw new Error(`Failed to fetch lists.csv: ${listsResponse.status}`);
+                }
+                const listsText = await listsResponse.text();
+                const lists = parseCSV(listsText);
+                console.log('Lists loaded:', lists.length, 'entries');
+                
+                // Find the list config
+                const listConfig = lists.find(l => l.List === list);
+                console.log('List config:', listConfig);
+                
+                if (!listConfig || !listConfig.URL) {
+                    showError(`List "${list}" not found or has no URL`);
+                    return;
+                }
+                
+                // Fetch the participant data
+                console.log('Fetching data from:', listConfig.URL);
+                const dataResponse = await fetch(listConfig.URL);
+                if (!dataResponse.ok) {
+                    throw new Error(`Failed to fetch data: ${dataResponse.status}`);
+                }
+                const dataText = await dataResponse.text();
+                console.log('Data response length:', dataText.length);
+                
+                // Try to parse as JSON first, then CSV
+                let participants = [];
+                try {
+                    const jsonData = JSON.parse(dataText);
+                    // Handle array or object with data property
+                    participants = Array.isArray(jsonData) ? jsonData : (jsonData.data || jsonData.results || [jsonData]);
+                    console.log('Parsed as JSON:', participants.length, 'records');
+                } catch (e) {
+                    // Not JSON, try CSV
+                    participants = parseCSV(dataText);
+                    console.log('Parsed as CSV:', participants.length, 'records');
+                }
+                
+                if (participants.length === 0) {
+                    showError('No participant data found');
+                    return;
+                }
+                
+                // Log first participant to see structure
+                console.log('First participant:', participants[0]);
+                console.log('Looking for id:', id);
+                
+                // Find the participant by ID (check common ID fields)
+                const idFields = ['id', 'ID', 'Id', 'Name', 'name', 'Email', 'email', 'Title', 'title'];
+                let participant = null;
+                
+                for (const field of idFields) {
+                    participant = participants.find(p => {
+                        const fieldValue = String(p[field] || '').trim();
+                        const searchId = String(id).trim();
+                        return fieldValue.toLowerCase() === searchId.toLowerCase();
+                    });
+                    if (participant) {
+                        console.log('Found participant by field:', field);
+                        break;
+                    }
+                }
+                
+                // Also try matching by row index
+                if (!participant) {
+                    const index = parseInt(id);
+                    if (!isNaN(index) && index >= 0 && index < participants.length) {
+                        participant = participants[index];
+                        console.log('Found participant by index:', index);
+                    }
+                }
+                
+                // Try partial match on Name field
+                if (!participant) {
+                    const searchId = String(id).trim().toLowerCase();
+                    participant = participants.find(p => {
+                        const name = String(p.Name || p.name || '').trim().toLowerCase();
+                        return name.includes(searchId) || searchId.includes(name);
+                    });
+                    if (participant) {
+                        console.log('Found participant by partial name match');
+                    }
+                }
+                
+                if (!participant) {
+                    console.log('Available names:', participants.map(p => p.Name || p.name).slice(0, 10));
+                    showError(`Participant "${id}" not found in ${participants.length} records`);
+                    return;
+                }
+                
+                console.log('Displaying participant:', participant);
+                // Display the participant
+                displayParticipant(participant, listConfig);
+                
+            } catch (error) {
+                console.error('Error loading participant:', error);
+                showError(`Failed to load participant data: ${error.message}`);
+            }
+        }
+
+        // Parse CSV to array of objects
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            // Parse header
+            const headers = parseCSVLine(lines[0]);
+            
+            // Parse data rows
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] || '';
+                });
+                data.push(row);
+            }
+            
+            return data;
+        }
+
+        // Parse a single CSV line (handles quoted values)
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            values.push(current.trim());
+            return values;
+        }
+
+        // Display participant data
+        function displayParticipant(participant, listConfig) {
+            console.log('displayParticipant called with:', participant);
+            console.log('Participant keys:', Object.keys(participant));
+            
+            // Hide loading, show content
+            const loadingState = document.getElementById('loading-state');
+            const mainContent = document.getElementById('main-content');
+            
+            console.log('Before: loading-state display:', loadingState.style.display);
+            console.log('Before: main-content display:', mainContent.style.display);
+            
+            loadingState.style.display = 'none';
+            mainContent.style.display = 'block';
+            
+            console.log('After: loading-state display:', loadingState.style.display);
+            console.log('After: main-content display:', mainContent.style.display);
+            
+            // Get participant name
+            const nameFields = ['Name', 'name', 'Title', 'title'];
+            let name = 'Unknown';
+            for (const field of nameFields) {
+                if (participant[field]) {
+                    name = participant[field];
+                    break;
+                }
+            }
+            
+            // Update page title
+            document.getElementById('participant-name').textContent = name;
+            document.title = `${name} - Participant Profile`;
+            
+            // Extract images from participant data
+            const imagePaths = extractImagePaths(participant);
+            console.log('Image paths:', imagePaths);
+            
+            // Get GitHub username for avatar fallback
+            const githubFields = ['GitUsername', 'gitusername', 'GitHub', 'github', 'GithubUsername', 'githubUsername'];
+            let githubUsername = null;
+            for (const field of githubFields) {
+                if (participant[field] && participant[field].trim()) {
+                    githubUsername = participant[field].trim();
+                    if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                    if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    console.log('Found GitHub username from field:', field, '=', githubUsername);
+                    break;
+                }
+            }
+            
+            // Case-insensitive fallback
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key].trim();
+                            if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                            if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                            console.log('Found GitHub username from case-insensitive field:', key, '=', githubUsername);
+                        }
+                    }
+                });
+            }
+            
+            console.log('GitHub username:', githubUsername);
+            console.log('USER_IDS available:', typeof USER_IDS !== 'undefined');
+            if (typeof USER_IDS !== 'undefined') {
+                console.log('USER_IDS keys sample:', Object.keys(USER_IDS).slice(0, 5));
+            }
+            
+            // Always use GitHub avatar if we have a username
+            if (githubUsername) {
+                const avatarUrl = getGitHubAvatarUrl(githubUsername);
+                console.log('Avatar URL:', avatarUrl);
+                // Add GitHub avatar to the beginning if not already in imagePaths
+                if (!imagePaths.includes(avatarUrl)) {
+                    imagePaths.unshift(avatarUrl);
+                }
+            }
+            
+            renderGallery(imagePaths, name);
+            
+            // Render fields
+            console.log('Rendering fields...');
+            renderFields(participant);
+            
+            // Render GitHub section (this will also trigger skills loading via PR history)
+            console.log('Rendering GitHub...');
+            renderGitHub(participant);
+            
+            console.log('displayParticipant complete');
+        }
+
+        // Show error state
+        function showError(message) {
+            console.error('showError called:', message);
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'flex';
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - starting loadParticipant');
+            console.log('Current hash:', window.location.hash);
+            loadParticipant();
+        });
+        
+        // Re-load if hash changes
+        window.addEventListener('hashchange', function() {
+            console.log('Hash changed:', window.location.hash);
+            loadParticipant();
+        });
+    </script>
+</body>
+</html>
