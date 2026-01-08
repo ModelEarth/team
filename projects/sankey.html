@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contribution Tree</title>
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+
+    <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
+
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shared-styles.css">
+
+    <style>
+        .sankey-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .sankey-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .sankey-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+
+        .sankey-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--accent-blue-dark, #1d4ed8);
+        }
+
+        .sankey-content {
+            padding: 24px;
+        }
+
+        /* Git-style contribution tree */
+        .contribution-tree {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow: hidden;
+            padding: 20px 0;
+            width: 100%;
+        }
+
+        .tree-horizontal {
+            padding: 40px 30px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+            overflow-y: hidden;
+            position: relative;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            min-height: 700px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 120px;
+            min-width: fit-content;
+            width: 100%;
+        }
+
+        /* Custom scrollbar styling */
+        .tree-horizontal::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* SVG Sankey connectors */
+        .tree-svg-connectors {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: visible;
+        }
+
+        .sankey-path {
+            fill: none;
+            stroke-opacity: 0.35;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke-opacity 0.2s ease;
+        }
+
+        .tree-horizontal:hover .sankey-path {
+            stroke-opacity: 0.5;
+        }
+
+        /* Root node - webroot */
+        .tree-node-level1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 18px;
+            background: #2c3e50;
+            color: white;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .tree-node-level1:hover {
+            background: #34495e;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .tree-node-level1 .tree-node-icon {
+            display: none;
+        }
+
+        /* Repository level containers */
+        .tree-repos {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            position: relative;
+            z-index: 1;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-repo-group {
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            gap: 0;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        /* Repository nodes - Level 2 */
+        .tree-node-level2 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 14px;
+            background: #5a6c7d;
+            color: white;
+            border: 1px solid #4a5c6d;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .tree-node-level2::before {
+            display: none;
+        }
+
+        .tree-node-level2:hover {
+            background: #6a7c8d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Tooltip for repo last update */
+        .tree-node-level2::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-node-level2:hover::after {
+            opacity: 1;
+        }
+
+        .tree-node-level2 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level2 .tree-node-label {
+            font-size: 13px;
+            max-width: none;
+            overflow: visible;
+            font-family: inherit;
+        }
+
+        .tree-node-count {
+            font-size: 11px;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            margin-left: 4px;
+            flex-shrink: 0;
+            color: white;
+            font-family: inherit;
+        }
+
+        /* Branches container */
+        .tree-subnodes {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 0;
+            margin-left: 150px;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-subnodes::before {
+            display: none;
+        }
+
+        /* Branch nodes - Level 3 */
+        .tree-node-level3 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #16a085;
+            color: white;
+            border: 1px solid #138d75;
+            border-radius: 4px;
+            font-weight: 400;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: fit-content;
+            max-width: 200px;
+            text-align: center;
+        }
+
+        .tree-node-level3::before {
+            display: none;
+        }
+
+        .tree-node-level3:hover {
+            background: #138d75;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Tooltip for branch last commit */
+        .tree-node-level3::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-node-level3:hover::after {
+            opacity: 1;
+        }
+
+        .tree-node-level3 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level3 .tree-node-label {
+            font-size: 12px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        /* Wrapper for branch and its PRs */
+        .tree-branch-pr-pair {
+            display: flex;
+            flex-direction: row;
+            gap: 100px;
+            align-items: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        /* PR container - Level 4 */
+        .tree-pr-nodes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 0;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        /* PR nodes - Level 4 */
+        .tree-node-level4 {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #2980b9;
+            color: white;
+            border: 1px solid #2471a3;
+            border-radius: 4px;
+            font-size: 11px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin-bottom: 0;
+            flex-shrink: 0;
+        }
+
+        .tree-node-level4::before {
+            display: none;
+        }
+
+        .tree-node-level4:hover {
+            background: #2471a3;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Tooltip for PR details */
+        .tree-node-pr {
+            position: relative;
+            color: white !important;
+        }
+
+        .tree-node-pr::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+        }
+
+        .tree-node-pr:hover::after {
+            opacity: 1;
+        }
+
+        /* Wrapper for PR and its commit nodes */
+        .tree-node-level4-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            position: relative;
+        }
+
+        /* Commits cluster - simple collection of dots to the right of PR */
+        .tree-node-level4-wrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+        }
+
+        .tree-commits-cluster {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Individual commit dot */
+        .tree-commit-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #e67e22;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+            border: 1px solid #d35400;
+            position: relative;
+        }
+
+        .tree-commit-dot:hover {
+            width: 11px;
+            height: 11px;
+            background: #d35400;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Tooltip for commit details */
+        .tree-commit-dot::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #1f2937;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+            font-weight: normal;
+        }
+
+        .tree-commit-dot:hover::after {
+            opacity: 1;
+        }
+
+        /* Change commit colors for open PRs */
+        .tree-node-level4.open ~ .tree-commits-cluster .tree-commit-dot {
+            background: #27ae60;
+            border-color: #229954;
+        }
+
+        .tree-node-level4.open ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #229954;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Change commit colors for merged PRs */
+        .tree-node-level4.merged ~ .tree-commits-cluster .tree-commit-dot {
+            background: #8e7cc3;
+            border-color: #7d6fa3;
+        }
+
+        .tree-node-level4.merged ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #7d6fa3;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Grey out commits for closed PRs */
+        .tree-node-level4.closed ~ .tree-commits-cluster .tree-commit-dot {
+            background: #95a5a6;
+            border-color: #7f8c8d;
+            opacity: 0.6;
+        }
+
+        .tree-node-level4.closed ~ .tree-commits-cluster .tree-commit-dot:hover {
+            background: #7f8c8d;
+            opacity: 0.8;
+        }
+
+        .tree-node-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* PR node colors by status */
+        .tree-node-level4.merged {
+            background: #6f42c1;
+            border-color: #5a32a3;
+        }
+
+        .tree-node-level4.merged:hover {
+            background: #5a32a3;
+        }
+
+        .tree-node-level4.open {
+            background: #1e8449;
+            border-color: #186a3b;
+        }
+
+        .tree-node-level4.open:hover {
+            background: #186a3b;
+        }
+
+        .tree-node-level4.closed {
+            background: #c0392b;
+            border-color: #a93226;
+        }
+
+        .tree-node-level4.closed:hover {
+            background: #a93226;
+        }
+
+        .tree-node-pr.merged {
+            background: transparent;
+        }
+
+        .tree-node-pr.open {
+            background: transparent;
+        }
+
+        .tree-node-pr.closed {
+            background: transparent;
+        }
+
+        .tree-node-pr.merged:hover {
+            background: transparent;
+        }
+
+        .tree-node-pr.open:hover {
+            background: transparent;
+        }
+
+        .tree-node-pr.closed:hover {
+            background: transparent;
+        }
+
+        .tree-node-pr.merged .tree-node-status {
+            background: #8250df;
+        }
+
+        .tree-node-pr.open .tree-node-status {
+            background: #238636;
+        }
+
+        .tree-node-pr.closed .tree-node-status {
+            background: #da3633;
+        }
+
+        /* Legend */
+        .sankey-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            justify-content: center;
+        }
+
+        .sankey-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .sankey-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .sankey-legend-dot.merged { background: #8250df; }
+        .sankey-legend-dot.open { background: #238636; }
+        .sankey-legend-dot.closed { background: #da3633; }
+
+        .pr-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-light);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            padding: 20px;
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: var(--radius-md);
+            color: #c00;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sankey-container">
+        <div class="sankey-card">
+            <div class="sankey-header">
+                <h1>🌳 Contribution Tree</h1>
+                <button class="back-btn" onclick="window.history.back()">
+                    ← Back
+                </button>
+            </div>
+
+            <div class="sankey-content">
+                <div id="loading-state" class="pr-loading" style="display: flex;">
+                    <div class="loading-spinner"></div>
+                    <span>Loading contribution data...</span>
+                </div>
+
+                <div id="error-state" style="display: none;">
+                    <div class="error-message" id="error-message"></div>
+                    <button class="back-btn" onclick="window.history.back()">
+                        ← Back to Participant
+                    </button>
+                </div>
+
+                <div id="main-content" style="display: none;">
+                    <div id="contribution-tree" class="contribution-tree"></div>
+                    <div class="sankey-legend">
+                        <span class="sankey-legend-item"><span class="sankey-legend-dot merged"></span> Merged</span>
+                        <span class="sankey-legend-item"><span class="sankey-legend-dot open"></span> Open</span>
+                        <span class="sankey-legend-item"><span class="sankey-legend-dot closed"></span> Closed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        function getHashParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const pairs = queryString.split('&');
+            for (let pair of pairs) {
+                const [key, value] = pair.split('=');
+                params[key] = decodeURIComponent(value || '');
+            }
+            return params;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Fetch PR details from GitHub API
+        async function fetchPRDetails(owner, repo, prNumber, retries = 3) {
+            try {
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                // Rate limit error - retry
+                if (response.status === 403 && retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return fetchPRDetails(owner, repo, prNumber, retries - 1);
+                }
+                
+                if (response.status === 404 || !response.ok) {
+                    return { branch: null, commits: null };
+                }
+                
+                const data = await response.json();
+                return {
+                    branch: data.head?.ref || null,
+                    commits: data.commits || 0
+                };
+            } catch (error) {
+                console.error('Error fetching PR details:', error);
+                return { branch: null, commits: null };
+            }
+        }
+
+        // Fetch PR details for all PRs and build branch-to-PR cache
+        async function fetchAllPRDetails(prs) {
+            const detailsMap = {};
+            const branchCache = {};  // branch -> [PR numbers]
+            
+            // Initialize all PRs
+            prs.forEach(pr => {
+                detailsMap[pr.html_url] = {
+                    branch: null,
+                    commits: null
+                };
+            });
+            
+            // Fetch ALL PRs to get branch names
+            // We'll batch them to be respectful to the API
+            const batchSize = 10;
+            
+            for (let i = 0; i < prs.length; i += batchSize) {
+                const batch = prs.slice(i, i + batchSize);
+                const promises = batch.map(pr => 
+                    fetchPRDetails(pr.repo_owner, pr.repo_name, pr.number)
+                );
+                
+                const results = await Promise.all(promises);
+                
+                batch.forEach((pr, index) => {
+                    const details = results[index];
+                    detailsMap[pr.html_url].branch = details.branch;
+                    detailsMap[pr.html_url].commits = details.commits;
+
+                    // Build repo-aware branch cache using composite key: owner/repo:branch
+                    if (details.branch) {
+                        const branchKey = `${pr.repo_owner}/${pr.repo_name}:${details.branch}`;
+                        if (!branchCache[branchKey]) {
+                            branchCache[branchKey] = [];
+                        }
+                        branchCache[branchKey].push(pr.number);
+                    }
+                });
+                
+                // Small delay between batches to be respectful
+                if (i + batchSize < prs.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            // Store cache in sessionStorage for reuse
+            sessionStorage.setItem('branchCache', JSON.stringify(branchCache));
+            console.log('Branch-to-PR Map:', branchCache);
+            console.log('PR List:', prs);
+            
+            return detailsMap;
+        }
+
+        // Draw SVG Sankey connector paths
+        function drawTreeConnectors() {
+            const container = document.querySelector('.tree-horizontal');
+            const svg = document.querySelector('.tree-svg-connectors');
+            const root = document.getElementById('tree-root');
+            
+            if (!svg || !root || !container) return;
+            
+            const scrollWidth = container.scrollWidth;
+            const scrollHeight = container.scrollHeight;
+            
+            svg.setAttribute('width', scrollWidth);
+            svg.setAttribute('height', scrollHeight);
+            
+            svg.innerHTML = '';
+            
+            const pathColors = ['#667eea', '#f5576c', '#4facfe', '#43e97b'];
+            let colorIndex = 0;
+            
+            const repoGroups = document.querySelectorAll('.tree-repo-group');
+            
+            let maxPRCount = 1;
+            repoGroups.forEach(repoGroup => {
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                maxPRCount = Math.max(maxPRCount, prNodes.length);
+            });
+            
+            repoGroups.forEach((repoGroup, repoIdx) => {
+                const repoNode = repoGroup.querySelector('.tree-node-level2');
+                const branchesContainer = repoGroup.querySelector('.tree-subnodes');
+                
+                if (!repoNode || !branchesContainer) return;
+                
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                const prCount = prNodes.length;
+                const lineWidth = Math.max(1, Math.min(4, (prCount / maxPRCount) * 4));
+                
+                const repoRect = repoNode.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const repoX = repoRect.left - containerRect.left + container.scrollLeft;
+                const repoCenterY = repoRect.top - containerRect.top + repoRect.height / 2;
+                const repoEndX = repoX + repoRect.width;
+                
+                const rootRect = root.getBoundingClientRect();
+                const rootX = rootRect.left - containerRect.left + container.scrollLeft;
+                const rootCenterY = rootRect.top - containerRect.top + rootRect.height / 2;
+                const rootEndX = rootX + rootRect.width;
+                
+                const rootToRepoPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const color1 = pathColors[colorIndex % pathColors.length];
+                rootToRepoPath.setAttribute('d', `M ${rootEndX} ${rootCenterY} Q ${(rootEndX + repoX) / 2} ${rootCenterY} ${repoX} ${repoCenterY}`);
+                rootToRepoPath.setAttribute('stroke', color1);
+                rootToRepoPath.setAttribute('stroke-width', lineWidth);
+                rootToRepoPath.setAttribute('class', 'sankey-path');
+                svg.appendChild(rootToRepoPath);
+                
+                const branchNodes = branchesContainer.querySelectorAll('.tree-node-level3');
+                const prNodesContainers = branchesContainer.querySelectorAll('.tree-pr-nodes');
+                
+                branchNodes.forEach((branchNode, branchIdx) => {
+                    const branchRect = branchNode.getBoundingClientRect();
+                    const branchX = branchRect.left - containerRect.left + container.scrollLeft;
+                    const branchCenterY = branchRect.top - containerRect.top + branchRect.height / 2;
+                    const branchEndX = branchX + branchRect.width;
+                    
+                    let branchPRCount = 0;
+                    if (branchIdx < prNodesContainers.length) {
+                        branchPRCount = prNodesContainers[branchIdx].querySelectorAll('.tree-node-level4').length;
+                    }
+                    
+                    const branchLineWidth = Math.max(0.5, Math.min(3, (branchPRCount / maxPRCount) * 3));
+                    
+                    const repoToBranchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const color2 = pathColors[(colorIndex + 1) % pathColors.length];
+                    repoToBranchPath.setAttribute('d', `M ${repoEndX} ${repoCenterY} Q ${(repoEndX + branchX) / 2} ${(repoCenterY + branchCenterY) / 2} ${branchX} ${branchCenterY}`);
+                    repoToBranchPath.setAttribute('stroke', color2);
+                    repoToBranchPath.setAttribute('stroke-width', branchLineWidth);
+                    repoToBranchPath.setAttribute('class', 'sankey-path');
+                    svg.appendChild(repoToBranchPath);
+                    
+                    if (branchIdx < prNodesContainers.length) {
+                        const prContainer = prNodesContainers[branchIdx];
+                        const branchPRNodes = prContainer.querySelectorAll('.tree-node-level4');
+                        
+                        if (branchPRNodes.length > 0) {
+                            // Find max commits in this branch for scaling
+                            let maxCommitsInBranch = 1;
+                            const branchPRWrappers = prContainer.querySelectorAll('.tree-node-level4-wrapper');
+                            branchPRWrappers.forEach(wrapper => {
+                                const commitsCluster = wrapper.querySelector('.tree-commits-cluster');
+                                if (commitsCluster) {
+                                    const commits = parseInt(commitsCluster.getAttribute('data-count')) || 0;
+                                    maxCommitsInBranch = Math.max(maxCommitsInBranch, commits);
+                                }
+                            });
+                            
+                            const color3 = pathColors[(colorIndex + 2) % pathColors.length];
+                            
+                            // Draw individual line from branch to each PR, weighted by commits
+                            branchPRNodes.forEach((prNode, prIdx) => {
+                                const prRect = prNode.getBoundingClientRect();
+                                const prX = prRect.left - containerRect.left + container.scrollLeft;
+                                const prCenterY = prRect.top - containerRect.top + prRect.height / 2;
+                                
+                                // Get commit count for this specific PR
+                                const prWrapper = prNode.closest('.tree-node-level4-wrapper');
+                                const commitsCluster = prWrapper ? prWrapper.querySelector('.tree-commits-cluster') : null;
+                                const commits = commitsCluster ? (parseInt(commitsCluster.getAttribute('data-count')) || 0) : 0;
+                                
+                                // Scale line width based on commits in this PR (0.5-2.5)
+                                const prLineWidth = commits === 0 ? 0.5 : Math.max(0.5, Math.min(2.5, (commits / maxCommitsInBranch) * 2.5));
+                                
+                                const branchToPRPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                                branchToPRPath.setAttribute('d', `M ${branchEndX} ${branchCenterY} Q ${(branchEndX + prX) / 2} ${(branchCenterY + prCenterY) / 2} ${prX} ${prCenterY}`);
+                                branchToPRPath.setAttribute('stroke', color3);
+                                branchToPRPath.setAttribute('stroke-width', prLineWidth);
+                                branchToPRPath.setAttribute('class', 'sankey-path');
+                                svg.appendChild(branchToPRPath);
+                            });
+                            
+                            // Draw paths from PR to commits cluster (if any)
+                            branchPRNodes.forEach(prNode => {
+                                const prWrapper = prNode.closest('.tree-node-level4-wrapper');
+                                if (!prWrapper) return;
+                                
+                                const commitsCluster = prWrapper.querySelector('.tree-commits-cluster');
+                                if (!commitsCluster || commitsCluster.children.length === 0) return;
+                                
+                                const prRect = prNode.getBoundingClientRect();
+                                const prX = prRect.right - containerRect.left + container.scrollLeft;
+                                const prCenterY = prRect.top - containerRect.top + prRect.height / 2;
+                                
+                                const clusterRect = commitsCluster.getBoundingClientRect();
+                                const clusterX = clusterRect.left - containerRect.left + container.scrollLeft;
+                                const clusterCenterY = clusterRect.top - containerRect.top + clusterRect.height / 2;
+                                
+                                // Thin line for PR to commits cluster
+                                const commitLineWidth = 0.8;
+                                
+                                const prToCommitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                                const color4 = pathColors[(colorIndex + 3) % pathColors.length];
+                                prToCommitPath.setAttribute('d', `M ${prX} ${prCenterY} Q ${(prX + clusterX) / 2} ${(prCenterY + clusterCenterY) / 2} ${clusterX} ${clusterCenterY}`);
+                                prToCommitPath.setAttribute('stroke', color4);
+                                prToCommitPath.setAttribute('stroke-width', commitLineWidth);
+                                prToCommitPath.setAttribute('class', 'sankey-path');
+                                prToCommitPath.setAttribute('opacity', '0.7');
+                                svg.appendChild(prToCommitPath);
+                            });
+                        }
+                    }
+                });
+                
+                colorIndex++;
+            });
+        }
+
+        // Render contribution tree
+        async function renderContributionTree(prs) {
+            const treeContainer = document.getElementById('contribution-tree');
+            
+            if (!prs || prs.length === 0) {
+                treeContainer.innerHTML = '<div class="pr-loading"><div class="loading-spinner"></div><span>No PRs found</span></div>';
+                return;
+            }
+            
+            treeContainer.innerHTML = '<div class="pr-loading"><div class="loading-spinner"></div><span>Building contribution tree...</span></div>';
+            
+            const detailsMap = await fetchAllPRDetails(prs);
+            
+            const repoGroups = {};
+            prs.forEach(pr => {
+                const repoKey = pr.repo_name;
+                if (!repoGroups[repoKey]) {
+                    repoGroups[repoKey] = [];
+                }
+                const details = detailsMap[pr.html_url] || { branch: null, commits: null };
+                pr.branch = details.branch;
+                pr.commits = details.commits;
+                repoGroups[repoKey].push(pr);
+            });
+            
+            const sortedRepos = Object.entries(repoGroups)
+                .sort((a, b) => b[1].length - a[1].length);
+            
+            let html = `
+                <div class="tree-horizontal">
+                    <svg class="tree-svg-connectors" id="tree-connectors"></svg>
+                    
+                    <div class="tree-node-level1" id="tree-root" onclick="navigateToRepo('webroot')">
+                        <span class="tree-node-icon">📦</span>
+                        <span class="tree-node-label">webroot</span>
+                    </div>
+                    
+                    <div class="tree-repos" id="tree-repos-container">
+            `;
+            
+            sortedRepos.forEach(([repoName, repoPRs]) => {
+                // Calculate last update date from PRs in this repo
+                let lastUpdateDate = null;
+                if (repoPRs.length > 0) {
+                    const dates = repoPRs
+                        .map(pr => new Date(pr.created_at).getTime())
+                        .filter(d => !isNaN(d));
+                    if (dates.length > 0) {
+                        lastUpdateDate = new Date(Math.max(...dates));
+                    }
+                }
+                
+                const lastUpdateText = lastUpdateDate 
+                    ? lastUpdateDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Unknown';
+                const tooltipText = `Last updated: ${lastUpdateText}`;
+                
+                console.log(`Repo ${repoName} (${repoPRs.length} PRs): ${lastUpdateText}`);
+                
+                html += `
+                    <div class="tree-repo-group">
+                        <div class="tree-node-level2" data-repo="${repoName}" onclick="navigateToRepo('${repoName}')" data-tooltip="${tooltipText}">
+                            <svg class="tree-node-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8z"/>
+                            </svg>
+                            <span class="tree-node-label">${repoName}</span>
+                            <span class="tree-node-count">${repoPRs.length}</span>
+                        </div>
+                        
+                        <div class="tree-subnodes">
+                `;
+                
+                const branchGroups = {};
+                repoPRs.forEach(pr => {
+                    const branch = pr.branch || 'Unknown Branch';
+                    if (!branchGroups[branch]) {
+                        branchGroups[branch] = [];
+                    }
+                    branchGroups[branch].push(pr);
+                });
+                
+                const sortedBranches = Object.entries(branchGroups)
+                    .sort((a, b) => b[1].length - a[1].length);
+                
+                sortedBranches.forEach(([branchName, branchPRs]) => {
+                    const shortBranch = branchName.length > 40 ? branchName.substring(0, 40) + '...' : branchName;
+                    
+                    // Calculate last commit date from PRs in this branch
+                    let lastCommitDate = null;
+                    if (branchPRs.length > 0) {
+                        const dates = branchPRs
+                            .map(pr => new Date(pr.created_at).getTime())
+                            .filter(d => !isNaN(d));
+                        if (dates.length > 0) {
+                            lastCommitDate = new Date(Math.max(...dates));
+                        }
+                    }
+                    
+                    const lastCommitText = lastCommitDate 
+                        ? lastCommitDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                        : 'Unknown';
+                    const tooltipText = `Last committed: ${lastCommitText}`;
+                    
+                    console.log(`Branch ${branchName} (${branchPRs.length} PRs): ${lastCommitText}`);
+                    
+                    html += `
+                        <div class="tree-branch-pr-pair">
+                            <div class="tree-node-level3" data-branch="${escapeHtml(branchName)}" data-repo="${repoName}" title="${escapeHtml(branchName)}" data-tooltip="${tooltipText}">
+                                <span class="tree-node-label">${escapeHtml(shortBranch)}</span>
+                                <span class="tree-node-count">${branchPRs.length}</span>
+                            </div>
+                            
+                            <div class="tree-pr-nodes">
+                    `;
+                    
+                    branchPRs.forEach((pr, index) => {
+                        const isMerged = pr.merged_at;
+                        const isOpen = pr.state === 'open';
+                        const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                        const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
+                        const commits = pr.commits || 0;
+                        
+                        // Format date for tooltip
+                        const prDate = new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                        const tooltipText = `${escapeHtml(pr.title)} • ${prDate} • ${statusText}`;
+                        
+                        html += `
+                            <div class="tree-node-level4-wrapper">
+                                <div class="tree-node-level4 ${statusClass}">
+                                    <a href="${pr.html_url}" target="_blank" class="tree-node-pr ${statusClass}" data-tooltip="${tooltipText}">
+                                        <span class="tree-node-status ${statusClass}"></span>
+                                        <span class="tree-node-label">#${pr.number}</span>
+                                    </a>
+                                </div>
+                        `;
+                        
+                        // Add commit dots as a circular bubble cluster positioned to the right
+                        if (commits > 0) {
+                            html += `<div class="tree-commits-cluster" data-count="${commits}" data-pr="${pr.number}" data-repo="${pr.repo_name}" data-owner="${pr.repo_owner}">`;
+                            for (let c = 0; c < commits; c++) {
+                                html += `<div class="tree-commit-dot" data-index="${c}" data-pr="${pr.number}" data-repo="${pr.repo_name}" data-owner="${pr.repo_owner}" onclick="viewCommitChanges('${pr.repo_owner}', '${pr.repo_name}', ${pr.number}, ${c})" style="cursor: pointer;" data-tooltip="Loading..."></div>`;
+                            }
+                            html += `</div>`;
+                        }
+                        
+                        html += `
+                            </div>
+                        `;
+                    });
+                    
+                    // Fetch commit details for all PRs asynchronously
+                    setTimeout(() => {
+                        document.querySelectorAll('.tree-commit-dot').forEach(dot => {
+                            const owner = dot.getAttribute('data-owner');
+                            const repo = dot.getAttribute('data-repo');
+                            const prNumber = dot.getAttribute('data-pr');
+                            const index = parseInt(dot.getAttribute('data-index'));
+                            
+                            fetchCommitDetails(owner, repo, prNumber, index, dot);
+                        });
+                    }, 100);
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            treeContainer.innerHTML = html;
+            
+            setTimeout(() => {
+                drawTreeConnectors();
+                
+                const container = document.querySelector('.tree-horizontal');
+                if (container) {
+                    container.addEventListener('scroll', drawTreeConnectors);
+                    window.addEventListener('resize', drawTreeConnectors);
+                    
+                    if (typeof ResizeObserver !== 'undefined') {
+                        const observer = new ResizeObserver(() => {
+                            drawTreeConnectors();
+                        });
+                        observer.observe(container);
+                    }
+                }
+            }, 100);
+        }
+
+        // Navigate to GitHub repo
+        window.navigateToRepo = function(repoName) {
+            const username = window.githubUsername || 'ModelEarth';
+            if (repoName === 'webroot') {
+                window.open(`https://github.com/${username}/webroot`, '_blank');
+            } else {
+                window.open(`https://github.com/${username}/${repoName}`, '_blank');
+            }
+        };
+
+        // Fetch user PRs from GitHub API
+        async function fetchUserPRsInOrg(username) {
+            try {
+                const url = `https://api.github.com/search/issues?q=author:${encodeURIComponent(username)}+org:ModelEarth+type:pr&per_page=100&sort=created&order=desc`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                if (response.status === 403) {
+                    return { prs: [], rateLimited: true };
+                }
+                if (!response.ok) {
+                    return { prs: [], error: true };
+                }
+                
+                const data = await response.json();
+                const items = data.items || [];
+                
+                return {
+                    prs: items.map(pr => {
+                        const repoMatch = pr.repository_url?.match(/repos\/([^\/]+)\/([^\/]+)$/);
+                        return {
+                            number: pr.number,
+                            title: pr.title,
+                            state: pr.state,
+                            merged_at: pr.pull_request?.merged_at || null,
+                            html_url: pr.html_url,
+                            created_at: pr.created_at,
+                            repo_owner: repoMatch ? repoMatch[1] : 'ModelEarth',
+                            repo_name: repoMatch ? repoMatch[2] : 'unknown'
+                        };
+                    }),
+                    total_count: data.total_count || items.length
+                };
+            } catch (error) {
+                console.error('Error fetching PRs:', error);
+                return { prs: [], error: true };
+            }
+        }
+
+        // Load Sankey diagram
+        async function loadSankey() {
+            const params = getHashParams();
+            const username = params.id;
+            
+            const loadingState = document.getElementById('loading-state');
+            const errorState = document.getElementById('error-state');
+            const mainContent = document.getElementById('main-content');
+            
+            if (!username) {
+                errorState.style.display = 'block';
+                document.getElementById('error-message').textContent = 'No GitHub username provided';
+                loadingState.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const result = await fetchUserPRsInOrg(username);
+                
+                if (result.rateLimited) {
+                    errorState.style.display = 'block';
+                    document.getElementById('error-message').textContent = 'GitHub API rate limit reached. Please try again later.';
+                    loadingState.style.display = 'none';
+                    return;
+                }
+                
+                if (result.error || result.prs.length === 0) {
+                    errorState.style.display = 'block';
+                    document.getElementById('error-message').textContent = 'No pull requests found for this user.';
+                    loadingState.style.display = 'none';
+                    return;
+                }
+                
+                loadingState.style.display = 'none';
+                mainContent.style.display = 'block';
+                
+                await renderContributionTree(result.prs);
+                
+            } catch (error) {
+                console.error('Error loading Sankey:', error);
+                errorState.style.display = 'block';
+                document.getElementById('error-message').textContent = `Error loading data: ${error.message}`;
+                loadingState.style.display = 'none';
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', loadSankey);
+
+        // Function to fetch commit details and update tooltip
+        async function fetchCommitDetails(owner, repo, prNumber, commitIndex, dotElement) {
+            try {
+                // First, fetch PR commits to get the commit SHA
+                const prCommitsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const prCommitsResponse = await fetch(prCommitsUrl, { headers });
+                
+                if (!prCommitsResponse.ok) {
+                    dotElement.setAttribute('data-tooltip', 'Error loading');
+                    return;
+                }
+                
+                const prCommits = await prCommitsResponse.json();
+                
+                if (commitIndex >= prCommits.length) {
+                    dotElement.setAttribute('data-tooltip', 'Commit not found');
+                    return;
+                }
+                
+                const commitSha = prCommits[commitIndex].sha;
+                
+                // Now fetch the full commit details with file information
+                const commitUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`;
+                const commitResponse = await fetch(commitUrl, { headers });
+                
+                if (!commitResponse.ok) {
+                    dotElement.setAttribute('data-tooltip', 'Error loading');
+                    return;
+                }
+                
+                const commit = await commitResponse.json();
+                const filesChanged = commit.files ? commit.files.length : 0;
+                
+                // Calculate total changes (additions + deletions)
+                let totalChanges = 0;
+                if (commit.files) {
+                    commit.files.forEach(file => {
+                        totalChanges += (file.additions || 0) + (file.deletions || 0);
+                    });
+                }
+                
+                const shortSha = commit.sha.substring(0, 7);
+                const tooltipText = `${shortSha} • ${filesChanged} files`;
+                
+                dotElement.setAttribute('data-tooltip', tooltipText);
+                console.log(`Commit ${shortSha}: ${filesChanged} files`);
+                
+            } catch (error) {
+                console.error('Error fetching commit details:', error);
+                dotElement.setAttribute('data-tooltip', 'Error loading');
+            }
+        }
+
+        // Function to view commit changes
+        async function viewCommitChanges(owner, repo, prNumber, commitIndex) {
+            try {
+                // Fetch PR commits to get the specific commit SHA
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                if (!response.ok) {
+                    alert('Failed to fetch commits. Please try again.');
+                    return;
+                }
+                
+                const commits = await response.json();
+                
+                if (commitIndex >= commits.length) {
+                    alert('Commit not found');
+                    return;
+                }
+                
+                const commit = commits[commitIndex];
+                const commitUrl = `https://github.com/${owner}/${repo}/commit/${commit.sha}`;
+                
+                // Open the commit page showing file changes
+                window.open(commitUrl, '_blank');
+                
+            } catch (error) {
+                console.error('Error fetching commits:', error);
+                alert('Error loading commit details. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>
