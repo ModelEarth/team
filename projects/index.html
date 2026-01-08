@@ -7017,7 +7017,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     });
 
                     // Step 2: Merge people.env data only on localhost
-                    const isLocalhost = window.location.hostname === 'model.earth' || window.location.hostname === '127.0.0.1';
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                     if (isLocalhost) {
                         // First, normalize the people.env data to match our column names
                         const peopleEnvResult = await loadUnifiedData('../../community/people.env', {
@@ -7261,7 +7261,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             const emailColumn = headers.find(header => header.toLowerCase() === 'email');
 
             if (!emailColumn) {
-                // Show message about admin mode and community/people.csv file
+                // Show message about admin mode and community/people.env file
                 if (emailContainer) {
                     emailContainer.style.display = 'block';
                     
