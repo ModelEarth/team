@@ -6571,7 +6571,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 data,
                 keyFields,
                 mergeFields,
-                forceCSV = false
+                forceCSV = false,
+                debugLabel = 'External Data'
             } = options;
 
             try {
@@ -6579,6 +6580,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
                 // Load external data from URL or use provided data
                 if (url) {
+                    console.log(`🔄 Merging ${debugLabel} from: ${url}`);
                     const externalResult = await loadUnifiedData(url, {
                         forceCorsProxy: false,
                         API_BASE: GEMINI_API_BASE,
@@ -6591,6 +6593,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
                     externalData = externalResult.data;
                 } else if (data) {
+                    console.log(`🔄 Merging ${debugLabel} (${data.length} rows)`);
                     externalData = data;
                 } else {
                     return { matched: 0 };
@@ -6610,12 +6613,40 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     dataMap.set(key, item);
                 });
 
+                // Log first 5 keys from external data for debugging
+                const externalKeys = Array.from(dataMap.keys()).slice(0, 5);
+                console.log(`🔑 [${debugLabel}] Sample external keys:`, externalKeys);
+
+                // Build alternate key map using Handle instead of Name (if available)
+                const handleDataMap = new Map();
+                if (keyFields.includes('Name')) {
+                    externalData.forEach(item => {
+                        const handle = item['Handle'];
+                        if (handle && handle.trim()) {
+                            // Create alternate key using Handle instead of Name
+                            const altKey = keyFields.map(field => {
+                                if (field === 'Name') {
+                                    return String(handle || '');
+                                }
+                                return String(item[field] || '');
+                            }).join('|').toLowerCase();
+                            handleDataMap.set(altKey, item);
+                        }
+                    });
+                }
+
                 // Merge external data into target data
                 let matchedCount = 0;
+                let unmatchedSamples = [];
 
                 targetData.forEach((row) => {
                     const key = keyFields.map(field => String(row[field] || '')).join('|').toLowerCase();
-                    const externalRow = dataMap.get(key);
+                    let externalRow = dataMap.get(key);
+
+                    // If no match on Name, try matching on Handle
+                    if (!externalRow && handleDataMap.size > 0) {
+                        externalRow = handleDataMap.get(key);
+                    }
 
                     if (externalRow) {
                         // Merge specified fields from external data
@@ -6626,8 +6657,16 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                             }
                         });
                         matchedCount++;
+                    } else if (unmatchedSamples.length < 5) {
+                        // Collect unmatched samples for debugging
+                        unmatchedSamples.push(key);
                     }
                 });
+
+                // Log unmatched samples for debugging
+                if (unmatchedSamples.length > 0) {
+                    console.log(`❌ [${debugLabel}] Sample unmatched target keys:`, unmatchedSamples);
+                }
 
                 return {
                     matched: matchedCount
@@ -7013,12 +7052,15 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     await mergeExternalData(validData, {
                         data: stateCoordinatesData,
                         keyFields: ['Location'],
-                        mergeFields: ['lat', 'lng']
+                        mergeFields: ['lat', 'lng'],
+                        debugLabel: 'State Coordinates'
                     });
 
                     // Step 2: Merge people.env data only on localhost
                     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
                     if (isLocalhost) {
+                        console.log('📂 Loading people.env from ../../community/people.env');
                         // First, normalize the people.env data to match our column names
                         const peopleEnvResult = await loadUnifiedData('../../community/people.env', {
                             forceCorsProxy: false,
@@ -7026,12 +7068,14 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                             forceCSV: true
                         });
 
+
                         if (peopleEnvResult.data && peopleEnvResult.data.length > 0) {
                             // Map people.env columns to match target data columns
                             const normalizedPeopleData = peopleEnvResult.data.map(row => {
                                 // Extract first name from full name for matching
                                 const fullName = row['Name'] || '';
                                 const firstName = fullName.split(' ')[0];
+                                const handle = row['Handle'] || '';
 
                                 return {
                                     ...row,
@@ -7039,14 +7083,18 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                                     'FullName': fullName,
                                     // Use first name for matching (if target data only has first names)
                                     'Name': firstName,
+                                    // Also store Handle for alternate matching
+                                    'Handle': handle,
                                     // Add Location field from "Your Location" if it exists
                                     'Location': row['Your Location'] || row['Location'] || ''
                                 };
                             });
 
-                            await mergeExternalData(validData, {
+
+                            const mergeResult = await mergeExternalData(validData, {
                                 data: normalizedPeopleData,
-                                keyFields: ['Name', 'Location']
+                                keyFields: ['Name', 'Location'],
+                                debugLabel: 'people.env'
                             });
 
                             // After merge, find all rows with blank emails
@@ -7056,9 +7104,16 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                             }).map(row => ({
                                 'Name': row['Name'] || '',
                                 'Location': row['Location'] || '',
-                                'Github': row['Github'] || ''
+                                'Github': row['Github'] || '',
+                                'Discord': row['Discord'] || ''
                             }));
+
+                            console.log(`📧 Merged ${mergeResult.matched}/${validData.length} rows from people.env. ${unmatchedRows.length} still unmatched.`);
+                        } else {
+                            alert('⚠️ people.env data is empty or failed to load');
                         }
+                    } else {
+                        alert('🌐 Not on localhost - skipping people.env merge');
                     }
                 }
 
@@ -7342,12 +7397,13 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                             <strong style="color: var(--text-primary);">No email found in people.env for:</strong>
                             <div style="margin-top: 8px; font-size: 14px;">
-                                <table style="width: 100%; border-collapse: collapse;">
+                                <table id="unmatched-emails-table" style="width: 100%; border-collapse: collapse;">
                                     <thead>
                                         <tr style="background: var(--bg-tertiary);">
                                             <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Name</th>
                                             <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Location</th>
                                             <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Github</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-light);">Discord</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -7356,6 +7412,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                                                 <td style="padding: 6px 8px;">${row.Name || ''}</td>
                                                 <td style="padding: 6px 8px;">${row.Location || ''}</td>
                                                 <td style="padding: 6px 8px;">${row.Github || ''}</td>
+                                                <td style="padding: 6px 8px;">${row.Discord || ''}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
