@@ -1,12 +1,20 @@
-### 🛡️ Run Claude Code CLL
+### 🛡️ Run Claude Code CLI
 
-Inside the claude cmd window, start your local Rust API server by running:
+Inside the claude cmd window, start your local Python HTTP server by running:
 (Maybe you can simply type "Start server")
 
+	../../../desktop/install/quickstart.sh --cli
+
+The above starts the Python HTTP server with server-side execution access in a virtual environment.
+It keeps the server running and is invoked with the --cli flag to skip the Enter keystroke.
+
+<!--
+Previous Rust API server command (commented out):
 	nohup cargo run -- serve > server.log 2>&1 &
 
 The above keeps the server running and also stores logs,
 whereas `cargo run -- serve` doesn't remain running inside the CLI.
+-->
 
 View the website locally at: [localhost:8887/team](http://localhost:8887/team/)
 

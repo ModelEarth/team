@@ -61,19 +61,13 @@ lsof -ti:8081 | xargs kill -9
 **IMPORTANT**: Always check if an HTTP server is already running before attempting to start it. Use `lsof -ti:8887` to check if the HTTP server is running, then only start if needed. This prevents errors and duplicate HTTP server processes. Note: Rust API servers may need to be restarted for code changes.
 
 ### Start HTTP Server
-When you type "start server", first check if server is already running, then start only if needed:
+When you type "start server", run:
 
 ```bash
-# Check if HTTP server is already running on port 8887
-if lsof -ti:8887 > /dev/null 2>&1; then
-  echo "HTTP server already running on port 8887"
-else
-  nohup python -m http.server 8887 > /dev/null 2>&1 &
-  echo "Started HTTP server on port 8887"
-fi
+nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 ```
 
-Note: Uses nohup to run server in background and redirect output to avoid timeout.
+Note: The quickstart.sh script automatically creates a virtual environment in desktop/install/env/, activates it, handles Claude API key configuration, and starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use).
 
 ### Start Rust API Server
 When you type "start rust", first check if server is already running, then start only if needed:
