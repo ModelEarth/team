@@ -67,7 +67,15 @@ When you type "start server", run:
 nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 ```
 
-Note: The quickstart.sh script automatically creates a virtual environment in desktop/install/env/, activates it, handles Claude API key configuration, and starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use).
+**What this command does:**
+The quickstart.sh script automatically:
+- Creates a virtual environment in `desktop/install/env/` if it doesn't exist
+- Activates the virtual environment
+- Checks for Claude API key configuration in `docker/.env`
+- Installs the `anthropic` package if API key is configured
+- Starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use)
+
+**For terminal users:** You do NOT need to manually create or activate a virtual environment before running this command - the script handles it automatically.
 
 ### Start Rust API Server
 When you type "start rust", first check if server is already running, then start only if needed:
