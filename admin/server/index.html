@@ -199,39 +199,8 @@
 
         // Load README content for setup instructions
         function loadWebServerStatus(containerId) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-
-            // Show webserver setup instructions with quickstart.sh commands
-            container.innerHTML = `
-                <h3 style="color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
-                <div class="readme-content">
-                    <p style="color: var(--text-secondary);">
-                        Run a web server within a virtual environment on port 8887:
-                    </p>
-                    <p style="color: var(--text-primary);"><strong>On Macs and Linux:</strong></p>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
-source env/bin/activate
-./desktop/install/quickstart.sh</code></pre>
-                    <p style="color: var(--text-primary);"><strong>On Windows:</strong></p>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
-env\\Scripts\\activate
-./desktop/install/quickstart.sh</code></pre>
-                    <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
-                    <ul style="color: var(--text-secondary); margin-left: 20px;">
-                        <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
-                        <li>Activates the virtual environment</li>
-                        <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
-                        <li>Installs the <code>anthropic</code> package if API key is configured</li>
-                        <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
-                    </ul>
-                    <p style="color: var(--text-primary);"><strong>Alternative (basic HTTP server without server-side Python execution):</strong></p>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
-                    <p style="color: var(--text-secondary); font-size: 14px;">
-                        Note: The basic python server above does not include virtual environment isolation or server-side execution capabilities.
-                    </p>
-                </div>
-            `;
+            // Use shared function from setup.js
+            setupQuickstartInstructions(containerId);
         }
 
         // Show connection help (now displayed as a separate card below)
