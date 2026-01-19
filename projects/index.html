@@ -4094,6 +4094,11 @@
             // Legacy support - keep old variable names for backward compatibility
             geminiInsightsCache = insightsCache.gemini || {};
             claudeInsightsCache = insightsCache.claude || {};
+
+            // Expose caches globally for list.js copy functionality
+            window.aiInsightsCache = insightsCache.gemini || {};
+            window.claudeInsightsCache = insightsCache.claude || {};
+            window.insightsCache = insightsCache;
         }
 
         // Auto-initialize caches when script loads
@@ -5534,6 +5539,9 @@
             }
             return selectedFile || 'unknown';
         }
+
+        // Expose getCurrentCacheKeyForInsights globally for list.js copy functionality
+        window.getCurrentCacheKeyForInsights = getCurrentDataSource;
 
         // Note: Legacy handleClaudeInsightsClick() and handleGeminiInsightsClick() removed
         // Now using generic handleInsightsClick(modelId) defined above
