@@ -1411,11 +1411,12 @@ async function loadUnifiedData(url, options = {}) {
                 // CORS is required for external URLs - use backend proxy
                 console.log('CORS required for external URL - using backend proxy for CSV fetch...');
                 try {
-                    // Use appropriate endpoint based on URL type
-                    const isGoogleSheets = url.includes('docs.google.com/spreadsheets');
-                    const endpoint = isGoogleSheets ? '/proxy/csv' : '/proxy/external';
+                    // Use CSV proxy endpoint for all CSV files (supports both Google Sheets and external URLs)
+                    // Ensure API_BASE includes /api suffix
+                    const apiBase = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
+                    const proxyUrl = `${apiBase}/proxy/csv`;
 
-                    const proxyResponse = await fetch(`${API_BASE}${endpoint}`, {
+                    const proxyResponse = await fetch(proxyUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1433,10 +1434,13 @@ async function loadUnifiedData(url, options = {}) {
                             throw new Error(proxyData.error || 'Backend CSV proxy failed');
                         }
                     } else {
-                        throw new Error('Backend CSV proxy not available');
+                        throw new Error(`Backend CSV proxy returned status ${proxyResponse.status}`);
                     }
                 } catch (proxyError) {
-                    throw new Error(`Rust server not accessible, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
+                    // Ensure API_BASE includes /api suffix for error message
+                    const apiBase = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
+                    const proxyUrl = `${apiBase}/proxy/csv`;
+                    throw new Error(`Rust server not accessible at ${proxyUrl}, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nCSV path attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
                 }
             } else {
                 // No CORS restriction or local file - try direct fetch
