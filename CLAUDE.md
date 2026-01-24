@@ -1,4 +1,4 @@
-# SQL Team - Rust API CLAUDE.md
+# Guidance for Webroot, Python Servers and Rust API
 
 This file provides guidance to Claude Code (claude.ai/code) and other AI CLI processes.
 It applies to both this "team" submodule and its parent webroot and the webroot's other child repos and submodules.
@@ -76,6 +76,58 @@ The quickstart.sh script automatically:
 - Starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use)
 
 **For terminal users:** You do NOT need to manually create or activate a virtual environment before running this command - the script handles it automatically.
+
+### Start HTTP Server (Simple)
+When you type "start http", run:
+
+```bash
+python -m http.server 8887
+```
+
+**What this command does:**
+- Starts a basic Python HTTP server on port 8887
+- Serves static files only (no server-side execution)
+- Simpler alternative to quickstart.sh for basic file serving
+- Blocks the terminal (server stops when you close the terminal or press Ctrl+C)
+
+**Use this when:**
+- You only need to serve static HTML/CSS/JS files
+- You don't need server-side Python execution
+- You want a quick, simple server for development
+
+### Start Data Pipeline Flask Server
+When you type "start pipeline", refer to [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server) for the complete command.
+
+**Quick summary:**
+- Starts Flask server on port 5001 for data pipeline operations
+- Executes data pipeline nodes with automatic Python dependency installation
+- Uses dedicated virtual environment in `data-pipeline/flask/env/`
+- See data-pipeline/AGENTS.md for full implementation details
+
+### Start Flask Server
+When you type "start flask", ask the user which Flask server they want to start:
+
+**Question:** "Which Flask server do you want to start?"
+
+**Options:**
+1. **Data Pipeline** (port 5001) - Execute data pipeline nodes with dependency management
+2. **Cloud Run** (port 8100) - Execute Jupyter notebooks from GitHub for Google Cloud
+3. **Both** - Start both Flask servers
+
+#### Option 1: Data Pipeline Flask Server
+See [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server) for the complete "start pipeline" command.
+
+#### Option 2: Cloud Run Flask Server
+See [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server) for the complete "start cloud" command (which will also ask if you want local development or Google Cloud deployment).
+
+#### Option 3: Both Flask Servers
+Run both commands sequentially:
+1. First execute the data-pipeline Flask server start command (port 5001)
+2. Then execute the cloud run Flask server start command (port 8100)
+
+**Summary:**
+- **Data Pipeline**: Port 5001, executes data pipeline nodes, auto-installs Python dependencies
+- **Cloud Run**: Port 8100, executes Jupyter notebooks from GitHub, cloud deployment ready
 
 ### Start Rust API Server
 When you type "start rust", first check if server is already running, then start only if needed:

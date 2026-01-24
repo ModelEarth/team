@@ -1,12 +1,29 @@
 ### 🛡️ Run Claude Code CLI
 
-Inside the claude cmd window, start your local Python HTTP server by running:
-(Maybe you can simply type "Start server")
+Inside the claude cmd window, start your local Python HTTP server by typing:
 
-	../../../desktop/install/quickstart.sh --cli
+	start server
+
+Or manually run the command from team/CLAUDE.md:
+
+	nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 
 The above starts the Python HTTP server with server-side execution access in a virtual environment.
-It keeps the server running and is invoked with the --cli flag to skip the Enter keystroke.
+It keeps the server running in the background and is invoked with the --cli flag to skip the Enter keystroke.
+
+**Note:** All "start server" commands are defined in [team/CLAUDE.md](../../CLAUDE.md#start-http-server). When updating server start instructions, always update team/CLAUDE.md first.
+
+### Alternative: Simple HTTP Server
+
+For basic static file serving without server-side execution, type:
+
+	start http
+
+Or manually run:
+
+	python -m http.server 8887
+
+This provides a simpler HTTP server that serves static files only. Use "start server" (above) if you need server-side Python execution.
 
 <!--
 Previous Rust API server command (commented out):
