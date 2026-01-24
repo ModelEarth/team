@@ -105,25 +105,54 @@ When you type "start pipeline", refer to [data-pipeline/AGENTS.md](../data-pipel
 - See data-pipeline/AGENTS.md for full implementation details
 
 ### Start Flask Server
-When you type "start flask", ask the user which Flask server they want to start:
+When you type "start flask", first check which servers are running, then ask the user which Flask server they want to start:
+
+**Check server status:**
+```bash
+# Check if data-pipeline Flask is running
+PIPELINE_RUNNING=$(lsof -ti:5001 > /dev/null 2>&1 && echo "yes" || echo "no")
+
+# Check if cloud run Flask is running
+CLOUD_RUNNING=$(lsof -ti:8100 > /dev/null 2>&1 && echo "yes" || echo "no")
+```
 
 **Question:** "Which Flask server do you want to start?"
 
-**Options:**
-1. **Data Pipeline** (port 5001) - Execute data pipeline nodes with dependency management
-2. **Cloud Run** (port 8100) - Execute Jupyter notebooks from GitHub for Google Cloud
-3. **Both** - Start both Flask servers
+**Options (append " - Running" to labels if server is already running):**
+1. **Data Pipeline (port 5001)** [+ " - Running" if $PIPELINE_RUNNING = "yes"] - Execute data pipeline nodes with dependency management
+2. **Cloud Run (port 8100)** [+ " - Running" if $CLOUD_RUNNING = "yes"] - Execute Jupyter notebooks from GitHub for Google Cloud
+3. **Both** - Start/restart both Flask servers
 
 #### Option 1: Data Pipeline Flask Server
-See [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server) for the complete "start pipeline" command.
+If the server is already running (port 5001 in use):
+1. Stop the existing server: `lsof -ti:5001 | xargs kill`
+2. Wait 2 seconds: `sleep 2`
+3. Then start it using the command from [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server)
+
+If the server is not running:
+- Start it using the command from [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server)
 
 #### Option 2: Cloud Run Flask Server
-See [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server) for the complete "start cloud" command (which will also ask if you want local development or Google Cloud deployment).
+If the server is already running (port 8100 in use):
+1. Stop the existing server: `lsof -ti:8100 | xargs kill`
+2. Wait 2 seconds: `sleep 2`
+3. Then proceed with the command from [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server) (which will also ask if you want local development or Google Cloud deployment)
+
+If the server is not running:
+- Proceed with the command from [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server)
 
 #### Option 3: Both Flask Servers
-Run both commands sequentially:
-1. First execute the data-pipeline Flask server start command (port 5001)
-2. Then execute the cloud run Flask server start command (port 8100)
+Check each server and restart if running, start if not:
+
+**For Data Pipeline (port 5001):**
+- If running: Stop with `lsof -ti:5001 | xargs kill`, wait 2 seconds, then start
+- If not running: Start directly
+
+**For Cloud Run (port 8100):**
+- If running: Stop with `lsof -ti:8100 | xargs kill`, wait 2 seconds, then start
+- If not running: Start directly
+
+Execute both start commands sequentially (data-pipeline first, then cloud run).
 
 **Summary:**
 - **Data Pipeline**: Port 5001, executes data pipeline nodes, auto-installs Python dependencies
