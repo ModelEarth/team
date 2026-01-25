@@ -196,9 +196,11 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 When push or pull requests are received, ask the user:
 
 1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
-2. Send the request directly to Github 
+2. Send the request directly to Github
 
 The ./git.sh commands are`./git.sh push` and `./git.sh pull`
+
+**IMPORTANT**: Always navigate to webroot before running git.sh (see Repository Root Navigation section)
 
 ### Push Reporting Guidelines
 
