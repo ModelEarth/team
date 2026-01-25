@@ -195,7 +195,7 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 When push or pull requests are received, ask the user:
 
-1. Handle submodules with error handling using our git.sh script.
+1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
 2. Send the request directly to Github 
 
 The ./git.sh commands are`./git.sh push` and `./git.sh pull`
@@ -217,51 +217,37 @@ When you type "pull" or "pull all" and choose workflow #1 (direct), run this com
 ```
 
 ### Push Commands
-When a user says "push [name]", use the git.sh script:
+When a user says "push [name]" and chooses option 1 (git.sh script):
 
 ```bash
 ./git.sh push [name] [nopr]
 ```
 
 ### Claude-Enhanced Commit Messages
-When Claude Code invokes git.sh push operations, enhanced commit messages should be provided using environment variables:
+When Claude Code invokes git.sh push operations:
 
-#### For ALL push operations:
-1. **Analyze changes in each repository** before invoking git.sh
+1. **Analyze changes** in each repository before invoking git.sh
 2. **Create specific commit messages** for each repository based on its actual changes
 3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format
-4. **ONLY include valid repositories**: webroot, submodules (see Submodule Management section), and site repos (see Site Repositories section)
+4. **ONLY include valid repositories**: webroot, submodules, and site repos
 
+**YAML format example:**
 ```bash
 export CLAUDE_COMMIT_DATA="
-webroot:
-  message: 'Add responsive layout and mobile breakpoints'
-  files: ['team/css/widget.css', 'team/js/map.js', 'localsite/js/localsite.js']
-team:
-  message: 'Fix git.sh submodule detection, prevent temp repo commits'
-  files: ['git.sh']
-localsite:
-  message: 'Add callback validation, fix scroll notification timing'
-  files: ['js/localsite.js', 'js/embed.js']
-community:
-  message: 'Update community engagement metrics dashboard'
-  files: ['dashboard.html', 'metrics.js']
+the-repo-name:
+  message: 'Custom message for commit.'
+  files: ['css/file.css']
 "
+```
 
-# Examples of different push commands:
+**Push command examples:**
+```bash
 ./git.sh push
 ./git.sh push all
 ./git.sh push team
 ./git.sh push webroot
 ./git.sh push localsite
 ```
-
-#### Valid Repository Names for CLAUDE_COMMIT_DATA:
-- **Webroot**: webroot
-- **Submodules**: Defined in `.gitmodules` file (see Submodule Management section)
-- **Site Repos**: Defined in `.siterepos` file (see Site Repositories section)
-
-**DO NOT include new directories added to the webroot that are not listed in the Submodules or Site Repos**
 
 #### Commit Message Requirements:
 - **Repository-specific**: Each commit message describes only that repository's changes
