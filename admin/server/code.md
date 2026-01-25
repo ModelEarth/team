@@ -4,14 +4,14 @@ Inside the claude cmd window, start your local Python HTTP server by typing:
 
 	start server
 
-Or manually run the command from team/CLAUDE.md:
+Or manually run the command from team/AGENTS.md:
 
 	nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 
 The above starts the Python HTTP server with server-side execution access in a virtual environment.
 It keeps the server running in the background and is invoked with the --cli flag to skip the Enter keystroke.
 
-**Note:** All "start server" commands are defined in [team/CLAUDE.md](../../CLAUDE.md#start-http-server). When updating server start instructions, always update team/CLAUDE.md first.
+**Note:** All "start server" commands are defined in [team/AGENTS.md](../../AGENTS.md#start-http-server). When updating server start instructions, always update team/AGENTS.md first.
 
 ### Alternative: Simple HTTP Server
 
