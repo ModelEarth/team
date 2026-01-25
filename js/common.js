@@ -89,6 +89,26 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
         }
         
         createOSDetectionPanel('os-detection-container');
+
+        // Add AGENTS guidance note inside the OS panel when rendering in commonSetupDiv
+        if (contentDiv.id === 'commonSetupDiv' && !document.getElementById('agents-guidance-note')) {
+            const panel = osContainer.querySelector('#os-detection-panel');
+            if (panel) {
+                const noteText = document.createElement('div');
+                noteText.textContent = 'IMPORTANT: Run to inform your Code CLI where to find guidance.';
+                noteText.style.marginTop = '12px';
+                noteText.style.marginBottom = '0';
+                panel.appendChild(noteText);
+
+                const note = document.createElement('pre');
+                note.id = 'agents-guidance-note';
+                note.style.marginTop = '0';
+                const code = document.createElement('code');
+                code.textContent = 'Review and follow AGENTS.md files in the root, localsite, and team';
+                note.appendChild(code);
+                panel.appendChild(note);
+            }
+        }
     }
     
     // Check if DOM is already loaded
