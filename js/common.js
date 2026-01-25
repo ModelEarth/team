@@ -802,7 +802,7 @@ gemini</code></pre>`;
             // Check if "Already installed" radio button is selected
             const alreadyInstalledRadio = document.querySelector('input[name="claude-install-status"][value="already"]');
             const isAlreadyInstalled = alreadyInstalledRadio && alreadyInstalledRadio.checked;
-            const claudeCmd = isAlreadyInstalled ? 'claude  # Use your installed version directly' : 'npx @anthropic-ai/claude-code';
+            const claudeCmd = isAlreadyInstalled ? 'claude' : 'npx @anthropic-ai/claude-code';
 
             if (selectedOS === 'Mac' || selectedOS === 'Linux') {
                 newContent = `<pre><code>python3 -m venv env
