@@ -157,16 +157,16 @@
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
                         Webserver setup instructions and commands:
                     </p>
-                    <div id="claude-webserver-status"></div>
+                    <div id="webserver-status"></div>
                     <button class="btn btn-secondary" onclick="updateWebServerPanel()" style="margin-top: 16px;">
                         ← Back to Status
                     </button>
                 </div>
             `;
-            
+
             // Load webserver status content
             setTimeout(() => {
-                loadWebServerStatus("claude-webserver-status");
+                loadWebServerStatus("webserver-status");
             }, 100);
         }
 
@@ -199,24 +199,8 @@
 
         // Load README content for setup instructions
         function loadWebServerStatus(containerId) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            // Always show README content for local setup (web server status is now in its own panel)
-            const readmeId = `${containerId}-readme`;
-            container.innerHTML = `
-                <h3 style="margin-bottom: 16px; color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
-                <div id="${readmeId}" class="readme-content">
-                    <p style="color: var(--text-secondary); font-style: italic;">
-                        Loading README.md...
-                    </p>
-                </div>
-            `;
-            
-            // Load README content
-            setTimeout(() => {
-                displayFile("../README.md", readmeId, "_parent", null, false);
-            }, 50);
+            // Use shared function from setup.js
+            setupQuickstartInstructions(containerId);
         }
 
         // Show connection help (now displayed as a separate card below)

@@ -89,6 +89,26 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
         }
         
         createOSDetectionPanel('os-detection-container');
+
+        // Add AGENTS guidance note inside the OS panel when rendering in commonSetupDiv
+        if (contentDiv.id === 'commonSetupDiv' && !document.getElementById('agents-guidance-note')) {
+            const panel = osContainer.querySelector('#os-detection-panel');
+            if (panel) {
+                const noteText = document.createElement('div');
+                noteText.textContent = 'IMPORTANT: Run to inform your Code CLI where to find guidance.';
+                noteText.style.marginTop = '12px';
+                noteText.style.marginBottom = '0';
+                panel.appendChild(noteText);
+
+                const note = document.createElement('pre');
+                note.id = 'agents-guidance-note';
+                note.style.marginTop = '0';
+                const code = document.createElement('code');
+                code.textContent = 'Review and follow AGENTS.md files in the root, localsite, and team';
+                note.appendChild(code);
+                panel.appendChild(note);
+            }
+        }
     }
     
     // Check if DOM is already loaded
@@ -791,7 +811,7 @@ gemini</code></pre>`;
             // Check if "Already installed" radio button is selected
             const alreadyInstalledRadio = document.querySelector('input[name="claude-install-status"][value="already"]');
             const isAlreadyInstalled = alreadyInstalledRadio && alreadyInstalledRadio.checked;
-            const claudeCmd = isAlreadyInstalled ? 'claude  # Use your installed version directly' : 'npx @anthropic-ai/claude-code';
+            const claudeCmd = isAlreadyInstalled ? 'claude' : 'npx @anthropic-ai/claude-code';
 
             if (selectedOS === 'Mac' || selectedOS === 'Linux') {
                 newContent = `<pre><code>python3 -m venv env

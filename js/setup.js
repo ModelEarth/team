@@ -31,7 +31,7 @@ function createWebrootSetupHTML() {
         : 'https://github.com/modelearth/webroot/';
     
     return `
-      <h1 class="card-title">Webroot setup</h1>
+      <a href="/team/admin/">Partner Tools</a><h1 class="card-title">Webroot setup</h1>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
@@ -571,3 +571,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Shared function to setup quickstart instructions
+// Used by both root index.html and team/admin/server/index.html
+function setupQuickstartInstructions(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = `
+        <h3 style="color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
+        <div class="readme-content">
+            <p style="color: var(--text-secondary);">
+                Using Claude Code CLI, start a web server (and python backend) within a virtual environment on port 8887:
+            </p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server</code></pre>
+            <p style="color: var(--text-secondary);">
+                The "start server" command runs ./desktop/install/quickstart.sh which creates a virtual environment in desktop/install/env/<!-- if it doesn't exist-->, and starts a HTTP server with server-side Python access.
+            </p>
+            <p style="color: var(--text-primary);"><strong>Or run without Claude Code CLI:</strong></p>
+            <p style="color: var(--text-primary);">On Macs and Linux:</p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
+source env/bin/activate
+./desktop/install/quickstart.sh</code></pre>
+            <p style="color: var(--text-primary);">On Windows:</p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
+env\\Scripts\\activate
+./desktop/install/quickstart.sh</code></pre>
+            <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
+            <ul style="color: var(--text-secondary); margin-left: 20px;">
+                <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
+                <li>Activates the virtual environment</li>
+                <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+                <li>Installs the <code>anthropic</code> package if API key is present</li>
+                <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
+            </ul>
+            <p style="color: var(--text-primary);"><strong>Alternative (basic HTTP server without server-side Python execution):</strong></p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
+            <p style="color: var(--text-secondary); font-size: 14px;">
+                Note: The basic http.server above does not include server-side python capabilities.
+            </p>
+        </div>
+    `;
+}

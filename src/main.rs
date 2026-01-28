@@ -1381,12 +1381,12 @@ async fn save_member_data(req: web::Json<GoogleSheetsMemberRequest>) -> Result<H
 // Fetch CSV data from external URL (proxy for CORS)
 async fn fetch_csv(req: web::Json<FetchCsvRequest>) -> Result<HttpResponse> {
     let url = &req.url;
-    
-    // Validate URL is from Google Sheets
-    if !url.contains("docs.google.com/spreadsheets") {
+
+    // Validate URL uses HTTPS for security
+    if !url.starts_with("https://") && !url.starts_with("http://") {
         return Ok(HttpResponse::BadRequest().json(json!({
             "success": false,
-            "error": "Only Google Sheets URLs are allowed"
+            "error": "Invalid URL protocol - must be HTTP or HTTPS"
         })));
     }
     

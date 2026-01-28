@@ -1,4 +1,4 @@
-# SQL Team - Rust API CLAUDE.md
+# Guidance for Webroot, Python Servers and Rust API
 
 This file provides guidance to Claude Code (claude.ai/code) and other AI CLI processes.
 It applies to both this "team" submodule and its parent webroot and the webroot's other child repos and submodules.
@@ -58,22 +58,107 @@ lsof -ti:8081 | xargs kill -9
 
 ## Server Management
 
+**Local hostnames**: For local servers, use `localhost` and avoid using `127.0.0.1` or other IP addresses.
+
 **IMPORTANT**: Always check if an HTTP server is already running before attempting to start it. Use `lsof -ti:8887` to check if the HTTP server is running, then only start if needed. This prevents errors and duplicate HTTP server processes. Note: Rust API servers may need to be restarted for code changes.
 
 ### Start HTTP Server
-When you type "start server", first check if server is already running, then start only if needed:
+When you type "start server", run:
 
 ```bash
-# Check if HTTP server is already running on port 8887
-if lsof -ti:8887 > /dev/null 2>&1; then
-  echo "HTTP server already running on port 8887"
-else
-  nohup python -m http.server 8887 > /dev/null 2>&1 &
-  echo "Started HTTP server on port 8887"
-fi
+nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 ```
 
-Note: Uses nohup to run server in background and redirect output to avoid timeout.
+**What this command does:**
+The quickstart.sh script automatically:
+- Creates a virtual environment in `desktop/install/env/` if it doesn't exist
+- Activates the virtual environment
+- Checks for Claude API key configuration in `docker/.env`
+- Installs the `anthropic` package if API key is configured
+- Starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use)
+
+**For terminal users:** You do NOT need to manually create or activate a virtual environment before running this command - the script handles it automatically.
+
+### Start HTTP Server (Simple)
+When you type "start http", run:
+
+```bash
+python -m http.server 8887
+```
+
+**What this command does:**
+- Starts a basic Python HTTP server on port 8887
+- Serves static files only (no server-side execution)
+- Simpler alternative to quickstart.sh for basic file serving
+- Blocks the terminal (server stops when you close the terminal or press Ctrl+C)
+
+**Use this when:**
+- You only need to serve static HTML/CSS/JS files
+- You don't need server-side Python execution
+- You want a quick, simple server for development
+
+### Start Data Pipeline Flask Server
+When you type "start pipeline", refer to [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server) for the complete command.
+
+**Quick summary:**
+- Starts Flask server on port 5001 for data pipeline operations
+- Executes data pipeline nodes with automatic Python dependency installation
+- Uses dedicated virtual environment in `data-pipeline/flask/env/`
+- See data-pipeline/AGENTS.md for full implementation details
+
+### Start Flask Server
+When you type "start flask", first check which servers are running, then ask the user which Flask server they want to start:
+
+**Check server status:**
+```bash
+# Check if data-pipeline Flask is running
+PIPELINE_RUNNING=$(lsof -ti:5001 > /dev/null 2>&1 && echo "yes" || echo "no")
+
+# Check if cloud run Flask is running
+CLOUD_RUNNING=$(lsof -ti:8100 > /dev/null 2>&1 && echo "yes" || echo "no")
+```
+
+**Question:** "Which Flask server do you want to start?"
+
+**Options (append " - Running" to labels if server is already running):**
+1. **Data Pipeline (port 5001)** [+ " - Running" if $PIPELINE_RUNNING = "yes"] - Execute data pipeline nodes with dependency management
+2. **Cloud Run (port 8100)** [+ " - Running" if $CLOUD_RUNNING = "yes"] - Execute Jupyter notebooks from GitHub for Google Cloud
+3. **Both** - Start/restart both Flask servers
+
+#### Option 1: Data Pipeline Flask Server
+If the server is already running (port 5001 in use):
+1. Stop the existing server: `lsof -ti:5001 | xargs kill`
+2. Wait 2 seconds: `sleep 2`
+3. Then start it using the command from [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server)
+
+If the server is not running:
+- Start it using the command from [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md#start-data-pipeline-flask-server)
+
+#### Option 2: Cloud Run Flask Server
+If the server is already running (port 8100 in use):
+1. Stop the existing server: `lsof -ti:8100 | xargs kill`
+2. Wait 2 seconds: `sleep 2`
+3. Then proceed with the command from [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server) (which will also ask if you want local development or Google Cloud deployment)
+
+If the server is not running:
+- Proceed with the command from [cloud/AGENTS.md](../cloud/AGENTS.md#start-cloud-flask-server)
+
+#### Option 3: Both Flask Servers
+Check each server and restart if running, start if not:
+
+**For Data Pipeline (port 5001):**
+- If running: Stop with `lsof -ti:5001 | xargs kill`, wait 2 seconds, then start
+- If not running: Start directly
+
+**For Cloud Run (port 8100):**
+- If running: Stop with `lsof -ti:8100 | xargs kill`, wait 2 seconds, then start
+- If not running: Start directly
+
+Execute both start commands sequentially (data-pipeline first, then cloud run).
+
+**Summary:**
+- **Data Pipeline**: Port 5001, executes data pipeline nodes, auto-installs Python dependencies
+- **Cloud Run**: Port 8100, executes Jupyter notebooks from GitHub, cloud deployment ready
 
 ### Start Rust API Server
 When you type "start rust", first check if server is already running, then start only if needed:
@@ -105,97 +190,66 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 ## Git Workflow
 
 ### IMPORTANT: Git Commit Policy
-**NEVER commit changes without an explicit user request starting with push or sync.** 
 
-- Only run git commands (add, commit, push) when the user specifically says "push" or directly requests it
-- After making code changes, STOP and wait for user instruction
-- Build and test changes as needed, but do not commit automatically
-- The user controls when changes are committed to the repository
+**NEVER add Claude Code attribution or co-authored-by lines to commits**
 
-### Git Command Guidelines
-- **Always Use git.sh**: When receiving "push" and "pull" requests, always use `./git.sh push` and `./git.sh pull` to avoid approval prompts
-- **Avoid Direct Git Commands**: Do not use individual git commands like `git add`, `git commit`, `git push` for these operations
-- **Automatic Workflow**: The git.sh script handles the complete workflow including submodules, remotes, and error handling automatically
+When push or pull requests are received, ask the user:
 
-### Git Commit Guidelines
-- **NEVER add Claude Code attribution or co-authored-by lines to commits**
-- **NEVER add "🤖 Generated with [Claude Code]" or similar footers**
-- Keep commit messages clean and focused on the actual changes
-- Include a brief summary of changes in the commit text
+1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
+2. Send the request directly to Github
+
+The ./git.sh commands are`./git.sh push` and `./git.sh pull`
+
+**IMPORTANT**: Always navigate to webroot before running git.sh (see Repository Root Navigation section)
 
 ### Push Reporting Guidelines
+
+- In either push (git.sh or direct), include commit/PR info
+- Keep commit messages clean and focused on the actual changes
 - **ONLY report what was pushed in the current push operation**
 - Do NOT describe or reference previous commits or earlier implementations
 - Focus on the specific files and changes that were just committed
 - Keep push summaries factual and limited to the immediate operation
 
 ### Pull / Pull All
-When you type "pull" or "pull all", run this comprehensive pull workflow that pulls from all parent repos, submodules and industry repos:
+When you type "pull" or "pull all" and choose workflow #1 (direct), run this comprehensive pull workflow that pulls from all parent repos, submodules and industry repos:
 
 ```bash
 ./git.sh pull
 ```
 
-**Legacy Support**: If the user types "update", inform them to use "pull" or "pull all" instead:
-
-*"Please use 'pull' or 'pull all' instead of 'update'. Examples:*
-- *pull - Pull all changes from webroot, submodules, and industry repos*
-- *pull localsite - Pull changes for localsite submodule only*
-- *pull webroot - Pull changes for webroot only"*
-
 ### Push Commands
-When a user says "push [name]", use the git.sh script:
+When a user says "push [name]" and chooses option 1 (git.sh script):
 
 ```bash
 ./git.sh push [name] [nopr]
 ```
 
-**Legacy Support**: If the user says "commit [name]", inform them to use "push [name]" instead:
-
-*"Please use 'push [name]' instead of 'commit [name]'. Examples:*
-- *push localsite - Push changes for localsite submodule*
-- *push webroot - Push changes for webroot only*
-- *push all - Push all repositories with changes"*
-
 ### Claude-Enhanced Commit Messages
-When Claude Code invokes git.sh push operations, enhanced commit messages should be provided using environment variables:
+When Claude Code invokes git.sh push operations:
 
-#### For ALL push operations:
-1. **Analyze changes in each repository** before invoking git.sh
+1. **Analyze changes** in each repository before invoking git.sh
 2. **Create specific commit messages** for each repository based on its actual changes
 3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format
-4. **ONLY include valid repositories**: webroot, submodules (see Submodule Management section), and site repos (see Site Repositories section)
+4. **ONLY include valid repositories**: webroot, submodules, and site repos
 
+**YAML format example:**
 ```bash
 export CLAUDE_COMMIT_DATA="
-webroot:
-  message: 'Add responsive layout and mobile breakpoints'
-  files: ['team/css/widget.css', 'team/js/map.js', 'localsite/js/localsite.js']
-team:
-  message: 'Fix git.sh submodule detection, prevent temp repo commits'
-  files: ['git.sh']
-localsite:
-  message: 'Add callback validation, fix scroll notification timing'
-  files: ['js/localsite.js', 'js/embed.js']
-community:
-  message: 'Update community engagement metrics dashboard'
-  files: ['dashboard.html', 'metrics.js']
+the-repo-name:
+  message: 'Custom message for commit.'
+  files: ['css/file.css']
 "
+```
 
-# Examples of different push commands:
+**Push command examples:**
+```bash
 ./git.sh push
 ./git.sh push all
 ./git.sh push team
 ./git.sh push webroot
 ./git.sh push localsite
 ```
-
-#### Valid Repository Names for CLAUDE_COMMIT_DATA:
-- **Webroot**: webroot
-- **Submodules**: Defined in `.gitmodules` file (see Submodule Management section)
-- **Site Repos**: Defined in `.siterepos` file (see Site Repositories section)
-
-**DO NOT include new directories added to the webroot that are not listed in the Submodules or Site Repos**
 
 #### Commit Message Requirements:
 - **Repository-specific**: Each commit message describes only that repository's changes
@@ -238,7 +292,7 @@ When you switch GitHub accounts, the script will:
 
 ## Submodule Management
 
-This repository contains the following git submodules configured in `.gitmodules`:
+This repository contains git submodules configured in `.gitmodules` including:
 - **localsite** - https://github.com/ModelEarth/localsite
 - **feed** - https://github.com/modelearth/feed  
 - **swiper** - https://github.com/modelearth/swiper
@@ -297,62 +351,10 @@ Site repositories are used for specialized functionality and are cloned to the w
 
 ## Development Standards
 
-### HTML File Standards
-**UTF-8 Character Encoding**: Always include `<meta charset="UTF-8">` in the `<head>` section of new HTML pages to ensure proper character rendering and prevent display issues with special characters.
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <!-- other meta tags and content -->
-</head>
-```
-
-**Exceptions**: Do not add charset declarations to redirect pages or template fragments that are included in other pages, as they inherit encoding from their parent documents.
-
-### DOM Element Waiting
-- **NEVER use setTimeout() for waiting for DOM elements**
-- **ALWAYS use waitForElm(selector)** from localsite/js/localsite.js instead
-- Check if localsite/js/localsite.js is included in the page before using waitForElm
-- If not included, ask user if localsite/js/localsite.js should be added to the page
-- Example: `waitForElm('#element-id').then(() => { /* code */ });`
-- waitForElm does not use timeouts and waits indefinitely until element appears
-
-### Hash Management and URL State
-Use these functions from localsite/js/localsite.js for hash-based state management:
-
-#### Hash Reading and Manipulation
-- **getHash()**: Returns hash parameters as an object
-  ```javascript
-  const hash = getHash(); // Returns {param1: 'value1', param2: 'value2'}
-  ```
-
-- **goHash(object)**: Updates hash with new parameters and triggers hashChangeEvent
-  ```javascript
-  goHash({'team': 'Marketing', 'view': 'list'}); // Triggers hash change event
-  ```
-
-- **updateHash(object)**: Updates hash without triggering hashChangeEvent
-  ```javascript  
-  updateHash({'team': 'Marketing'}); // Silent hash update, no event fired
-  ```
-
-#### Hash Change Listening
-- **hashChangeEvent**: Custom event that fires when hash changes via goHash() and when URL hash is changed directly by the user.
-- **Use on multiple page**: Allows multiple widgets in a page to independently responde to changing URL hash values.
-  ```javascript
-  document.addEventListener('hashChangeEvent', function (elem) {
-      const hash = getHash();
-      // Handle hash changes
-  });
-  ```
-
-#### When to Use Each Function
-- **Use goHash()**: When you want other components to react to hash changes
-- **Use updateHash()**: When you want to update the hash without triggering reactions
-- **Use hashChangeEvent**: To listen for hash changes triggered by goHash()
-- **Always check function existence**: `if (typeof getHash === 'function')`
+Unless instructed otherwise, create generic processes that are reusable using generic terms. 
+Generic term examples in use: geoDataset and jsonList.
+Transition away from the term "participants" to use "list" and other generic terms for any type of dataset.
+The term "stream" will be used for a wide variety of parameter objects, including the variables from parameters.yaml which define feature datasets and a target dataset.
 
 ### Navigation Guidelines
 - **Directory Restrictions**: If the user requests `cd ../`, first check if you are already in the webroot. If so, ignore the request so errors do not appear.
@@ -387,6 +389,9 @@ When you type "confirm" or "less quick", remove it:
 ## Project Vision & Requirements
 
 This is a **project posting, assignment and to-do tracking system** - an all-in-one partner tool for managing public-facing listings with searchable directories. The system enables collaboration between teams, organizations and clients to share opportunities, handle proposals, assign projects, and track progress.
+
+Commons Database SQL schema overview:
+- `/profile/crm`
 
 ### Core Features Required
 1. **Project Management**: Post activities, join projects, track progress

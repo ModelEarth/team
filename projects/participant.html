@@ -1,0 +1,2461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participant Profile</title>
+    <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
+
+    <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
+
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shared-styles.css">
+    
+    <!-- Load GitHub User IDs mapping -->
+    <script src="github-user-ids.js"></script>
+
+    <style>
+        .participant-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .participant-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .participant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+
+        .participant-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sankey-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            height: auto;
+            padding: 0;
+            background: none;
+            color: inherit;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 20px;
+            transition: transform 0.2s ease;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+
+        .sankey-link:hover {
+            background: none;
+            transform: scale(1.15);
+        }
+
+        .sankey-link:active {
+            transform: scale(0.95);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--accent-blue-dark, #1d4ed8);
+        }
+
+        .participant-content {
+            padding: 24px;
+        }
+
+        /* Two-column layout: Image left, Details right */
+        .participant-profile-layout {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .participant-profile-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .participant-profile-right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .participant-profile-layout {
+                flex-direction: column;
+            }
+        }
+
+        /* Image Gallery */
+        .participant-gallery {
+            margin-bottom: 0;
+        }
+
+        .gallery-main-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+        }
+
+        .gallery-thumbnails {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .gallery-thumbnail {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s ease;
+        }
+
+        .gallery-thumbnail:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .gallery-thumbnail.active {
+            border-color: var(--accent-blue);
+        }
+
+        .no-image-placeholder {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Fields Grid */
+        .participant-fields {
+            margin-bottom: 0;
+        }
+
+        .location-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .location-icon {
+            width: 18px;
+            height: 18px;
+            color: var(--accent-blue);
+            flex-shrink: 0;
+        }
+
+        .field-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .field-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .field-value {
+            font-size: 15px;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .field-value a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .field-value a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading State */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-light);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Skills Section (in right panel) */
+        .skills-section-inline {
+            padding: 0;
+        }
+
+        .skills-section-inline h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Skills Stacked Bar */
+        .skills-stacked-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .skills-bar-container {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+        }
+
+        .skill-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            position: relative;
+            cursor: default;
+            transition: opacity 0.2s;
+        }
+
+        .skill-segment:hover {
+            opacity: 0.85;
+        }
+
+        .skill-segment-label {
+            font-size: 10px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 4px;
+        }
+
+        .skills-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+
+        .skill-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .skill-legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Projects Section (for PR history) */
+        .projects-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .projects-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .project-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .project-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+
+        .project-tag:hover {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        /* GitHub Section (in right panel) */
+        .github-section {
+            margin-top: 0;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .github-icon {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .github-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        /* PR History Section */
+        .pr-history-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .pr-history-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .pr-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pr-loading .loading-spinner {
+            width: 20px;
+            height: 20px;
+            margin-bottom: 0;
+        }
+
+        .pr-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .pr-stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .pr-stat-count {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .pr-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pr-card {
+            display: flex;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            gap: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pr-card:hover {
+            border-color: var(--accent-blue);
+            background: var(--bg-tertiary);
+        }
+
+        .pr-status {
+            flex-shrink: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 5px;
+        }
+
+        .pr-status.merged { background: #8250df; }
+        .pr-status.open { background: #238636; }
+        .pr-status.closed { background: #da3633; }
+
+        .pr-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pr-title-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .pr-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .pr-repo-name {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .pr-empty, .pr-error {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pr-error {
+            color: #dc2626;
+            background: #fef2f2;
+            border-radius: var(--radius-md);
+        }
+
+        /* Contribution Sankey Tree */
+        .sankey-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .sankey-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .sankey-container {
+            position: relative;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+
+        .sankey-tree {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            min-width: fit-content;
+        }
+
+        .sankey-column {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+
+        .sankey-column-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .sankey-node {
+            position: relative;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: default;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sankey-node:hover {
+            transform: translateX(2px);
+        }
+
+        .sankey-node.root {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .sankey-node.repo {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .sankey-node.branch {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+            font-size: 11px;
+            padding: 5px 10px;
+        }
+
+        .sankey-node.pr {
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+        }
+
+        .sankey-node.pr.merged {
+            background: #f3e8ff;
+            border: 1px solid #c4b5fd;
+            color: #6b21a8;
+        }
+
+        .sankey-node.pr.open {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .sankey-node.pr.closed {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .sankey-node.commit {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 10px;
+            padding: 3px 8px;
+            font-family: monospace;
+        }
+
+        .sankey-connector {
+            position: relative;
+            width: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .sankey-line {
+            position: absolute;
+            height: 2px;
+            background: var(--border-light);
+            left: 0;
+            right: 0;
+        }
+
+        .sankey-branch-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin: 2px 0;
+        }
+
+        .sankey-repo-group {
+            display: flex;
+            align-items: flex-start;
+            margin: 8px 0;
+        }
+
+        .sankey-repo-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sankey-pr-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sankey-flow-line {
+            width: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--border-light), transparent);
+        }
+
+        .sankey-vertical-line {
+            width: 2px;
+            background: var(--border-light);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .sankey-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        .sankey-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .sankey-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .sankey-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .sankey-legend-dot.merged { background: #8250df; }
+        .sankey-legend-dot.open { background: #238636; }
+        .sankey-legend-dot.closed { background: #da3633; }
+
+        /* Git-style contribution tree */
+        .contribution-tree {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow: hidden;
+            padding: 20px 0;
+            width: 100%;
+        }
+
+        .tree-horizontal {
+            padding: 40px 30px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+            overflow-y: hidden;
+            position: relative;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            min-height: 700px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 120px;
+            min-width: fit-content;
+            width: 100%;
+        }
+
+        /* Custom scrollbar styling */
+        .tree-horizontal::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+
+        .tree-horizontal::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* SVG Sankey connectors */
+        .tree-svg-connectors {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: visible;
+        }
+
+        .sankey-path {
+            fill: none;
+            stroke-opacity: 0.35;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke-opacity 0.2s ease;
+        }
+
+        .tree-horizontal:hover .sankey-path {
+            stroke-opacity: 0.5;
+        }
+
+        /* Root node - webroot */
+        .tree-node-level1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+            font-family: inherit;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .tree-node-level1:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .tree-node-level1 .tree-node-icon {
+            display: none;
+        }
+
+        /* Repository level containers */
+        .tree-repos {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            position: relative;
+            z-index: 1;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-repo-group {
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            gap: 0;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        /* Repository nodes - Level 2 */
+        .tree-node-level2 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: inherit;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .tree-node-level2::before {
+            display: none;
+        }
+
+        .tree-node-level2:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+        }
+
+        .tree-node-level2 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level2 .tree-node-label {
+            font-size: 13px;
+            max-width: none;
+            overflow: visible;
+            font-family: inherit;
+        }
+
+        .tree-node-count {
+            font-size: 11px;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            margin-left: 4px;
+            flex-shrink: 0;
+            color: white;
+            font-family: inherit;
+        }
+
+        /* Branches container */
+        .tree-subnodes {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 0;
+            margin-left: 150px;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        .tree-subnodes::before {
+            display: none;
+        }
+
+        /* Branch nodes - Level 3 */
+        .tree-node-level3 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 10px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: #001;
+            border: none;
+            border-radius: 6px;
+            font-weight: 400;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: inherit;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            min-width: fit-content;
+            max-width: 200px;
+            text-align: center;
+        }
+
+        .tree-node-level3::before {
+            display: none;
+        }
+
+        .tree-node-level3:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        }
+
+        .tree-node-level3 .tree-node-icon {
+            display: none;
+        }
+
+        .tree-node-level3 .tree-node-label {
+            font-size: 12px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        /* PR container - Level 4 */
+        .tree-pr-nodes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 0;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+            position: relative;
+            flex-shrink: 0;
+            min-width: max-content;
+        }
+
+        /* Wrapper for branch and its PRs */
+        .tree-branch-pr-pair {
+            display: flex;
+            flex-direction: row;
+            gap: 100px;
+            align-items: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .tree-node-level4 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #001;
+            border: none;
+            border-radius: 6px;
+            font-size: 11px;
+            width: fit-content;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            margin-bottom: 0;
+        }
+
+        .tree-node-level4::before {
+            display: none;
+        }
+
+        .tree-node-level4:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
+        }
+
+        .tree-node-pr {
+            text-decoration: none;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .tree-node-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tree-node-pr.merged .tree-node-status {
+            background: #8250df;
+        }
+
+        .tree-node-pr.open .tree-node-status {
+            background: #238636;
+        }
+
+        .tree-node-pr.closed .tree-node-status {
+            background: #da3633;
+        }
+
+        .tree-node-commits {
+            text-decoration: none;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: inherit;
+        }
+
+        .tree-node-commits:hover {
+            color: var(--accent-blue);
+        }
+
+        .tree-level-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            position: relative;
+            z-index: 10;
+        }
+
+        .tree-connector {
+            display: none;
+        }
+
+        .tree-node-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .tree-node-label {
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+        }
+
+        .tree-repo-node {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+
+        .tree-repo-icon {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .tree-repo-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .tree-repo-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--bg-secondary);
+            padding: 1px 5px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .tree-pr-connector {
+            width: 15px;
+            height: 2px;
+            background: var(--border-light);
+            flex-shrink: 0;
+        }
+
+        /* Branch container and styling */
+        .tree-branches-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tree-branch-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tree-branch-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #1e40af;
+            font-family: ui-monospace, monospace;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-branch-name svg {
+            flex-shrink: 0;
+            color: #3b82f6;
+        }
+
+        .tree-branch-arrow {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .tree-branch-target {
+            padding: 3px 8px;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #166534;
+            font-family: ui-monospace, monospace;
+        }
+
+        .tree-prs-horizontal {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 300px;
+            margin-left: 8px;
+        }
+
+        .tree-pr-node {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-decoration: none;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tree-pr-node:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .tree-pr-node.merged {
+            background: #f3e8ff;
+            border: 1px solid #c4b5fd;
+            color: #6b21a8;
+        }
+
+        .tree-pr-node.open {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .tree-pr-node.closed {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .tree-pr-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tree-pr-status.merged { background: #8250df; }
+        .tree-pr-status.open { background: #238636; }
+        .tree-pr-status.closed { background: #da3633; }
+
+        .tree-pr-number {
+            font-weight: 600;
+        }
+
+        .tree-pr-with-commits {
+            display: flex;
+            align-items: center;
+        }
+
+        .tree-commits-connector {
+            color: var(--border-light);
+            margin: 0 -2px;
+            font-size: 10px;
+        }
+
+        .tree-commits-node {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            font-size: 10px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tree-commits-node:hover {
+            background: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        /* Vertical spine connecting repos */
+        .tree-repos-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .tree-vertical-spine {
+            width: 2px;
+            background: var(--border-light);
+            margin-right: -1px;
+            flex-shrink: 0;
+        }
+
+        /* Dark mode adjustments */
+        .dark .participant-card {
+            background: var(--bg-primary);
+        }
+
+        .dark .field-item {
+            background: var(--bg-tertiary);
+        }
+
+        .dark .pr-error {
+            background: #450a0a;
+            color: #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="participant-container">
+        <div class="participant-card">
+            <div class="participant-header">
+                <h1 id="participant-name">
+                    <span id="name-text">Loading...</span>
+                    <a href="#" id="sankey-link" class="sankey-link" title="View Contribution Sankey" onclick="openSankey(event)">
+                        👁️
+                    </a>
+                </h1>
+                <a href="#" id="back-btn" class="back-btn" onclick="goBack(event)">
+                    ← Back to List
+                </a>
+            </div>
+
+            <div class="participant-content">
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Loading participant data...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="error-state" class="error-state" style="display: none;">
+                    <div class="error-icon">⚠️</div>
+                    <p id="error-message">Participant not found</p>
+                    <a href="#" id="error-back-btn" class="back-btn" style="margin-top: 16px;" onclick="goBack(event)">
+                        ← Back to List
+                    </a>
+                </div>
+
+                <!-- Main Content -->
+                <div id="main-content">
+                    <!-- Two-column layout: Image left, Details right -->
+                    <div class="participant-profile-layout">
+                        <!-- Left: Image Gallery -->
+                        <div class="participant-profile-left">
+                            <div id="participant-gallery" class="participant-gallery"></div>
+                        </div>
+
+                        <!-- Right: Location, Skills, GitHub -->
+                        <div class="participant-profile-right">
+                            <!-- Location -->
+                            <div id="participant-fields" class="participant-fields">
+                                <div id="location-field" class="location-inline" style="display: none;">
+                                    <svg class="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    <span id="field-location">-</span>
+                                </div>
+                            </div>
+
+                            <!-- Skills Section -->
+                            <div id="skills-section" class="skills-section-inline" style="display: none;">
+                                <div id="skill-tags" class="skills-stacked-bar"></div>
+                            </div>
+
+                            <!-- GitHub Section -->
+                            <div id="github-section" class="github-section" style="display: none;">
+                                <svg class="github-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                </svg>
+                                <a id="github-link" class="github-link" href="#" target="_blank">View on GitHub</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PR History Section (full width below) -->
+                    <div id="pr-history-section" class="pr-history-section" style="display: none;">
+                        <h3>📋 Pull Request History</h3>
+                        <div id="pr-stats" class="pr-stats"></div>
+                        <div id="pr-loading" class="pr-loading">
+                            <div class="loading-spinner"></div>
+                            <span>Loading PRs across repositories...</span>
+                        </div>
+                        <div id="pr-list" class="pr-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script>
+        // Get parameters from URL hash
+        function getHashParams() {
+            const hash = window.location.hash.substring(1);
+            const params = {};
+            hash.split('&').forEach(pair => {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    params[decodeURIComponent(key)] = decodeURIComponent(value);
+                }
+            });
+            return params;
+        }
+
+        // Go back to list
+        function goBack(event) {
+            event.preventDefault();
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            window.location.href = `index.html#list=${list}`;
+        }
+
+        // Extract image paths from participant data
+        function extractImagePaths(participant) {
+            const imagePaths = [];
+            
+            // Check for Photo1, Photo2, etc. fields
+            for (let i = 1; i <= 10; i++) {
+                const photoKey = `Photo${i}`;
+                if (participant[photoKey] && participant[photoKey].trim()) {
+                    imagePaths.push(participant[photoKey].trim());
+                }
+            }
+            
+            // Check for common image field names
+            const imageFields = ['Photo', 'Image', 'Avatar', 'Picture', 'Headshot', 'ProfileImage', 'img', 'url'];
+            imageFields.forEach(field => {
+                if (participant[field] && participant[field].trim()) {
+                    const url = participant[field].trim();
+                    // Check if it looks like an image URL
+                    if (url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || url.includes('images') || url.includes('photo')) {
+                        if (!imagePaths.includes(url)) {
+                            imagePaths.push(url);
+                        }
+                    }
+                }
+            });
+            
+            return imagePaths;
+        }
+
+        // Format value for display (handle URLs, etc.)
+        function formatValueForDisplay(value) {
+            if (!value) return '';
+            const strValue = String(value);
+            
+            // Escape HTML first
+            const escaped = strValue.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Check if it's a URL
+            if (strValue.match(/^https?:\/\//i)) {
+                return '<a href="' + strValue + '" target="_blank">' + escaped + '</a>';
+            }
+            
+            return escaped;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Render image gallery
+        function renderGallery(imagePaths, name, githubAvatarUrl = null) {
+            console.log('renderGallery called with imagePaths:', imagePaths, 'githubAvatarUrl:', githubAvatarUrl);
+            const galleryDiv = document.getElementById('participant-gallery');
+            
+            // If no images from data, use GitHub avatar if available
+            if ((!imagePaths || imagePaths.length === 0) && githubAvatarUrl) {
+                imagePaths = [githubAvatarUrl];
+            }
+            
+            console.log('Final imagePaths:', imagePaths);
+            
+            if (!imagePaths || imagePaths.length === 0) {
+                galleryDiv.innerHTML = '<div class="no-image-placeholder">No images available</div>';
+                return;
+            }
+            
+            let html = `<img id="main-image" class="gallery-main-image" src="${imagePaths[0]}" alt="${escapeHtml(name)}">`;
+            
+            if (imagePaths.length > 1) {
+                html += '<div class="gallery-thumbnails">';
+                imagePaths.forEach((path, index) => {
+                    const activeClass = index === 0 ? ' active' : '';
+                    html += `<img class="gallery-thumbnail${activeClass}" src="${path}" alt="${escapeHtml(name)} ${index + 1}" onclick="showImage(${index})">`;
+                });
+                html += '</div>';
+            }
+            
+            console.log('Gallery HTML:', html);
+            galleryDiv.innerHTML = html;
+            galleryDiv.dataset.imagePaths = JSON.stringify(imagePaths);
+        }
+
+        // Get GitHub user's avatar URL using USER_IDS mapping
+        function getGitHubAvatarUrl(username) {
+            // Check if USER_IDS is loaded from external file
+            if (typeof USER_IDS !== 'undefined') {
+                // First try to find user ID in our mapping (case-insensitive lookup)
+                const userId = USER_IDS[username] || 
+                    Object.entries(USER_IDS).find(([key]) => key.toLowerCase() === username.toLowerCase())?.[1];
+                
+                if (userId) {
+                    // Use direct avatar URL with user ID (fastest, no redirect)
+                    return `https://avatars.githubusercontent.com/u/${userId}?v=4`;
+                }
+            }
+            
+            // Fallback to username-based URL (GitHub will redirect)
+            return `https://github.com/${encodeURIComponent(username)}.png`;
+        }
+
+        // Show specific image
+        function showImage(index) {
+            const galleryDiv = document.getElementById('participant-gallery');
+            const imagePaths = JSON.parse(galleryDiv.dataset.imagePaths || '[]');
+            
+            if (index >= imagePaths.length) return;
+            
+            const mainImage = document.getElementById('main-image');
+            if (mainImage) {
+                mainImage.src = imagePaths[index];
+            }
+            
+            // Update active thumbnail
+            document.querySelectorAll('.gallery-thumbnail').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+        }
+
+        // Render participant fields
+        function renderFields(participant) {
+            console.log('renderFields called');
+            
+            // Handle Location field with icon
+            const locationField = document.getElementById('location-field');
+            const locationElement = document.getElementById('field-location');
+            
+            const locationKeys = ['Location', 'location', 'City', 'city', 'Country', 'country'];
+            let locationValue = null;
+            
+            for (const key of locationKeys) {
+                if (participant[key] && String(participant[key]).trim()) {
+                    locationValue = String(participant[key]).trim();
+                    break;
+                }
+            }
+            
+            if (locationValue && locationValue !== '-') {
+                locationField.style.display = 'inline-flex';
+                locationElement.textContent = locationValue;
+            } else {
+                locationField.style.display = 'none';
+            }
+            
+            // Handle GitHub field separately with @ prefix and hyperlink
+            const githubElement = document.getElementById('field-github');
+            if (githubElement) {
+                const githubKeys = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github'];
+                let githubUsername = null;
+                
+                for (const key of githubKeys) {
+                    if (participant[key] && String(participant[key]).trim()) {
+                        githubUsername = String(participant[key]).trim();
+                        break;
+                    }
+                }
+                
+                if (githubUsername) {
+                    // Clean up username
+                    if (githubUsername.startsWith('@')) {
+                        githubUsername = githubUsername.substring(1);
+                    }
+                    if (githubUsername.includes('github.com/')) {
+                        githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    }
+                    githubElement.innerHTML = '<a href="https://github.com/' + githubUsername + '" target="_blank">@' + githubUsername + '</a>';
+                } else {
+                    githubElement.textContent = '-';
+                }
+            }
+            
+            console.log('Fields populated');
+        }
+
+        // Hardcoded map of ModelEarth repos to their primary languages (no API calls)
+        const REPO_LANGUAGES = {
+            'feed': ['JavaScript', 'HTML', 'CSS'],
+            'localsite': ['JavaScript', 'HTML', 'CSS'],
+            'io': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'data-commons': ['Python', 'JavaScript'],
+            'realitystream': ['Python', 'Jupyter Notebook'],
+            'community-forecasting': ['JavaScript', 'HTML', 'CSS', 'Python'],
+            'useeio.js': ['JavaScript'],
+            'useeior': ['R'],
+            'community': ['JavaScript', 'HTML', 'CSS'],
+            'earthscape': ['JavaScript', 'Python'],
+            'home': ['HTML', 'CSS', 'JavaScript'],
+            'projects': ['JavaScript', 'HTML', 'CSS'],
+            'profile': ['JavaScript', 'HTML', 'CSS'],
+            'charts': ['JavaScript', 'D3'],
+            'impact': ['JavaScript', 'Python'],
+            'requests': ['Markdown'],
+            'webroot': ['Shell', 'JavaScript'],
+            'open-data-viz': ['JavaScript', 'D3'],
+            'industries': ['JavaScript', 'HTML'],
+            'commodities': ['JavaScript', 'HTML'],
+            'map': ['JavaScript', 'Leaflet'],
+            'zip': ['JavaScript', 'HTML'],
+            'foodweb': ['Python', 'JavaScript'],
+            'building-transparency': ['Python', 'JavaScript'],
+            'carbon-footprint': ['Python', 'JavaScript'],
+            'datapipeline': ['Python'],
+            'OpenFootprint': ['Python', 'JavaScript'],
+            'machine-learning': ['Python', 'Jupyter Notebook'],
+            'sql': ['SQL', 'Python'],
+            'chat': ['JavaScript', 'Python'],
+            'exiobase': ['Python', 'C#'],
+            'team': ['JavaScript', 'HTML', 'CSS'],
+            'members': ['JavaScript', 'HTML'],
+            'open-footprint': ['Python', 'JavaScript'],
+            'useeio-widgets': ['JavaScript', 'TypeScript'],
+            'github-actions': ['YAML', 'Shell'],
+            'data-pipeline': ['Python'],
+            'apps': ['JavaScript', 'HTML', 'CSS']
+        };
+
+        // Language colors (GitHub-style)
+        const LANG_COLORS = {
+            'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Python': '#3572A5',
+            'Java': '#b07219', 'HTML': '#e34c26', 'CSS': '#563d7c',
+            'Ruby': '#701516', 'Go': '#00ADD8', 'Rust': '#dea584',
+            'C++': '#f34b7d', 'C': '#555555', 'C#': '#178600',
+            'PHP': '#4F5D95', 'Swift': '#F05138', 'Kotlin': '#A97BFF',
+            'R': '#198CE7', 'Shell': '#89e051', 'Jupyter Notebook': '#DA5B0B',
+            'Vue': '#41b883', 'Svelte': '#ff3e00', 'SCSS': '#c6538c',
+            'D3': '#f9a03c', 'Leaflet': '#199900', 'SQL': '#e38c00',
+            'Markdown': '#083fa1'
+        };
+
+        // Render skills section as single stacked bar (languages from repos user contributed to)
+        function renderSkills(repos) {
+            const skillsSection = document.getElementById('skills-section');
+            const skillTags = document.getElementById('skill-tags');
+            
+            if (!repos || repos.length === 0) {
+                skillsSection.style.display = 'none';
+                return;
+            }
+            
+            // Count PRs per repo
+            const repoPRCount = {};
+            repos.forEach(r => {
+                const repoName = r.repo.toLowerCase();
+                repoPRCount[repoName] = (repoPRCount[repoName] || 0) + 1;
+            });
+            
+            // Get unique repo names
+            const uniqueRepos = Object.keys(repoPRCount);
+            
+            if (uniqueRepos.length === 0) {
+                skillsSection.style.display = 'none';
+                return;
+            }
+            
+            // Collect languages weighted by PR count in each repo
+            const languageScore = {};
+            uniqueRepos.forEach(repo => {
+                const langs = REPO_LANGUAGES[repo] || REPO_LANGUAGES[repo.toLowerCase()];
+                const prCount = repoPRCount[repo];
+                if (langs) {
+                    langs.forEach((lang, index) => {
+                        // Weight = PR count * position weight (primary langs get higher weight)
+                        const positionWeight = Math.max(1, 4 - index);
+                        const score = prCount * positionWeight;
+                        languageScore[lang] = (languageScore[lang] || 0) + score;
+                    });
+                }
+            });
+            
+            // Sort by score and get top languages
+            const sortedLanguages = Object.entries(languageScore)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8); // Top 8 languages
+            
+            if (sortedLanguages.length === 0) {
+                // Fallback: show repos as stacked bar by PR count
+                skillsSection.style.display = 'block';
+                const sortedRepos = Object.entries(repoPRCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 8);
+                const totalCount = sortedRepos.reduce((sum, [, count]) => sum + count, 0);
+                
+                let barHtml = '<div class="skills-bar-container">';
+                let legendHtml = '<div class="skills-legend">';
+                
+                sortedRepos.forEach(([repo, count]) => {
+                    const percentage = (count / totalCount) * 100;
+                    barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: #6e7681;" title="${repo}: ${count} PRs">
+                        <span class="skill-segment-label">${percentage > 12 ? repo : ''}</span>
+                    </div>`;
+                    legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: #6e7681;"></span>${repo}</span>`;
+                });
+                
+                barHtml += '</div>';
+                legendHtml += '</div>';
+                skillTags.innerHTML = barHtml + legendHtml;
+                return;
+            }
+            
+            skillsSection.style.display = 'block';
+            
+            // Calculate total score for percentage
+            const totalScore = sortedLanguages.reduce((sum, [, score]) => sum + score, 0);
+            
+            let barHtml = '<div class="skills-bar-container">';
+            let legendHtml = '<div class="skills-legend">';
+            
+            sortedLanguages.forEach(([lang, score]) => {
+                const color = LANG_COLORS[lang] || '#6e7681';
+                const percentage = (score / totalScore) * 100;
+                
+                barHtml += `<div class="skill-segment" style="width: ${percentage}%; background: ${color};" title="${lang}: ${Math.round(percentage)}%">
+                    <span class="skill-segment-label">${percentage > 12 ? lang : ''}</span>
+                </div>`;
+                legendHtml += `<span class="skill-legend-item"><span class="skill-legend-color" style="background: ${color};"></span>${lang}</span>`;
+            });
+            
+            barHtml += '</div>';
+            legendHtml += '</div>';
+            
+            skillTags.innerHTML = barHtml + legendHtml;
+        }
+
+        // Render GitHub section
+        function renderGitHub(participant) {
+            const githubSection = document.getElementById('github-section');
+            const githubLink = document.getElementById('github-link');
+            
+            // Check for GitHub field (various naming conventions)
+            let githubUsername = null;
+            const githubFieldNames = ['gitusername', 'GitUsername', 'github', 'GitHub', 'Github', 'githubusername', 'GitHubUsername', 'git_username', 'github_username'];
+            
+            for (const fieldName of githubFieldNames) {
+                if (participant[fieldName] && participant[fieldName].trim()) {
+                    githubUsername = participant[fieldName];
+                    break;
+                }
+            }
+            
+            // Also check case-insensitive
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key];
+                        }
+                    }
+                });
+            }
+            
+            if (!githubUsername) {
+                githubSection.style.display = 'none';
+                document.getElementById('pr-history-section').style.display = 'none';
+                return null;
+            }
+            
+            // Clean up the username (remove @ if present, handle full URLs)
+            githubUsername = githubUsername.trim();
+            if (githubUsername.startsWith('@')) {
+                githubUsername = githubUsername.substring(1);
+            }
+            if (githubUsername.includes('github.com/')) {
+                githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+            }
+            
+            githubLink.href = `https://github.com/${githubUsername}`;
+            githubLink.textContent = `@${githubUsername}`;
+            githubSection.style.display = 'flex';
+            
+            // Load PR history for this user
+            loadPRHistory(githubUsername);
+            
+            return githubUsername;
+        }
+
+        // Fetch repositories from .gitmodules (cached in sessionStorage)
+        // Fetch all PRs by a user in ModelEarth org using Search API
+        async function fetchUserPRsInOrg(username) {
+            try {
+                // Search for all PRs by this author in ModelEarth org
+                const url = `https://api.github.com/search/issues?q=author:${encodeURIComponent(username)}+org:ModelEarth+type:pr&per_page=100&sort=created&order=desc`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                if (response.status === 403) {
+                    return { prs: [], rateLimited: true };
+                }
+                if (!response.ok) {
+                    return { prs: [], error: true };
+                }
+                
+                const data = await response.json();
+                const items = data.items || [];
+                
+                return {
+                    prs: items.map(pr => {
+                        // Extract repo name from repository_url
+                        const repoMatch = pr.repository_url?.match(/repos\/([^\/]+)\/([^\/]+)$/);
+                        return {
+                            number: pr.number,
+                            title: pr.title,
+                            state: pr.state,
+                            merged_at: pr.pull_request?.merged_at || null,
+                            html_url: pr.html_url,
+                            created_at: pr.created_at,
+                            repo_owner: repoMatch ? repoMatch[1] : 'ModelEarth',
+                            repo_name: repoMatch ? repoMatch[2] : 'unknown'
+                        };
+                    }),
+                    total_count: data.total_count || items.length
+                };
+            } catch (error) {
+                console.error('Error fetching PRs:', error);
+                return { prs: [], error: true };
+            }
+        }
+
+        // Load and display PR history
+        async function loadPRHistory(username) {
+            const prSection = document.getElementById('pr-history-section');
+            const prLoading = document.getElementById('pr-loading');
+            const prList = document.getElementById('pr-list');
+            const prStats = document.getElementById('pr-stats');
+            
+            // Show section with loading
+            prSection.style.display = 'block';
+            prLoading.style.display = 'flex';
+            prLoading.innerHTML = '<div class="loading-spinner"></div><span>Fetching pull requests...</span>';
+            prList.innerHTML = '';
+            prStats.innerHTML = '';
+            
+            try {
+                // Single API call to get all PRs by user in ModelEarth org
+                const result = await fetchUserPRsInOrg(username);
+                
+                // Hide loading
+                prLoading.style.display = 'none';
+                
+                if (result.rateLimited) {
+                    prList.innerHTML = '<div class="pr-error">GitHub API rate limit reached. Please try again later.</div>';
+                    return;
+                }
+                
+                if (result.error) {
+                    prList.innerHTML = '<div class="pr-error">Failed to fetch pull requests.</div>';
+                    return;
+                }
+                
+                const allPRs = result.prs;
+                
+                if (allPRs.length === 0) {
+                    prList.innerHTML = `<div class="pr-empty">No pull requests found for @${username} in ModelEarth repositories.</div>`;
+                    return;
+                }
+                
+                // Calculate stats
+                const merged = allPRs.filter(pr => pr.merged_at).length;
+                const open = allPRs.filter(pr => pr.state === 'open').length;
+                const closed = allPRs.filter(pr => pr.state === 'closed' && !pr.merged_at).length;
+                const repoCount = new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`)).size;
+                
+                // Render stats
+                prStats.innerHTML = `
+                    <div class="pr-stat-item"><span class="pr-stat-count">${allPRs.length}</span> Total</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#8250df">${merged}</span> Merged</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#238636">${open}</span> Open</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count" style="color:#da3633">${closed}</span> Closed</div>
+                    <div class="pr-stat-item"><span class="pr-stat-count">${repoCount}</span> Repos</div>
+                `;
+                
+                // Render PR list
+                let html = '';
+                for (const pr of allPRs) {
+                    const isMerged = pr.merged_at;
+                    const isOpen = pr.state === 'open';
+                    const statusClass = isMerged ? 'merged' : (isOpen ? 'open' : 'closed');
+                    const statusText = isMerged ? 'Merged' : (isOpen ? 'Open' : 'Closed');
+                    const date = new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                    
+                    html += `
+                        <a href="${pr.html_url}" target="_blank" class="pr-card">
+                            <div class="pr-status ${statusClass}"></div>
+                            <div class="pr-info">
+                                <div class="pr-title-text">${escapeHtml(pr.title)}</div>
+                                <div class="pr-meta">
+                                    <span class="pr-repo-name">${pr.repo_name}</span>
+                                    <span>#${pr.number}</span>
+                                    <span>${date}</span>
+                                    <span>• ${statusText}</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                }
+                
+                prList.innerHTML = html;
+                
+                // Extract unique repos and render skills (languages)
+                const repos = [...new Set(allPRs.map(pr => `${pr.repo_owner}/${pr.repo_name}`))]
+                    .map(r => {
+                        const [owner, repo] = r.split('/');
+                        return { owner, repo };
+                    });
+                renderSkills(repos);
+                
+                // Render contribution tree (Sankey diagram)
+                renderContributionTree(allPRs);
+                
+            } catch (error) {
+                console.error('Error loading PR history:', error);
+                prLoading.style.display = 'none';
+                prList.innerHTML = `<div class="pr-error">Failed to load PR history: ${error.message}</div>`;
+            }
+        }
+
+        // Fetch PR details from GitHub API
+        async function fetchPRDetails(owner, repo, prNumber) {
+            try {
+                const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                
+                // Add GitHub token if available (increases rate limit from 60/hr to 5000/hr)
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                }
+                
+                const response = await fetch(url, { headers });
+                
+                // Rate limited or not found
+                if (response.status === 403 || response.status === 404 || !response.ok) {
+                    return { branch: null, commits: null };
+                }
+                
+                const data = await response.json();
+                return {
+                    branch: data.head?.ref || null,
+                    commits: data.commits || 0
+                };
+            } catch (error) {
+                console.error('Error fetching PR details:', error);
+                return { branch: null, commits: null };
+            }
+        }
+
+        // Fetch PR details for all PRs and build branch-to-PR cache
+        async function fetchAllPRDetails(prs) {
+            const detailsMap = {};
+            const branchCache = {};  // branch -> [PR numbers]
+            
+            // Initialize all PRs
+            prs.forEach(pr => {
+                detailsMap[pr.html_url] = {
+                    branch: null,
+                    commits: null
+                };
+            });
+            
+            // Fetch all PR details in batches to avoid overwhelming API
+            const batchSize = 10;
+            for (let i = 0; i < prs.length; i += batchSize) {
+                const batch = prs.slice(i, i + batchSize);
+                const promises = batch.map(pr => 
+                    fetchPRDetails(pr.repo_owner, pr.repo_name, pr.number)
+                );
+                const results = await Promise.all(promises);
+                
+                batch.forEach((pr, index) => {
+                    const details = results[index];
+                    detailsMap[pr.html_url].branch = details.branch;
+                    detailsMap[pr.html_url].commits = details.commits;
+
+                    // Build repo-aware branch cache using composite key: owner/repo:branch
+                    if (details.branch) {
+                        const branchKey = `${pr.repo_owner}/${pr.repo_name}:${details.branch}`;
+                        if (!branchCache[branchKey]) {
+                            branchCache[branchKey] = [];
+                        }
+                        branchCache[branchKey].push(pr.number);
+                    }
+                });
+                
+                // Wait between batches to avoid rate limiting
+                if (i + batchSize < prs.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            // Store cache in sessionStorage for reuse
+            sessionStorage.setItem('branchCache', JSON.stringify(branchCache));
+            console.log('Branch-to-PR Map:', branchCache);
+            console.log('PR List:', prs);
+            
+            return detailsMap;
+        }
+
+        // Draw SVG Sankey connector paths between tree nodes
+        function drawTreeConnectors() {
+            const container = document.querySelector('.tree-horizontal');
+            const svg = document.querySelector('.tree-svg-connectors');
+            const root = document.getElementById('tree-root');
+            
+            if (!svg || !root || !container) return;
+            
+            // Get container dimensions - use scrollWidth for full content width
+            const scrollWidth = container.scrollWidth;
+            const scrollHeight = container.scrollHeight;
+            
+            svg.setAttribute('width', scrollWidth);
+            svg.setAttribute('height', scrollHeight);
+            
+            // Clear existing paths
+            svg.innerHTML = '';
+            
+            // Color palette for Sankey paths
+            const pathColors = ['#667eea', '#f5576c', '#4facfe', '#43e97b'];
+            let colorIndex = 0;
+            
+            // Get all repo groups
+            const repoGroups = document.querySelectorAll('.tree-repo-group');
+            
+            // Calculate max PR count for scaling
+            let maxPRCount = 1;
+            repoGroups.forEach(repoGroup => {
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                maxPRCount = Math.max(maxPRCount, prNodes.length);
+            });
+            
+            repoGroups.forEach((repoGroup, repoIdx) => {
+                const repoNode = repoGroup.querySelector('.tree-node-level2');
+                const branchesContainer = repoGroup.querySelector('.tree-subnodes');
+                
+                if (!repoNode || !branchesContainer) return;
+                
+                // Count total PRs for this repo
+                const prNodes = repoGroup.querySelectorAll('.tree-node-level4');
+                const prCount = prNodes.length;
+                
+                // Calculate line width based on PR count (scaled 1-4)
+                const lineWidth = Math.max(1, Math.min(4, (prCount / maxPRCount) * 4));
+                
+                // Get position relative to container's scrollable area
+                const repoRect = repoNode.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const repoX = repoRect.left - containerRect.left + container.scrollLeft;
+                const repoCenterY = repoRect.top - containerRect.top + repoRect.height / 2;
+                const repoEndX = repoX + repoRect.width;
+                
+                // Draw path from root to repo
+                const rootRect = root.getBoundingClientRect();
+                const rootX = rootRect.left - containerRect.left + container.scrollLeft;
+                const rootCenterY = rootRect.top - containerRect.top + rootRect.height / 2;
+                const rootEndX = rootX + rootRect.width;
+                
+                const rootToRepoPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const color1 = pathColors[colorIndex % pathColors.length];
+                rootToRepoPath.setAttribute('d', `M ${rootEndX} ${rootCenterY} Q ${(rootEndX + repoX) / 2} ${rootCenterY} ${repoX} ${repoCenterY}`);
+                rootToRepoPath.setAttribute('stroke', color1);
+                rootToRepoPath.setAttribute('stroke-width', lineWidth);
+                rootToRepoPath.setAttribute('class', 'sankey-path');
+                svg.appendChild(rootToRepoPath);
+                
+                // Get all branches for this repo
+                const branchNodes = branchesContainer.querySelectorAll('.tree-node-level3');
+                const prNodesContainers = branchesContainer.querySelectorAll('.tree-pr-nodes');
+                
+                branchNodes.forEach((branchNode, branchIdx) => {
+                    const branchRect = branchNode.getBoundingClientRect();
+                    const branchX = branchRect.left - containerRect.left + container.scrollLeft;
+                    const branchCenterY = branchRect.top - containerRect.top + branchRect.height / 2;
+                    const branchEndX = branchX + branchRect.width;
+                    
+                    // Count PRs in this branch
+                    let branchPRCount = 0;
+                    if (branchIdx < prNodesContainers.length) {
+                        branchPRCount = prNodesContainers[branchIdx].querySelectorAll('.tree-node-level4').length;
+                    }
+                    
+                    // Calculate line width for branch (scaled 0.5-3)
+                    const branchLineWidth = Math.max(0.5, Math.min(3, (branchPRCount / maxPRCount) * 3));
+                    
+                    // Draw path from repo to branch
+                    const repoToBranchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const color2 = pathColors[(colorIndex + 1) % pathColors.length];
+                    repoToBranchPath.setAttribute('d', `M ${repoEndX} ${repoCenterY} Q ${(repoEndX + branchX) / 2} ${(repoCenterY + branchCenterY) / 2} ${branchX} ${branchCenterY}`);
+                    repoToBranchPath.setAttribute('stroke', color2);
+                    repoToBranchPath.setAttribute('stroke-width', branchLineWidth);
+                    repoToBranchPath.setAttribute('class', 'sankey-path');
+                    svg.appendChild(repoToBranchPath);
+                    
+                    // Draw paths from branch to PRs (if available)
+                    if (branchIdx < prNodesContainers.length) {
+                        const prContainer = prNodesContainers[branchIdx];
+                        const branchPRNodes = prContainer.querySelectorAll('.tree-node-level4');
+                        
+                        if (branchPRNodes.length > 0) {
+                            let avgPRY = 0;
+                            let prEndX = 0;
+                            
+                            branchPRNodes.forEach(pr => {
+                                const prRect = pr.getBoundingClientRect();
+                                avgPRY += prRect.top - containerRect.top + prRect.height / 2;
+                                prEndX = Math.max(prEndX, prRect.right - containerRect.left + container.scrollLeft);
+                            });
+                            
+                            avgPRY /= branchPRNodes.length;
+                            
+                            // Line width for individual branch (always thin)
+                            const prLineWidth = Math.max(0.5, Math.min(2, (branchPRNodes.length / Math.max(1, maxPRCount / 3)) * 1.5));
+                            
+                            const branchToPRPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            const color3 = pathColors[(colorIndex + 2) % pathColors.length];
+                            branchToPRPath.setAttribute('d', `M ${branchEndX} ${branchCenterY} Q ${(branchEndX + prEndX) / 2} ${(branchCenterY + avgPRY) / 2} ${prEndX} ${avgPRY}`);
+                            branchToPRPath.setAttribute('stroke', color3);
+                            branchToPRPath.setAttribute('stroke-width', prLineWidth);
+                            branchToPRPath.setAttribute('class', 'sankey-path');
+                            svg.appendChild(branchToPRPath);
+                        }
+                    }
+                });
+                
+                colorIndex++;
+            });
+        }
+
+        // Render contribution tree (hierarchical diagram)
+        async function renderContributionTree(prs) {
+            // Contribution tree is now on a separate page (sankey.html)
+            // This function is kept for compatibility but does nothing
+            return;
+        }
+
+        // Navigate to repository on GitHub
+        window.navigateToRepo = function(repoName) {
+            const username = window.currentGithubUsername || 'ModelEarth';
+            if (repoName === 'webroot') {
+                window.open(`https://github.com/${username}/webroot`, '_blank');
+            } else {
+                window.open(`https://github.com/${username}/${repoName}`, '_blank');
+            }
+        };
+
+        // Open Sankey diagram in new tab
+        window.openSankey = function(event) {
+            event.preventDefault();
+            if (!window.currentGithubUsername) {
+                alert('GitHub username not found');
+                return;
+            }
+            window.open(`sankey.html?id=${encodeURIComponent(window.currentGithubUsername)}`, '_blank');
+        };
+
+        // Load participant data
+        async function loadParticipant() {
+            const params = getHashParams();
+            const list = params.list || 'modelteam';
+            const id = params.id;
+            
+            console.log('Loading participant:', { list, id });
+            
+            if (!id) {
+                showError('No participant ID specified');
+                return;
+            }
+            
+            try {
+                // Fetch the lists.csv to get the data URL for the list
+                console.log('Fetching lists.csv...');
+                const listsResponse = await fetch('lists.csv');
+                if (!listsResponse.ok) {
+                    throw new Error(`Failed to fetch lists.csv: ${listsResponse.status}`);
+                }
+                const listsText = await listsResponse.text();
+                const lists = parseCSV(listsText);
+                console.log('Lists loaded:', lists.length, 'entries');
+                
+                // Find the list config
+                const listConfig = lists.find(l => l.List === list);
+                console.log('List config:', listConfig);
+                
+                if (!listConfig || !listConfig.URL) {
+                    showError(`List "${list}" not found or has no URL`);
+                    return;
+                }
+                
+                // Fetch the participant data
+                console.log('Fetching data from:', listConfig.URL);
+                const dataResponse = await fetch(listConfig.URL);
+                if (!dataResponse.ok) {
+                    throw new Error(`Failed to fetch data: ${dataResponse.status}`);
+                }
+                const dataText = await dataResponse.text();
+                console.log('Data response length:', dataText.length);
+                
+                // Try to parse as JSON first, then CSV
+                let participants = [];
+                try {
+                    const jsonData = JSON.parse(dataText);
+                    // Handle array or object with data property
+                    participants = Array.isArray(jsonData) ? jsonData : (jsonData.data || jsonData.results || [jsonData]);
+                    console.log('Parsed as JSON:', participants.length, 'records');
+                } catch (e) {
+                    // Not JSON, try CSV
+                    participants = parseCSV(dataText);
+                    console.log('Parsed as CSV:', participants.length, 'records');
+                }
+                
+                if (participants.length === 0) {
+                    showError('No participant data found');
+                    return;
+                }
+                
+                // Log first participant to see structure
+                console.log('First participant:', participants[0]);
+                console.log('Looking for id:', id);
+                
+                // Find the participant by ID (check common ID fields)
+                const idFields = ['id', 'ID', 'Id', 'Name', 'name', 'Email', 'email', 'Title', 'title'];
+                let participant = null;
+                
+                for (const field of idFields) {
+                    participant = participants.find(p => {
+                        const fieldValue = String(p[field] || '').trim();
+                        const searchId = String(id).trim();
+                        return fieldValue.toLowerCase() === searchId.toLowerCase();
+                    });
+                    if (participant) {
+                        console.log('Found participant by field:', field);
+                        break;
+                    }
+                }
+                
+                // Also try matching by row index
+                if (!participant) {
+                    const index = parseInt(id);
+                    if (!isNaN(index) && index >= 0 && index < participants.length) {
+                        participant = participants[index];
+                        console.log('Found participant by index:', index);
+                    }
+                }
+                
+                // Try partial match on Name field
+                if (!participant) {
+                    const searchId = String(id).trim().toLowerCase();
+                    participant = participants.find(p => {
+                        const name = String(p.Name || p.name || '').trim().toLowerCase();
+                        return name.includes(searchId) || searchId.includes(name);
+                    });
+                    if (participant) {
+                        console.log('Found participant by partial name match');
+                    }
+                }
+                
+                if (!participant) {
+                    console.log('Available names:', participants.map(p => p.Name || p.name).slice(0, 10));
+                    showError(`Participant "${id}" not found in ${participants.length} records`);
+                    return;
+                }
+                
+                console.log('Displaying participant:', participant);
+                // Display the participant
+                displayParticipant(participant, listConfig);
+                
+            } catch (error) {
+                console.error('Error loading participant:', error);
+                showError(`Failed to load participant data: ${error.message}`);
+            }
+        }
+
+        // Parse CSV to array of objects
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            // Parse header
+            const headers = parseCSVLine(lines[0]);
+            
+            // Parse data rows
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] || '';
+                });
+                data.push(row);
+            }
+            
+            return data;
+        }
+
+        // Parse a single CSV line (handles quoted values)
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            values.push(current.trim());
+            return values;
+        }
+
+        // Display participant data
+        function displayParticipant(participant, listConfig) {
+            console.log('displayParticipant called with:', participant);
+            console.log('Participant keys:', Object.keys(participant));
+            
+            // Hide loading, show content
+            const loadingState = document.getElementById('loading-state');
+            const mainContent = document.getElementById('main-content');
+            
+            console.log('Before: loading-state display:', loadingState.style.display);
+            console.log('Before: main-content display:', mainContent.style.display);
+            
+            loadingState.style.display = 'none';
+            mainContent.style.display = 'block';
+            
+            console.log('After: loading-state display:', loadingState.style.display);
+            console.log('After: main-content display:', mainContent.style.display);
+            
+            // Get participant name
+            const nameFields = ['Name', 'name', 'Title', 'title'];
+            let name = 'Unknown';
+            for (const field of nameFields) {
+                if (participant[field]) {
+                    name = participant[field];
+                    break;
+                }
+            }
+            
+            // Update page title and name
+            document.getElementById('name-text').textContent = name;
+            document.title = `Contribution Tree - ${name}`;
+            
+            // Update Sankey link with GitHub username
+            window.currentGithubUsername = null;
+            
+            // Extract images from participant data
+            const imagePaths = extractImagePaths(participant);
+            console.log('Image paths:', imagePaths);
+            
+            // Get GitHub username for avatar fallback
+            const githubFields = ['GitUsername', 'gitusername', 'GitHub', 'github', 'GithubUsername', 'githubUsername'];
+            let githubUsername = null;
+            for (const field of githubFields) {
+                if (participant[field] && participant[field].trim()) {
+                    githubUsername = participant[field].trim();
+                    if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                    if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                    console.log('Found GitHub username from field:', field, '=', githubUsername);
+                    break;
+                }
+            }
+            
+            // Case-insensitive fallback
+            if (!githubUsername) {
+                Object.keys(participant).forEach(key => {
+                    if (key.toLowerCase() === 'gitusername' || key.toLowerCase() === 'github' || key.toLowerCase() === 'githubusername') {
+                        if (participant[key] && participant[key].trim()) {
+                            githubUsername = participant[key].trim();
+                            if (githubUsername.startsWith('@')) githubUsername = githubUsername.substring(1);
+                            if (githubUsername.includes('github.com/')) githubUsername = githubUsername.split('github.com/')[1].split('/')[0];
+                            console.log('Found GitHub username from case-insensitive field:', key, '=', githubUsername);
+                        }
+                    }
+                });
+            }
+            
+            // Store GitHub username globally for Sankey link
+            window.currentGithubUsername = githubUsername;
+            
+            console.log('GitHub username:', githubUsername);
+            console.log('USER_IDS available:', typeof USER_IDS !== 'undefined');
+            if (typeof USER_IDS !== 'undefined') {
+                console.log('USER_IDS keys sample:', Object.keys(USER_IDS).slice(0, 5));
+            }
+            
+            // Always use GitHub avatar if we have a username
+            if (githubUsername) {
+                const avatarUrl = getGitHubAvatarUrl(githubUsername);
+                console.log('Avatar URL:', avatarUrl);
+                // Add GitHub avatar to the beginning if not already in imagePaths
+                if (!imagePaths.includes(avatarUrl)) {
+                    imagePaths.unshift(avatarUrl);
+                }
+            }
+            
+            renderGallery(imagePaths, name);
+            
+            // Render fields
+            console.log('Rendering fields...');
+            renderFields(participant);
+            
+            // Render GitHub section (this will also trigger skills loading via PR history)
+            console.log('Rendering GitHub...');
+            renderGitHub(participant);
+            
+            console.log('displayParticipant complete');
+        }
+
+        // Show error state
+        function showError(message) {
+            console.error('showError called:', message);
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'flex';
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - starting loadParticipant');
+            console.log('Current hash:', window.location.hash);
+            loadParticipant();
+        });
+        
+        // Re-load if hash changes
+        window.addEventListener('hashchange', function() {
+            console.log('Hash changed:', window.location.hash);
+            loadParticipant();
+        });
+    </script>
+</body>
+</html>

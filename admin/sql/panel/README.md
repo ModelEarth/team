@@ -53,8 +53,16 @@ The server will start on `http://127.0.0.1:8081` by default.
 ### 3. Access Admin Panel
 
 1. Open `admin/sql/panel` in your web browser
-2. Or serve it via HTTP server using the following command for port 8887:
+2. Or serve it via HTTP server using one of the following commands for port 8887:
 
+**Recommended (with virtual environment and server-side Python):**
+```bash
+# From the webroot
+./desktop/install/quickstart.sh --cli
+# Then visit: http://localhost:8887/team/admin/sql/panel/
+```
+
+**Alternative (basic HTTP server):**
 ```bash
 # From the webroot
 python -m http.server 8887

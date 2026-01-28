@@ -911,7 +911,12 @@ async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
             if (config.int_required) {
                 option.setAttribute('data-int-required', config.int_required);
             }
-            
+
+            // Store imgOnly config for filtering
+            if (config.imgOnly) {
+                option.setAttribute('data-img-only', config.imgOnly);
+            }
+
             // Insert before the "Choose File..." option
             fileSelect.insertBefore(option, customOption);
             
@@ -1406,11 +1411,12 @@ async function loadUnifiedData(url, options = {}) {
                 // CORS is required for external URLs - use backend proxy
                 console.log('CORS required for external URL - using backend proxy for CSV fetch...');
                 try {
-                    // Use appropriate endpoint based on URL type
-                    const isGoogleSheets = url.includes('docs.google.com/spreadsheets');
-                    const endpoint = isGoogleSheets ? '/proxy/csv' : '/proxy/external';
+                    // Use CSV proxy endpoint for all CSV files (supports both Google Sheets and external URLs)
+                    // Ensure API_BASE includes /api suffix
+                    const apiBase = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
+                    const proxyUrl = `${apiBase}/proxy/csv`;
 
-                    const proxyResponse = await fetch(`${API_BASE}${endpoint}`, {
+                    const proxyResponse = await fetch(proxyUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1428,10 +1434,13 @@ async function loadUnifiedData(url, options = {}) {
                             throw new Error(proxyData.error || 'Backend CSV proxy failed');
                         }
                     } else {
-                        throw new Error('Backend CSV proxy not available');
+                        throw new Error(`Backend CSV proxy returned status ${proxyResponse.status}`);
                     }
                 } catch (proxyError) {
-                    throw new Error(`Rust server not accessible, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nPath attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
+                    // Ensure API_BASE includes /api suffix for error message
+                    const apiBase = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
+                    const proxyUrl = `${apiBase}/proxy/csv`;
+                    throw new Error(`Rust server not accessible at ${proxyUrl}, so CORS process was not available to fetch CSV data via backend proxy.\n\nProxy error: ${proxyError.message}\n\nCSV path attempted: ${url}\n\nNote: CORS=TRUE is set for this URL in lists.csv`);
                 }
             } else {
                 // No CORS restriction or local file - try direct fetch
@@ -1772,10 +1781,16 @@ async function displayInsights(aiType, analysis, totalRecords, sampleSize, isNew
 
         console.warn(`⚠️ INNERHTML SET SUCCESSFULLY for ${aiType}`);
 
+        // Track current AI type for copy operations
+        window.currentInsightsAiType = aiType;
+
         // Apply markdown styling if available
         if (typeof applyMarkdownStyling === 'function') {
             applyMarkdownStyling(insightsContent);
         }
+
+        // Add copy icon to insights header
+        addCopyIconToInsights();
 
     } catch (error) {
         console.error(`Error processing ${aiType} markdown:`, error);
@@ -1940,6 +1955,437 @@ async function processSharedMarkdownContent(markdown) {
 }
 
 // =============================================================================
+// RAW MARKDOWN DISPLAY FUNCTIONS
+// =============================================================================
+
+// Store current AI type for copy operations
+window.currentInsightsAiType = null;
+
+// Show raw markdown from cached analysis
+function showRawMarkdown(aiType) {
+    const cacheKey = window.getCurrentCacheKeyForInsights ? window.getCurrentCacheKeyForInsights() : null;
+    const insightsContent = document.getElementById('insightsContent');
+
+    if (!cacheKey) {
+        console.warn('No cache key available for showRawMarkdown');
+        return;
+    }
+
+    let cachedData, analysis, aiName;
+
+    // Try unified insightsCache first (used by projects page)
+    if (window.insightsCache && window.insightsCache[aiType]) {
+        cachedData = window.insightsCache[aiType][cacheKey];
+    }
+
+    // Fallback to legacy cache variables
+    if (!cachedData) {
+        if (aiType === 'claude') {
+            cachedData = window.claudeInsightsCache ? window.claudeInsightsCache[cacheKey] : null;
+        } else if (aiType === 'gemini') {
+            cachedData = window.aiInsightsCache ? window.aiInsightsCache[cacheKey] : null;
+        }
+    }
+
+    aiName = aiType === 'claude' ? 'Claude' : aiType === 'gemini' ? 'Gemini' : aiType.charAt(0).toUpperCase() + aiType.slice(1);
+
+    if (!cachedData || !cachedData.analysis) {
+        console.warn('No cached analysis found for', aiType, 'with key', cacheKey);
+        if (typeof showMessage === 'function') {
+            showMessage('No cached analysis found', 'error');
+        }
+        return;
+    }
+
+    analysis = cachedData.analysis;
+    window.currentInsightsAiType = aiType;
+
+    let html = `
+        <div class="insight-section" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
+            <strong>📝 Raw ${aiName} Markdown:</strong> ${cachedData.totalRecords} records
+            <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px; cursor: pointer; text-decoration: underline;" onclick="showRenderedMarkdown('${aiType}')">🔄 Show Rendered</span>
+        </div>
+        <div class="insight-section" style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius-md); font-family: monospace; font-size: 13px; white-space: pre-wrap; border: 1px solid var(--border-light);">
+            ${escapeHtml(analysis)}
+        </div>
+    `;
+
+    insightsContent.innerHTML = html;
+}
+
+// Show rendered markdown from cached analysis
+async function showRenderedMarkdown(aiType) {
+    const cacheKey = window.getCurrentCacheKeyForInsights ? window.getCurrentCacheKeyForInsights() : null;
+
+    if (!cacheKey) {
+        console.warn('No cache key available for showRenderedMarkdown');
+        return;
+    }
+
+    let cachedData;
+
+    // Try unified insightsCache first (used by projects page)
+    if (window.insightsCache && window.insightsCache[aiType]) {
+        cachedData = window.insightsCache[aiType][cacheKey];
+    }
+
+    // Fallback to legacy cache variables
+    if (!cachedData) {
+        if (aiType === 'claude') {
+            cachedData = window.claudeInsightsCache ? window.claudeInsightsCache[cacheKey] : null;
+        } else if (aiType === 'gemini') {
+            cachedData = window.aiInsightsCache ? window.aiInsightsCache[cacheKey] : null;
+        }
+    }
+
+    if (cachedData && cachedData.success) {
+        await displayInsights(aiType, cachedData.analysis, cachedData.totalRecords, cachedData.sampleSize, false, cachedData.customPrompt || 'Standard data analysis prompt');
+    }
+}
+
+// =============================================================================
+// INSIGHTS COPY FUNCTIONALITY
+// =============================================================================
+
+// Get cached insights data for copy operations
+function getCachedInsightsData() {
+    const cacheKey = window.getCurrentCacheKeyForInsights ? window.getCurrentCacheKeyForInsights() : null;
+
+    if (!cacheKey) {
+        return null;
+    }
+
+    const aiType = window.currentInsightsAiType;
+    let cachedData = null;
+
+    // Try the unified insightsCache first (used by projects page)
+    if (window.insightsCache && aiType && window.insightsCache[aiType]) {
+        cachedData = window.insightsCache[aiType][cacheKey];
+    }
+
+    // Fallback to legacy cache variables
+    if (!cachedData) {
+        if (aiType === 'claude' && window.claudeInsightsCache) {
+            cachedData = window.claudeInsightsCache[cacheKey];
+        } else if (aiType === 'gemini' && window.aiInsightsCache) {
+            cachedData = window.aiInsightsCache[cacheKey];
+        } else {
+            // Fallback: check both caches
+            if (window.claudeInsightsCache && window.claudeInsightsCache[cacheKey]) {
+                cachedData = window.claudeInsightsCache[cacheKey];
+            } else if (window.aiInsightsCache && window.aiInsightsCache[cacheKey]) {
+                cachedData = window.aiInsightsCache[cacheKey];
+            }
+        }
+    }
+
+    return cachedData;
+}
+
+// Convert HTML to plain text
+function htmlToPlainText(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+}
+
+// Show copy format selection modal
+function showCopyFormatModal() {
+    const cachedData = getCachedInsightsData();
+
+    if (!cachedData || !cachedData.analysis) {
+        alert('No insights data available to copy.');
+        return;
+    }
+
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'copyFormatOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: var(--bg-primary, #fff);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 320px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+
+    modal.innerHTML = `
+        <div style="margin-bottom: 16px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 16px; color: var(--text-primary, #1a1a1a);">Copy Insights</h3>
+            <p style="margin: 0; font-size: 13px; color: var(--text-secondary, #666);">Choose your preferred format:</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button onclick="copyInsights('plain')" style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                border: 1px solid var(--border-light, #e0e0e0);
+                border-radius: 8px;
+                background: var(--bg-secondary, #f9fafb);
+                cursor: pointer;
+                text-align: left;
+                font-size: 14px;
+                color: var(--text-primary, #1a1a1a);
+                transition: all 0.15s ease;
+            " onmouseover="this.style.background='var(--bg-tertiary, #f0f0f0)'" onmouseout="this.style.background='var(--bg-secondary, #f9fafb)'">
+                <span style="font-size: 18px;">📄</span>
+                <span><strong>Plain Text</strong><br><span style="font-size: 12px; color: var(--text-secondary, #666);">No formatting</span></span>
+            </button>
+            <button onclick="copyInsights('markdown')" style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                border: 1px solid var(--border-light, #e0e0e0);
+                border-radius: 8px;
+                background: var(--bg-secondary, #f9fafb);
+                cursor: pointer;
+                text-align: left;
+                font-size: 14px;
+                color: var(--text-primary, #1a1a1a);
+                transition: all 0.15s ease;
+            " onmouseover="this.style.background='var(--bg-tertiary, #f0f0f0)'" onmouseout="this.style.background='var(--bg-secondary, #f9fafb)'">
+                <span style="font-size: 18px;">📝</span>
+                <span><strong>Markdown</strong><br><span style="font-size: 12px; color: var(--text-secondary, #666);">README-compatible</span></span>
+            </button>
+            <button onclick="copyInsights('html')" style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                border: 1px solid var(--border-light, #e0e0e0);
+                border-radius: 8px;
+                background: var(--bg-secondary, #f9fafb);
+                cursor: pointer;
+                text-align: left;
+                font-size: 14px;
+                color: var(--text-primary, #1a1a1a);
+                transition: all 0.15s ease;
+            " onmouseover="this.style.background='var(--bg-tertiary, #f0f0f0)'" onmouseout="this.style.background='var(--bg-secondary, #f9fafb)'">
+                <span style="font-size: 18px;">🌐</span>
+                <span><strong>HTML</strong><br><span style="font-size: 12px; color: var(--text-secondary, #666);">Rendered formatting</span></span>
+            </button>
+        </div>
+        <button onclick="closeCopyFormatModal()" style="
+            margin-top: 16px;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-muted, #999);
+        ">Cancel</button>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeCopyFormatModal();
+        }
+    });
+
+    // Close on escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeCopyFormatModal();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+// Close the copy format modal
+function closeCopyFormatModal() {
+    const overlay = document.getElementById('copyFormatOverlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+// Copy insights in the specified format
+async function copyInsights(format) {
+    const cachedData = getCachedInsightsData();
+
+    if (!cachedData || !cachedData.analysis) {
+        alert('No insights data available to copy.');
+        closeCopyFormatModal();
+        return;
+    }
+
+    let textToCopy = '';
+    const promptText = cachedData.customPrompt || 'Standard data analysis prompt';
+    const analysis = cachedData.analysis;
+
+    switch (format) {
+        case 'plain':
+            // Convert markdown to plain text by removing markdown syntax
+            textToCopy = `Analysis Prompt: ${promptText}\n\n${markdownToPlainText(analysis)}`;
+            break;
+
+        case 'markdown':
+            // Use raw markdown directly from cache
+            textToCopy = `## Analysis Prompt\n${promptText}\n\n## Analysis\n${analysis}`;
+            break;
+
+        case 'html':
+            // Process through markdown converter
+            const processedHTML = await processSharedMarkdownContent(analysis);
+            textToCopy = `<div class="analysis-prompt"><strong>Analysis Prompt:</strong> ${escapeHtml(promptText)}</div>\n<div class="analysis-content">${processedHTML}</div>`;
+            break;
+    }
+
+    // Copy to clipboard
+    try {
+        await navigator.clipboard.writeText(textToCopy);
+        showCopySuccess(format);
+    } catch (err) {
+        // Fallback for older browsers
+        const temp = document.createElement('textarea');
+        temp.style.position = 'absolute';
+        temp.style.opacity = '0';
+        temp.value = textToCopy;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showCopySuccess(format);
+    }
+
+    closeCopyFormatModal();
+}
+
+// Convert markdown to plain text (removes markdown formatting)
+function markdownToPlainText(markdown) {
+    let text = markdown;
+
+    // Remove headers
+    text = text.replace(/^#{1,6}\s+/gm, '');
+
+    // Remove bold/italic
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+    text = text.replace(/\*([^*]+)\*/g, '$1');
+    text = text.replace(/__([^_]+)__/g, '$1');
+    text = text.replace(/_([^_]+)_/g, '$1');
+
+    // Remove inline code
+    text = text.replace(/`([^`]+)`/g, '$1');
+
+    // Remove code blocks
+    text = text.replace(/```[\s\S]*?```/g, (match) => {
+        return match.replace(/```\w*\n?/g, '').trim();
+    });
+
+    // Remove links but keep text
+    text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+    // Remove images
+    text = text.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1');
+
+    // Remove horizontal rules
+    text = text.replace(/^---+$/gm, '');
+    text = text.replace(/^\*\*\*+$/gm, '');
+
+    // Remove blockquotes
+    text = text.replace(/^>\s*/gm, '');
+
+    // Convert bullet points to simple dashes
+    text = text.replace(/^[\*\-\+]\s+/gm, '- ');
+
+    // Clean up multiple newlines
+    text = text.replace(/\n{3,}/g, '\n\n');
+
+    return text.trim();
+}
+
+// Show copy success feedback
+function showCopySuccess(format) {
+    const formatNames = {
+        'plain': 'Plain Text',
+        'markdown': 'Markdown',
+        'html': 'HTML'
+    };
+
+    // Find the copy icon and temporarily change it
+    const copyIcon = document.getElementById('insightsCopyIcon');
+    if (copyIcon) {
+        const originalHTML = copyIcon.innerHTML;
+        copyIcon.innerHTML = '✓';
+        copyIcon.style.color = 'var(--accent-green, #10b981)';
+        copyIcon.title = `Copied as ${formatNames[format]}!`;
+
+        setTimeout(() => {
+            copyIcon.innerHTML = originalHTML;
+            copyIcon.style.color = '';
+            copyIcon.title = 'Copy insights';
+        }, 2000);
+    }
+}
+
+// Add copy icon to insights header (call this after insights are displayed)
+function addCopyIconToInsights() {
+    const insightsDiv = document.getElementById('aiInsights');
+    if (!insightsDiv) return;
+
+    // Check if copy icon already exists
+    if (document.getElementById('insightsCopyIcon')) return;
+
+    const insightsHeader = insightsDiv.querySelector('.insights-header');
+    if (!insightsHeader) return;
+
+    // Create copy icon container
+    const copyIconContainer = document.createElement('div');
+    copyIconContainer.id = 'insightsCopyIcon';
+    copyIconContainer.innerHTML = '📋';
+    copyIconContainer.title = 'Copy insights';
+    copyIconContainer.style.cssText = `
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+        z-index: 10;
+    `;
+
+    copyIconContainer.addEventListener('mouseenter', () => {
+        copyIconContainer.style.background = 'var(--bg-tertiary, #f0f0f0)';
+    });
+
+    copyIconContainer.addEventListener('mouseleave', () => {
+        copyIconContainer.style.background = 'transparent';
+    });
+
+    copyIconContainer.addEventListener('click', showCopyFormatModal);
+
+    // Ensure parent has relative positioning
+    insightsDiv.style.position = 'relative';
+    insightsDiv.appendChild(copyIconContainer);
+}
+
+// =============================================================================
 // EXPORT FOR MODULE USAGE (if needed)
 // =============================================================================
 
@@ -2010,6 +2456,18 @@ if (typeof module !== 'undefined' && module.exports) {
         displaySharedClaudeInsights,
         createSaveButtons,
         createPromptSection,
-        appendTokenUsage
+        appendTokenUsage,
+
+        // Raw markdown display
+        showRawMarkdown,
+        showRenderedMarkdown,
+
+        // Copy functionality
+        showCopyFormatModal,
+        closeCopyFormatModal,
+        copyInsights,
+        getCachedInsightsData,
+        markdownToPlainText,
+        addCopyIconToInsights
     };
 }

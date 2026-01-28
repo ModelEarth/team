@@ -793,24 +793,37 @@ Do not include any explanation or additional text.`;
             
             // Merge geo data into primary data
             let mergedCount = 0;
+            let alreadyHasCoords = 0;
             let addedColumns = new Set();
             let unmatchedValues = new Map(); // Track unmatched values with counts (location -> count)
-            
+
             primaryData.forEach(primaryRow => {
+                // Check if this row already has both Latitude and Longitude
+                const lat = primaryRow.Latitude || primaryRow.LATITUDE || primaryRow.latitude;
+                const lon = primaryRow.Longitude || primaryRow.LONGITUDE || primaryRow.longitude;
+                const hasLat = lat && lat !== '' && lat !== null && lat !== undefined;
+                const hasLon = lon && lon !== '' && lon !== null && lon !== undefined;
+
+                // Skip merging if coordinates already exist
+                if (hasLat && hasLon) {
+                    alreadyHasCoords++;
+                    return; // Skip to next row
+                }
+
                 let geoRow = null;
                 let lookupKey = null;
-                
+
                 if (isLocationField) {
                     // Special handling for Location field
                     const city = primaryRow.City;
                     const state = primaryRow.State;
-                    
+
                     if (city && state) {
                         // Try city+state first for more precise matching
                         const cityStateKey = `${city.toLowerCase()}|${state.toLowerCase()}`;
                         geoRow = geoLookup[cityStateKey];
                         lookupKey = `${city}, ${state}`;
-                        
+
                         if (!geoRow) {
                             // Fallback to city-only if city+state doesn't match
                             const cityKey = city.toLowerCase();
@@ -831,13 +844,13 @@ Do not include any explanation or additional text.`;
                         lookupKey = keyValue;
                     }
                 }
-                
+
                 if (geoRow) {
                     // Debug the geo match
                     const geoLat = geoRow.LATITUDE || geoRow.latitude || geoRow.LAT;
                     const geoLng = geoRow.LONGITUDE || geoRow.longitude || geoRow.LON;
                     debugAlert(`🗺️ GEO MATCH: ${primaryRow.Location} matched to geo row with lat: ${geoLat}, lng: ${geoLng}, lookup key: ${lookupKey}`);
-                    
+
                     // Add all geo columns that don't already exist or are empty in primary data
                     Object.keys(geoRow).forEach(geoColumn => {
                         const shouldUpdate = !primaryRow.hasOwnProperty(geoColumn) ||
@@ -854,34 +867,39 @@ Do not include any explanation or additional text.`;
                             addedColumns.add(geoColumn);
                         }
                     });
-                    
+
                     // Handle geoStateTarget parameter - relate State field to specified field in geo dataset
                     if (config.geoStateTarget && Array.isArray(config.geoStateTarget) && primaryRow.State) {
                         // geoStateTarget is an array, use the first element as the state field name
                         const stateTargetField = config.geoStateTarget[0];
                         const geoStateValue = geoRow[stateTargetField] || geoRow[stateTargetField.toUpperCase()] || geoRow[stateTargetField.toLowerCase()];
-                        
+
                         if (geoStateValue && !primaryRow.hasOwnProperty(stateTargetField)) {
                             primaryRow[stateTargetField] = geoStateValue;
                             addedColumns.add(stateTargetField);
                         }
                     }
-                    
+
                     mergedCount++;
                 } else if (lookupKey) {
-                    // Track values that couldn't be matched with their counts (only if lookupKey exists)
+                    // Track values that couldn't be matched with their counts (only if lookupKey exists and coordinates are missing)
                     const currentCount = unmatchedValues.get(lookupKey) || 0;
                     unmatchedValues.set(lookupKey, currentCount + 1);
                 }
             });
             
+            const totalWithCoords = alreadyHasCoords + mergedCount;
+            const coordsPercentage = Math.round(totalWithCoords/primaryData.length*100);
+
             debugAlert('🌍 GEO MERGE: Merged ' + mergedCount + ' records, added columns: ' + Array.from(addedColumns).join(', '));
-            console.log(`🌍 GEO MERGE: Merged ${mergedCount} of ${primaryData.length} records (${Math.round(mergedCount/primaryData.length*100)}%) from ${geoData.length} geo locations`);
+            console.log(`🌍 GEO MERGE SUMMARY: ${totalWithCoords}/${primaryData.length} (${coordsPercentage}%) have coordinates - ${alreadyHasCoords} already had coords, ${mergedCount} newly merged from ${geoData.length} geo locations`);
 
             // Store merge information for search results display
             this.geoMergeInfo = {
                 totalRecords: primaryData.length,
                 mergedRecords: mergedCount,
+                alreadyHadCoords: alreadyHasCoords,
+                totalWithCoords: totalWithCoords,
                 geoDatasetSize: geoData.length
             };
 
@@ -958,7 +976,7 @@ Do not include any explanation or additional text.`;
                 });
             } else {
                 debugAlert('✅ GEO MERGE: All values matched successfully in geo dataset');
-                console.log(`✅ GEO MERGE: All ${mergedCount} locations matched successfully in geo dataset`);
+                console.log(`✅ GEO MERGE: All locations have coordinates (${alreadyHasCoords} pre-existing + ${mergedCount} from geo dataset)`);
             }
 
             // Check for any rows still missing coordinates and report them
@@ -1255,18 +1273,30 @@ Do not include any explanation or additional text.`;
             // Get the merge column from geoColumns config (for coordinate preservation)
             const mergeColumn = this.config?.geoColumns?.[0] || 'Location';
 
+            // Get the merge source file from geoDataset config (e.g., "cities.csv", "counties.csv", "countries.csv")
+            // This specifies which reference CSV to merge data from
+            const mergeSourceFile = this.config?.geoDataset;
+
+            // Build request body
+            const requestBody = {
+                api_url: apiUrl,
+                local_file_path: localFilePath,
+                omit_fields: omitFields,
+                merge_column: mergeColumn
+            };
+
+            // Add merge_source_file if specified in config
+            if (mergeSourceFile) {
+                requestBody.merge_source_file = mergeSourceFile;
+            }
+
             // Call the Rust endpoint to refresh the local file
             const response = await fetch('http://localhost:8081/api/refresh-local', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    api_url: apiUrl,
-                    local_file_path: localFilePath,
-                    omit_fields: omitFields,
-                    merge_column: mergeColumn
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -2795,27 +2825,27 @@ Do not include any explanation or additional text.`;
 
     renderSearchResults() {
         const shortTitle = this.config?.shortTitle ? ` ${this.config.shortTitle}` : '';
-        
+
         // Show filtered count whenever results are filtered (regardless of whether search term exists)
         if (this.filteredListings.length !== this.listings.length) {
             // When filtering is active (or search produced different results), show [filtered] of [total]
             let result = `${this.filteredListings.length} of ${this.listings.length}${shortTitle}`;
-            
-            // Add geo merge info if available and dataset is merged
-            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
-                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
+
+            // Add geo merge info if available and not all records have coordinates
+            if (this.geoMergeInfo && this.geoMergeInfo.totalWithCoords !== this.geoMergeInfo.totalRecords) {
+                result += ` (${this.geoMergeInfo.totalWithCoords} with coordinates)`;
             }
-            
+
             return result;
         } else {
             // When no filtering, show just the total
             let result = `${this.listings.length}${shortTitle}`;
-            
-            // Add geo merge info if available and dataset is merged
-            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
-                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
+
+            // Add geo merge info if available and not all records have coordinates
+            if (this.geoMergeInfo && this.geoMergeInfo.totalWithCoords !== this.geoMergeInfo.totalRecords) {
+                result += ` (${this.geoMergeInfo.totalWithCoords} with coordinates)`;
             }
-            
+
             return result;
         }
     }
