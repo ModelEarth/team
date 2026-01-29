@@ -107,6 +107,19 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 code.textContent = 'For active guidance, follow the AGENTS.md files in the webroot, localsite, and team repos';
                 note.appendChild(code);
                 panel.appendChild(note);
+
+                const frontendText = document.createElement('div');
+                frontendText.textContent = 'If you are just vibing frontend, without Python or Rust, then run:';
+                frontendText.style.marginTop = '12px';
+                frontendText.style.marginBottom = '0';
+                panel.appendChild(frontendText);
+
+                const frontendNote = document.createElement('pre');
+                frontendNote.style.marginTop = '0';
+                const frontendCode = document.createElement('code');
+                frontendCode.textContent = 'For active guidance, follow localsite/AGENTS.md';
+                frontendNote.appendChild(frontendCode);
+                panel.appendChild(frontendNote);
             }
         }
     }
