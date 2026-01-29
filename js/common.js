@@ -269,14 +269,14 @@ function expandSection(sectionId) {
         localStorage.setItem(`${sectionId}-collapsed`, 'false');
     }
     
-    // Special handling for cli-commands section - ensure claude-code-commands is visible
+    // Special handling for cli-commands section - ensure cli-code-commands is visible
     if (sectionId === 'cli-commands') {
-        const claudeCodeCommands = document.getElementById('claude-code-commands');
-        if (claudeCodeCommands) {
-            console.log('expandSection: Setting claude-code-commands to display: block');
-            claudeCodeCommands.style.display = 'block';
+        const cliCodeCommands = document.getElementById('cli-code-commands');
+        if (cliCodeCommands) {
+            console.log('expandSection: Setting cli-code-commands to display: block');
+            cliCodeCommands.style.display = 'block';
         } else {
-            console.log('expandSection: claude-code-commands not found');
+            console.log('expandSection: cli-code-commands not found');
         }
     }
 }
@@ -381,16 +381,25 @@ function createOSDetectionPanel(containerId) {
     </div>
     <div>
 
-        <span style="font-weight: 500; margin-right: 12px;">I'll be coding with...</span><br>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
+            <span style="font-weight: 500;">I'll be coding with...</span>
+            <span class="mac-instructions" style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
+                <a href="https://iterm2.com/" target="_blank" style="color: var(--accent-blue);">iTerm2</a> is a great terminal app
+            </span>
+        </div>
         <div style="margin-bottom: 4px;"></div>
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="codex-cli" style="margin: 0;">
+                <span>OpenAI Codex (recommended, first month free)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="claude-code-cli" style="margin: 0;">
-                <span>Claude Code CLI (Recommended)</span>
+                <span>Claude Code CLI (recommended)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="gemini-cli" style="margin: 0;">
-                <span>Gemini CLI (Not mature yet)</span>
+                <span>Gemini CLI (not currently recommended)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="vscode-claude" style="margin: 0;">
@@ -399,8 +408,8 @@ function createOSDetectionPanel(containerId) {
         </div>
     </div>
     <div id="cli-commands" style="display: none;">
-        <div id="claude-code-commands" style="display: none;">
-            <h4 style="margin: 0 0 8px 0;">Claude Code CLI Installation:</h4>
+        <div id="cli-code-commands" style="display: none;">
+            <h4 style="margin: 0 0 8px 0;" id="cli-installation-title">CLI Installation:</h4>
             <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                     <input type="radio" name="claude-install-status" value="initial" style="margin: 0;" checked>
@@ -412,13 +421,13 @@ function createOSDetectionPanel(containerId) {
                 </label>
             </div>
             <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
-                
-                Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.<br>
+
+                <span id="cli-subscription-text">Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.</span><br>
 
                 <div id="os-specific-install">
                     <!-- OS-specific installation instructions will be populated here -->
                 </div>
-                <div>
+                <div id="optional-migrate" style="display: block;">
                     Optional, for auto-updates run to move from the system directory to your local user directory:
 
                     <pre><code>claude migrate-installer</code></pre>
@@ -427,13 +436,13 @@ function createOSDetectionPanel(containerId) {
             </div>
 
             <div id="cli-instructions" style="margin-bottom: 16px;">
-                Right-click on your "<span id="repo-name">team</span>" repo, open a New Terminal at Folder, and run a virtual environment with Claude Code CLI.
+                Right-click on your "<span id="repo-name">team</span>" repo, open a New Terminal at Folder, and run a virtual environment with your CLI tool.
             </div>
-            
+
             <div id="command-display">python3 -m venv env
 source env/bin/activate
 npx @anthropic-ai/claude-code</div>
-            <div style="font-size: .8em;">
+            <div style="font-size: .8em;" id="cli-tips">
                 Since context grows is passed to Claude with each request, use a new terminal window when your context changes, or run /clear.<br>
                 Also, use /compact with instructions on what to keep. (These approaches will keep responses fast and will use fewer tokens.)
             </div>
@@ -568,16 +577,17 @@ choco install gh -y</code></pre>
 function initializeOSDetectionPanel() {
     const osSelect = document.getElementById('os');
     const osInfo = document.getElementById('os-info');
+    const codexCli = document.getElementById('codex-cli');
     const claudeCodeCli = document.getElementById('claude-code-cli');
     const geminiCli = document.getElementById('gemini-cli');
     const vscodeClaude = document.getElementById('vscode-claude');
     const cliCommands = document.getElementById('cli-commands');
-    const claudeCodeCommands = document.getElementById('claude-code-commands');
+    const cliCodeCommands = document.getElementById('cli-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
     const vscodeCommands = document.getElementById('vscode-cmds');
     const claudeInstallText = document.getElementById('claude-install-text');
     const repoNameSpan = document.getElementById('repo-name');
-    
+
     if (!osSelect || !osInfo) return;
     
     // Auto-detect OS and set initial values
@@ -606,11 +616,16 @@ function initializeOSDetectionPanel() {
     }
     
     // Load saved CLI preferences
+    const savedCodex = localStorage.getItem('codex-cli-installed');
     const savedClaudeCode = localStorage.getItem('claude-code-cli-installed');
     const savedGemini = localStorage.getItem('gemini-cli-installed');
     const savedVscode = localStorage.getItem('vscode-claude-installed');
     const savedInstallStatus = localStorage.getItem('claude-install-status');
-    
+
+    // Check saved preferences
+    if (codexCli && savedCodex === 'true') {
+        codexCli.checked = true;
+    }
     // Check Claude by default if no saved preference exists
     if (claudeCodeCli) {
         if (savedClaudeCode === null) {
@@ -651,26 +666,56 @@ function initializeOSDetectionPanel() {
     // Function to update CLI commands display
     function updateCliCommands() {
         const selectedOS = osSelect.value;
+        const codexChecked = codexCli ? codexCli.checked : false;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
         const geminiChecked = geminiCli ? geminiCli.checked : false;
         const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
-        
+
         // Update OS-specific installation instructions
-        updateOSSpecificInstall(selectedOS);
-        
+        updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked);
+
         // Update title based on number of checked tools
         const cliToolsTitle = document.getElementById('cli-tools-title');
         if (cliToolsTitle) {
             cliToolsTitle.textContent = 'Start your Code CLI (Command Line Interface)';
         }
-        
-        // Handle Claude Code CLI section
-        if (claudeCodeChecked) {
-            // Show and expand the main CLI commands section (this will also handle claude-code-commands)
+
+        // Update CLI installation title and text based on selections
+        const cliInstallationTitle = document.getElementById('cli-installation-title');
+        const cliSubscriptionText = document.getElementById('cli-subscription-text');
+        const optionalMigrate = document.getElementById('optional-migrate');
+        const cliTips = document.getElementById('cli-tips');
+
+        if (codexChecked && claudeCodeChecked) {
+            if (cliInstallationTitle) cliInstallationTitle.textContent = 'CLI Installation:';
+            if (cliSubscriptionText) {
+                cliSubscriptionText.innerHTML = 'Get subscriptions: <a href="https://openai.com/api/">OpenAI Codex</a> and <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
+            }
+            if (optionalMigrate) optionalMigrate.style.display = 'block';
+            if (cliTips) cliTips.style.display = 'block';
+        } else if (codexChecked) {
+            if (cliInstallationTitle) cliInstallationTitle.textContent = 'OpenAI Codex Installation:';
+            if (cliSubscriptionText) {
+                cliSubscriptionText.innerHTML = 'Get yourself an <a href="https://openai.com/api/">OpenAI API subscription</a>.';
+            }
+            if (optionalMigrate) optionalMigrate.style.display = 'none';
+            if (cliTips) cliTips.style.display = 'none';
+        } else if (claudeCodeChecked) {
+            if (cliInstallationTitle) cliInstallationTitle.textContent = 'Claude Code CLI Installation:';
+            if (cliSubscriptionText) {
+                cliSubscriptionText.innerHTML = 'Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
+            }
+            if (optionalMigrate) optionalMigrate.style.display = 'block';
+            if (cliTips) cliTips.style.display = 'block';
+        }
+
+        // Handle CLI section (for both Codex and Claude Code CLI)
+        if (codexChecked || claudeCodeChecked) {
+            // Show and expand the main CLI commands section
             expandSection('cli-commands');
-            
+
             // Update command display based on OS and radio button selection
-            updateCommandsForOS(selectedOS);
+            updateCommandsForOS(selectedOS, codexChecked, claudeCodeChecked);
         } else {
             // Hide the entire CLI commands section
             if (cliCommands) {
@@ -759,40 +804,60 @@ gemini</code></pre>`;
     }
     
     // Function to update OS-specific installation instructions
-    function updateOSSpecificInstall(selectedOS) {
+    function updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked) {
         const osSpecificInstall = document.getElementById('os-specific-install');
         if (osSpecificInstall) {
             let installContent = `If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>.<br><br>`;
-            
-            if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
-                installContent += `<strong>For PC users:</strong> Use this PowerShell command first which automatically installs Node.js, npm, and Claude Code CLI in one step:<br>
-                <pre><code>irm https://claude.ai/install.ps1 | iex</code></pre>`;
-            }
-            
-            if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
-                if (selectedOS === 'PC') {
-                    installContent += '<br>';
+
+            // Show installation commands based on selected CLI tools
+            if (codexChecked && claudeCodeChecked) {
+                // Both selected
+                if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                    installContent += `<strong>For PC users:</strong> Use PowerShell to install:<br>
+                    <pre><code>irm https://claude.ai/install.ps1 | iex
+npm install -g openai-codex-cli</code></pre>`;
                 }
-                const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
-                installContent += `<strong>For ${osLabel} users:</strong> Install Claude Code CLI manually with npm:<br>
-                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>`;
+                if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                    if (selectedOS === 'PC') installContent += '<br>';
+                    const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
+                    installContent += `<strong>For ${osLabel} users:</strong> Install both CLIs with npm:<br>
+                    <pre><code>npm install -g @anthropic-ai/claude-code
+npm install -g openai-codex-cli</code></pre>`;
+                }
+            } else if (codexChecked) {
+                // Only Codex selected
+                const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : (selectedOS === 'PC' ? 'PC' : 'all');
+                installContent += `<strong>Install OpenAI Codex CLI:</strong><br>
+                <pre><code>npm install -g openai-codex-cli</code></pre>`;
+            } else if (claudeCodeChecked) {
+                // Only Claude selected
+                if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                    installContent += `<strong>For PC users:</strong> Use this PowerShell command first which automatically installs Node.js, npm, and Claude Code CLI in one step:<br>
+                    <pre><code>irm https://claude.ai/install.ps1 | iex</code></pre>`;
+                }
+                if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
+                    if (selectedOS === 'PC') installContent += '<br>';
+                    const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
+                    installContent += `<strong>For ${osLabel} users:</strong> Install Claude Code CLI manually with npm:<br>
+                    <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>`;
+                }
             }
-            
+
             osSpecificInstall.innerHTML = installContent;
         }
     }
 
     // Separate function to update commands - called after DOM is ready
-    function updateCommandsForOS(selectedOS) {
+    function updateCommandsForOS(selectedOS, codexChecked, claudeCodeChecked) {
         // Find the command display div
         let commandDisplay = document.getElementById('command-display');
 
         // If not found directly, look for it within collapsed content
         if (!commandDisplay) {
-            const claudeCodeCommands = document.getElementById('claude-code-commands');
-            if (claudeCodeCommands) {
-                commandDisplay = claudeCodeCommands.querySelector('#command-display') ||
-                               claudeCodeCommands.querySelector('.collapse-content #command-display');
+            const cliCodeCommands = document.getElementById('cli-code-commands');
+            if (cliCodeCommands) {
+                commandDisplay = cliCodeCommands.querySelector('#command-display') ||
+                               cliCodeCommands.querySelector('.collapse-content #command-display');
             }
         }
 
@@ -802,24 +867,35 @@ gemini</code></pre>`;
             // Check if "Already installed" radio button is selected
             const alreadyInstalledRadio = document.querySelector('input[name="claude-install-status"][value="already"]');
             const isAlreadyInstalled = alreadyInstalledRadio && alreadyInstalledRadio.checked;
-            const claudeCmd = isAlreadyInstalled ? 'claude' : 'npx @anthropic-ai/claude-code';
+
+            // Determine which CLI command to use
+            let cliCmd = '';
+            if (codexChecked && !claudeCodeChecked) {
+                cliCmd = 'codex';
+            } else if (claudeCodeChecked && !codexChecked) {
+                cliCmd = isAlreadyInstalled ? 'claude' : 'npx @anthropic-ai/claude-code';
+            } else if (codexChecked && claudeCodeChecked) {
+                // Both selected - show both commands
+                const claudeCmd = isAlreadyInstalled ? 'claude' : 'npx @anthropic-ai/claude-code';
+                cliCmd = `codex\n# Or use:\n# ${claudeCmd}`;
+            }
 
             if (selectedOS === 'Mac' || selectedOS === 'Linux') {
                 newContent = `<pre><code>python3 -m venv env
 source env/bin/activate
-${claudeCmd}</code></pre>`;
+${cliCmd}</code></pre>`;
             } else if (selectedOS === 'PC') {
-                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && ${claudeCmd}</code></pre>`;
+                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && ${cliCmd}</code></pre>`;
             } else {
                 newContent = `<b>For Unix/Linux/Mac:</b>
 <pre><code>python3 -m venv env
 source env/bin/activate
-${claudeCmd}</code></pre>
+${cliCmd}</code></pre>
 
 <b>For Windows:</b>
 <pre><code>python -m venv env
 env\\Scripts\\activate.bat
-${claudeCmd}</code></pre>`;
+${cliCmd}</code></pre>`;
             }
 
             commandDisplay.innerHTML = newContent;
@@ -833,20 +909,27 @@ ${claudeCmd}</code></pre>`;
     });
     
     // Add checkbox event listeners
+    if (codexCli) {
+        codexCli.addEventListener('change', function() {
+            localStorage.setItem('codex-cli-installed', this.checked);
+            updateCliCommands();
+        });
+    }
+
     if (claudeCodeCli) {
         claudeCodeCli.addEventListener('change', function() {
             localStorage.setItem('claude-code-cli-installed', this.checked);
             updateCliCommands();
         });
     }
-    
+
     if (geminiCli) {
         geminiCli.addEventListener('change', function() {
             localStorage.setItem('gemini-cli-installed', this.checked);
             updateCliCommands();
         });
     }
-    
+
     if (vscodeClaude) {
         vscodeClaude.addEventListener('change', function() {
             localStorage.setItem('vscode-claude-installed', this.checked);
