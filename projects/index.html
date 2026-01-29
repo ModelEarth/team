@@ -7118,10 +7118,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
                             console.log(`📧 Merged ${mergeResult.matched}/${validData.length} rows from people.env. ${unmatchedRows.length} still unmatched.`);
                         } else {
-                            alert('⚠️ people.env data is empty or failed to load');
+                            console.log('⚠️ people.env data is empty or failed to load');
                         }
                     } else {
-                        alert('🌐 Not on localhost - skipping people.env merge');
+                        console.log('🌐 Not on localhost - skipping people.env merge');
                     }
                 }
 
