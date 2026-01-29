@@ -46,7 +46,7 @@ function createTradeFlowReposHTML() {
         <p>Optional: To contribute to our data-pipeline or industry tradeflow visualizations, run the following to fork and clone:<br>
         data-pipeline, trade-data, nisar, community, evaporation-kits</p>
         
-        <pre><code id="forkReposCmds">using claude.md
+        <pre><code id="forkReposCmds">using guidance in webroot/AGENTS.md
 fork extra repos to [your github account]
 clone extra repos from [your github account]
 </code></pre>
@@ -582,13 +582,13 @@ function setupQuickstartInstructions(containerId) {
         <h3 style="color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
         <div class="readme-content">
             <p style="color: var(--text-secondary);">
-                Using Claude Code CLI, start a web server (and python backend) within a virtual environment on port 8887:
+                Using your Code CLI, start a web server (and python backend) within a virtual environment on port 8887:
             </p>
             <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server</code></pre>
             <p style="color: var(--text-secondary);">
                 The "start server" command runs ./desktop/install/quickstart.sh which creates a virtual environment in desktop/install/env/<!-- if it doesn't exist-->, and starts a HTTP server with server-side Python access.
             </p>
-            <p style="color: var(--text-primary);"><strong>Or run without Claude Code CLI:</strong></p>
+            <p style="color: var(--text-primary);"><strong>Or run without a Code CLI:</strong></p>
             <p style="color: var(--text-primary);">On Macs and Linux:</p>
             <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
 source env/bin/activate
