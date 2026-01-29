@@ -104,7 +104,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 note.id = 'agents-guidance-note';
                 note.style.marginTop = '0';
                 const code = document.createElement('code');
-                code.textContent = 'Review and follow AGENTS.md files in the root, localsite, and team';
+                code.textContent = 'For active guidance, follow the AGENTS.md files in the webroot, localsite, and team repos';
                 note.appendChild(code);
                 panel.appendChild(note);
             }
