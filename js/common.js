@@ -397,7 +397,7 @@ function createOSDetectionPanel(containerId) {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
             <span style="font-weight: 500;">I'll be coding with...</span>
             <span class="mac-instructions" style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
-                <a href="https://iterm2.com/" target="_blank" style="color: var(--accent-blue);">iTerm2</a> is a great terminal app
+                <a href="https://iterm2.com/" target="_blank">iTerm2</a> is a great terminal app
             </span>
         </div>
         <div style="margin-bottom: 4px;"></div>
@@ -467,7 +467,7 @@ npx @anthropic-ai/claude-code</div>
             <h1 class="card-title">Gemini Setup</h1>
 
             <!-- Gemini Insights Section (always visible) -->
-            <div id="gemini-resources" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+            <div id="gemini-resources" style="margin-bottom: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
                 <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
                 <div id="gemini-key-content">
                     Add it in docker/.env
