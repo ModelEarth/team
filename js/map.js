@@ -67,6 +67,9 @@ class ListingsDisplay {
         this.initialMapLoad = true;
         this.isFilteringInProgress = false;
         this.geoMergeInfo = null; // Track geo dataset merge information
+        this.selectedListingIndex = null;
+        this.detailMap = null;
+        this.detailMapMarker = null;
         
         // Configuration for paths
         this.pathConfig = {
@@ -125,6 +128,61 @@ class ListingsDisplay {
                 e.stopPropagation();
                 this.toggleSearchPopup();
             }
+
+            const detailsButton = e.target.closest('.view-details-btn');
+            if (detailsButton) {
+                const indexValue = Number(detailsButton.dataset.listingIndex);
+                if (!Number.isNaN(indexValue)) {
+                    const listing = this.filteredListings[indexValue];
+                    const hashId = listing ? this.getListingHashId(listing, indexValue) : null;
+                    if (hashId && typeof goHash === 'function') {
+                        goHash({ detail: hashId });
+                    } else {
+                        this.showListingDetailsByIndex(indexValue);
+                    }
+                }
+            }
+
+            const moreToggle = e.target.closest('.location-more-toggle');
+            if (moreToggle) {
+                const targetId = moreToggle.dataset.target;
+                const target = targetId ? document.getElementById(targetId) : null;
+                const group = moreToggle.dataset.group;
+                const groupButtons = group
+                    ? Array.from(document.querySelectorAll(`.location-more-toggle[data-group="${group}"]`))
+                    : [];
+                const groupTargets = groupButtons
+                    .map(btn => btn.dataset.target)
+                    .filter(Boolean)
+                    .map(id => document.getElementById(id))
+                    .filter(Boolean);
+
+                if (!target) {
+                    return;
+                }
+
+                const isExpanded = target.classList.contains('expanded');
+                if (isExpanded) {
+                    groupTargets.forEach(node => node.classList.remove('expanded'));
+                    groupButtons.forEach(btn => {
+                        const label = btn.dataset.label;
+                        if (label) btn.textContent = label;
+                    });
+                    return;
+                }
+
+                groupTargets.forEach(node => node.classList.remove('expanded'));
+                target.classList.add('expanded');
+                groupButtons.forEach(btn => {
+                    const label = btn.dataset.label;
+                    if (label) btn.textContent = label;
+                });
+                moreToggle.textContent = 'Less';
+            }
+        });
+
+        document.addEventListener('hashChangeEvent', () => {
+            this.applyHashDetailSelection();
         });
     }
     
@@ -1547,6 +1605,12 @@ Do not include any explanation or additional text.`;
                 recognized.state = listing[field];
             }
         });
+
+        ['zip', 'Zip', 'ZIP', 'zipcode', 'postal_code'].forEach(field => {
+            if (listing[field] && !recognized.zip) {
+                recognized.zip = listing[field];
+            }
+        });
         
         // Contact fields
         ['phone', 'Phone', 'PHONE', 'telephone'].forEach(field => {
@@ -1584,26 +1648,49 @@ Do not include any explanation or additional text.`;
         return recognized;
     }
 
-    getUnrecognizedFields(listing) {
-        const recognizedKeys = new Set([
+    getRecognizedKeySet() {
+        // Normalize recognized keys to lowercase for consistent comparisons.
+        return new Set([
             this.config?.nameColumn,
             this.config?.titleColumn,
             this.config?.addressColumn,
             this.config?.valueColumn,
-            'city', 'City', 'CITY',
-            'county', 'County', 'COUNTY',
-            'state', 'State', 'STATE',
-            'zip', 'Zip', 'ZIP', 'zipcode', 'postal_code',
-            'population', 'Population', 'POPULATION', 'pop',
-            'phone', 'Phone', 'PHONE', 'telephone',
-            'email', 'Email', 'EMAIL',
-            'website', 'Website', 'WEBSITE', 'url', 'URL',
-            'description', 'Description', 'DESCRIPTION', 'details'
-        ]);
+            'city',
+            'county',
+            'state',
+            'zip',
+            'zipcode',
+            'postal_code',
+            'population',
+            'pop',
+            'phone',
+            'telephone',
+            'email',
+            'website',
+            'url',
+            'description',
+            'details',
+            'contact_name',
+            'contactname',
+            'contact name',
+            'contact',
+            'contact_email',
+            'contactemail',
+            'contact email',
+            'contact_address',
+            'contactaddress',
+            'contact address'
+        ].filter(Boolean).map(key => key.toString().toLowerCase()));
+    }
+
+    getUnrecognizedFields(listing) {
+        // Recognized keys are excluded from "additional details" so core fields stay in primary display blocks.
+        const recognizedKeys = this.getRecognizedKeySet();
         
         const unrecognized = {};
         Object.keys(listing).forEach(key => {
-            if (!recognizedKeys.has(key) && listing[key] && listing[key].toString().trim()) {
+            const normalizedKey = key.toString().toLowerCase();
+            if (!recognizedKeys.has(normalizedKey) && listing[key] && listing[key].toString().trim()) {
                 unrecognized[key] = listing[key];
             }
         });
@@ -1641,6 +1728,184 @@ Do not include any explanation or additional text.`;
         }
         
         return strValue;
+    }
+
+    formatCityStateZip(recognized) {
+        if (!recognized) {
+            return '';
+        }
+        const city = recognized.city ? recognized.city.toString().trim() : '';
+        const state = recognized.state ? recognized.state.toString().trim() : '';
+        const zip = recognized.zip ? recognized.zip.toString().trim() : '';
+        if (!city && !state && !zip) {
+            return '';
+        }
+        const cityState = city && state ? `${city}, ${state}` : (city || state);
+        if (zip) {
+            return cityState ? `${cityState} ${zip}` : zip;
+        }
+        return cityState;
+    }
+
+    getContactName(listing) {
+        if (!listing) {
+            return '';
+        }
+        const keys = ['contact_name', 'Contact Name', 'contactName', 'Contact', 'contact'];
+        for (const key of keys) {
+            if (listing[key]) {
+                return listing[key];
+            }
+        }
+        return '';
+    }
+
+    getContactAddress(listing) {
+        if (!listing) {
+            return '';
+        }
+        const keys = ['contact_address', 'Contact Address', 'contactAddress', 'address', 'Address', 'street', 'Street'];
+        for (const key of keys) {
+            if (listing[key]) {
+                return listing[key];
+            }
+        }
+        return '';
+    }
+
+    getContactEmail(listing) {
+        if (!listing) {
+            return '';
+        }
+        const keys = ['contact_email', 'Contact Email', 'contactEmail', 'email', 'Email'];
+        for (const key of keys) {
+            if (listing[key]) {
+                return listing[key];
+            }
+        }
+        return '';
+    }
+
+    getRecognizedDisplayRows(recognized, options = {}) {
+        const omitKeys = new Set((options.omitKeys || []).map(key => key.toString().toLowerCase()));
+        const rows = [];
+
+        const addRow = (label, value, key) => {
+            if (!value) {
+                return;
+            }
+            if (key && omitKeys.has(key)) {
+                return;
+            }
+            rows.push({ label, value });
+        };
+
+        addRow('Title', recognized.title, 'title');
+        addRow('County', recognized.county, 'county');
+        addRow('Phone', recognized.phone, 'phone');
+        addRow('Email', recognized.email, 'email');
+        addRow('Website', recognized.website, 'website');
+        addRow('Description', recognized.description, 'description');
+        addRow('Population', recognized.population, 'population');
+
+        return rows;
+    }
+
+    getFeaturedDisplayRows(listing) {
+        const featuredColumns = this.config?.featuredColumns || [];
+        if (!featuredColumns.length) {
+            return [];
+        }
+        const recognizedKeySet = this.getRecognizedKeySet();
+        const rows = [];
+
+        featuredColumns.forEach((column) => {
+            const normalizedColumn = column.toLowerCase();
+            if (recognizedKeySet.has(normalizedColumn)) {
+                return;
+            }
+            let actualColumnName;
+            let value;
+
+            if (this.config?.allColumns && Array.isArray(this.config.allColumns)) {
+                actualColumnName = column;
+                value = listing[column];
+            } else {
+                actualColumnName = Object.keys(listing).find(key =>
+                    key.toLowerCase() === column.toLowerCase()
+                ) || column;
+                value = listing[actualColumnName];
+            }
+
+            if (value && value.toString().trim()) {
+                let formattedValue = value;
+                if (normalizedColumn.includes('population')) {
+                    formattedValue = this.formatFieldValue(value, 'population');
+                } else {
+                    formattedValue = this.formatFieldValue(value);
+                }
+                rows.push({
+                    label: this.formatKeyName(column),
+                    value: formattedValue
+                });
+            }
+        });
+
+        return rows;
+    }
+
+    isFeaturedColumnKey(key) {
+        const featuredColumns = this.config?.featuredColumns || [];
+        if (!featuredColumns.length || !key) {
+            return false;
+        }
+        const lowerKey = key.toString().toLowerCase();
+        return featuredColumns.some(col => col.toLowerCase() === lowerKey);
+    }
+
+    getSharedDisplayRows(listing) {
+        const recognized = this.getRecognizedFields(listing);
+        const featuredRows = this.getFeaturedDisplayRows(listing);
+        const recognizedRows = this.getRecognizedDisplayRows(recognized, {
+            omitKeys: ['name', 'address', 'city', 'state', 'zip', 'zipcode', 'postal_code', 'email']
+        });
+        return [...featuredRows, ...recognizedRows];
+    }
+
+    getDetailMetaRows(listing, helpers = {}) {
+        const fieldMapping = helpers.fieldMapping || this.getFieldMapping();
+        const isInFeaturedColumns = helpers.isInFeaturedColumns || ((key) => this.isFeaturedColumnKey(key));
+        const isInOmitList = helpers.isInOmitList || ((key) => {
+            const omitList = this.config?.omit_display || [];
+            return omitList.some(col => col.toLowerCase() === key.toLowerCase());
+        });
+
+        const filteredRows = Object.entries(listing)
+            .filter(([key, value]) =>
+                !isInFeaturedColumns(key) &&
+                !isInOmitList(key) &&
+                value &&
+                value.toString().trim() !== '' &&
+                value.toString().trim() !== '-' &&
+                key !== fieldMapping.latitude &&
+                key !== fieldMapping.longitude
+            )
+            .map(([key, value]) => ({
+                label: this.formatKeyName(key),
+                value: this.formatFieldValue(value)
+            }));
+
+        const unfilteredRows = Object.entries(listing)
+            .filter(([key]) =>
+                key !== fieldMapping.latitude &&
+                key !== fieldMapping.longitude
+            )
+            .map(([key, value]) => ({
+                label: this.formatKeyName(key),
+                value: value ? this.formatFieldValue(value) : ''
+            }));
+
+        return { filteredRows, unfilteredRows };
     }
 
     formatKeyName(key) {
@@ -2251,9 +2516,15 @@ Do not include any explanation or additional text.`;
             return this.renderSummaryListings(currentPageListings);
         }
         
-        return currentPageListings.map(listing => {
+        return currentPageListings.map((listing, index) => {
             const displayData = this.getDisplayData(listing);
+            const sharedRows = this.getSharedDisplayRows(listing);
+            const sharedRowsMarkup = sharedRows.map(row => `
+                <div class="listing-info"><strong>${row.label}:</strong> ${this.formatFieldValue(row.value)}</div>
+            `).join('');
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
+            const listingIndex = (this.currentPage - 1) * this.itemsPerPage + index;
+            const listingHashId = this.getListingHashId(listing, listingIndex);
             
             // Helper function to check if key is in featured columns
             const isInFeaturedColumns = (key) => {
@@ -2276,62 +2547,619 @@ Do not include any explanation or additional text.`;
             
             // Count additional details (excluding featured columns, omitted fields, and coordinates)
             const fieldMapping = this.getFieldMapping();
-            const additionalDetailsCount = Object.entries(listing)
-                .filter(([key, value]) => 
-                    !isInFeaturedColumns(key) && 
-                    !isInOmitList(key) &&
-                    value && 
-                    value.toString().trim() !== '' &&
-                    value.toString().trim() !== '-' &&
-                    key !== fieldMapping.latitude && 
-                    key !== fieldMapping.longitude
-                ).length;
+            const metaRows = this.getDetailMetaRows(listing, {
+                isInFeaturedColumns,
+                isInOmitList,
+                fieldMapping
+            });
+            const additionalDetailsCount = metaRows.filteredRows.length;
+            const evenMoreCount = metaRows.unfilteredRows.length;
             
             return `
                 <div class="listing-card">
                     <div class="listing-content">
-                        <div class="listing-name">${displayData.primary || 'No Name'}</div>
-                        ${displayData.secondary ? `<div class="listing-info">${displayData.secondary}</div>` : ''}
-                        ${displayData.tertiary ? `<div class="listing-info">${displayData.tertiary}</div>` : ''}
-                        ${displayData.quaternary ? `<div class="listing-info">${displayData.quaternary}</div>` : ''}
-                        ${displayData.quinary ? `<div class="listing-info">${displayData.quinary}</div>` : ''}
-                        ${displayData.senary ? `<div class="listing-info">${displayData.senary}</div>` : ''}
-
-                        ${additionalDetailsCount > 0 ? `
-                        <div class="details-toggle">
-                            <span class="toggle-arrow" id="arrow-${uniqueId}" data-details-id="${uniqueId}">▶</span>
-                            <span class="toggle-label" data-details-id="${uniqueId}">Additional Details (${additionalDetailsCount})</span>
-                        </div>
-
-                        <div class="details-content" id="${uniqueId}">
-                            ${Object.entries(listing)
-                                .filter(([key, value]) =>
-                                    !isInFeaturedColumns(key) &&
-                                    !isInOmitList(key) &&
-                                    value &&
-                                    value.toString().trim() !== '' &&
-                                    value.toString().trim() !== '-' &&
-                                    key !== fieldMapping.latitude &&
-                                    key !== fieldMapping.longitude
-                                )
-                                .map(([key, value]) => {
-                                    const formattedValue = this.formatFieldValue(value);
-                                    const shouldStack = key.length > 16 && formattedValue.length > 38;
-                                    const stackedClass = shouldStack ? ' stacked' : '';
-
-                                    return `
-                                        <div class="detail-item${stackedClass}">
-                                            <span class="detail-label">${this.formatKeyName(key)}:</span>
-                                            <span class="detail-value">${formattedValue}</span>
-                                        </div>
-                                    `;
-                                }).join('')}
-                        </div>
-                        ` : ''}
+                        <h3 class="listing-title">${displayData.primary || recognized.name || 'Listing'}</h3>
+                        ${this.renderListingDetailContent(listing, {
+                            metaId: `${uniqueId}-more`,
+                            evenMetaId: `${uniqueId}-even`,
+                            metaGroup: uniqueId,
+                            metaRows,
+                            showMetaButtons: true,
+                            showViewDetailsButton: true,
+                            listingIndex,
+                            listingHashId
+                        })}
                     </div>
                 </div>
             `;
         }).join('');
+    }
+
+    renderMapGallerySection() {
+        return `
+            <section class="location-section" id="location-section">
+                <div class="location-header">
+                    <h2 class="location-title">Listing Details</h2>
+                </div>
+                <div class="location-content">
+                    <div class="location-details" id="location-details">
+                        ${this.renderDetailEmptyState()}
+                    </div>
+                    <div class="location-map">
+                        <div id="detailMap"></div>
+                        <div class="detail-map-caption" id="detailMapCaption">Select a listing to view the map.</div>
+                    </div>
+                </div>
+            </section>
+        `;
+    }
+
+    renderDetailEmptyState() {
+        return `
+            <div class="location-empty">
+                <div class="location-empty-title">No listing selected</div>
+                <div class="location-empty-subtitle">Use "View Details" to preview a listing here.</div>
+            </div>
+        `;
+    }
+
+    getSelectedListing() {
+        if (this.selectedListingIndex !== null && this.filteredListings[this.selectedListingIndex]) {
+            return this.filteredListings[this.selectedListingIndex];
+        }
+
+        const currentListings = this.getCurrentPageListings();
+        if (currentListings.length) {
+            const firstIndex = (this.currentPage - 1) * this.itemsPerPage;
+            this.selectedListingIndex = firstIndex;
+            return currentListings[0];
+        }
+
+        this.selectedListingIndex = null;
+        return null;
+    }
+
+    getListingIdValue(listing) {
+        if (!listing) {
+            return null;
+        }
+        const idKeys = ['id', 'ID', 'uuid', 'UUID', 'Id'];
+        for (const key of idKeys) {
+            if (listing[key]) {
+                return String(listing[key]).trim();
+            }
+        }
+        return null;
+    }
+
+    getListingHashId(listing, index) {
+        const idValue = this.getListingIdValue(listing);
+        if (idValue) {
+            return idValue;
+        }
+        return `idx-${index}`;
+    }
+
+    findListingIndexByHashId(hashId) {
+        if (!hashId) {
+            return null;
+        }
+        if (hashId.startsWith('idx-')) {
+            const parsed = Number(hashId.replace('idx-', ''));
+            return Number.isNaN(parsed) ? null : parsed;
+        }
+        const matchIndex = this.filteredListings.findIndex((listing) => {
+            return this.getListingIdValue(listing) === hashId;
+        });
+        return matchIndex >= 0 ? matchIndex : null;
+    }
+
+    applyHashDetailSelection() {
+        if (typeof getHash !== 'function') {
+            return;
+        }
+        const hash = getHash();
+        if (!hash || !hash.detail) {
+            return;
+        }
+        const index = this.findListingIndexByHashId(hash.detail);
+        if (index !== null) {
+            this.showListingDetailsByIndex(index);
+        }
+    }
+
+    showListingDetailsByIndex(index) {
+        if (!this.filteredListings[index]) {
+            return;
+        }
+
+        this.selectedListingIndex = index;
+        this.updateMapGallerySection(this.filteredListings[index]);
+
+        const section = document.getElementById('location-section');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    updateMapGallerySection(listing) {
+        const detailsContainer = document.getElementById('location-details');
+        const headerTitle = document.querySelector('.location-header .location-title');
+        if (!detailsContainer) {
+            return;
+        }
+
+        if (!listing) {
+            detailsContainer.innerHTML = this.renderDetailEmptyState();
+            if (headerTitle) {
+                headerTitle.textContent = 'Listing Details';
+            }
+            this.updateDetailMap(null);
+            return;
+        }
+
+        const galleryImages = this.getListingImages(listing);
+        const displayData = this.getDisplayData(listing);
+        const recognized = this.getRecognizedFields(listing);
+        if (headerTitle) {
+            headerTitle.textContent = displayData.primary || recognized.name || 'Listing Details';
+        }
+        detailsContainer.innerHTML = `
+            ${this.renderListingDetailContent(listing, {
+                metaId: 'location-meta',
+                evenMetaId: 'location-meta-even',
+                metaGroup: 'map-gallery',
+                metaRows: this.getDetailMetaRows(listing),
+                showMetaButtons: true
+            })}
+            ${this.renderGalleryMarkup(galleryImages)}
+        `;
+
+        this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
+        this.ensureGalleryImageModal();
+        this.updateDetailMap(listing);
+    }
+
+    renderListingDetailContent(listing, options = {}) {
+        const displayData = this.getDisplayData(listing, { includeAddress: false });
+        const recognized = this.getRecognizedFields(listing);
+        const fieldMapping = this.getFieldMapping();
+        const extraFields = this.getUnrecognizedFields(listing);
+        const devmode = (typeof Cookies !== 'undefined' && Cookies.get && Cookies.get('devmode')) || '';
+        const isDevMode = devmode === 'dev';
+
+        const featuredRows = this.getFeaturedDisplayRows(listing);
+        const rows = [
+            ...this.getSharedDisplayRows(listing)
+        ];
+        const titleText = displayData.primary || recognized.name || 'Listing';
+        const contactNameRaw = this.getContactName(listing);
+        const contactEmail = this.getContactEmail(listing) || recognized.email;
+        const contactAddress = this.getContactAddress(listing) || recognized.address;
+        const contactName = contactNameRaw && contactNameRaw.toString().trim() !== titleText.toString().trim()
+            ? contactNameRaw
+            : '';
+        const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
+        const cityStateZip = this.formatCityStateZip(recognized);
+
+        Object.entries(extraFields).some(([key, value]) => {
+            if (key === fieldMapping.latitude || key === fieldMapping.longitude) {
+                return false;
+            }
+            const lowerKey = key.toLowerCase();
+            if (
+                lowerKey.includes('address') ||
+                lowerKey.includes('street') ||
+                lowerKey.includes('city') ||
+                lowerKey.includes('state') ||
+                lowerKey.includes('zip') ||
+                lowerKey.includes('postal') ||
+                (lowerKey.includes('contact') && lowerKey.includes('name')) ||
+                (lowerKey.includes('contact') && lowerKey.includes('email')) ||
+                this.isFeaturedColumnKey(key)
+            ) {
+                return false;
+            }
+            if (lowerKey === 'name') {
+                return false;
+            }
+            rows.push({ label: this.formatKeyName(key), value: value });
+            return false;
+        });
+
+        const tertiaryLine = displayData.tertiary || '';
+        const showEmailLine = tertiaryLine && !(contactName && contactEmail);
+
+        const metaId = options.metaId || `location-meta-${Math.random().toString(36).substr(2, 8)}`;
+        const evenMetaId = options.evenMetaId || `location-meta-even-${Math.random().toString(36).substr(2, 8)}`;
+        const metaGroup = options.metaGroup || metaId;
+        const hasMetaRows = rows.length > 0;
+        const metaRows = options.metaRows || this.getDetailMetaRows(listing);
+        const moreCount = metaRows.filteredRows.length;
+        const evenMoreCount = metaRows.unfilteredRows.length;
+
+        const viewDetailsButton = options.showViewDetailsButton
+            ? `<button class="view-details-btn location-btn" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">View Details</button>`
+            : '';
+
+        return `
+            <div class="location-listing">
+                ${(contactName || contactEmail) ? `<div class="location-contact">Contact: ${[contactName, contactEmail].filter(Boolean).map(val => this.formatFieldValue(val)).join(' ')}</div>` : ''}
+                ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
+                ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
+                ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
+                ${(options.showMetaButtons && (viewDetailsButton || (isDevMode && (moreCount || evenMoreCount)))) ? `
+                    <div class="details-more-actions" style="margin-top:10px">
+                        ${viewDetailsButton}
+                        ${(isDevMode && moreCount) ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})">More (${moreCount})</button>` : ''}
+                        ${(isDevMode && evenMoreCount) ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount})">Even More (${evenMoreCount})</button>` : ''}
+                    </div>
+                ` : ''}
+                ${hasMetaRows ? `
+                    <div class="location-meta" id="${metaId}">
+                        ${metaRows.filteredRows.map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="location-meta" id="${evenMetaId}">
+                        ${metaRows.unfilteredRows.map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value || '-'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="location-empty">No details available.</div>'}
+            </div>
+        `;
+    }
+
+    getDefaultGalleryImages() {
+        return [
+            { url: "../../img/presenting.jpg", path: "team/img/presenting.jpg" },
+            { url: "../../img/presenting-banner.jpg", path: "team/img/presenting-banner.jpg" },
+            { url: "../../img/presenting-bolt-4gov.jpg", path: "team/img/presenting-bolt-4gov.jpg" },
+            { url: "../../img/banner.webp", path: "team/img/banner.webp" }
+        ];
+    }
+
+    getListingImages(listing) {
+        if (!listing) {
+            return this.getDefaultGalleryImages();
+        }
+
+        const imageKeys = Object.keys(listing).filter((key) => {
+            const lowerKey = key.toLowerCase();
+            return lowerKey.includes('image') || lowerKey.includes('photo') || lowerKey.includes('logo') || lowerKey.includes('picture') || lowerKey.includes('thumbnail');
+        });
+
+        const images = [];
+        imageKeys.forEach((key) => {
+            const value = listing[key];
+            if (!value) {
+                return;
+            }
+
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed.startsWith('http') || trimmed.match(/\.(png|jpe?g|webp|gif)$/i)) {
+                    images.push({ url: trimmed, path: key });
+                }
+            }
+        });
+
+        return images.length ? images.slice(0, 12) : this.getDefaultGalleryImages();
+    }
+
+    formatGallerySourcePath(path) {
+        return path || "";
+    }
+
+    renderGalleryMarkup(images) {
+        if (!images.length) {
+            return '';
+        }
+
+        const preferThreeCol = images.length % 3 === 0 || images.length === 5;
+        const galleryClass = preferThreeCol ? "image-gallery three-col-prefer" : "image-gallery";
+
+        return `
+            <div class="description-images-nav" id="location-nav">
+                <div class="image-item" data-current-index="0">
+                    <img src="${images[0].url}" alt="Gallery image" class="description-image" onerror="this.style.display='none'">
+                    <div class="image-source">${this.formatGallerySourcePath(images[0].path)}</div>
+                </div>
+                <div class="image-nav-controls">
+                    <button class="image-nav-btn image-nav-prev" aria-label="Previous image">‹</button>
+                    <span class="image-counter">1 / ${images.length}</span>
+                    <button class="image-nav-btn image-nav-next" aria-label="Next image">›</button>
+                    <button class="view-gallery-btn" aria-label="View all images" title="View all images">⊞</button>
+                </div>
+            </div>
+            <div class="${galleryClass}" style="display: none;">
+                <div class="gallery-header">
+                    <h5>Image Gallery (${images.length})</h5>
+                    <button class="circular-close-btn" aria-label="Close gallery" title="Close gallery">
+                        <i class="material-icons">cancel</i>
+                    </button>
+                </div>
+                <div class="gallery-grid">
+                    ${images.map((img, index) => `
+                        <div class="gallery-item" data-gallery-index="${index}">
+                            <img src="${img.url}" alt="Gallery image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
+                            <div class="gallery-image-source">${this.formatGallerySourcePath(img.path)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    ensureGalleryImageModal() {
+        const modal = document.getElementById("gallery-image-modal");
+        if (!modal) {
+            return null;
+        }
+
+        const closeButton = modal.querySelector(".product-image-modal-close");
+        const backdrop = modal.querySelector(".product-image-modal-backdrop");
+        const prevButton = modal.querySelector(".product-image-modal-prev");
+        const nextButton = modal.querySelector(".product-image-modal-next");
+
+        if (modal.dataset.ready === "true") {
+            return modal;
+        }
+
+        const closeModal = () => {
+            modal.classList.remove("active");
+            modal.setAttribute("aria-hidden", "true");
+        };
+
+        const stepImage = (direction) => {
+            if (!modal._imageList || modal._imageList.length <= 1) {
+                return;
+            }
+            const listLength = modal._imageList.length;
+            modal._imageIndex = (modal._imageIndex + direction + listLength) % listLength;
+            this.updateGalleryImageModal(modal);
+        };
+
+        closeButton.addEventListener("click", closeModal);
+        backdrop.addEventListener("click", closeModal);
+        prevButton.addEventListener("click", () => stepImage(-1));
+        nextButton.addEventListener("click", () => stepImage(1));
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && modal.classList.contains("active")) {
+                closeModal();
+            }
+            if (event.key === "ArrowLeft" && modal.classList.contains("active")) {
+                stepImage(-1);
+            }
+            if (event.key === "ArrowRight" && modal.classList.contains("active")) {
+                stepImage(1);
+            }
+        });
+
+        window.addEventListener("resize", () => {
+            if (modal.classList.contains("active")) {
+                this.adjustGalleryImageModalNav(modal);
+            }
+        });
+
+        modal.dataset.ready = "true";
+        return modal;
+    }
+
+    adjustGalleryImageModalNav(modal) {
+        const image = modal.querySelector(".product-image-modal-img");
+        if (!image) {
+            return;
+        }
+
+        const rect = image.getBoundingClientRect();
+        const isSmall = rect.width < 400 || rect.height < 400;
+        modal.classList.toggle("nav-below", isSmall);
+    }
+
+    updateGalleryImageModal(modal) {
+        const image = modal.querySelector(".product-image-modal-img");
+        const counter = modal.querySelector(".product-image-modal-counter");
+        const nav = modal.querySelector(".product-image-modal-nav");
+        const list = modal._imageList || [];
+
+        if (!list.length) {
+            return;
+        }
+
+        const currentUrl = list[modal._imageIndex];
+        image.src = currentUrl;
+        counter.textContent = `${modal._imageIndex + 1} / ${list.length}`;
+        nav.setAttribute("aria-hidden", list.length <= 1 ? "true" : "false");
+        nav.style.display = list.length <= 1 ? "none" : "flex";
+        image.onload = () => {
+            requestAnimationFrame(() => this.adjustGalleryImageModalNav(modal));
+        };
+        this.adjustGalleryImageModalNav(modal);
+    }
+
+    openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
+        if (!imageUrl) {
+            return;
+        }
+
+        const modal = this.ensureGalleryImageModal();
+        if (!modal) {
+            return;
+        }
+        const list = Array.isArray(imageList) && imageList.length ? imageList : [imageUrl];
+        const resolvedIndex = typeof startIndex === "number"
+            ? startIndex
+            : Math.max(0, list.indexOf(imageUrl));
+
+        modal._imageList = list;
+        modal._imageIndex = resolvedIndex;
+        this.updateGalleryImageModal(modal);
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+    }
+
+    setupGalleryNavigation(container, images, galleryImages = []) {
+        if (!images.length) return;
+
+        const navContainer = container.querySelector('.description-images-nav');
+        const imageItem = navContainer?.querySelector('.image-item');
+        const prevBtn = navContainer?.querySelector('.image-nav-prev');
+        const nextBtn = navContainer?.querySelector('.image-nav-next');
+        const counter = navContainer?.querySelector('.image-counter');
+        const viewGalleryBtn = navContainer?.querySelector('.view-gallery-btn');
+        const gallery = container.querySelector('.image-gallery');
+        const closeGalleryBtn = container.querySelector('.circular-close-btn');
+
+        if (!navContainer || !imageItem) return;
+
+        let currentIndex = 0;
+
+        const updateImage = () => {
+            const img = images[currentIndex];
+            imageItem.innerHTML = `
+                <img src="${img.url}" alt="Gallery image" class="description-image" onerror="this.style.display='none'">
+                <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
+            `;
+            if (counter) counter.textContent = `${currentIndex + 1} / ${images.length}`;
+        };
+
+        const openModalForCurrentImage = () => {
+            if (!galleryImages.length) {
+                this.openGalleryImageModal(images[currentIndex].url, [images[currentIndex].url], 0);
+                return;
+            }
+            const galleryIndex = galleryImages.findIndex(entry => entry.url === images[currentIndex].url);
+            this.openGalleryImageModal(
+                images[currentIndex].url,
+                galleryImages.map(entry => entry.url),
+                Math.max(0, galleryIndex)
+            );
+        };
+
+        if (prevBtn && images.length > 1) {
+            prevBtn.addEventListener('click', () => {
+                currentIndex = (currentIndex - 1 + images.length) % images.length;
+                updateImage();
+            });
+        }
+
+        if (nextBtn && images.length > 1) {
+            nextBtn.addEventListener('click', () => {
+                currentIndex = (currentIndex + 1) % images.length;
+                updateImage();
+            });
+        }
+
+        if (viewGalleryBtn && gallery) {
+            viewGalleryBtn.addEventListener('click', () => {
+                gallery.style.display = 'block';
+                navContainer.style.display = 'none';
+            });
+        }
+
+        if (closeGalleryBtn && gallery) {
+            closeGalleryBtn.addEventListener('click', () => {
+                gallery.style.display = 'none';
+                navContainer.style.display = 'flex';
+            });
+        }
+
+        imageItem.addEventListener('click', openModalForCurrentImage);
+
+        if (galleryImages.length && gallery) {
+            const galleryItems = gallery.querySelectorAll('.gallery-image');
+            galleryItems.forEach((imgEl) => {
+                imgEl.addEventListener('click', () => {
+                    const index = Number(imgEl.dataset.galleryIndex || 0);
+                    this.openGalleryImageModal(
+                        galleryImages[index]?.url,
+                        galleryImages.map(entry => entry.url),
+                        index
+                    );
+                });
+            });
+        }
+    }
+
+    getListingCoordinates(listing) {
+        if (!listing) {
+            return null;
+        }
+        const fieldMapping = this.getFieldMapping();
+        const lat = listing[fieldMapping.latitude];
+        const lng = listing[fieldMapping.longitude];
+        if (lat === undefined || lng === undefined) {
+            return null;
+        }
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        if (Number.isNaN(latNum) || Number.isNaN(lngNum)) {
+            return null;
+        }
+        return { lat: latNum, lng: lngNum };
+    }
+
+    updateDetailMap(listing) {
+        const mapEl = document.getElementById('detailMap');
+        const caption = document.getElementById('detailMapCaption');
+        if (!mapEl) {
+            return;
+        }
+
+        const coords = this.getListingCoordinates(listing);
+        if (!coords) {
+            if (this.detailMap) {
+                this.detailMap.remove();
+                this.detailMap = null;
+                this.detailMapMarker = null;
+            }
+            mapEl.innerHTML = '<div class="detail-map-empty">No coordinates available.</div>';
+            if (caption) {
+                caption.textContent = 'No location available for this listing.';
+            }
+            return;
+        }
+
+        if (!this.detailMap) {
+            mapEl.innerHTML = '';
+            this.detailMap = L.map('detailMap', {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: true,
+                scrollWheelZoom: false
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(this.detailMap);
+        }
+
+        this.detailMap.setView([coords.lat, coords.lng], 13);
+
+        if (this.detailMapMarker) {
+            this.detailMapMarker.setLatLng([coords.lat, coords.lng]);
+        } else {
+            this.detailMapMarker = L.marker([coords.lat, coords.lng]).addTo(this.detailMap);
+        }
+
+        if (caption) {
+            caption.textContent = `Closeup: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+        }
+
+        requestAnimationFrame(() => {
+            if (this.detailMap) {
+                this.detailMap.invalidateSize();
+            }
+        });
     }
 
     renderSummaryListings(summaryListings) {
@@ -2704,6 +3532,7 @@ Do not include any explanation or additional text.`;
                 return;
             }
         
+            const mapGallerySection = this.renderMapGallerySection();
             let localwidgetHeader = `
                 <!-- Header -->
                 <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
@@ -2718,7 +3547,13 @@ Do not include any explanation or additional text.`;
 
             // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
             // X added to temp disable until g.org removes showheader=false
+            if (this.detailMap) {
+                this.detailMap.remove();
+                this.detailMap = null;
+                this.detailMapMarker = null;
+            }
             mapwidget.innerHTML = `
+                ${mapGallerySection}
                 ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
                 <!-- Widget Hero Container -->
                 <div id="widgetHero"></div>
@@ -2796,6 +3631,7 @@ Do not include any explanation or additional text.`;
                         </div>
                         
                         <!-- Listings Grid -->
+                        <!-- Above-the-fold key/value pairs come from getRecognizedFields + config.featuredColumns. -->
                         <div class="listings-scroll-container">
                             <div class="listings-grid basePanelPadding" style="padding-top:0px">
                                 ${this.renderListings()}
@@ -2869,6 +3705,10 @@ Do not include any explanation or additional text.`;
 
 
         // ALLOWED MAP POINTS TO CHANGE WITH DAT
+
+        this.updateMapGallerySection(this.getSelectedListing());
+
+        this.applyHashDetailSelection();
 
         // Apply domain-based sign-in button visibility
         this.applySignInVisibility();
@@ -3057,19 +3897,32 @@ Do not include any explanation or additional text.`;
         }
     }
     
-    getDisplayData(listing) {
+    getDisplayData(listing, options = {}) {
+        const { includeAddress = true } = options;
         if (!this.config || !this.config.featuredColumns) {
             // Fallback to old behavior
             const recognized = this.getRecognizedFields(listing);
+            const contactAddress = this.getContactAddress(listing) || recognized.address;
+            const addressLine = includeAddress && contactAddress ? this.formatFieldValue(contactAddress) : null;
+            const cityStateZipLine = includeAddress ? this.formatCityStateZip(recognized) : null;
+            const lines = [];
+            if (addressLine) lines.push(addressLine);
+            if (cityStateZipLine) lines.push(cityStateZipLine);
+            if (recognized.population) lines.push(`Population: ${this.formatFieldValue(recognized.population, 'population')}`);
+            if (recognized.county) lines.push(`${recognized.county} County`);
             return {
                 primary: recognized.name,
-                secondary: recognized.population ? `Population: ${this.formatFieldValue(recognized.population, 'population')}` : null,
-                tertiary: recognized.county ? `${recognized.county} County` : null
+                secondary: lines[0] || null,
+                tertiary: lines[1] || null,
+                quaternary: lines[2] || null,
+                quinary: lines[3] || null
             };
         }
         
         const featuredColumns = this.config.featuredColumns;
         const data = {};
+        const recognized = this.getRecognizedFields(listing);
+        const recognizedKeySet = this.getRecognizedKeySet();
         
         // Skip nameColumn if it's also in featuredColumns to avoid duplication
         const nameColumn = this.config.nameColumn;
@@ -3110,8 +3963,12 @@ Do not include any explanation or additional text.`;
         // Create array to hold all featured fields (excluding the primary name field)
         const featuredFields = [];
         const columnsToShow = nameColumn ? filteredFeaturedColumns : featuredColumns.slice(1);
-        
+
         columnsToShow.forEach((column) => {
+            const normalizedColumn = column.toLowerCase();
+            if (recognizedKeySet.has(normalizedColumn)) {
+                return;
+            }
             let actualColumnName;
             let value;
             
@@ -3140,6 +3997,21 @@ Do not include any explanation or additional text.`;
                 featuredFields.push(formattedDisplay);
             }
         });
+
+        if (includeAddress) {
+            const contactAddress = this.getContactAddress(listing) || recognized.address;
+            const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : null;
+            const cityStateZipLine = this.formatCityStateZip(recognized);
+            const hasAddress = addressLine ? featuredFields.some((field) => field.includes(addressLine) || field.toLowerCase().includes('address')) : false;
+            const hasCityStateZip = cityStateZipLine ? featuredFields.some((field) => field.includes(cityStateZipLine)) : false;
+            if (addressLine && !hasAddress) {
+                featuredFields.unshift(addressLine);
+            }
+            if (cityStateZipLine && !hasCityStateZip) {
+                const insertIndex = addressLine && !hasAddress ? 1 : 0;
+                featuredFields.splice(insertIndex, 0, cityStateZipLine);
+            }
+        }
         
         // Assign featured fields to secondary, tertiary, etc.
         if (featuredFields.length > 0) data.secondary = featuredFields[0];
