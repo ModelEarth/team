@@ -129,14 +129,14 @@ class ListingsDisplay {
                 this.toggleSearchPopup();
             }
 
-            const detailsButton = e.target.closest('.view-details-btn');
-            if (detailsButton) {
-                const indexValue = Number(detailsButton.dataset.listingIndex);
+            const detailsTrigger = e.target.closest('.view-details-btn, .listing-title');
+            if (detailsTrigger) {
+                const indexValue = Number(detailsTrigger.dataset.listingIndex);
                 if (!Number.isNaN(indexValue)) {
                     const listing = this.filteredListings[indexValue];
                     const hashId = listing ? this.getListingHashId(listing, indexValue) : null;
                     if (hashId && typeof goHash === 'function') {
-                        goHash({ detail: hashId });
+                        goHash({ id: hashId });
                     } else {
                         this.showListingDetailsByIndex(indexValue);
                     }
@@ -229,6 +229,49 @@ class ListingsDisplay {
         return this.pathConfig.basePath;
     }
 
+    getWebrootBasePath() {
+        if (typeof local_app !== 'undefined' && typeof local_app.web_root === 'function') {
+            const web_root = local_app.web_root();
+            if (web_root) {
+                return web_root.endsWith('/') ? web_root : web_root + '/';
+            }
+        }
+
+        const currentPath = window.location.pathname;
+        const teamIndex = currentPath.indexOf('/team/');
+        if (teamIndex >= 0) {
+            return currentPath.slice(0, teamIndex + 1);
+        }
+
+        return '/';
+    }
+
+    resolveDatasetUrl(path) {
+        if (!path) {
+            return path;
+        }
+        if (path.startsWith('http')) {
+            return path;
+        }
+        if (path.startsWith('/')) {
+            return this.getWebrootBasePath() + path.replace(/^\/+/, '');
+        }
+        return this.getDatasetBasePath() + path;
+    }
+
+    resolveConfigUrl(path) {
+        if (!path) {
+            return path;
+        }
+        if (path.startsWith('http')) {
+            return path;
+        }
+        if (path.startsWith('/')) {
+            return this.getWebrootBasePath() + path.replace(/^\/+/, '');
+        }
+        return this.getDatasetBasePath() + path;
+    }
+
     async init() {
         
         //this.showLoadingState("Loading Dataset Choices");
@@ -285,12 +328,13 @@ class ListingsDisplay {
             if (Cookies.get('modelsite')?.indexOf("geo") >= 0 || 
                 location.host.indexOf("geo") >= 0 || 
                 location.host.indexOf("locations.pages.dev") >= 0) {
-                listsJson = 'show.json'
+                listsJson = '/display/data/data.json'
             }
         }
+        const configUrl = this.resolveConfigUrl(listsJson);
         console.log('map.js: local_app.web_root() =', local_app.web_root());
-        console.log(`Loading configuration from: ${local_app.web_root() + "/team/projects/map/" + listsJson}`);
-        const response = await fetch(local_app.web_root() + "/team/projects/map/" + listsJson);
+        console.log(`Loading configuration from: ${configUrl}`);
+        const response = await fetch(configUrl);
         
         if (response.ok) {
             this.showConfigs = await response.json();
@@ -355,6 +399,7 @@ class ListingsDisplay {
         }
         
         this.config = showConfig;
+        window.mapDataAdminPath = showConfig?.dataadmin || showConfig?.dataAdmin || '';
         
         // Clear any previous geo merge info
         this.geoMergeInfo = null;
@@ -457,10 +502,10 @@ class ListingsDisplay {
             //return await this.loadGoogleCSV(config.googleCSV);
             return await this.loadCSVData(config.googleCSV, config);
         } else if (config.dataset.endsWith('.json') ) {
-            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
+            const datasetUrl = this.resolveDatasetUrl(config.dataset);
             return await this.loadJSONData(datasetUrl);
         } else if (config.dataset) {
-            const datasetUrl = config.dataset.startsWith('http') ? config.dataset : this.getDatasetBasePath() + config.dataset;
+            const datasetUrl = this.resolveDatasetUrl(config.dataset);
             return await this.loadCSVData(datasetUrl, config);
         } else {
             return this.createMockData(config);
@@ -601,7 +646,7 @@ Do not include any explanation or additional text.`;
             debugAlert('🌍 GEO MERGE: Starting geo dataset merge');
 
             // Load the geo dataset
-            const geoDatasetUrl = config.geoDataset.startsWith('http') ? config.geoDataset : this.getDatasetBasePath() + config.geoDataset;
+            const geoDatasetUrl = this.resolveDatasetUrl(config.geoDataset);
             debugAlert('🌍 GEO MERGE: Loading geo data from: ' + geoDatasetUrl);
             
             let geoData;
@@ -1113,9 +1158,7 @@ Do not include any explanation or additional text.`;
                 if (config.dataset) {
                     console.log('Falling back to CSV dataset:', config.dataset);
                     this.displayDebugMessage('⚠️ Using CSV fallback: ' + config.dataset, 'warning');
-                    const datasetUrl = config.dataset.startsWith('http')
-                        ? config.dataset
-                        : this.getDatasetBasePath() + config.dataset;
+                    const datasetUrl = this.resolveDatasetUrl(config.dataset);
                     return await this.loadCSVData(datasetUrl, config);
                 }
                 throw new Error(errorMsg);
@@ -1172,9 +1215,7 @@ Do not include any explanation or additional text.`;
 
             // Fallback to CSV if API returns no data
             if (config.dataset) {
-                const datasetUrl = config.dataset.startsWith('http')
-                    ? config.dataset
-                    : this.getDatasetBasePath() + config.dataset;
+                const datasetUrl = this.resolveDatasetUrl(config.dataset);
                 return await this.loadCSVData(datasetUrl, config);
             }
 
@@ -1187,9 +1228,7 @@ Do not include any explanation or additional text.`;
             // Fallback to CSV on connection error
             if (config.dataset) {
                 this.displayDebugMessage('⚠️ Using CSV fallback due to connection error', 'warning');
-                const datasetUrl = config.dataset.startsWith('http')
-                    ? config.dataset
-                    : this.getDatasetBasePath() + config.dataset;
+                const datasetUrl = this.resolveDatasetUrl(config.dataset);
                 return await this.loadCSVData(datasetUrl, config);
             }
 
@@ -1816,14 +1855,10 @@ Do not include any explanation or additional text.`;
         if (!featuredColumns.length) {
             return [];
         }
-        const recognizedKeySet = this.getRecognizedKeySet();
         const rows = [];
 
         featuredColumns.forEach((column) => {
             const normalizedColumn = column.toLowerCase();
-            if (recognizedKeySet.has(normalizedColumn)) {
-                return;
-            }
             let actualColumnName;
             let value;
 
@@ -1845,6 +1880,7 @@ Do not include any explanation or additional text.`;
                     formattedValue = this.formatFieldValue(value);
                 }
                 rows.push({
+                    key: column.toString().toLowerCase(),
                     label: this.formatKeyName(column),
                     value: formattedValue
                 });
@@ -1852,6 +1888,88 @@ Do not include any explanation or additional text.`;
         });
 
         return rows;
+    }
+
+    getNumberedGroupData(listing) {
+        const keySet = new Set();
+        const grouped = new Map();
+        const rows = [];
+
+        if (!listing) {
+            return { rows, keySet };
+        }
+
+        Object.keys(listing).forEach((key) => {
+            const value = listing[key];
+            if (!value || !value.toString().trim()) {
+                return;
+            }
+
+            const normalized = key
+                .toString()
+                .replace(/[_-]+/g, ' ')
+                .replace(/(\d)([A-Za-z])/g, '$1 $2')
+                .trim();
+
+            const match = normalized.match(/^(.+?)(\d+)\s+(.+)$/);
+            if (!match) {
+                return;
+            }
+
+            const base = match[1].trim();
+            const index = parseInt(match[2], 10);
+            const field = match[3].trim();
+
+            if (!base || !field || Number.isNaN(index)) {
+                return;
+            }
+
+            const baseKey = base.toLowerCase();
+            if (!grouped.has(baseKey)) {
+                grouped.set(baseKey, {
+                    baseLabel: this.formatKeyName(base),
+                    indices: new Map(),
+                    indexOrder: []
+                });
+            }
+
+            const group = grouped.get(baseKey);
+            if (!group.indices.has(index)) {
+                group.indices.set(index, { fields: [] });
+                group.indexOrder.push(index);
+            }
+
+            group.indices.get(index).fields.push({
+                label: this.formatKeyName(field),
+                value: value.toString().trim()
+            });
+
+            keySet.add(key.toString().toLowerCase());
+        });
+
+        grouped.forEach((group) => {
+            const indices = group.indexOrder.sort((a, b) => a - b);
+            if (!indices.length) {
+                return;
+            }
+
+            const startIndex = indices.includes(1) ? 1 : indices[0];
+            for (let idx = startIndex; group.indices.has(idx); idx += 1) {
+                const fields = group.indices.get(idx).fields;
+                if (!fields.length) {
+                    continue;
+                }
+
+                const value = fields.map(item => `${item.label} ${item.value}`).join(', ');
+                rows.push({
+                    key: group.baseLabel.toString().toLowerCase(),
+                    label: group.baseLabel,
+                    value
+                });
+            }
+        });
+
+        return { rows, keySet };
     }
 
     isFeaturedColumnKey(key) {
@@ -1863,17 +1981,29 @@ Do not include any explanation or additional text.`;
         return featuredColumns.some(col => col.toLowerCase() === lowerKey);
     }
 
-    getSharedDisplayRows(listing) {
+    getSharedDisplayRows(listing, options = {}) {
+        const omitRecognizedKeys = new Set((options.omitRecognizedKeys || []).map(key => key.toString().toLowerCase()));
+        const omitRowKeys = new Set((options.omitRowKeys || []).map(key => key.toString().toLowerCase()));
         const recognized = this.getRecognizedFields(listing);
-        const featuredRows = this.getFeaturedDisplayRows(listing);
+        const featuredRows = this.getFeaturedDisplayRows(listing)
+            .filter(row => !row.key || !omitRowKeys.has(row.key));
+        const numberedGroupRows = this.getNumberedGroupData(listing).rows
+            .filter(row => !row.key || !omitRowKeys.has(row.key));
+        const featuredColumns = this.config?.featuredColumns || [];
+        const featuredKeySet = new Set(featuredColumns.map(col => col.toString().toLowerCase()));
         const recognizedRows = this.getRecognizedDisplayRows(recognized, {
-            omitKeys: ['name', 'address', 'city', 'state', 'zip', 'zipcode', 'postal_code', 'email']
+            omitKeys: [
+                'name', 'title', 'address', 'city', 'state', 'zip', 'zipcode', 'postal_code', 'email',
+                ...featuredKeySet,
+                ...omitRecognizedKeys
+            ]
         });
-        return [...featuredRows, ...recognizedRows];
+        return [...featuredRows, ...numberedGroupRows, ...recognizedRows];
     }
 
     getDetailMetaRows(listing, helpers = {}) {
         const fieldMapping = helpers.fieldMapping || this.getFieldMapping();
+        const numberedGroupKeys = helpers.numberedGroupKeys || this.getNumberedGroupData(listing).keySet;
         const isInFeaturedColumns = helpers.isInFeaturedColumns || ((key) => this.isFeaturedColumnKey(key));
         const isInOmitList = helpers.isInOmitList || ((key) => {
             const omitList = this.config?.omit_display || [];
@@ -1883,6 +2013,7 @@ Do not include any explanation or additional text.`;
         const filteredRows = Object.entries(listing)
             .filter(([key, value]) =>
                 !isInFeaturedColumns(key) &&
+                !numberedGroupKeys.has(key.toLowerCase()) &&
                 !isInOmitList(key) &&
                 value &&
                 value.toString().trim() !== '' &&
@@ -1897,6 +2028,8 @@ Do not include any explanation or additional text.`;
 
         const unfilteredRows = Object.entries(listing)
             .filter(([key]) =>
+                !isInFeaturedColumns(key) &&
+                !numberedGroupKeys.has(key.toLowerCase()) &&
                 key !== fieldMapping.latitude &&
                 key !== fieldMapping.longitude
             )
@@ -1916,8 +2049,13 @@ Do not include any explanation or additional text.`;
         // Words that should be all caps
         const uppercaseWords = ['id', 'url'];
 
+        if (/^[A-Z0-9]+$/.test(key)) {
+            return key;
+        }
+
         return key
-            .replace(/([A-Z])/g, ' $1')  // Add space before capital letters (CamelCase -> Camel Case)
+            .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // Split acronym + word (FAAData -> FAA Data)
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')  // Split lower/number + upper (Runway1ID -> Runway1 ID)
             .replace(/_/g, ' ')  // Replace underscores with spaces
             .trim()  // Remove leading/trailing spaces
             .split(' ')
@@ -2453,6 +2591,16 @@ Do not include any explanation or additional text.`;
             }
         });
 
+        document.addEventListener('click', (e) => {
+            const closeBtn = e.target.closest('.location-close-btn');
+            if (closeBtn) {
+                e.preventDefault();
+                if (typeof goHash === 'function') {
+                    goHash({ id: '' });
+                }
+            }
+        });
+
         // Handle window resize and scroll to reposition popup
         window.addEventListener('resize', () => {
             if (this.searchPopupOpen) {
@@ -2558,7 +2706,7 @@ Do not include any explanation or additional text.`;
             return `
                 <div class="listing-card">
                     <div class="listing-content">
-                        <h3 class="listing-title">${displayData.primary || recognized.name || 'Listing'}</h3>
+                        <h3 class="listing-title" data-listing-index="${listingIndex}">${displayData.primary || recognized.name || 'Listing'}</h3>
                         ${this.renderListingDetailContent(listing, {
                             metaId: `${uniqueId}-more`,
                             evenMetaId: `${uniqueId}-even`,
@@ -2580,6 +2728,9 @@ Do not include any explanation or additional text.`;
             <section class="location-section" id="location-section">
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
+                    <button type="button" class="location-close-btn" aria-label="Close location details" title="Close">
+                        <span class="material-icons" aria-hidden="true">cancel</span>
+                    </button>
                 </div>
                 <div class="location-content">
                     <div class="location-details" id="location-details">
@@ -2608,11 +2759,16 @@ Do not include any explanation or additional text.`;
             return this.filteredListings[this.selectedListingIndex];
         }
 
-        const currentListings = this.getCurrentPageListings();
-        if (currentListings.length) {
-            const firstIndex = (this.currentPage - 1) * this.itemsPerPage;
-            this.selectedListingIndex = firstIndex;
-            return currentListings[0];
+        if (typeof getHash === 'function') {
+            const hash = getHash();
+            const hashId = hash?.id || hash?.detail;
+            if (hashId) {
+                const index = this.findListingIndexByHashId(hashId);
+                if (index !== null && this.filteredListings[index]) {
+                    this.selectedListingIndex = index;
+                    return this.filteredListings[index];
+                }
+            }
         }
 
         this.selectedListingIndex = null;
@@ -2623,6 +2779,19 @@ Do not include any explanation or additional text.`;
         if (!listing) {
             return null;
         }
+        const configuredId = this.config?.id;
+        if (configuredId) {
+            let configuredKey = configuredId;
+            if (!this.config?.allColumns || !Array.isArray(this.config.allColumns)) {
+                configuredKey = Object.keys(listing).find(key =>
+                    key.toLowerCase() === configuredId.toLowerCase()
+                ) || configuredId;
+            }
+            if (listing[configuredKey]) {
+                return String(listing[configuredKey]).trim();
+            }
+        }
+
         const idKeys = ['id', 'ID', 'uuid', 'UUID', 'Id'];
         for (const key of idKeys) {
             if (listing[key]) {
@@ -2637,7 +2806,7 @@ Do not include any explanation or additional text.`;
         if (idValue) {
             return idValue;
         }
-        return `idx-${index}`;
+        return `idx-${index + 1}`;
     }
 
     findListingIndexByHashId(hashId) {
@@ -2646,7 +2815,8 @@ Do not include any explanation or additional text.`;
         }
         if (hashId.startsWith('idx-')) {
             const parsed = Number(hashId.replace('idx-', ''));
-            return Number.isNaN(parsed) ? null : parsed;
+            const resolvedIndex = Number.isNaN(parsed) ? null : parsed - 1;
+            return resolvedIndex !== null && resolvedIndex >= 0 ? resolvedIndex : null;
         }
         const matchIndex = this.filteredListings.findIndex((listing) => {
             return this.getListingIdValue(listing) === hashId;
@@ -2659,10 +2829,21 @@ Do not include any explanation or additional text.`;
             return;
         }
         const hash = getHash();
-        if (!hash || !hash.detail) {
+        const hashId = hash?.id || hash?.detail;
+        if (!hashId) {
+            this.selectedListingIndex = null;
+            const section = document.getElementById('location-section');
+            if (section) {
+                section.style.display = 'none';
+            }
+            this.updateMapGallerySection(null);
             return;
         }
-        const index = this.findListingIndexByHashId(hash.detail);
+        const section = document.getElementById('location-section');
+        if (section) {
+            section.style.display = '';
+        }
+        const index = this.findListingIndexByHashId(hashId);
         if (index !== null) {
             this.showListingDetailsByIndex(index);
         }
@@ -2728,10 +2909,8 @@ Do not include any explanation or additional text.`;
         const devmode = (typeof Cookies !== 'undefined' && Cookies.get && Cookies.get('devmode')) || '';
         const isDevMode = devmode === 'dev';
 
-        const featuredRows = this.getFeaturedDisplayRows(listing);
-        const rows = [
-            ...this.getSharedDisplayRows(listing)
-        ];
+        const omitRecognizedKeys = new Set();
+        const omitRowKeys = new Set();
         const titleText = displayData.primary || recognized.name || 'Listing';
         const contactNameRaw = this.getContactName(listing);
         const contactEmail = this.getContactEmail(listing) || recognized.email;
@@ -2742,7 +2921,7 @@ Do not include any explanation or additional text.`;
         const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
         const cityStateZip = this.formatCityStateZip(recognized);
 
-        Object.entries(extraFields).some(([key, value]) => {
+        Object.entries(extraFields).some(([key]) => {
             if (key === fieldMapping.latitude || key === fieldMapping.longitude) {
                 return false;
             }
@@ -2763,17 +2942,61 @@ Do not include any explanation or additional text.`;
             if (lowerKey === 'name') {
                 return false;
             }
-            rows.push({ label: this.formatKeyName(key), value: value });
             return false;
         });
 
         const tertiaryLine = displayData.tertiary || '';
         const showEmailLine = tertiaryLine && !(contactName && contactEmail);
+        const headerValues = new Set([
+            contactName,
+            contactEmail,
+            contactAddress,
+            tertiaryLine
+        ].filter(Boolean).map(value => value.toString().trim().toLowerCase()));
+        Object.entries(recognized).forEach(([key, value]) => {
+            if (!value) {
+                return;
+            }
+            if (headerValues.has(value.toString().trim().toLowerCase())) {
+                omitRecognizedKeys.add(key.toString().toLowerCase());
+            }
+        });
+        if (contactAddress) {
+            omitRecognizedKeys.add('address');
+        }
+        if (cityStateZip) {
+            ['city', 'state', 'zip', 'zipcode', 'postal_code'].forEach(key => omitRecognizedKeys.add(key));
+            ['city', 'state', 'zip', 'zipcode', 'postal_code'].forEach(key => omitRowKeys.add(key));
+        }
+        if (contactEmail) {
+            omitRecognizedKeys.add('email');
+            omitRowKeys.add('email');
+        }
+        omitRecognizedKeys.add('name');
+        omitRecognizedKeys.add('title');
+        omitRowKeys.add('name');
+        omitRowKeys.add('title');
+        if (showEmailLine && tertiaryLine.includes(':')) {
+            const label = tertiaryLine.split(':')[0].trim().toLowerCase();
+            if (label) {
+                omitRowKeys.add(label);
+            }
+        }
+        const sharedRows = this.getSharedDisplayRows(listing, {
+            omitRecognizedKeys: Array.from(omitRecognizedKeys),
+            omitRowKeys: Array.from(omitRowKeys)
+        });
+        const sharedRowsMarkup = sharedRows.map(row => `
+            <div class="location-row">
+                <span class="location-label">${row.label}</span>
+                <span class="location-value">${row.value}</span>
+            </div>
+        `).join('');
 
         const metaId = options.metaId || `location-meta-${Math.random().toString(36).substr(2, 8)}`;
         const evenMetaId = options.evenMetaId || `location-meta-even-${Math.random().toString(36).substr(2, 8)}`;
         const metaGroup = options.metaGroup || metaId;
-        const hasMetaRows = rows.length > 0;
+        const hasMetaRows = sharedRows.length > 0;
         const metaRows = options.metaRows || this.getDetailMetaRows(listing);
         const moreCount = metaRows.filteredRows.length;
         const evenMoreCount = metaRows.unfilteredRows.length;
@@ -2788,6 +3011,7 @@ Do not include any explanation or additional text.`;
                 ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
                 ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
                 ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
+                ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
                 ${(options.showMetaButtons && (viewDetailsButton || (isDevMode && (moreCount || evenMoreCount)))) ? `
                     <div class="details-more-actions" style="margin-top:10px">
                         ${viewDetailsButton}
@@ -2818,11 +3042,11 @@ Do not include any explanation or additional text.`;
     }
 
     getDefaultGalleryImages() {
+
+        return[]; // Remove if adding samples.
+
         return [
-            { url: "../../img/presenting.jpg", path: "team/img/presenting.jpg" },
-            { url: "../../img/presenting-banner.jpg", path: "team/img/presenting-banner.jpg" },
-            { url: "../../img/presenting-bolt-4gov.jpg", path: "team/img/presenting-bolt-4gov.jpg" },
-            { url: "../../img/banner.webp", path: "team/img/banner.webp" }
+            { url: "../../img/presenting.jpg", path: "team/img/presenting.jpg" }
         ];
     }
 
@@ -2865,18 +3089,24 @@ Do not include any explanation or additional text.`;
 
         const preferThreeCol = images.length % 3 === 0 || images.length === 5;
         const galleryClass = preferThreeCol ? "image-gallery three-col-prefer" : "image-gallery";
+        const navImages = images.slice(0, 3);
+        const showGalleryButton = images.length > 3;
 
         return `
             <div class="description-images-nav" id="location-nav">
-                <div class="image-item" data-current-index="0">
-                    <img src="${images[0].url}" alt="Gallery image" class="description-image" onerror="this.style.display='none'">
-                    <div class="image-source">${this.formatGallerySourcePath(images[0].path)}</div>
+                <div class="image-stack" data-current-set="0">
+                    ${navImages.map((img, index) => `
+                        <div class="image-item" data-image-index="${index}">
+                            <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
+                            <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="image-nav-controls">
                     <button class="image-nav-btn image-nav-prev" aria-label="Previous image">‹</button>
-                    <span class="image-counter">1 / ${images.length}</span>
+                    <span class="image-counter">${images.length > 1 ? `1-${Math.min(3, images.length)} / ${images.length}` : `1 / ${images.length}`}</span>
                     <button class="image-nav-btn image-nav-next" aria-label="Next image">›</button>
-                    <button class="view-gallery-btn" aria-label="View all images" title="View all images">⊞</button>
+                    ${showGalleryButton ? `<button class="view-gallery-btn" aria-label="View all images" title="View all images">⊞</button>` : ``}
                 </div>
             </div>
             <div class="${galleryClass}" style="display: none;">
@@ -3011,7 +3241,7 @@ Do not include any explanation or additional text.`;
         if (!images.length) return;
 
         const navContainer = container.querySelector('.description-images-nav');
-        const imageItem = navContainer?.querySelector('.image-item');
+        const imageStack = navContainer?.querySelector('.image-stack');
         const prevBtn = navContainer?.querySelector('.image-nav-prev');
         const nextBtn = navContainer?.querySelector('.image-nav-next');
         const counter = navContainer?.querySelector('.image-counter');
@@ -3019,43 +3249,53 @@ Do not include any explanation or additional text.`;
         const gallery = container.querySelector('.image-gallery');
         const closeGalleryBtn = container.querySelector('.circular-close-btn');
 
-        if (!navContainer || !imageItem) return;
+        if (!navContainer || !imageStack) return;
 
-        let currentIndex = 0;
+        const setSize = 3;
+        const totalSets = Math.ceil(images.length / setSize);
+        let currentSet = 0;
 
-        const updateImage = () => {
-            const img = images[currentIndex];
-            imageItem.innerHTML = `
-                <img src="${img.url}" alt="Gallery image" class="description-image" onerror="this.style.display='none'">
-                <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
-            `;
-            if (counter) counter.textContent = `${currentIndex + 1} / ${images.length}`;
+        const animateStack = (direction) => {
+            imageStack.classList.remove('slide-left', 'slide-right');
+            void imageStack.offsetWidth;
+            imageStack.classList.add(direction === 'prev' ? 'slide-right' : 'slide-left');
         };
 
-        const openModalForCurrentImage = () => {
-            if (!galleryImages.length) {
-                this.openGalleryImageModal(images[currentIndex].url, [images[currentIndex].url], 0);
-                return;
-            }
-            const galleryIndex = galleryImages.findIndex(entry => entry.url === images[currentIndex].url);
-            this.openGalleryImageModal(
-                images[currentIndex].url,
-                galleryImages.map(entry => entry.url),
-                Math.max(0, galleryIndex)
-            );
+        imageStack.addEventListener('animationend', () => {
+            imageStack.classList.remove('slide-left', 'slide-right');
+        });
+
+        const updateImageSet = () => {
+            const startIndex = currentSet * setSize;
+            const endIndex = Math.min(startIndex + setSize, images.length);
+            const rangeLabel = startIndex + 1 === endIndex
+                ? `${endIndex} / ${images.length}`
+                : `${startIndex + 1}-${endIndex} / ${images.length}`;
+            imageStack.innerHTML = images.slice(startIndex, endIndex).map((img, offset) => {
+                const index = startIndex + offset;
+                return `
+                    <div class="image-item" data-image-index="${index}">
+                        <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
+                        <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
+                    </div>
+                `;
+            }).join('');
+            if (counter) counter.textContent = rangeLabel;
         };
 
-        if (prevBtn && images.length > 1) {
+        if (prevBtn && totalSets > 1) {
             prevBtn.addEventListener('click', () => {
-                currentIndex = (currentIndex - 1 + images.length) % images.length;
-                updateImage();
+                currentSet = (currentSet - 1 + totalSets) % totalSets;
+                updateImageSet();
+                animateStack('prev');
             });
         }
 
-        if (nextBtn && images.length > 1) {
+        if (nextBtn && totalSets > 1) {
             nextBtn.addEventListener('click', () => {
-                currentIndex = (currentIndex + 1) % images.length;
-                updateImage();
+                currentSet = (currentSet + 1) % totalSets;
+                updateImageSet();
+                animateStack('next');
             });
         }
 
@@ -3073,7 +3313,22 @@ Do not include any explanation or additional text.`;
             });
         }
 
-        imageItem.addEventListener('click', openModalForCurrentImage);
+        imageStack.addEventListener('click', (event) => {
+            const target = event.target.closest('.description-image');
+            if (!target) {
+                return;
+            }
+            const index = Number(target.dataset.imageIndex || 0);
+            if (!galleryImages.length) {
+                this.openGalleryImageModal(images[index].url, [images[index].url], 0);
+                return;
+            }
+            this.openGalleryImageModal(
+                images[index]?.url,
+                galleryImages.map(entry => entry.url),
+                index
+            );
+        });
 
         if (galleryImages.length && gallery) {
             const galleryItems = gallery.querySelectorAll('.gallery-image');
@@ -3087,6 +3342,10 @@ Do not include any explanation or additional text.`;
                     );
                 });
             });
+        }
+
+        if (totalSets > 1) {
+            updateImageSet();
         }
     }
 
@@ -3238,8 +3497,9 @@ Do not include any explanation or additional text.`;
         }
         
         // Show config source
-        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? 'show.json' : 'trade.json';
-        details += `• Config file: <code>${this.pathConfig.basePath}${listsJson}</code><br>`;
+        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? '/display/data/data.json' : 'trade.json';
+        const configPath = this.resolveConfigUrl(listsJson);
+        details += `• Config file: <code>${configPath}</code><br>`;
         
         // Show dataset path if config exists
         if (this.config?.dataset) {
