@@ -42,25 +42,6 @@ function mapWidgetChange() {
             }
         }
     }
-    
-    // Check for summarize parameter changes
-    if (hash.summarize !== priorHash.summarize) {
-        if (window.listingsApp) {
-            if (hash.summarize === 'true') {
-                debugAlert('📊 Hash change detected: Summarize = true');
-                window.listingsApp.SummarizeList();
-            } else {
-                debugAlert('📊 Hash change detected: Summarize = false/cleared');
-                window.listingsApp.UnsummarizeList();
-            }
-            
-            // Update button text if it exists
-            const summarizeButton = document.getElementById('summarize-toggle');
-            if (summarizeButton) {
-                summarizeButton.textContent = hash.summarize === 'true' ? 'Unsummarize' : 'Summarize';
-            }
-        }
-    }
 }
 class ListingsDisplay {
 
@@ -97,47 +78,6 @@ class ListingsDisplay {
         
         this.init();
         this.setupGlobalEventListeners();
-
-        // Initialize debug message queue watcher
-        ListingsDisplay.initDebugDivWatcher();
-    }
-
-    // Static properties for debug message queue
-    static debugMessageQueue = [];
-    static debugDivReady = false;
-    static debugDivCheckStarted = false;
-
-    // Initialize debug div watcher
-    static initDebugDivWatcher() {
-        if (this.debugDivCheckStarted) return;
-        this.debugDivCheckStarted = true;
-
-        const checkForDiv = () => {
-            const debugDiv = document.getElementById('debug-messages');
-            if (debugDiv) {
-                console.log('✅ debug-messages div found, flushing queue with', this.debugMessageQueue.length, 'messages');
-                this.debugDivReady = true;
-                this.flushDebugMessageQueue();
-            } else {
-                // Keep checking every 100ms
-                setTimeout(checkForDiv, 100);
-            }
-        };
-        checkForDiv();
-    }
-
-    static flushDebugMessageQueue() {
-        const debugDiv = document.getElementById('debug-messages');
-        if (!debugDiv || this.debugMessageQueue.length === 0) return;
-
-        console.log('📤 Flushing', this.debugMessageQueue.length, 'queued messages to debug div');
-
-        // Insert all queued messages (oldest first, so they appear in correct order)
-        this.debugMessageQueue.reverse().forEach(html => {
-            debugDiv.insertAdjacentHTML('afterbegin', html);
-        });
-
-        this.debugMessageQueue = [];
 
         // Initialize debug message queue watcher
         ListingsDisplay.initDebugDivWatcher();
@@ -419,16 +359,7 @@ class ListingsDisplay {
         // Clear any previous geo merge info
         this.geoMergeInfo = null;
         
-        // Clear any previous geo merge info
-        this.geoMergeInfo = null;
-        
         let data = await this.loadDataFromConfig(showConfig);
-        
-        // Merge geoDataset if specified in showConfig
-        if (showConfig.geoDataset && showConfig.geoColumns && showConfig.geoColumns.length > 0) {
-            debugAlert('🌍 GEO MERGE: Loading geoDataset: ' + showConfig.geoDataset);
-            data = await this.mergeGeoDataset(data, showConfig);
-        }
         
         // Merge geoDataset if specified in showConfig
         if (showConfig.geoDataset && showConfig.geoColumns && showConfig.geoColumns.length > 0) {
@@ -494,22 +425,6 @@ class ListingsDisplay {
         }
         
         // Render was already called above (no need for duplicate render call)
-        debugAlert("loadShowData() this.isDatasetChanging: " + this.isDatasetChanging)
-        
-        // Force a render first to create UI structure
-        this.render();
-        
-        // Check if initial load should show summary view after UI is rendered
-        const currentHash = this.getCurrentHash();
-        if (currentHash.summarize === 'true' && this.config?.geoColumns && this.config.geoColumns.length > 0) {
-            debugAlert('📊 INITIAL LOAD: Summarize detected in hash, showing summary view after render');
-            setTimeout(() => {
-                this.SummarizeList();
-            }, 100); // Small delay to ensure render completes
-            return;
-        }
-        
-        // Render was already called above (no need for duplicate render call)
         
         // AGGRESSIVE: Force render again after longer delay if still stuck
         /*
@@ -523,22 +438,6 @@ class ListingsDisplay {
     }
 
     async loadDataFromConfig(config) {
-        // Check for offline mode - use dataset_offline if onlinemode cookie is false
-        const onlineMode = Cookies.get('onlinemode');
-        if (onlineMode === 'false' && config.dataset_offline) {
-            console.log('Offline mode active - using dataset_offline:', config.dataset_offline);
-            // Temporarily override dataset with dataset_offline
-            config = {...config, dataset: config.dataset_offline};
-        }
-
-        // Check if dataset_via_api (fast API) is configured
-        if (config.dataset_via_api && config.dataset_via_api.trim() !== '') {
-            console.log('Loading data from fast API:', config.dataset_via_api);
-            return await this.loadAPIData(config.dataset_via_api, config);
-        }
-        // For slow APIs (dataset_api_slow), we don't auto-load, only use local dataset
-        // The "Refresh Local" button will fetch from slow API and save to local file
-        else if (config.googleCSV) {
         // Check for offline mode - use dataset_offline if onlinemode cookie is false
         const onlineMode = Cookies.get('onlinemode');
         if (onlineMode === 'false' && config.dataset_offline) {
@@ -1153,20 +1052,16 @@ Do not include any explanation or additional text.`;
     async loadJSONData(url) {
         const response = await fetch(url);
 
-
         if (!response.ok) {
             throw new Error(`Failed to load JSON: ${response.status} ${response.statusText}`);
         }
 
-
         const jsonData = await response.json();
-
 
         // Convert JSON array to the same format as CSV data
         if (Array.isArray(jsonData) && jsonData.length > 0) {
             return jsonData;
         }
-
 
         return [];
     }
@@ -1524,18 +1419,6 @@ Do not include any explanation or additional text.`;
         console.log('🔧 Parsed headers from CSV:', headers);
         if (config && config.allColumns && Array.isArray(config.allColumns)) {
             console.log('🔧 AllColumns config (for display filtering):', config.allColumns);
-        // Always parse first row as headers
-        if (lines.length < 2) {
-            return [];
-        }
-        
-        const headerLine = lines[0];
-        const headers = this.parseCSVLine(headerLine);
-        const dataStartIndex = 1;
-        
-        console.log('🔧 Parsed headers from CSV:', headers);
-        if (config && config.allColumns && Array.isArray(config.allColumns)) {
-            console.log('🔧 AllColumns config (for display filtering):', config.allColumns);
         }
         
         const data = [];
@@ -1632,7 +1515,6 @@ Do not include any explanation or additional text.`;
 
     getFieldMapping() {
         debugAlert(`🗺️ getFieldMapping()`); // Why is function called dozens of time?
-        debugAlert(`🗺️ getFieldMapping()`); // Why is function called dozens of time?
         // When allColumns exists, create a mapping from standard field names to allColumns field names
         if (this.config && this.config.allColumns && Array.isArray(this.config.allColumns)) {
             const mapping = {};
@@ -1642,9 +1524,7 @@ Do not include any explanation or additional text.`;
             allColumns.forEach(field => {
                 const lowerField = field.toLowerCase();
                 if (lowerField === 'lat' || lowerField === 'latitude') {
-                if (lowerField === 'lat' || lowerField === 'latitude') {
                     mapping.latitude = field;
-                } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
                 } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
                     mapping.longitude = field;
                 }
@@ -1655,32 +1535,9 @@ Do not include any explanation or additional text.`;
         
         // Default mapping when no allColumns - detect from actual data fields
         const mapping = {
-        // Default mapping when no allColumns - detect from actual data fields
-        const mapping = {
             latitude: 'latitude',
             longitude: 'longitude'
         };
-        
-        // If we have data, check actual field names for coordinate fields
-        if (this.listings && this.listings.length > 0) {
-            const sampleRow = this.listings[0];
-            const fieldNames = Object.keys(sampleRow);
-            
-            fieldNames.forEach(field => {
-                const lowerField = field.toLowerCase();
-                if (lowerField === 'lat' || lowerField === 'latitude') {
-                    mapping.latitude = field;
-                    //debugAlert(`🗺️ FIELD MAPPING: Found latitude field: ${field}`);
-                } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
-                    mapping.longitude = field;
-                    //debugAlert(`🗺️ FIELD MAPPING: Found longitude field: ${field}`);
-                }
-            });
-        }
-        
-        //debugAlert(`🗺️ FIELD MAPPING: Final mapping - latitude: '${mapping.latitude}', longitude: '${mapping.longitude}'`);
-        
-        return mapping;
         
         // If we have data, check actual field names for coordinate fields
         if (this.listings && this.listings.length > 0) {
@@ -2054,18 +1911,14 @@ Do not include any explanation or additional text.`;
     formatKeyName(key) {
         if (!key) return '';
 
-
         // Words that should not be capitalized unless at the start
         const lowercaseWords = ['in', 'to', 'of', 'for', 'and', 'or', 'but', 'at', 'by', 'with', 'from', 'on', 'as', 'is', 'the', 'a', 'an'];
         // Words that should be all caps
         const uppercaseWords = ['id', 'url'];
 
-
         return key
             .replace(/([A-Z])/g, ' $1')  // Add space before capital letters (CamelCase -> Camel Case)
-            .replace(/([A-Z])/g, ' $1')  // Add space before capital letters (CamelCase -> Camel Case)
             .replace(/_/g, ' ')  // Replace underscores with spaces
-            .trim()  // Remove leading/trailing spaces
             .trim()  // Remove leading/trailing spaces
             .split(' ')
             .map((word, index) => {
@@ -2250,12 +2103,6 @@ Do not include any explanation or additional text.`;
         this.updateListingsDisplay();
         this.isFilteringInProgress = false;
         
-        // Set flag to prevent render() from updating map (we'll do it manually)
-        this.isFilteringInProgress = true;
-        //this.render(); // For map point update
-        this.updateListingsDisplay();
-        this.isFilteringInProgress = false;
-        
         // Restore focus and cursor position if search input was focused
         if (wasSearchInputFocused) {
             setTimeout(() => {
@@ -2270,11 +2117,8 @@ Do not include any explanation or additional text.`;
         }
         
         // Update map with filtered results - send all filtered data, not just current page
-        // Update map with filtered results - send all filtered data, not just current page
         if (window.leafletMap) {
             setTimeout(() => {
-                debugAlert('🚨 updateFromListingsApp in filterListings() - sending ' + this.filteredListings.length + ' filtered listings');
-                window.leafletMap.updateFromListingsApp(this);
                 debugAlert('🚨 updateFromListingsApp in filterListings() - sending ' + this.filteredListings.length + ' filtered listings');
                 window.leafletMap.updateFromListingsApp(this);
             }, 100);
@@ -2443,43 +2287,12 @@ Do not include any explanation or additional text.`;
         // Dataset change - keep existing map, just update data
         debugAlert("🔄 Dataset change: Keeping existing map, will update data only");
         
-        // Dataset change - keep existing map, just update data
-        debugAlert("🔄 Dataset change: Keeping existing map, will update data only");
-        
         // Update URL hash
         //this.updateUrlHash(showKey); // Avoid because hash is driving
         
         // Only save to cache if this is a user-initiated change
         if (updateCache) {
             this.saveCachedShow(showKey);
-        }
-        //alert("priorHash.map " + priorHash.map);
-        if (priorHash.map) { // Also need to allow for map-none-map sequence.
-            // Set flag to prevent render() from updating map (we'll do it manually like filtering)
-            this.isDatasetChanging = true;
-        }
-        await this.loadShowData(); // This calls render(), but it will be skipped due to flag
-        this.updateListingsDisplay(); // Update only the listings display
-        this.isDatasetChanging = false;
-        
-        // Update map with new dataset and fit to new points
-        if (window.leafletMap) {
-            setTimeout(() => {
-                debugAlert('🚨 updateFromListingsApp in changeShow() - dataset change - sending ' + this.filteredListings.length + ' listings');
-                
-                // Force bounds fitting for dataset changes by temporarily resetting the baseline
-                const originalMapHasLoaded = window.mapHasEverLoaded;
-                window.mapHasEverLoaded = false; // Trick the system into thinking this is initial load
-                
-                window.leafletMap.updateFromListingsApp(this);
-                
-                // Restore the flag after update
-                setTimeout(() => {
-                    window.mapHasEverLoaded = originalMapHasLoaded;
-                    debugAlert('🗺️ Dataset change bounds fitting completed, restored mapHasEverLoaded flag');
-                }, 300);
-                
-            }, 100);
         }
         //alert("priorHash.map " + priorHash.map);
         if (priorHash.map) { // Also need to allow for map-none-map sequence.
@@ -2619,34 +2432,6 @@ Do not include any explanation or additional text.`;
             }
         });
 
-        // Handle refresh local button
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'refreshLocalBtn' || e.target.closest('#refreshLocalBtn')) {
-                e.preventDefault();
-                this.refreshLocalData();
-            }
-        });
-
-        // Handle summarize toggle button
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'summarize-toggle') {
-                const currentHash = this.getCurrentHash();
-                const isSummarized = currentHash.summarize === 'true';
-                
-                if (typeof goHash === 'function') {
-                    if (isSummarized) {
-                        // Unsummarize - clear the summarize hash
-                        goHash({"summarize": ""});
-                    } else {
-                        // Summarize - set summarize to true
-                        goHash({"summarize": "true"});
-                    }
-                } else {
-                    debugAlert('⚠️ goHash function not available');
-                }
-            }
-        });
-
         document.addEventListener('click', (e) => {
             if (e.target.closest(".details-toggle")) {
                 e.preventDefault();
@@ -2699,12 +2484,6 @@ Do not include any explanation or additional text.`;
 
     // Get listings for map display - returns only current page to avoid performance issues
     getMapListings() {
-        return this.getCurrentPageListings();
-    }
-
-    isSummaryView() {
-        // Check if we're showing summary data by looking for originalListings
-        return this.originalListings !== null && this.originalListings !== undefined;
         return this.getCurrentPageListings();
     }
 
@@ -3443,73 +3222,6 @@ Do not include any explanation or additional text.`;
                             `).join('')}
                         </div>
                         ` : ''}
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    renderSummaryListings(summaryListings) {
-        if (!this.config?.geoColumns || this.config.geoColumns.length === 0) {
-            return '<div>No geo columns defined for summary</div>';
-        }
-
-        const groupColumn = this.config.geoColumns[0]; // First geoColumn is the grouping column
-        const aggregateColumn = this.config.geoAggregate; // Column to aggregate
-        
-        return summaryListings.map(summaryItem => {
-            const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
-            const groupName = summaryItem[groupColumn] || 'Unknown';
-            const count = summaryItem.count || 0;
-            const aggregateTotal = summaryItem.aggregateTotal || 0;
-            
-            // Filter out the fields that should be hidden in summary view
-            const fieldsToOmit = new Set([
-                groupColumn.toLowerCase(), 
-                'count', 
-                'aggregatetotal'
-            ]);
-            
-            // Count additional details (excluding omitted fields)
-            const additionalDetails = Object.entries(summaryItem)
-                .filter(([key, value]) => 
-                    !fieldsToOmit.has(key.toLowerCase()) &&
-                    value && 
-                    value.toString().trim() !== '' &&
-                    value.toString().trim() !== '-'
-                );
-            
-            const additionalDetailsCount = additionalDetails.length;
-            
-            return `
-                <div class="listing-card">
-                    <div class="listing-content">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div class="listing-name">${groupName}</div>
-                            <div class="summary-stats" style="display: flex; gap: 15px; color: #666;">
-                                <div>Visits: ${count}</div>
-                                ${aggregateColumn ? `<div>Participants: ${aggregateTotal}</div>` : ''}
-                            </div>
-                        </div>
-                        
-                        ${additionalDetailsCount > 0 ? `
-                        <div class="details-toggle">
-                            <span class="toggle-arrow" id="arrow-${uniqueId}" data-details-id="${uniqueId}">▶</span>
-                            <span class="toggle-label" data-details-id="${uniqueId}">Additional Details (${additionalDetailsCount})</span>
-                        </div>
-                        
-                        <div class="details-content" id="${uniqueId}">
-                            ${additionalDetails.map(([key, value]) => `
-                                <div class="detail-item">
-                                    <strong>${this.formatKeyName(key)}:</strong>
-                                    <div class="detail-value">
-                                        ${this.formatFieldValue(value)}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
@@ -3786,160 +3498,7 @@ Do not include any explanation or additional text.`;
         }
     }
 
-    renderSearchResults() {
-        const shortTitle = this.config?.shortTitle ? ` ${this.config.shortTitle}` : '';
-        
-        // Show filtered count whenever results are filtered (regardless of whether search term exists)
-        if (this.filteredListings.length !== this.listings.length) {
-            // When filtering is active (or search produced different results), show [filtered] of [total]
-            let result = `${this.filteredListings.length} of ${this.listings.length}${shortTitle}`;
-            
-            // Add geo merge info if available and dataset is merged
-            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
-                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
-            }
-            
-            return result;
-        } else {
-            // When no filtering, show just the total
-            let result = `${this.listings.length}${shortTitle}`;
-            
-            // Add geo merge info if available and dataset is merged
-            if (this.geoMergeInfo && this.geoMergeInfo.mergedRecords !== this.geoMergeInfo.totalRecords) {
-                result += ` (${this.geoMergeInfo.mergedRecords} with coordinates)`;
-            }
-            
-            return result;
-        }
-    }
-
-    getCurrentHash() {
-        if (typeof getHash === 'function') {
-            return getHash();
-        }
-        return {};
-    }
-
-    SummarizeList() {
-        debugAlert('📊 SUMMARIZE: Creating summary list');
-        
-        if (!this.config?.geoColumns || this.config.geoColumns.length === 0) {
-            debugAlert('❌ SUMMARIZE: No geoColumns defined');
-            return;
-        }
-
-        const groupColumn = this.config.geoColumns[0]; // First geoColumn is the grouping column
-        const aggregateColumn = this.config.geoAggregate; // Column to aggregate
-        
-        debugAlert(`📊 SUMMARIZE: Grouping by "${groupColumn}", aggregating "${aggregateColumn}"`);
-        
-        // Group data by the grouping column
-        const groups = {};
-        this.listings.forEach(listing => {
-            const groupValue = listing[groupColumn];
-            if (groupValue) {
-                if (!groups[groupValue]) {
-                    groups[groupValue] = {
-                        [groupColumn]: groupValue,
-                        count: 0,
-                        aggregateTotal: 0
-                    };
-                }
-                groups[groupValue].count++;
-                
-                // Add to aggregate if the column exists and has a numeric value
-                if (aggregateColumn && listing[aggregateColumn]) {
-                    const aggregateValue = parseFloat(listing[aggregateColumn]);
-                    if (!isNaN(aggregateValue)) {
-                        groups[groupValue].aggregateTotal += aggregateValue;
-                    }
-                }
-            }
-        });
-        
-        // Convert to array and sort by count (descending)
-        const summaryData = Object.values(groups).sort((a, b) => b.count - a.count);
-        
-        debugAlert(`📊 SUMMARIZE: Created ${summaryData.length} summary groups`);
-        
-        // Store original data and set summary as filtered listings
-        this.originalListings = this.listings;
-        this.originalFilteredListings = this.filteredListings;
-        this.filteredListings = summaryData;
-        this.currentPage = 1; // Reset to first page
-        
-        // Update display
-        this.updateListingsDisplay();
-    }
-
-    UnsummarizeList() {
-        debugAlert('📊 UNSUMMARIZE: Restoring original list');
-        
-        if (this.originalListings) {
-            this.listings = this.originalListings;
-            this.filteredListings = this.originalFilteredListings || this.originalListings;
-            this.originalListings = null;
-            this.originalFilteredListings = null;
-            this.currentPage = 1; // Reset to first page
-            
-            // Update display
-            this.updateListingsDisplay();
-        }
-    }
-
-    updateListingsDisplay() {
-        // Update only the listings display without recreating the entire UI
-        const listingsScrollContainer = document.querySelector('.listings-scroll-container');
-        if (listingsScrollContainer) {
-            // Update the entire listings scroll container content
-            listingsScrollContainer.innerHTML = `
-                <div class="listings-grid basePanelPadding" style="padding-top:0px">
-                    ${this.renderListings()}
-                </div>
-                ${this.renderNoResults()}
-                ${this.renderEmptyState()}
-            `;
-            
-            // Update pagination and search results if they exist
-            const detailsBottom = document.getElementById('widgetDetailsBottom');
-            if (detailsBottom) {
-                detailsBottom.innerHTML = `
-                    <div class="search-results">
-                        ${this.renderSearchResults()}
-                    </div>
-                    <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
-                        ${this.renderPagination()}
-                    </div>
-                `;
-            }
-            
-            // Update summarize button visibility based on current dataset
-            this.updateSummarizeButtonVisibility();
-            
-            // Event listeners are handled by global delegation, no need to re-attach
-        }
-    }
-
-    updateSummarizeButtonVisibility() {
-        const summarizeControls = document.querySelector('.summarize-controls');
-        if (summarizeControls) {
-            const shouldShow = this.config?.geoColumns && this.config.geoColumns.length > 0;
-            summarizeControls.style.display = shouldShow ? 'block' : 'none';
-            
-            if (shouldShow) {
-                // Update button text based on current hash state
-                const currentHash = this.getCurrentHash();
-                const summarizeButton = document.getElementById('summarize-toggle');
-                if (summarizeButton) {
-                    summarizeButton.textContent = currentHash.summarize === 'true' ? 'Unsummarize' : 'Summarize';
-                }
-            }
-        }
-    }
-
     render() {
-        debugAlert('🔍 RENDER() called');
-        
         debugAlert('🔍 RENDER() called');
         
         console.trace('Render call stack:');
@@ -3962,48 +3521,12 @@ Do not include any explanation or additional text.`;
                     return;
                 }
             }
-        if (!(this.isFilteringInProgress || this.isDatasetChanging)) {
-            //alert("render() overwrites map")
-            const mapwidget = document.getElementById('mapwidget');
-            if (mapwidget) mapwidget.style.display = 'block';
-            
-            if (this.loading) {
-                // FORCE clear loading if we have data but still loading
-                if (this.listings && this.listings.length > 0) {
-                    this.loading = false;
-                    // Don't return, continue to render
-                } else {
-                    this.showLoadingState("Loading listings...");
-                    return;
-                }
-            }
 
             // Store data loading error but don't return early - still show the interface
             if (this.error) {
                 this.dataLoadError = this.error;
             }
-            // Store data loading error but don't return early - still show the interface
-            if (this.error) {
-                this.dataLoadError = this.error;
-            }
 
-            if (!this.showConfigs || Object.keys(this.showConfigs).length === 0) {
-                this.showLoadingState("Loading Dataset Choices");
-                return;
-            }
-        
-            const mapGallerySection = this.renderMapGallerySection();
-            let localwidgetHeader = `
-                <!-- Header -->
-                <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div style="flex:1;">
-                        <h1>${this.config?.listTitle || 'Listings'}</h1>
-                        ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
-                    </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div id="map-print-download-icons" style="padding-top:12px"></div>
-                    </div>
-                </div>`
             if (!this.showConfigs || Object.keys(this.showConfigs).length === 0) {
                 this.showLoadingState("Loading Dataset Choices");
                 return;
@@ -4114,113 +3637,7 @@ Do not include any explanation or additional text.`;
                                 ${this.renderListings()}
                             </div>
                         </div>
-            // window.param.showheader hides too much.  Need to move #map-print-download-icons when header is hidden.
-            // X added to temp disable until g.org removes showheader=false
-            if (this.detailMap) {
-                this.detailMap.remove();
-                this.detailMap = null;
-                this.detailMapMarker = null;
-            }
-            mapwidget.innerHTML = `
-                ${mapGallerySection}
-                ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
-                <!-- Widget Hero Container -->
-                <div id="widgetHero"></div>
-                    
-                <!-- Widget Content Container -->
-                <div id="widgetContent">
-                    <!-- Details Section (Left column on desktop) -->
-                    <div id="widgetDetailsParent" class="basePanel">
-                    <div id="widgetDetails" myparent="widgetDetailsParent" class="basePanel">
-                        <!-- Controls -->
-                        <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground">
-                            <div class="search-container">
-                                ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
-                                <div class="map-selector">
-                                    <select id="mapDataSelect" class="map-select">
-                                        <option value="">Selected map...</option>
-                                        ${Object.keys(this.showConfigs).map(key => 
-                                            `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
-                                        ).join('')}
-                                    </select>
-                                </div>
-                                ` : ''}
-                                <div class="search-wrapper">
-                                    <div class="search-box">
-                                        <input
-                                            type="text"
-                                            id="searchInput"
-                                            placeholder="Search listings..."
-                                            value="${this.searchTerm}"
-                                            class="search-input"
-                                        />
-                                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                        </svg>
-                                    </div>
-                                    <div class="search-fields-control">
-                                        <button id="searchFieldsBtn" class="search-fields-btn ${this.searchPopupOpen ? 'active' : ''}">
-                                            <svg class="filter-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
-                                            </svg>
-                                            <span class="button-text">${this.getSearchFieldsSummary()}</span>
-                                        </button>
-                                    </div>
-                                    <!-- Expand Icon for Details -->
-                                    <div class="fullscreen-toggle-container">
-                                        <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
-                                            <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                            </svg>
-                                            <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <!-- Summarize Toggle (only for datasets with geoColumns) -->
-                            ${this.config?.geoColumns && this.config.geoColumns.length > 0 ? `
-                            <div class="summarize-controls" style="display: flex; gap: 10px; align-items: center;">
-                                <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                                    ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
-                                </button>
-                                ${ (window.location.hostname === 'localhost' &&
-                                    (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
-                                    this.config?.dataset &&
-                                    !this.config.dataset.startsWith('http')) ? `
-                                <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;" title="Fetch data from API and save to local file">
-                                    Refresh Locally
-                                </button>
-                                ` : ''}
-                            </div>
-                            ` : ''}
-
-                        </div>
-                        
-                        <!-- Listings Grid -->
-                        <!-- Above-the-fold key/value pairs come from getRecognizedFields + config.featuredColumns. -->
-                        <div class="listings-scroll-container">
-                            <div class="listings-grid basePanelPadding" style="padding-top:0px">
-                                ${this.renderListings()}
-                            </div>
-                        </div>
-
-                        ${this.renderNoResults()}
-                        ${this.renderEmptyState()}
-                        
-                        <!-- Widget Details Bottom Container -->
-                        <div id="widgetDetailsBottom">
-                            <div class="search-results">
-                                ${this.renderSearchResults()}
-                            </div>
-                            <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
-                                ${this.renderPagination()}
-                            </div>
-                        </div>
-                    </div>
-                    </div>
                         ${this.renderNoResults()}
                         ${this.renderEmptyState()}
                         
@@ -4316,15 +3733,8 @@ Do not include any explanation or additional text.`;
             } else {
                 debugAlert("🚫 SKIPPING initializeMap during filtering to preserve map");
             }
-            // Skip map initialization during filtering to prevent map recreation
-            if (!this.isFilteringInProgress) {
-                this.initializeMap('FROM_RENDER conditionalMapInit');
-            } else {
-                debugAlert("🚫 SKIPPING initializeMap during filtering to preserve map");
-            }
             this.setupPrintDownloadIcons();
         //}, 0);
-          
           
     }
     
@@ -4334,14 +3744,6 @@ Do not include any explanation or additional text.`;
     //}
     
     initializeMap(source = 'UNKNOWN') {
-        debugAlert("🗺️ initializeMap in map.js CALLED FROM: " + source + " - checking initialMapLoad flag: " + this.initialMapLoad)
-        
-        // Block ALL map recreation during filtering to prevent #widgetmap from being emptied
-        if (this.isFilteringInProgress) {
-            debugAlert('🚫 BLOCKING: Map recreation during filtering - isFilteringInProgress=true');
-            return;
-        }
-        
         debugAlert("🗺️ initializeMap in map.js CALLED FROM: " + source + " - checking initialMapLoad flag: " + this.initialMapLoad)
         
         // Block ALL map recreation during filtering to prevent #widgetmap from being emptied
@@ -4435,9 +3837,6 @@ Do not include any explanation or additional text.`;
                             filteredListings: this.getCurrentPageListings(),
                             listings: this.getCurrentPageListings(),
                             getMapListings: () => this.getCurrentPageListings()
-                            filteredListings: this.getCurrentPageListings(),
-                            listings: this.getCurrentPageListings(),
-                            getMapListings: () => this.getCurrentPageListings()
                         };
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
                     //}, 100);
@@ -4446,9 +3845,6 @@ Do not include any explanation or additional text.`;
                 console.warn('Failed to initialize map:', error);
             } finally {
                 this.mapInitializing = false;
-                // Set flag to false after initial map creation to prevent recreation during filtering
-                this.initialMapLoad = false;
-                debugAlert("✅ Map initialized! Setting initialMapLoad = false to prevent future recreation");
                 // Set flag to false after initial map creation to prevent recreation during filtering
                 this.initialMapLoad = false;
                 debugAlert("✅ Map initialized! Setting initialMapLoad = false to prevent future recreation");
@@ -4863,11 +4259,6 @@ Do not include any explanation or additional text.`;
         }
         
         console.log(`Stored ${cleanedData.length} rows in DOM for download/print functionality`);
-        
-        // Debug alert to confirm what data is stored
-        if (typeof debugAlert === 'function') {
-            debugAlert(`storeDataInDOM: Storing ${cleanedData.length} of ${data.length} original rows. All data stored: ${cleanedData.length === data.length}`);
-        }
         
         // Debug alert to confirm what data is stored
         if (typeof debugAlert === 'function') {

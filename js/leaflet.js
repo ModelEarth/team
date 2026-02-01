@@ -164,180 +164,8 @@ function addDebugControlButtons(debugContainer) {
     controlsDiv.appendChild(controlsWrapper);
 }
 
-// Debug function that only shows messages on localhost with model.georgia
-function debugAlert(message) {
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    //const isTestSite = Cookies.get('modelsite') === 'model.georgia';
-    
-    if (isLocalhost) { // && isTestSite
-        // Create or find debug holder div
-        let debugHolder = document.getElementById('debug-messages-holder');
-        if (!debugHolder) {
-            debugHolder = document.createElement('div');
-            debugHolder.id = 'debug-messages-holder';
-            debugHolder.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000;';
-            
-            // Create control buttons container first
-            const controlsDiv = document.createElement('div');
-            controlsDiv.className = 'control-buttons-container';
-            controlsDiv.style.cssText = 'position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 10001;';
-            
-            // Create the debug messages div
-            const debugDiv = document.createElement('div');
-            debugDiv.id = 'debug-messages';
-            debugDiv.style.cssText = 'background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 54px; overflow-y: scroll; position: relative; cursor: ns-resize;';
-            
-            // Add drag handle
-            const dragHandle = document.createElement('div');
-            dragHandle.id = 'debug-drag-handle';
-            dragHandle.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; height: 8px; cursor: ns-resize; background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent); z-index: 10002;';
-            
-            // Append elements in order
-            debugHolder.appendChild(controlsDiv);
-            debugHolder.appendChild(debugDiv);
-            debugDiv.appendChild(dragHandle);
-            
-            document.body.appendChild(debugHolder);
-            
-            // Add control buttons if function is available
-            if (typeof addDebugControlButtons === 'function') {
-                addDebugControlButtons(debugHolder);
-            }
-            
-            // Add drag functionality
-            let isDragging = false;
-            let startY = 0;
-            let startHeight = 54;
-            
-            dragHandle.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startY = e.clientY;
-                startHeight = parseInt(window.getComputedStyle(debugDiv).getPropertyValue('max-height'));
-                dragHandle.style.cursor = 'row-resize';
-                debugDiv.style.cursor = 'row-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-            
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                
-                const deltaY = startY - e.clientY;
-                const newHeight = Math.max(54, Math.min(400, startHeight + deltaY));
-                debugDiv.style.maxHeight = newHeight + 'px';
-            });
-            
-            document.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    dragHandle.style.cursor = 'ns-resize';
-                    debugDiv.style.cursor = 'default';
-                    document.body.style.userSelect = '';
-                }
-            });
-        }
-        
-        // Get the actual debug messages div
-        const debugDiv = document.getElementById('debug-messages') || debugHolder.querySelector('#debug-messages');
-        
-        // Add timestamp and message
-        const timestamp = new Date().toLocaleTimeString();
-        const messageElement = document.createElement('div');
-        messageElement.textContent = `${timestamp}: ${message}`;
-        debugDiv.appendChild(messageElement);
-        
-        // Keep only last 50 messages
-        while (debugDiv.children.length > 50) {
-            debugDiv.removeChild(debugDiv.firstChild);
-        }
-        
-        // Auto-scroll to bottom
-        debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-}
-/*
-waitForElm("#debug-container").then((elm) => {
-    alert("found");
-        //let debugContainer = document.getElementById('debug-container');
-        //addDebugControlButtons(debugContainer);
-});
-*/
-// Add control buttons to debug container (X, expand, copy)
-function addDebugControlButtons(debugContainer) {
-    const controlsDiv = debugContainer.querySelector('.control-buttons-container');
-    if (!controlsDiv || controlsDiv.querySelector('.debug-controls')) {
-        return; // Controls already added or no container found
-    }
-    
-    // Create controls wrapper
-    const controlsWrapper = document.createElement('div');
-    controlsWrapper.className = 'debug-controls';
-    
-    // Close (X) button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.title = 'Close debug messages';
-    closeBtn.onclick = () => debugContainer.style.display = 'none';
-    
-    // Expand button
-    const expandBtn = document.createElement('button');
-    expandBtn.innerHTML = '⇱';
-    expandBtn.title = 'Toggle expand';
-    expandBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        const currentHeight = parseInt(debugDiv.style.maxHeight);
-        if (currentHeight <= 54) {
-            debugDiv.style.maxHeight = '300px';
-            expandBtn.innerHTML = '⇲';
-        } else {
-            debugDiv.style.maxHeight = '54px';
-            expandBtn.innerHTML = '⇱';
-        }
-    };
-    
-    // Copy button
-    const copyBtn = document.createElement('button');
-    copyBtn.innerHTML = '📋';
-    copyBtn.title = 'Copy debug messages';
-    copyBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        const messages = Array.from(debugDiv.children)
-            .filter(child => !child.id?.includes('debug-drag-handle'))
-            .map(child => child.textContent)
-            .join('\n');
-        navigator.clipboard.writeText(messages).then(() => {
-            copyBtn.innerHTML = '✓';
-            setTimeout(() => copyBtn.innerHTML = '📋', 1000);
-        });
-    };
-    
-    // Create clear button
-    const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = '🗑️';
-    clearBtn.title = 'Clear debug messages';
-    clearBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        debugDiv.innerHTML = '<div id="debug-drag-handle" style="height: 3px; background: rgba(255,255,255,0.3); margin: 0 -10px 5px; cursor: ns-resize;"></div>';
-    };
-    
-    controlsWrapper.appendChild(clearBtn);
-    controlsWrapper.appendChild(expandBtn);
-    controlsWrapper.appendChild(copyBtn);
-    controlsWrapper.appendChild(closeBtn);
-    controlsDiv.appendChild(controlsWrapper);
-}
-
 class LeafletMapManager {
     constructor(containerId = 'map', options = {}) {
-        // Debug: track when map is being created/recreated
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
-        
-        if (isLocalhost) { // && isTestSite
-            const stack = new Error().stack.split('\n').slice(2, 4).map(line => line.trim().replace(/.*\//, '')).join(' -> ');
-            debugAlert('MAP CONSTRUCTOR CALLED - LeafletMapManager created/recreated - ' + stack);
-        }
-        
         // Debug: track when map is being created/recreated
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
@@ -356,7 +184,6 @@ class LeafletMapManager {
         this.originalStyles = null;
         this.initialZoom = null;
         this.useLargerSizes = false;
-        this.hasEverLoadedMarkers = false;
         this.hasEverLoadedMarkers = false;
         this.popupOptions = {
             maxWidth: 300,
@@ -557,7 +384,6 @@ class LeafletMapManager {
     
     initializeMap() {
         debugAlert("initializeMap in leaflet.js");
-        debugAlert("initializeMap in leaflet.js");
         if (!window.L) {
             setTimeout(() => this.initializeMap(), 100);
             return;
@@ -592,34 +418,7 @@ class LeafletMapManager {
         this.setMapStyle(this.currentMapStyle);
         
         // Add zoom event listener for dynamic icon sizing and user zoom tracking
-        // Add zoom event listener for dynamic icon sizing and user zoom tracking
         this.map.on('zoomend', () => {
-            // Debug: track zoom changes
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
-            
-            //if (isLocalhost && isTestSite) {
-                const stack = new Error().stack.split('\n').slice(2, 4).map(line => line.trim().replace(/.*\//, '')).join(' -> ');
-                debugAlert('ZOOM CHANGED to ' + this.map.getZoom() + ' - triggered by: ' + stack);
-            //}
-            
-            // Track user-initiated zoom changes (not programmatic ones)
-            const currentZoom = this.map.getZoom();
-            const baselineZoom = window.mapBaselineZoom || 7;
-            
-            // Check if this is a user-initiated zoom (not from our setZoom calls)
-            if (window.mapHasEverLoaded && !this.programmaticZoomInProgress) {
-                if (currentZoom > baselineZoom) {
-                    // User zoomed in closer than baseline - store it
-                    window.mapUserZoom = currentZoom;
-                    debugAlert('USER ZOOM DETECTED: Stored user zoom level ' + currentZoom + ' (baseline: ' + baselineZoom + ')');
-                } else if (currentZoom === baselineZoom) {
-                    // User zoomed out to baseline - clear user zoom
-                    window.mapUserZoom = null;
-                    debugAlert('USER ZOOM RESET: Cleared user zoom, back to baseline ' + baselineZoom);
-                }
-            }
-            
             // Debug: track zoom changes
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             //const isTestSite = typeof Cookies !== 'undefined' && Cookies.get('modelsite') === 'model.georgia';
@@ -755,8 +554,6 @@ class LeafletMapManager {
     addMarkersFromData(data, config = {}) {
         // Clear existing markers (but be more careful during filtering)
         debugAlert('🔄 CLEAR: About to clear ' + this.markers.length + ' existing markers');
-        // Clear existing markers (but be more careful during filtering)
-        debugAlert('🔄 CLEAR: About to clear ' + this.markers.length + ' existing markers');
         this.clearMarkers();
         
         if (!Array.isArray(data) || data.length === 0) {
@@ -767,12 +564,8 @@ class LeafletMapManager {
         const validMarkers = [];
         
         debugAlert('🔍 PROCESSING ' + data.length + ' data items for markers');
-        debugAlert('🔍 PROCESSING ' + data.length + ' data items for markers');
         data.forEach((item, index) => {
             const coords = this.extractCoordinates(item);
-            if (index < 3) { // Debug first 3 items
-                debugAlert('🔍 Item ' + index + ' coords: lat=' + coords.lat + ' lng=' + coords.lng + ' sample fields: ' + Object.keys(item).slice(0, 5).join(', '));
-            }
             if (index < 3) { // Debug first 3 items
                 debugAlert('🔍 Item ' + index + ' coords: lat=' + coords.lat + ' lng=' + coords.lng + ' sample fields: ' + Object.keys(item).slice(0, 5).join(', '));
             }
@@ -784,27 +577,6 @@ class LeafletMapManager {
             }
         });
         
-        debugAlert('✅ VALID MARKERS: ' + validMarkers.length + ' out of ' + data.length + ' items');
-        
-        // Handle case where no valid coordinates found
-        if (validMarkers.length === 0) {
-            console.warn('⚠️ NO VALID COORDINATES: No map points can be displayed. Data needs latitude/longitude fields.');
-            // Show message in map container if no coordinates
-            const mapContainer = document.getElementById(this.containerId);
-            if (mapContainer) {
-                const messageDiv = document.createElement('div');
-                messageDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 5px; text-align: center; z-index: 1000;';
-                messageDiv.innerHTML = `
-                    <h3>No Map Points Available</h3>
-                    <p>This dataset doesn't contain latitude/longitude coordinates.</p>
-                    <p>Available fields: ${data.length > 0 ? Object.keys(data[0]).join(', ') : 'none'}</p>
-                `;
-                mapContainer.appendChild(messageDiv);
-            }
-            return;
-        }
-        
-        // IMPLEMENT PROPER ZOOM LOGIC
         debugAlert('✅ VALID MARKERS: ' + validMarkers.length + ' out of ' + data.length + ' items');
         
         // Handle case where no valid coordinates found
@@ -987,7 +759,6 @@ class LeafletMapManager {
     extractCoordinates(item) {
         // Try various coordinate field names
         const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'LATITUDE', 'y', 'Y'];
-        const latFields = ['latitude', 'lat', 'Latitude', 'LAT', 'LATITUDE', 'y', 'Y'];
         const lngFields = ['longitude', 'lng', 'lon', 'Longitude', 'LON', 'LONGITUDE', 'x', 'X'];
         
         let lat = null, lng = null;
@@ -1020,13 +791,6 @@ class LeafletMapManager {
         try {
             // Create custom icon with zoom-based sizing and shape
             const currentZoom = this.map.getZoom();
-            
-            // Ensure useLargerSizes is set correctly for initial marker creation
-            if (currentZoom <= 5 && !this.useLargerSizes) {
-                this.useLargerSizes = true;
-                console.log(`Setting useLargerSizes=true during createMarker for zoom ${currentZoom}`);
-            }
-            
             
             // Ensure useLargerSizes is set correctly for initial marker creation
             if (currentZoom <= 5 && !this.useLargerSizes) {
@@ -1112,25 +876,18 @@ class LeafletMapManager {
                     // OPTIMIZATION 3: Format emails lazily when popup opens
                     const formattedValue = this.formatPopupValue(value, column);
                     
-                    // OPTIMIZATION 3: Format emails lazily when popup opens
-                    const formattedValue = this.formatPopupValue(value, column);
-                    
                     if (index === 0) {
                         // First column - bold title
-                        content += `<div class="popup-title">${formattedValue}</div>`;
                         content += `<div class="popup-title">${formattedValue}</div>`;
                     } else if (index === 1) {
                         // Second column - with appropriate prefix
                         const displayValue = column.toLowerCase().includes('population') ? 
                             `Population: ${this.formatNumber(value)}` : 
                             `${formattedValue}`; // `${this.formatColumnName(column)}: ${formattedValue}`
-                            `${formattedValue}`; // `${this.formatColumnName(column)}: ${formattedValue}`
                         content += `<div class="popup-field"><span class="popup-text">${displayValue}</span></div>`;
                     } else if (index === 2) {
                         // Third column - with appropriate suffix
                         const displayValue = column.toLowerCase().includes('county') ? 
-                            `${formattedValue} County` : 
-                            `${formattedValue}`; // ``${this.formatColumnName(column)}: ${formattedValue}`;
                             `${formattedValue} County` : 
                             `${formattedValue}`; // ``${this.formatColumnName(column)}: ${formattedValue}`;
                         content += `<div class="popup-field"><span class="popup-text">${displayValue}</span></div>`;
@@ -1145,7 +902,6 @@ class LeafletMapManager {
             
             if (name) {
                 content += `<div class="popup-title">${this.formatPopupValue(name)}</div>`;
-                content += `<div class="popup-title">${this.formatPopupValue(name)}</div>`;
             }
             
             if (population) {
@@ -1156,7 +912,6 @@ class LeafletMapManager {
             
             if (county) {
                 content += `<div class="popup-field">
-                    <span class="popup-text">${this.formatPopupValue(county)} County</span>
                     <span class="popup-text">${this.formatPopupValue(county)} County</span>
                 </div>`;
             }
@@ -1236,21 +991,6 @@ class LeafletMapManager {
         return this.escapeHtml(strValue);
     }
     
-    // OPTIMIZATION 3: Lazy email formatting - only processes when popup opens
-    formatPopupValue(value, column = '') {
-        if (!value) return '';
-        
-        const strValue = value.toString();
-        
-        // Check if it's an email and format with mailto link
-        if (column.toLowerCase().includes('email') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
-            return `<a href="mailto:${this.escapeHtml(strValue)}" class="popup-link">${this.escapeHtml(strValue)}</a>`;
-        }
-        
-        // For non-email values, just escape HTML
-        return this.escapeHtml(strValue);
-    }
-    
     escapeHtml(unsafe) {
         return unsafe
             .replace(/&/g, "&amp;")
@@ -1309,15 +1049,8 @@ class LeafletMapManager {
     getMarkerHtml(zoom, iconSize) {
         // Use conditional logic based on initial zoom level
         console.log(`getMarkerHtml: zoom=${zoom}, useLargerSizes=${this.useLargerSizes}, iconSize=${iconSize}`);
-        console.log(`getMarkerHtml: zoom=${zoom}, useLargerSizes=${this.useLargerSizes}, iconSize=${iconSize}`);
         if (this.useLargerSizes) {
             // Apply larger sizes when initial zoom was 5 or less
-            if (zoom === 1) {
-                // Set fixed size for level 1 instead of percentage
-                const size1 = 4; // Fixed size to match level 2
-                return `<div class="marker-dot-tiny" style="width: ${size1}px; height: ${size1}px;"></div>`;
-            } else if (zoom <= 3) {
-                // 50% dots for zoom 2-3 (slightly smaller than level 4)
             if (zoom === 1) {
                 // Set fixed size for level 1 instead of percentage
                 const size1 = 4; // Fixed size to match level 2
@@ -1353,12 +1086,6 @@ class LeafletMapManager {
             }
         } else {
             // Use default/original sizes when initial zoom was greater than 5
-            if (zoom === 1) {
-                // Set fixed size for level 1 instead of percentage  
-                const size1 = 4; // Fixed size to match level 2
-                return `<div class="marker-dot-tiny" style="width: ${size1}px; height: ${size1}px;"></div>`;
-            } else if (zoom <= 3) {
-                // Half-size dots for zoom 2-3
             if (zoom === 1) {
                 // Set fixed size for level 1 instead of percentage  
                 const size1 = 4; // Fixed size to match level 2
@@ -2093,14 +1820,11 @@ class LeafletMapManager {
     // Public methods for integration with listing apps
     updateFromListingsApp(listingsApp) {
         debugAlert('📍 updateFromListingsApp called with: ' + (listingsApp ? listingsApp.filteredListings?.length : 'null') + ' listings');
-        debugAlert('📍 updateFromListingsApp called with: ' + (listingsApp ? listingsApp.filteredListings?.length : 'null') + ' listings');
         if (!listingsApp || !listingsApp.filteredListings) {
-            debugAlert('⚠️ Invalid listings app provided');
             debugAlert('⚠️ Invalid listings app provided');
             return;
         }
         
-        debugAlert('📍 About to call addMarkersFromData with ' + listingsApp.filteredListings.length + ' items');
         debugAlert('📍 About to call addMarkersFromData with ' + listingsApp.filteredListings.length + ' items');
         this.addMarkersFromData(listingsApp.filteredListings, listingsApp.config);
         
