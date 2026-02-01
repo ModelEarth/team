@@ -12,7 +12,7 @@ function debugAlert(message) {
         if (!debugHolder) {
             debugHolder = document.createElement('div');
             debugHolder.id = 'debug-messages-holder';
-            debugHolder.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000;';
+            debugHolder.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000; display: none;';
             
             // Create control buttons container first
             const controlsDiv = document.createElement('div');
@@ -77,6 +77,9 @@ function debugAlert(message) {
         // Get the actual debug messages div
         const debugDiv = document.getElementById('debug-messages') || debugHolder.querySelector('#debug-messages');
         
+        // Ensure debug messages are visible when a new entry is added
+        debugHolder.style.display = '';
+
         // Add timestamp and message
         const timestamp = new Date().toLocaleTimeString();
         const messageElement = document.createElement('div');
@@ -110,31 +113,31 @@ function addDebugControlButtons(debugContainer) {
     const controlsWrapper = document.createElement('div');
     controlsWrapper.className = 'debug-controls';
     
-    // Close (X) button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.title = 'Close debug messages';
-    closeBtn.onclick = () => debugContainer.style.display = 'none';
-    
     // Expand button
     const expandBtn = document.createElement('button');
-    expandBtn.innerHTML = '⇱';
+    expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">north_west</span>';
     expandBtn.title = 'Toggle expand';
     expandBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
         const currentHeight = parseInt(debugDiv.style.maxHeight);
         if (currentHeight <= 54) {
             debugDiv.style.maxHeight = '300px';
-            expandBtn.innerHTML = '⇲';
+            expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">south_east</span>';
         } else {
             debugDiv.style.maxHeight = '54px';
-            expandBtn.innerHTML = '⇱';
+            expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">north_west</span>';
         }
     };
+
+    // Close (X) button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '<span class="material-icons" aria-hidden="true">close</span>';
+    closeBtn.title = 'Close debug messages';
+    closeBtn.onclick = () => debugContainer.style.display = 'none';
     
     // Copy button
     const copyBtn = document.createElement('button');
-    copyBtn.innerHTML = '📋';
+    copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">content_copy</span>';
     copyBtn.title = 'Copy debug messages';
     copyBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
@@ -143,22 +146,40 @@ function addDebugControlButtons(debugContainer) {
             .map(child => child.textContent)
             .join('\n');
         navigator.clipboard.writeText(messages).then(() => {
-            copyBtn.innerHTML = '✓';
-            setTimeout(() => copyBtn.innerHTML = '📋', 1000);
+            copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">check</span>';
+            setTimeout(() => {
+                copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">content_copy</span>';
+            }, 1000);
         });
     };
-    
+
+    const adminPath = (typeof window !== 'undefined' && window.mapDataAdminPath)
+        ? window.mapDataAdminPath
+        : '';
+    const adminLink = document.createElement('a');
+    if (adminPath) {
+        adminLink.className = 'debug-control-link';
+        adminLink.href = adminPath;
+        adminLink.target = '_blank';
+        adminLink.rel = 'noopener';
+        adminLink.title = 'Open data admin';
+        adminLink.innerHTML = '<span class="material-icons" aria-hidden="true">build</span>';
+    }
+
     // Create clear button
     const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = '🗑️';
+    clearBtn.innerHTML = '<span class="material-icons" aria-hidden="true">delete</span>';
     clearBtn.title = 'Clear debug messages';
     clearBtn.onclick = () => {
         const debugDiv = debugContainer.querySelector('#debug-messages');
         debugDiv.innerHTML = '<div id="debug-drag-handle" style="height: 3px; background: rgba(255,255,255,0.3); margin: 0 -10px 5px; cursor: ns-resize;"></div>';
     };
     
-    controlsWrapper.appendChild(clearBtn);
     controlsWrapper.appendChild(expandBtn);
+    if (adminPath) {
+        controlsWrapper.appendChild(adminLink);
+    }
+    controlsWrapper.appendChild(clearBtn);
     controlsWrapper.appendChild(copyBtn);
     controlsWrapper.appendChild(closeBtn);
     controlsDiv.appendChild(controlsWrapper);
@@ -825,14 +846,38 @@ class LeafletMapManager {
             // Show popup on hover for map points
             marker._hoveringMarker = false;
             marker._hoveringPopup = false;
+            marker._hoverOpenTimer = null;
+            marker._hoverCloseTimer = null;
             marker.on('mouseover', () => {
                 marker._hoveringMarker = true;
-                marker.openPopup();
+                if (marker._hoverCloseTimer) {
+                    clearTimeout(marker._hoverCloseTimer);
+                    marker._hoverCloseTimer = null;
+                }
+                if (marker._hoverOpenTimer) {
+                    clearTimeout(marker._hoverOpenTimer);
+                }
+                marker._hoverOpenTimer = setTimeout(() => {
+                    if (marker._hoveringMarker) {
+                        marker.openPopup();
+                    }
+                }, 1000);
             });
             marker.on('mouseout', () => {
                 marker._hoveringMarker = false;
+                if (marker._hoverOpenTimer) {
+                    clearTimeout(marker._hoverOpenTimer);
+                    marker._hoverOpenTimer = null;
+                }
                 if (!marker._hoveringPopup) {
-                    marker.closePopup();
+                    if (marker._hoverCloseTimer) {
+                        clearTimeout(marker._hoverCloseTimer);
+                    }
+                    marker._hoverCloseTimer = setTimeout(() => {
+                        if (!marker._hoveringMarker && !marker._hoveringPopup) {
+                            marker.closePopup();
+                        }
+                    }, 1000);
                 }
             });
 
@@ -844,11 +889,22 @@ class LeafletMapManager {
 
                 popupEl.addEventListener('mouseenter', () => {
                     marker._hoveringPopup = true;
+                    if (marker._hoverCloseTimer) {
+                        clearTimeout(marker._hoverCloseTimer);
+                        marker._hoverCloseTimer = null;
+                    }
                 });
                 popupEl.addEventListener('mouseleave', () => {
                     marker._hoveringPopup = false;
                     if (!marker._hoveringMarker) {
-                        marker.closePopup();
+                        if (marker._hoverCloseTimer) {
+                            clearTimeout(marker._hoverCloseTimer);
+                        }
+                        marker._hoverCloseTimer = setTimeout(() => {
+                            if (!marker._hoveringMarker && !marker._hoveringPopup) {
+                                marker.closePopup();
+                            }
+                        }, 1000);
                     }
                 });
                 popupEl._hoverBound = true;
