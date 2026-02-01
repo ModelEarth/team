@@ -2903,6 +2903,10 @@ Do not include any explanation or additional text.`;
             if (headerTitle) {
                 headerTitle.textContent = 'Listing Details';
             }
+            const mapEl = document.getElementById('detailMap');
+            if (mapEl) {
+                mapEl.dataset.hasImages = 'false';
+            }
             this.updateDetailMap(null);
             return;
         }
@@ -2923,6 +2927,11 @@ Do not include any explanation or additional text.`;
             })}
             ${this.renderGalleryMarkup(galleryImages)}
         `;
+
+        const mapEl = document.getElementById('detailMap');
+        if (mapEl) {
+            mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
+        }
 
         this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
         this.ensureGalleryImageModal();
@@ -3407,6 +3416,17 @@ Do not include any explanation or additional text.`;
             return;
         }
 
+        const adjustDetailMapHeight = () => {
+            const hasImages = mapEl.dataset.hasImages === 'true';
+            const width = mapEl.clientWidth;
+            if (!width) {
+                return;
+            }
+            const baseHeight = (width * 10) / 9;
+            const extra = hasImages ? 100 : 0;
+            mapEl.style.height = `${Math.round(baseHeight + extra)}px`;
+        };
+
         const coords = this.getListingCoordinates(listing);
         if (!coords) {
             if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
@@ -3448,6 +3468,7 @@ Do not include any explanation or additional text.`;
         }
 
         this.detailMap.setView([coords.lat, coords.lng], 13);
+        adjustDetailMapHeight();
 
         if (this.detailMapMarker) {
             this.detailMapMarker.setLatLng([coords.lat, coords.lng]);
@@ -3458,8 +3479,16 @@ Do not include any explanation or additional text.`;
             }).addTo(this.detailMap);
         }
 
-        if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
-            window.leafletMap.setDetailMarker(coords);
+        if (typeof waitForElm === 'function') {
+            waitForElm('#widgetmap').then(() => {
+                setTimeout(() => {
+                    if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
+                        window.leafletMap.setDetailMarker(coords, listing, this.config);
+                    }
+                }, 1000);
+            });
+        } else if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
+            window.leafletMap.setDetailMarker(coords, listing, this.config);
         }
 
         if (caption) {
@@ -3468,6 +3497,7 @@ Do not include any explanation or additional text.`;
 
         requestAnimationFrame(() => {
             if (this.detailMap) {
+                adjustDetailMapHeight();
                 this.detailMap.invalidateSize();
             }
         });

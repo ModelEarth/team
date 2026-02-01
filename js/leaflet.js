@@ -848,72 +848,7 @@ class LeafletMapManager {
             // Bind popup with custom options
             marker.bindPopup(popupContent, this.popupOptions);
 
-            // Show popup on hover for map points
-            marker._hoveringMarker = false;
-            marker._hoveringPopup = false;
-            marker._hoverOpenTimer = null;
-            marker._hoverCloseTimer = null;
-            marker.on('mouseover', () => {
-                marker._hoveringMarker = true;
-                if (marker._hoverCloseTimer) {
-                    clearTimeout(marker._hoverCloseTimer);
-                    marker._hoverCloseTimer = null;
-                }
-                if (marker._hoverOpenTimer) {
-                    clearTimeout(marker._hoverOpenTimer);
-                }
-                marker._hoverOpenTimer = setTimeout(() => {
-                    if (marker._hoveringMarker) {
-                        marker.openPopup();
-                    }
-                }, 1000);
-            });
-            marker.on('mouseout', () => {
-                marker._hoveringMarker = false;
-                if (marker._hoverOpenTimer) {
-                    clearTimeout(marker._hoverOpenTimer);
-                    marker._hoverOpenTimer = null;
-                }
-                if (!marker._hoveringPopup) {
-                    if (marker._hoverCloseTimer) {
-                        clearTimeout(marker._hoverCloseTimer);
-                    }
-                    marker._hoverCloseTimer = setTimeout(() => {
-                        if (!marker._hoveringMarker && !marker._hoveringPopup) {
-                            marker.closePopup();
-                        }
-                    }, 1000);
-                }
-            });
-
-            marker.on('popupopen', (event) => {
-                const popupEl = event.popup?.getElement?.();
-                if (!popupEl || popupEl._hoverBound) {
-                    return;
-                }
-
-                popupEl.addEventListener('mouseenter', () => {
-                    marker._hoveringPopup = true;
-                    if (marker._hoverCloseTimer) {
-                        clearTimeout(marker._hoverCloseTimer);
-                        marker._hoverCloseTimer = null;
-                    }
-                });
-                popupEl.addEventListener('mouseleave', () => {
-                    marker._hoveringPopup = false;
-                    if (!marker._hoveringMarker) {
-                        if (marker._hoverCloseTimer) {
-                            clearTimeout(marker._hoverCloseTimer);
-                        }
-                        marker._hoverCloseTimer = setTimeout(() => {
-                            if (!marker._hoveringMarker && !marker._hoveringPopup) {
-                                marker.closePopup();
-                            }
-                        }, 1000);
-                    }
-                });
-                popupEl._hoverBound = true;
-            });
+            this.configureHoverPopup(marker, 500, 1000);
             
             // Add to map and store reference
             marker.addTo(this.map);
@@ -1184,7 +1119,77 @@ class LeafletMapManager {
         this.highlightedMarkers = [];
     }
 
-    setDetailMarker(coords) {
+    configureHoverPopup(marker, openDelay = 1000, closeDelay = 1000) {
+        marker._hoveringMarker = false;
+        marker._hoveringPopup = false;
+        marker._hoverOpenTimer = null;
+        marker._hoverCloseTimer = null;
+
+        marker.on('mouseover', () => {
+            marker._hoveringMarker = true;
+            if (marker._hoverCloseTimer) {
+                clearTimeout(marker._hoverCloseTimer);
+                marker._hoverCloseTimer = null;
+            }
+            if (marker._hoverOpenTimer) {
+                clearTimeout(marker._hoverOpenTimer);
+            }
+            marker._hoverOpenTimer = setTimeout(() => {
+                if (marker._hoveringMarker) {
+                    marker.openPopup();
+                }
+            }, openDelay);
+        });
+
+        marker.on('mouseout', () => {
+            marker._hoveringMarker = false;
+            if (marker._hoverOpenTimer) {
+                clearTimeout(marker._hoverOpenTimer);
+                marker._hoverOpenTimer = null;
+            }
+            if (!marker._hoveringPopup) {
+                if (marker._hoverCloseTimer) {
+                    clearTimeout(marker._hoverCloseTimer);
+                }
+                marker._hoverCloseTimer = setTimeout(() => {
+                    if (!marker._hoveringMarker && !marker._hoveringPopup) {
+                        marker.closePopup();
+                    }
+                }, closeDelay);
+            }
+        });
+
+        marker.on('popupopen', (event) => {
+            const popupEl = event.popup?.getElement?.();
+            if (!popupEl || popupEl._hoverBound) {
+                return;
+            }
+
+            popupEl.addEventListener('mouseenter', () => {
+                marker._hoveringPopup = true;
+                if (marker._hoverCloseTimer) {
+                    clearTimeout(marker._hoverCloseTimer);
+                    marker._hoverCloseTimer = null;
+                }
+            });
+            popupEl.addEventListener('mouseleave', () => {
+                marker._hoveringPopup = false;
+                if (!marker._hoveringMarker) {
+                    if (marker._hoverCloseTimer) {
+                        clearTimeout(marker._hoverCloseTimer);
+                    }
+                    marker._hoverCloseTimer = setTimeout(() => {
+                        if (!marker._hoveringMarker && !marker._hoveringPopup) {
+                            marker.closePopup();
+                        }
+                    }, closeDelay);
+                }
+            });
+            popupEl._hoverBound = true;
+        });
+    }
+
+    setDetailMarker(coords, data = null, config = {}) {
         if (!this.map) {
             return;
         }
@@ -1198,13 +1203,21 @@ class LeafletMapManager {
         const zoom = this.map.getZoom();
         const iconSize = this.getIconSizeForZoom(zoom) * 1.4;
         const detailIcon = this.buildMarkerIcon(zoom, iconSize, 'detail-marker');
+        const popupContent = data ? this.createPopupContent(data, config) : '';
         if (this.detailMarker) {
             this.detailMarker.setLatLng([coords.lat, coords.lng]);
             this.detailMarker.setIcon(detailIcon);
+            if (popupContent) {
+                this.detailMarker.bindPopup(popupContent, this.popupOptions);
+            }
         } else {
             this.detailMarker = L.marker([coords.lat, coords.lng], {
                 icon: detailIcon
             }).addTo(this.map);
+            if (popupContent) {
+                this.detailMarker.bindPopup(popupContent, this.popupOptions);
+            }
+            this.configureHoverPopup(this.detailMarker, 0, 1000);
             if (typeof this.detailMarker.setZIndexOffset === 'function') {
                 this.detailMarker.setZIndexOffset(900);
             }

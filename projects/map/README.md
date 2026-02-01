@@ -48,8 +48,6 @@ Zoom-responsive icons: Scale from 8px (zoomed out) to 32px (zoomed in)
   - Consistent design: All markers maintain the same visual style
 
 
-
-
 ### Connected map updates to the listings app:
 
 - Map initializes when page renders
