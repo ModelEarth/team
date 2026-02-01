@@ -49,6 +49,7 @@
     <!-- Button styles -->
     <link rel="stylesheet" href="../../css/common.css">
     <link rel="stylesheet" href="../../css/widget.css">
+    <link rel="stylesheet" href="./location.css">
 
 </head>
 <body>
@@ -68,6 +69,26 @@
                 <p>Loading listings....</p>
             </div>
             -->
+        </div>
+
+    </div>
+
+    <div id="gallery-image-modal" class="product-image-modal" aria-hidden="true">
+        <div class="product-image-modal-backdrop"></div>
+        <div class="product-image-modal-content" role="dialog" aria-modal="true" aria-label="Gallery image preview">
+            <button type="button" class="product-image-modal-close" aria-label="Close image">
+                <span class="material-icons">close</span>
+            </button>
+            <img class="product-image-modal-img" alt="Gallery image preview">
+            <div class="product-image-modal-nav" aria-hidden="true">
+                <button type="button" class="product-image-modal-prev" aria-label="Previous image">
+                    <span class="material-icons">chevron_left</span>
+                </button>
+                <span class="product-image-modal-counter">1 / 1</span>
+                <button type="button" class="product-image-modal-next" aria-label="Next image">
+                    <span class="material-icons">chevron_right</span>
+                </button>
+            </div>
         </div>
     </div>
 

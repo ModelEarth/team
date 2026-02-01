@@ -65,6 +65,22 @@
     "datastates": ["GA"],
     "mapInfo": "Cities in Georgia"
   },
+  "airports": {
+    "shortTitle": "Georgia Airports",
+    "menuTitle": "Georgia Airports",
+    "listTitle": "Georgia Airports",
+    "datatype": "csv",
+    "dataset": "/display/data/airports/us/ga/ga.csv",
+    "markerType": "google",
+    "nameColumn": "city",
+    "featuredColumns": ["City", "Population", "County"],
+    "search": {
+      "In City": "City",
+      "In County Name": "County"
+    },
+    "datastates": ["GA"],
+    "mapInfo": "Cities in Georgia"
+  },
   "recyclers": {
     "shortTitle": "B2B Recyclers",
     "menuTitle": "B2B Recyclers",

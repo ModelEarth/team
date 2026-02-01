@@ -1057,6 +1057,38 @@ class LeafletMapManager {
             
             // Bind popup with custom options
             marker.bindPopup(popupContent, this.popupOptions);
+
+            // Show popup on hover for map points
+            marker._hoveringMarker = false;
+            marker._hoveringPopup = false;
+            marker.on('mouseover', () => {
+                marker._hoveringMarker = true;
+                marker.openPopup();
+            });
+            marker.on('mouseout', () => {
+                marker._hoveringMarker = false;
+                if (!marker._hoveringPopup) {
+                    marker.closePopup();
+                }
+            });
+
+            marker.on('popupopen', (event) => {
+                const popupEl = event.popup?.getElement?.();
+                if (!popupEl || popupEl._hoverBound) {
+                    return;
+                }
+
+                popupEl.addEventListener('mouseenter', () => {
+                    marker._hoveringPopup = true;
+                });
+                popupEl.addEventListener('mouseleave', () => {
+                    marker._hoveringPopup = false;
+                    if (!marker._hoveringMarker) {
+                        marker.closePopup();
+                    }
+                });
+                popupEl._hoverBound = true;
+            });
             
             // Add to map and store reference
             marker.addTo(this.map);
