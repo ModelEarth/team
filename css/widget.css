@@ -488,6 +488,16 @@ body {
     transform: translateY(-2px);
 }
 
+.dark .listing-card {
+    background: #1e293b;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.dark .listing-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
 .listing-content {
     display: flex;
     flex-direction: column;
@@ -505,6 +515,12 @@ body {
     font-size: 1.1rem;
     font-weight: 500;
     margin: 0;
+}
+
+.dark .listing-content,
+.dark .listing-title,
+.dark .listing-name {
+    color: #e2e8f0;
 }
 
 .listing-category {

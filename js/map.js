@@ -2508,7 +2508,7 @@ Do not include any explanation or additional text.`;
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
-                goHash({'map':e.target.value});
+                goHash({ map: e.target.value, id: '' });
             });
         }
 
@@ -2613,6 +2613,25 @@ Do not include any explanation or additional text.`;
                 this.positionSearchPopup();
             }
         });
+
+        document.addEventListener('mouseover', (e) => {
+            const card = e.target.closest('.listing-card');
+            if (!card || card.contains(e.relatedTarget)) {
+                return;
+            }
+            const listingId = card.dataset.listingId;
+            if (listingId && window.leafletMap && typeof window.leafletMap.highlightMarkersByListingId === 'function') {
+                window.leafletMap.highlightMarkersByListingId(listingId);
+            }
+        });
+
+        document.addEventListener('mouseout', (e) => {
+            const card = e.target.closest('.listing-card');
+            if (!card || card.contains(e.relatedTarget)) {
+                return;
+            }
+            // Keep highlight until another listing card is hovered.
+        });
     }
 
     changePage(page) {
@@ -2704,7 +2723,7 @@ Do not include any explanation or additional text.`;
             const evenMoreCount = metaRows.unfilteredRows.length;
             
             return `
-                <div class="listing-card">
+                <div class="listing-card" data-listing-id="${listingHashId}">
                     <div class="listing-content">
                         <h3 class="listing-title" data-listing-index="${listingIndex}">${displayData.primary || recognized.name || 'Listing'}</h3>
                         ${this.renderListingDetailContent(listing, {
@@ -2846,7 +2865,16 @@ Do not include any explanation or additional text.`;
         const index = this.findListingIndexByHashId(hashId);
         if (index !== null) {
             this.showListingDetailsByIndex(index);
+            return;
         }
+        if (typeof goHash === 'function') {
+            goHash({ id: '' });
+        }
+        this.selectedListingIndex = null;
+        if (section) {
+            section.style.display = 'none';
+        }
+        this.updateMapGallerySection(null);
     }
 
     showListingDetailsByIndex(index) {
@@ -2875,6 +2903,10 @@ Do not include any explanation or additional text.`;
             if (headerTitle) {
                 headerTitle.textContent = 'Listing Details';
             }
+            const mapEl = document.getElementById('detailMap');
+            if (mapEl) {
+                mapEl.dataset.hasImages = 'false';
+            }
             this.updateDetailMap(null);
             return;
         }
@@ -2895,6 +2927,11 @@ Do not include any explanation or additional text.`;
             })}
             ${this.renderGalleryMarkup(galleryImages)}
         `;
+
+        const mapEl = document.getElementById('detailMap');
+        if (mapEl) {
+            mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
+        }
 
         this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
         this.ensureGalleryImageModal();
@@ -3246,6 +3283,7 @@ Do not include any explanation or additional text.`;
         const nextBtn = navContainer?.querySelector('.image-nav-next');
         const counter = navContainer?.querySelector('.image-counter');
         const viewGalleryBtn = navContainer?.querySelector('.view-gallery-btn');
+        const navControls = navContainer?.querySelector('.image-nav-controls');
         const gallery = container.querySelector('.image-gallery');
         const closeGalleryBtn = container.querySelector('.circular-close-btn');
 
@@ -3282,6 +3320,10 @@ Do not include any explanation or additional text.`;
             }).join('');
             if (counter) counter.textContent = rangeLabel;
         };
+
+        if (navControls && totalSets <= 1) {
+            navControls.style.display = 'none';
+        }
 
         if (prevBtn && totalSets > 1) {
             prevBtn.addEventListener('click', () => {
@@ -3374,8 +3416,22 @@ Do not include any explanation or additional text.`;
             return;
         }
 
+        const adjustDetailMapHeight = () => {
+            const hasImages = mapEl.dataset.hasImages === 'true';
+            const width = mapEl.clientWidth;
+            if (!width) {
+                return;
+            }
+            const baseHeight = (width * 10) / 9;
+            const extra = hasImages ? 100 : 0;
+            mapEl.style.height = `${Math.round(baseHeight + extra)}px`;
+        };
+
         const coords = this.getListingCoordinates(listing);
         if (!coords) {
+            if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
+                window.leafletMap.setDetailMarker(null);
+            }
             if (this.detailMap) {
                 this.detailMap.remove();
                 this.detailMap = null;
@@ -3387,6 +3443,15 @@ Do not include any explanation or additional text.`;
             }
             return;
         }
+
+        const detailIconSize = 24;
+        const detailMarkerIcon = L.divIcon({
+            className: 'custom-marker detail-marker',
+            html: `<div class="marker-pin" style="width:${detailIconSize}px;height:${detailIconSize}px;"><div class="marker-dot"></div></div>`,
+            iconSize: [detailIconSize, detailIconSize],
+            iconAnchor: [detailIconSize / 2, detailIconSize],
+            popupAnchor: [0, -detailIconSize]
+        });
 
         if (!this.detailMap) {
             mapEl.innerHTML = '';
@@ -3403,11 +3468,27 @@ Do not include any explanation or additional text.`;
         }
 
         this.detailMap.setView([coords.lat, coords.lng], 13);
+        adjustDetailMapHeight();
 
         if (this.detailMapMarker) {
             this.detailMapMarker.setLatLng([coords.lat, coords.lng]);
+            this.detailMapMarker.setIcon(detailMarkerIcon);
         } else {
-            this.detailMapMarker = L.marker([coords.lat, coords.lng]).addTo(this.detailMap);
+            this.detailMapMarker = L.marker([coords.lat, coords.lng], {
+                icon: detailMarkerIcon
+            }).addTo(this.detailMap);
+        }
+
+        if (typeof waitForElm === 'function') {
+            waitForElm('#widgetmap').then(() => {
+                setTimeout(() => {
+                    if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
+                        window.leafletMap.setDetailMarker(coords, listing, this.config);
+                    }
+                }, 1000);
+            });
+        } else if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
+            window.leafletMap.setDetailMarker(coords, listing, this.config);
         }
 
         if (caption) {
@@ -3416,6 +3497,7 @@ Do not include any explanation or additional text.`;
 
         requestAnimationFrame(() => {
             if (this.detailMap) {
+                adjustDetailMapHeight();
                 this.detailMap.invalidateSize();
             }
         });

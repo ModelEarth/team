@@ -48,14 +48,22 @@ Zoom-responsive icons: Scale from 8px (zoomed out) to 32px (zoomed in)
   - Consistent design: All markers maintain the same visual style
 
 
-
-
 ### Connected map updates to the listings app:
 
 - Map initializes when page renders
 - Map updates when show selection changes (#showSelect)
 - Map updates when search/filtering occurs
 - Map updates when pagination changes
+
+### Performance Notes
+
+Current optimizations:
+1) Marker hover highlight uses CSS class only (no `setIcon` swapping) to avoid per-hover marker rebuild.
+2) Marker creation is deferred by two `requestAnimationFrame` calls so the page can become clickable sooner.
+
+Prompts to undo:
+- "Switch hover highlight back to icon swapping so the highlighted marker uses a larger icon."
+- "Remove the deferred marker creation and call addMarkersFromData immediately in updateFromListingsApp."
 
 ### Key Features Implemented
 
