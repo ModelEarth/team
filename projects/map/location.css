@@ -72,6 +72,11 @@
   background: #e2e8f0;
 }
 
+#detailMap .marker-pin,
+#detailMap .marker-dot-tiny {
+  background: #f7923c;
+}
+
 .detail-map-caption {
   margin-top: 8px;
   font-size: 0.75em;
@@ -181,14 +186,76 @@
   margin-top: 10px;
 }
 
+.location-section .details-more-actions {
+  margin-bottom: 10px;
+}
+
 .listing-actions {
   margin-top: 10px;
 }
 
 .view-details-btn {
-  background: #22c55e;
+  background: #6AA442;
   color: #fff;
   font-weight: 600;
+}
+
+.view-details-btn:hover {
+  background: #5a8f38;
+}
+
+.dark .location-section {
+  background: #1e293b;
+  border: none;
+}
+
+.dark .location-header h2,
+.dark .location-title {
+  color: #e2e8f0;
+}
+
+.dark .location-header p,
+.dark .location-email,
+.dark .location-citystate,
+.dark .detail-map-caption,
+.dark .location-empty,
+.dark .detail-map-empty {
+  color: #94a3b8;
+}
+
+.dark .location-close-btn {
+  color: #7b8794;
+}
+
+.dark .location-close-btn:hover {
+  color: #e2e8f0;
+}
+
+.dark .location-address,
+.dark .location-value {
+  color: #e2e8f0;
+}
+
+.dark .location-row {
+  color: #cbd5f5;
+}
+
+.dark .location-label {
+  color: #94a3b8;
+}
+
+.dark #detailMap {
+  border-color: #1e293b;
+  background: #0b1220;
+}
+
+.dark .location-more-toggle {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark .location-more-toggle:hover {
+  background: #2a3750;
 }
 
 .description-images-nav {
@@ -350,8 +417,6 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e2e8f0;
 }
 
 .gallery-header h5 {

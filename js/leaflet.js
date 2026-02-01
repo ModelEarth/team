@@ -199,6 +199,9 @@ class LeafletMapManager {
         this.containerId = containerId;
         this.map = null;
         this.markers = [];
+        this.markerLookup = {};
+        this.highlightedMarkers = [];
+        this.detailMarker = null;
         this.currentMapStyle = 'monochrome';
         this.currentOverlay = null;
         this.isFullscreen = false;
@@ -591,9 +594,16 @@ class LeafletMapManager {
                 debugAlert('🔍 Item ' + index + ' coords: lat=' + coords.lat + ' lng=' + coords.lng + ' sample fields: ' + Object.keys(item).slice(0, 5).join(', '));
             }
             if (coords.lat && coords.lng) {
-                const marker = this.createMarker(coords.lat, coords.lng, item, config);
+                const listingHashId = this.getListingHashIdFromData(item, index, config);
+                const marker = this.createMarker(coords.lat, coords.lng, item, config, listingHashId);
                 if (marker) {
                     validMarkers.push({ marker, coords });
+                    if (listingHashId) {
+                        if (!this.markerLookup[listingHashId]) {
+                            this.markerLookup[listingHashId] = [];
+                        }
+                        this.markerLookup[listingHashId].push(marker);
+                    }
                 }
             }
         });
@@ -808,7 +818,7 @@ class LeafletMapManager {
         return { lat: null, lng: null };
     }
     
-    createMarker(lat, lng, data, config = {}) {
+    createMarker(lat, lng, data, config = {}, listingHashId = null) {
         try {
             // Create custom icon with zoom-based sizing and shape
             const currentZoom = this.map.getZoom();
@@ -820,15 +830,7 @@ class LeafletMapManager {
             }
             
             const iconSize = this.getIconSizeForZoom(currentZoom);
-            const markerHtml = this.getMarkerHtml(currentZoom, iconSize);
-            
-            const customIcon = L.divIcon({
-                className: 'custom-marker',
-                html: markerHtml,
-                iconSize: [iconSize, iconSize],
-                iconAnchor: this.getIconAnchor(currentZoom, iconSize),
-                popupAnchor: this.getPopupAnchor(currentZoom, iconSize)
-            });
+            const customIcon = this.buildMarkerIcon(currentZoom, iconSize);
             
             // Create marker with custom icon
             const marker = L.marker([lat, lng], { icon: customIcon });
@@ -836,6 +838,9 @@ class LeafletMapManager {
             // Store original data for updates
             marker._markerData = data;
             marker._markerConfig = config;
+            marker._listingHashId = listingHashId;
+            marker._hoverHighlight = false;
+            marker._baseIconSize = iconSize;
             
             // Create popup content
             const popupContent = this.createPopupContent(data, config);
@@ -912,6 +917,7 @@ class LeafletMapManager {
             
             // Add to map and store reference
             marker.addTo(this.map);
+            this.applyMarkerHighlight(marker);
             this.markers.push(marker);
             
             return marker;
@@ -1087,6 +1093,122 @@ class LeafletMapManager {
             this.map.removeLayer(marker);
         });
         this.markers = [];
+        this.markerLookup = {};
+        this.clearMarkerHighlight();
+    }
+
+    buildMarkerIcon(zoom, iconSize, extraClass = '') {
+        const markerHtml = this.getMarkerHtml(zoom, iconSize);
+        const className = ['custom-marker', extraClass].filter(Boolean).join(' ');
+        return L.divIcon({
+            className,
+            html: markerHtml,
+            iconSize: [iconSize, iconSize],
+            iconAnchor: this.getIconAnchor(zoom, iconSize),
+            popupAnchor: this.getPopupAnchor(zoom, iconSize)
+        });
+    }
+
+    getListingIdValueFromData(item, config = {}) {
+        if (!item) {
+            return null;
+        }
+        const configuredId = config?.id;
+        if (configuredId) {
+            let configuredKey = configuredId;
+            if (!config?.allColumns || !Array.isArray(config.allColumns)) {
+                configuredKey = Object.keys(item).find(key =>
+                    key.toLowerCase() === configuredId.toLowerCase()
+                ) || configuredId;
+            }
+            if (item[configuredKey]) {
+                return String(item[configuredKey]).trim();
+            }
+        }
+
+        const idKeys = ['id', 'ID', 'uuid', 'UUID', 'Id'];
+        for (const key of idKeys) {
+            if (item[key]) {
+                return String(item[key]).trim();
+            }
+        }
+        return null;
+    }
+
+    getListingHashIdFromData(item, index, config = {}) {
+        const idValue = this.getListingIdValueFromData(item, config);
+        if (idValue) {
+            return idValue;
+        }
+        return `idx-${index + 1}`;
+    }
+
+    applyMarkerHighlight(marker) {
+        if (!marker || !marker._icon) {
+            return;
+        }
+        if (marker._listingHashId) {
+            marker._icon.dataset.listingId = marker._listingHashId;
+        }
+        marker._icon.classList.toggle('marker-hover', !!marker._hoverHighlight);
+        if (typeof marker.setZIndexOffset === 'function') {
+            marker.setZIndexOffset(marker._hoverHighlight ? 1000 : 0);
+        }
+    }
+
+    highlightMarkersByListingId(listingId) {
+        if (!listingId) {
+            this.clearMarkerHighlight();
+            return;
+        }
+        this.clearMarkerHighlight();
+        const markers = this.markerLookup[listingId];
+        if (!markers || markers.length === 0) {
+            return;
+        }
+        markers.forEach(marker => {
+            marker._hoverHighlight = true;
+            this.applyMarkerHighlight(marker);
+        });
+        this.highlightedMarkers = markers;
+    }
+
+    clearMarkerHighlight() {
+        if (!this.highlightedMarkers || this.highlightedMarkers.length === 0) {
+            return;
+        }
+        this.highlightedMarkers.forEach(marker => {
+            marker._hoverHighlight = false;
+            this.applyMarkerHighlight(marker);
+        });
+        this.highlightedMarkers = [];
+    }
+
+    setDetailMarker(coords) {
+        if (!this.map) {
+            return;
+        }
+        if (!coords) {
+            if (this.detailMarker) {
+                this.map.removeLayer(this.detailMarker);
+                this.detailMarker = null;
+            }
+            return;
+        }
+        const zoom = this.map.getZoom();
+        const iconSize = this.getIconSizeForZoom(zoom) * 1.4;
+        const detailIcon = this.buildMarkerIcon(zoom, iconSize, 'detail-marker');
+        if (this.detailMarker) {
+            this.detailMarker.setLatLng([coords.lat, coords.lng]);
+            this.detailMarker.setIcon(detailIcon);
+        } else {
+            this.detailMarker = L.marker([coords.lat, coords.lng], {
+                icon: detailIcon
+            }).addTo(this.map);
+            if (typeof this.detailMarker.setZIndexOffset === 'function') {
+                this.detailMarker.setZIndexOffset(900);
+            }
+        }
     }
     
     getIconSizeForZoom(zoom) {
@@ -1264,19 +1386,16 @@ class LeafletMapManager {
         
         this.markers.forEach(marker => {
             // Create new icon with updated size and shape
-            const markerHtml = this.getMarkerHtml(currentZoom, newIconSize);
-            
-            const customIcon = L.divIcon({
-                className: 'custom-marker',
-                html: markerHtml,
-                iconSize: [newIconSize, newIconSize],
-                iconAnchor: this.getIconAnchor(currentZoom, newIconSize),
-                popupAnchor: this.getPopupAnchor(currentZoom, newIconSize)
-            });
-            
-            // Update marker icon
+            marker._baseIconSize = newIconSize;
+            const customIcon = this.buildMarkerIcon(currentZoom, newIconSize);
             marker.setIcon(customIcon);
+            this.applyMarkerHighlight(marker);
         });
+
+        if (this.detailMarker) {
+            const detailIconSize = this.getIconSizeForZoom(currentZoom);
+            this.detailMarker.setIcon(this.buildMarkerIcon(currentZoom, detailIconSize, 'detail-marker'));
+        }
     }
     
     addZoomDisplay() {
@@ -1698,6 +1817,7 @@ class LeafletMapManager {
                 border: 1px solid white;
                 border-radius: 50% 50% 50% 0;
                 transform: rotate(-45deg);
+                transform-origin: 50% 100%;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                 transition: all 0.3s ease;
                 cursor: pointer;
@@ -1706,6 +1826,11 @@ class LeafletMapManager {
             .marker-pin:hover {
                 transform: rotate(-45deg) scale(1.1);
                 box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            }
+
+            .custom-marker.marker-hover .marker-pin {
+                background: #AA483E;
+                transform: rotate(-45deg) scale(2);
             }
             
             .marker-dot {
@@ -1728,11 +1853,22 @@ class LeafletMapManager {
                 box-shadow: 0 1px 2px rgba(0,0,0,0.2);
                 transition: all 0.3s ease;
                 cursor: pointer;
+                transform-origin: 50% 50%;
             }
             
             .marker-dot-tiny:hover {
                 transform: scale(1.3);
                 box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            }
+
+            .custom-marker.marker-hover .marker-dot-tiny {
+                background: #AA483E;
+                transform: scale(2);
+            }
+
+            .custom-marker.detail-marker .marker-pin,
+            .custom-marker.detail-marker .marker-dot-tiny {
+                background: #f7923c;
             }
             
             /* Custom Popup Styles */
@@ -1882,12 +2018,12 @@ class LeafletMapManager {
         }
         
         debugAlert('📍 About to call addMarkersFromData with ' + listingsApp.filteredListings.length + ' items');
-        this.addMarkersFromData(listingsApp.filteredListings, listingsApp.config);
-        
-        // Ensure larger sizes are applied after listings app update
-        setTimeout(() => {
-            //this.ensureLargerSizesIfNeeded();
-        }, 50);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this.addMarkersFromData(listingsApp.filteredListings, listingsApp.config);
+                this.ensureLargerSizesIfNeeded();
+            });
+        });
     }
     
     // Cache management methods
