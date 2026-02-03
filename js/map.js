@@ -3403,22 +3403,93 @@ Do not include any explanation or additional text.`;
         return path || "";
     }
 
-    shouldShowGallerySource(images, path) {
-        if (!path) {
+    getGalleryDisplayLabel(img) {
+        if (!img || !img.url) {
+            return '';
+        }
+        let filename = '';
+        try {
+            const urlObj = new URL(img.url, window.location.origin);
+            const pathname = urlObj.pathname || '';
+            filename = pathname.split('/').pop() || '';
+        } catch (error) {
+            const cleanUrl = img.url.split('?')[0].split('#')[0];
+            filename = cleanUrl.split('/').pop() || '';
+        }
+        if (!filename) {
+            return '';
+        }
+        const withoutExt = filename.replace(/\.[a-z0-9]+$/i, '');
+        const withoutNumbers = withoutExt.replace(/\d+/g, '').replace(/[-_]+/g, ' ');
+        const cleaned = withoutNumbers.replace(/\s+/g, ' ').trim();
+        if (!cleaned) {
+            return '';
+        }
+        return cleaned
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    getGallerySequenceBases(images) {
+        const sequences = new Set();
+        const grouped = new Map();
+        images.forEach((img) => {
+            const path = img.path || '';
+            const match = path.toString().trim().match(/^(.*?)(\d+)$/);
+            if (!match) {
+                return;
+            }
+            const base = match[1].toLowerCase().replace(/\s+$/, '');
+            const num = parseInt(match[2], 10);
+            if (!base || Number.isNaN(num)) {
+                return;
+            }
+            if (!grouped.has(base)) {
+                grouped.set(base, []);
+            }
+            grouped.get(base).push(num);
+        });
+        grouped.forEach((nums, base) => {
+            const unique = Array.from(new Set(nums)).sort((a, b) => a - b);
+            if (unique.length < 2) {
+                return;
+            }
+            const isConsecutive = unique[unique.length - 1] - unique[0] + 1 === unique.length;
+            if (isConsecutive) {
+                sequences.add(base);
+            }
+        });
+        return sequences;
+    }
+
+    shouldShowGallerySource(images, img) {
+        if (!img || !img.path) {
             return false;
         }
-        const allHaveNoDescription = images.every((img) => {
-            return !img.description || !img.description.toString().trim();
+        const displayLabel = this.getGalleryDisplayLabel(img);
+        if (displayLabel) {
+            return true;
+        }
+        const allHaveNoDescription = images.every((entry) => {
+            return !entry.description || !entry.description.toString().trim();
         });
         if (!allHaveNoDescription) {
             return true;
         }
-        const isGenericIncrement = (value) => /^(photo|image)\d+$/i.test(value.toString().trim());
-        const allGeneric = images.every((img) => isGenericIncrement(img.path || ''));
-        if (!allGeneric) {
+        const sequenceBases = this.getGallerySequenceBases(images);
+        if (!sequenceBases.size) {
             return true;
         }
-        return !isGenericIncrement(path);
+        const match = img.path.toString().trim().match(/^(.*?)(\d+)$/);
+        if (!match) {
+            return true;
+        }
+        const base = match[1].toLowerCase().replace(/\s+$/, '');
+        if (!base) {
+            return true;
+        }
+        return !sequenceBases.has(base);
     }
 
     renderGalleryMarkup(images) {
@@ -3437,7 +3508,7 @@ Do not include any explanation or additional text.`;
                     ${navImages.map((img, index) => `
                         <div class="image-item" data-image-index="${index}">
                             <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
-                            ${this.shouldShowGallerySource(images, img.path) ? `<div class="image-source">${this.formatGallerySourcePath(img.path)}</div>` : ''}
+                            ${this.shouldShowGallerySource(images, img) ? `<div class="image-source">${this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3459,7 +3530,7 @@ Do not include any explanation or additional text.`;
                     ${images.map((img, index) => `
                         <div class="gallery-item" data-gallery-index="${index}">
                             <img src="${img.url}" alt="Gallery image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
-                            ${this.shouldShowGallerySource(images, img.path) ? `<div class="gallery-image-source">${this.formatGallerySourcePath(img.path)}</div>` : ''}
+                            ${this.shouldShowGallerySource(images, img) ? `<div class="gallery-image-source">${this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3477,6 +3548,7 @@ Do not include any explanation or additional text.`;
         const backdrop = modal.querySelector(".product-image-modal-backdrop");
         const prevButton = modal.querySelector(".product-image-modal-prev");
         const nextButton = modal.querySelector(".product-image-modal-next");
+        const captionToggle = modal.querySelector(".product-image-modal-caption-toggle");
 
         if (modal.dataset.ready === "true") {
             return modal;
@@ -3500,6 +3572,17 @@ Do not include any explanation or additional text.`;
         backdrop.addEventListener("click", closeModal);
         prevButton.addEventListener("click", () => stepImage(-1));
         nextButton.addEventListener("click", () => stepImage(1));
+        if (captionToggle) {
+            captionToggle.addEventListener("click", () => {
+                const caption = modal.querySelector(".product-image-modal-caption");
+                if (!caption) {
+                    return;
+                }
+                const isExpanded = caption.classList.toggle("expanded");
+                captionToggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+                captionToggle.textContent = isExpanded ? "Less" : "More";
+            });
+        }
 
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape" && modal.classList.contains("active")) {
@@ -3539,6 +3622,9 @@ Do not include any explanation or additional text.`;
         const counter = modal.querySelector(".product-image-modal-counter");
         const nav = modal.querySelector(".product-image-modal-nav");
         const list = modal._imageList || [];
+        const caption = modal.querySelector(".product-image-modal-caption");
+        const captionText = modal.querySelector(".product-image-modal-caption-text");
+        const captionToggle = modal.querySelector(".product-image-modal-caption-toggle");
 
         if (!list.length) {
             return;
@@ -3549,6 +3635,21 @@ Do not include any explanation or additional text.`;
         counter.textContent = `${modal._imageIndex + 1} / ${list.length}`;
         nav.setAttribute("aria-hidden", list.length <= 1 ? "true" : "false");
         nav.style.display = list.length <= 1 ? "none" : "flex";
+        if (caption && captionText) {
+            const dataList = modal._imageData || [];
+            const currentData = dataList[modal._imageIndex] || null;
+            const label = this.getGalleryDisplayLabel(currentData);
+            const displayLabel = label || '';
+            const isLong = displayLabel.length > 255;
+            captionText.textContent = displayLabel;
+            caption.style.display = displayLabel ? 'block' : 'none';
+            caption.classList.remove("expanded");
+            if (captionToggle) {
+                captionToggle.style.display = isLong ? 'inline-block' : 'none';
+                captionToggle.setAttribute("aria-expanded", "false");
+                captionToggle.textContent = "More";
+            }
+        }
         image.onload = () => {
             requestAnimationFrame(() => this.adjustGalleryImageModalNav(modal));
         };
@@ -3564,12 +3665,17 @@ Do not include any explanation or additional text.`;
         if (!modal) {
             return;
         }
-        const list = Array.isArray(imageList) && imageList.length ? imageList : [imageUrl];
+        const hasObjects = Array.isArray(imageList) && imageList.length && typeof imageList[0] === 'object';
+        const dataList = hasObjects ? imageList : [];
+        const list = hasObjects
+            ? imageList.map(entry => entry.url)
+            : (Array.isArray(imageList) && imageList.length ? imageList : [imageUrl]);
         const resolvedIndex = typeof startIndex === "number"
             ? startIndex
             : Math.max(0, list.indexOf(imageUrl));
 
         modal._imageList = list;
+        modal._imageData = dataList;
         modal._imageIndex = resolvedIndex;
         this.updateGalleryImageModal(modal);
         modal.classList.add("active");
@@ -3613,10 +3719,12 @@ Do not include any explanation or additional text.`;
                 : `${startIndex + 1}-${endIndex} / ${images.length}`;
             imageStack.innerHTML = images.slice(startIndex, endIndex).map((img, offset) => {
                 const index = startIndex + offset;
+                const showSource = this.shouldShowGallerySource(images, img);
+                const sourceLabel = this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path);
                 return `
                     <div class="image-item" data-image-index="${index}">
                         <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
-                        <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
+                        ${showSource ? `<div class="image-source">${sourceLabel}</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -3664,12 +3772,12 @@ Do not include any explanation or additional text.`;
             }
             const index = Number(target.dataset.imageIndex || 0);
             if (!galleryImages.length) {
-                this.openGalleryImageModal(images[index].url, [images[index].url], 0);
+                this.openGalleryImageModal(images[index]?.url, [images[index]], 0);
                 return;
             }
             this.openGalleryImageModal(
                 images[index]?.url,
-                galleryImages.map(entry => entry.url),
+                galleryImages,
                 index
             );
         });
@@ -3681,7 +3789,7 @@ Do not include any explanation or additional text.`;
                     const index = Number(imgEl.dataset.galleryIndex || 0);
                     this.openGalleryImageModal(
                         galleryImages[index]?.url,
-                        galleryImages.map(entry => entry.url),
+                        galleryImages,
                         index
                     );
                 });
