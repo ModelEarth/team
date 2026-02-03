@@ -895,7 +895,7 @@ class LeafletMapManager {
             marker._baseIconSize = iconSize;
             
             // Create popup content
-            const popupContent = this.createPopupContent(data, config);
+            const popupContent = this.createPopupContent(data, config, { listingHashId });
             
             // Bind popup with custom options
             marker.bindPopup(popupContent, this.popupOptions);
@@ -914,7 +914,8 @@ class LeafletMapManager {
         }
     }
     
-    createPopupContent(data, config = {}) {
+    createPopupContent(data, config = {}, options = {}) {
+        const listingHashId = options.listingHashId || '';
         let content = '<div class="popup-content">';
         // Use featuredColumns if available in config
         if (config.featuredColumns && Array.isArray(config.featuredColumns)) {
@@ -966,6 +967,11 @@ class LeafletMapManager {
             }
         }
         
+        if (listingHashId) {
+            content += `<div class="popup-actions">
+                <button class="view-details-btn location-btn" data-listing-id="${this.escapeHtml(listingHashId)}">View Details</button>
+            </div>`;
+        }
         content += '</div>';
         return content;
     }
@@ -1241,7 +1247,7 @@ class LeafletMapManager {
         });
     }
 
-    setDetailMarker(coords, data = null, config = {}) {
+    setDetailMarker(coords, data = null, config = {}, listingHashId = null) {
         if (!this.map) {
             return;
         }
@@ -1255,7 +1261,7 @@ class LeafletMapManager {
         const zoom = this.map.getZoom();
         const iconSize = this.getIconSizeForZoom(zoom) * 1.4;
         const detailIcon = this.buildMarkerIcon(zoom, iconSize, 'detail-marker');
-        const popupContent = data ? this.createPopupContent(data, config) : '';
+        const popupContent = data ? this.createPopupContent(data, config, { listingHashId }) : '';
         if (this.detailMarker) {
             this.detailMarker.setLatLng([coords.lat, coords.lng]);
             this.detailMarker.setIcon(detailIcon);

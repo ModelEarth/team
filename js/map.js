@@ -182,6 +182,20 @@ class ListingsDisplay {
                     } else {
                         this.showListingDetailsByIndex(indexValue);
                     }
+                    return;
+                }
+                const listingId = detailsTrigger.dataset.listingId;
+                if (listingId) {
+                    const resolvedIndex = this.findListingIndexByHashId(listingId);
+                    if (resolvedIndex !== null) {
+                        const listing = this.filteredListings[resolvedIndex];
+                        const hashId = listing ? this.getListingHashId(listing, resolvedIndex) : listingId;
+                        if (hashId && typeof goHash === 'function') {
+                            goHash({ id: hashId });
+                        } else {
+                            this.showListingDetailsByIndex(resolvedIndex);
+                        }
+                    }
                 }
             }
 
@@ -1789,36 +1803,59 @@ Do not include any explanation or additional text.`;
         if (!value) return '';
         
         const strValue = value.toString();
+        const normalizedValue = this.normalizeCommaSpacing(strValue);
         
         // Format email addresses with mailto links
-        if (fieldType === 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
-            return `<a href="mailto:${strValue}">${strValue}</a>`;
+        if (fieldType === 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)) {
+            return `<a href="mailto:${normalizedValue}">${normalizedValue}</a>`;
         }
         
         // Format links
         if (fieldType === 'url') {
-            const link = this.formatUrlValue(strValue);
-            return link || strValue;
+            const link = this.formatUrlValue(normalizedValue);
+            return link || normalizedValue;
         }
-        const linkedValue = this.linkifyAndShortenUrls(strValue);
-        if (linkedValue !== strValue) {
+        const linkedValue = this.linkifyAndShortenUrls(normalizedValue);
+        if (linkedValue !== normalizedValue) {
             return linkedValue;
         }
 
         // Format phone numbers
-        if (fieldType === 'phone' || /^\+?[\d\s\-\(\)]+$/.test(strValue)) {
-            return strValue.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+        if (fieldType === 'phone' || /^\+?[\d\s\-\(\)]+$/.test(normalizedValue)) {
+            return normalizedValue.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
         }
         
         // Format population numbers
-        if (fieldType === 'population' || (fieldType === 'text' && /^\d+$/.test(strValue))) {
-            const num = parseInt(strValue);
+        if (fieldType === 'population' || (fieldType === 'text' && /^\d+$/.test(normalizedValue))) {
+            const num = parseInt(normalizedValue);
             if (!isNaN(num) && num > 1000) {
                 return num.toLocaleString();
             }
         }
         
-        return strValue;
+        return normalizedValue;
+    }
+
+    normalizeCommaSpacing(value) {
+        if (!value || !value.includes(',')) {
+            return value;
+        }
+        let result = '';
+        for (let i = 0; i < value.length; i++) {
+            const char = value[i];
+            if (char === ',') {
+                const prev = value[i - 1] || '';
+                const next = value[i + 1] || '';
+                const betweenNumbers = /\d/.test(prev) && /\d/.test(next);
+                result += char;
+                if (!betweenNumbers && next !== ' ') {
+                    result += ' ';
+                }
+                continue;
+            }
+            result += char;
+        }
+        return result;
     }
 
     formatUrlValue(rawValue) {
@@ -1839,10 +1876,20 @@ Do not include any explanation or additional text.`;
         } catch (error) {
             return '';
         }
-        const href = parsed.href;
+        let href = parsed.href;
         let displayHost = parsed.hostname.toLowerCase();
         if (displayHost.startsWith('www.')) {
             displayHost = displayHost.slice(4);
+        }
+        if (displayHost === 'airnav.com') {
+            const segments = parsed.pathname.split('/').filter(Boolean);
+            if (segments.length >= 3) {
+                const trimmedPath = `/${segments.slice(0, -1).join('/')}`;
+                parsed.pathname = trimmedPath;
+                parsed.search = '';
+                parsed.hash = '';
+                href = parsed.href;
+            }
         }
         return `<a href="${href}" target="_blank" rel="noopener">${displayHost}</a>`;
     }
@@ -1851,9 +1898,15 @@ Do not include any explanation or additional text.`;
         if (!text) {
             return '';
         }
+        if (text.includes('@')) {
+            return text;
+        }
         const urlPattern = /\b(https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s]*)?)\b/gi;
         let hasMatch = false;
         const replaced = text.replace(urlPattern, (match) => {
+            if (match.includes('@')) {
+                return match;
+            }
             const linkMarkup = this.formatUrlValue(match);
             if (linkMarkup) {
                 hasMatch = true;
@@ -1879,6 +1932,32 @@ Do not include any explanation or additional text.`;
             return cityState ? `${cityState} ${zip}` : zip;
         }
         return cityState;
+    }
+
+    buildDetailMapPopupContent(listing) {
+        if (!listing) {
+            return '';
+        }
+        const displayData = this.getDisplayData(listing, { includeAddress: false });
+        const recognized = this.getRecognizedFields(listing);
+        const contactAddressInfo = this.getFirstMatchingField(listing, [
+            'contact_address', 'Contact Address', 'contactAddress', 'address', 'Address', 'street', 'Street'
+        ]);
+        const contactAddress = contactAddressInfo.value || recognized.address;
+        const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
+        const cityStateZip = this.formatCityStateZip(recognized);
+        const titleLine = displayData.primary || recognized.name || 'Listing';
+
+        const lines = [
+            titleLine ? `<div class="location-title">${this.formatFieldValue(titleLine)}</div>` : '',
+            addressLine ? `<div class="location-address">${addressLine}</div>` : '',
+            cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''
+        ].filter(Boolean);
+
+        if (!lines.length) {
+            return '';
+        }
+        return `<div class="detailmap-popup">${lines.join('')}</div>`;
     }
 
     getContactName(listing) {
@@ -3205,9 +3284,51 @@ Do not include any explanation or additional text.`;
             ? `<button class="view-details-btn location-btn" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">View Details</button>`
             : '';
 
+        const splitContactList = (value) => {
+            if (!value) {
+                return [];
+            }
+            return value
+                .toString()
+                .split(',')
+                .map(part => part.trim())
+                .filter(Boolean);
+        };
+        const contactNameParts = splitContactList(contactName);
+        const contactEmailParts = splitContactList(contactEmail);
+        const contactParts = [];
+        const usePairedLines = contactNameParts.length > 1
+            && contactEmailParts.length > 1
+            && contactNameParts.length === contactEmailParts.length;
+        const contactCount = usePairedLines
+            ? contactNameParts.length
+            : Math.max(contactNameParts.length, contactEmailParts.length);
+        if (usePairedLines) {
+            const pairedLines = contactNameParts.map((name, idx) => {
+                const formattedName = this.formatFieldValue(name);
+                const formattedEmail = this.formatFieldValue(contactEmailParts[idx], 'email');
+                return `${formattedName} ${formattedEmail}`.trim();
+            });
+            contactParts.push(pairedLines.join('<br>'));
+        } else {
+            if (contactName) {
+                contactParts.push(this.formatFieldValue(contactName));
+            }
+            if (contactEmailParts.length) {
+                const formattedEmails = contactEmailParts
+                    .map(email => this.formatFieldValue(email, 'email'))
+                    .join(', ');
+                contactParts.push(formattedEmails);
+            }
+        }
+        const contactLabel = contactCount > 1 ? 'Contacts:' : 'Contact:';
+        const contactValue = usePairedLines
+            ? `<br>${contactParts.join('')}`
+            : ` ${contactParts.join(' ')}`;
+
         return `
             <div class="location-listing">
-                ${(contactName || contactEmail) ? `<div class="location-contact">Contact: ${[contactName, contactEmail].filter(Boolean).map(val => this.formatFieldValue(val)).join(' ')}</div>` : ''}
+                ${(contactName || contactEmail) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
                 ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
                 ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
                 ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
@@ -3282,6 +3403,24 @@ Do not include any explanation or additional text.`;
         return path || "";
     }
 
+    shouldShowGallerySource(images, path) {
+        if (!path) {
+            return false;
+        }
+        const allHaveNoDescription = images.every((img) => {
+            return !img.description || !img.description.toString().trim();
+        });
+        if (!allHaveNoDescription) {
+            return true;
+        }
+        const isGenericIncrement = (value) => /^(photo|image)\d+$/i.test(value.toString().trim());
+        const allGeneric = images.every((img) => isGenericIncrement(img.path || ''));
+        if (!allGeneric) {
+            return true;
+        }
+        return !isGenericIncrement(path);
+    }
+
     renderGalleryMarkup(images) {
         if (!images.length) {
             return '';
@@ -3298,7 +3437,7 @@ Do not include any explanation or additional text.`;
                     ${navImages.map((img, index) => `
                         <div class="image-item" data-image-index="${index}">
                             <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
-                            <div class="image-source">${this.formatGallerySourcePath(img.path)}</div>
+                            ${this.shouldShowGallerySource(images, img.path) ? `<div class="image-source">${this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3320,7 +3459,7 @@ Do not include any explanation or additional text.`;
                     ${images.map((img, index) => `
                         <div class="gallery-item" data-gallery-index="${index}">
                             <img src="${img.url}" alt="Gallery image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
-                            <div class="gallery-image-source">${this.formatGallerySourcePath(img.path)}</div>
+                            ${this.shouldShowGallerySource(images, img.path) ? `<div class="gallery-image-source">${this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3948,6 +4087,12 @@ Do not include any explanation or additional text.`;
         }
 
         const detailIconSize = 24;
+        const listingIndex = Array.isArray(this.filteredListings)
+            ? this.filteredListings.indexOf(listing)
+            : -1;
+        const listingHashId = listingIndex >= 0
+            ? this.getListingHashId(listing, listingIndex)
+            : this.getListingIdValue(listing);
         const detailMarkerIcon = L.divIcon({
             className: 'custom-marker detail-marker',
             html: `<div class="marker-pin" style="width:${detailIconSize}px;height:${detailIconSize}px;"><div class="marker-dot"></div></div>`,
@@ -3996,17 +4141,25 @@ Do not include any explanation or additional text.`;
                 icon: detailMarkerIcon
             }).addTo(this.detailMap);
         }
+        const detailPopupContent = this.buildDetailMapPopupContent(listing);
+        if (detailPopupContent) {
+            this.detailMapMarker.bindPopup(detailPopupContent, {
+                autoPan: true,
+                closeButton: true,
+                className: 'detailmap-popup-wrapper'
+            });
+        }
 
         if (typeof waitForElm === 'function') {
             waitForElm('#widgetmap').then(() => {
                 setTimeout(() => {
                     if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
-                        window.leafletMap.setDetailMarker(coords, listing, this.config);
+                        window.leafletMap.setDetailMarker(coords, listing, this.config, listingHashId);
                     }
                 }, 1000);
             });
         } else if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
-            window.leafletMap.setDetailMarker(coords, listing, this.config);
+            window.leafletMap.setDetailMarker(coords, listing, this.config, listingHashId);
         }
 
         if (caption) {
@@ -4233,6 +4386,40 @@ Do not include any explanation or additional text.`;
         }
     }
 
+    isLocalhost() {
+        const hostname = window.location.hostname;
+        return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    }
+
+    getViewSourceUrl() {
+        if (!this.config) {
+            return '';
+        }
+        const onlineMode = (typeof Cookies !== 'undefined' && Cookies.get) ? Cookies.get('onlinemode') : null;
+        if (onlineMode === 'false' && this.config.dataset_offline) {
+            return this.resolveDatasetUrl(this.config.dataset_offline);
+        }
+        const apiUrl = this.config.dataset_via_api || this.config.dataset_api_slow;
+        if (apiUrl) {
+            return this.resolveConfigUrl(apiUrl);
+        }
+        if (this.config.dataset) {
+            return this.resolveDatasetUrl(this.config.dataset);
+        }
+        return '';
+    }
+
+    renderViewSourceLink() {
+        if (!this.isLocalhost()) {
+            return '';
+        }
+        const url = this.getViewSourceUrl();
+        if (!url) {
+            return '';
+        }
+        return `<a class="view-source-link" href="${url}" target="_blank" rel="noopener">View Source</a>`;
+    }
+
     getCurrentHash() {
         if (typeof getHash === 'function') {
             return getHash();
@@ -4323,9 +4510,13 @@ Do not include any explanation or additional text.`;
             // Update pagination and search results if they exist
             const detailsBottom = document.getElementById('widgetDetailsBottom');
             if (detailsBottom) {
+                const viewSourceLink = this.renderViewSourceLink();
                 detailsBottom.innerHTML = `
-                    <div class="search-results">
-                        ${this.renderSearchResults()}
+                    <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                        <div class="search-results">
+                            ${this.renderSearchResults()}
+                        </div>
+                        ${viewSourceLink ? `<div class="search-results-source">${viewSourceLink}</div>` : ''}
                     </div>
                     <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
                         ${this.renderPagination()}
@@ -4392,6 +4583,7 @@ Do not include any explanation or additional text.`;
             }
         
             const mapGallerySection = this.renderMapGallerySection();
+            const viewSourceLink = this.renderViewSourceLink();
             let localwidgetHeader = `
                 <!-- Header -->
                 <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
@@ -4498,8 +4690,11 @@ Do not include any explanation or additional text.`;
                         
                         <!-- Widget Details Bottom Container -->
                         <div id="widgetDetailsBottom">
-                            <div class="search-results">
-                                ${this.renderSearchResults()}
+                            <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                <div class="search-results">
+                                    ${this.renderSearchResults()}
+                                </div>
+                                ${viewSourceLink ? `<div class="search-results-source">${viewSourceLink}</div>` : ''}
                             </div>
                             <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
                                 ${this.renderPagination()}
