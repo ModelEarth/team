@@ -630,6 +630,45 @@ async fn restart_server() -> Result<HttpResponse> {
     })))
 }
 
+// Stop local web server on port 8887 (development helper)
+async fn stop_webroot_server() -> Result<HttpResponse> {
+    #[cfg(target_family = "unix")]
+    {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("lsof -ti:8887 | xargs kill -9")
+            .output();
+
+        match output {
+            Ok(result) if result.status.success() => {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "message": "Stop signal sent to port 8887"
+                })));
+            }
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr).to_string();
+                return Ok(HttpResponse::BadRequest().json(json!({
+                    "error": "Failed to stop server on port 8887",
+                    "details": stderr
+                })));
+            }
+            Err(err) => {
+                return Ok(HttpResponse::InternalServerError().json(json!({
+                    "error": "Failed to run stop command",
+                    "details": err.to_string()
+                })));
+            }
+        }
+    }
+
+    #[cfg(target_family = "windows")]
+    {
+        Ok(HttpResponse::BadRequest().json(json!({
+            "error": "Stop command not supported on Windows"
+        })))
+    }
+}
+
 // Save environment configuration to .env file
 async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpResponse> {
     use std::fs::OpenOptions;
@@ -3004,6 +3043,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/env/create", web::post().to(create_env_config))
                             .route("/gemini", web::get().to(gemini_insights::test_gemini_api))
                             .route("/restart", web::post().to(restart_server))
+                            .route("/stop-webroot", web::post().to(stop_webroot_server))
                     )
                     .service(
                         web::scope("/files")

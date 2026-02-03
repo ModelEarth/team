@@ -185,6 +185,55 @@ function addDebugControlButtons(debugContainer) {
     controlsDiv.appendChild(controlsWrapper);
 }
 
+window.mapIconUtils = window.mapIconUtils || {
+    getFullscreenIconsMarkup() {
+        return `
+            <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+            <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;" aria-hidden="true">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+            </svg>
+        `;
+    },
+    setFullscreenToggleState(button, isExpanded) {
+        if (!button) {
+            return;
+        }
+        const expandIcon = button.querySelector('.expand-icon');
+        const collapseIcon = button.querySelector('.collapse-icon');
+        if (!expandIcon || !collapseIcon) {
+            return;
+        }
+        if (isExpanded) {
+            expandIcon.style.display = 'none';
+            collapseIcon.style.display = 'block';
+        } else {
+            expandIcon.style.display = 'block';
+            collapseIcon.style.display = 'none';
+        }
+    },
+    getZoomControlIconMarkup(type) {
+        if (type === 'in') {
+            return `
+                <svg class="zoom-icon zoom-in-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="11" y1="8" x2="11" y2="14"></line>
+                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                    <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                </svg>
+            `;
+        }
+        return `
+            <svg class="zoom-icon zoom-out-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="8" y1="11" x2="14" y2="11"></line>
+                <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+            </svg>
+        `;
+    }
+};
+
 class LeafletMapManager {
     constructor(containerId = 'map', options = {}) {
         // Debug: track when map is being created/recreated
@@ -420,6 +469,7 @@ class LeafletMapManager {
             [this.options.defaultLat, this.options.defaultLng], 
             this.options.defaultZoom
         );
+
         
         // Add click event to toggle scroll zoom
         this.map.on('click', () => {
@@ -479,6 +529,8 @@ class LeafletMapManager {
         // Add fullscreen toggle - DISABLED: using widget wrapper button instead
         // this.addFullscreenToggle();
     }
+
+    applyZoomControlIcons() {}
     
     addMapStyleSelector() {
         // Create style selector control
@@ -1539,12 +1591,7 @@ class LeafletMapManager {
             const div = L.DomUtil.create('div', 'fullscreen-toggle-container');
             div.innerHTML = `
                 <button class="fullscreen-toggle-btn" title="Toggle Fullscreen">
-                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                    </svg>
-                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                    </svg>
+                    ${window.mapIconUtils?.getFullscreenIconsMarkup ? window.mapIconUtils.getFullscreenIconsMarkup() : ''}
                 </button>
             `;
             
@@ -1554,22 +1601,13 @@ class LeafletMapManager {
             
             // Handle fullscreen toggle
             const button = div.querySelector('.fullscreen-toggle-btn');
-            const expandIcon = div.querySelector('.expand-icon');
-            const collapseIcon = div.querySelector('.collapse-icon');
             
             button.addEventListener('click', () => {
                 this.toggleFullscreen();
-                
-                // Update icon visibility
-                if (this.isFullscreen) {
-                    expandIcon.style.display = 'none';
-                    collapseIcon.style.display = 'block';
-                    button.title = 'Exit Fullscreen';
-                } else {
-                    expandIcon.style.display = 'block';
-                    collapseIcon.style.display = 'none';
-                    button.title = 'Toggle Fullscreen';
+                if (window.mapIconUtils?.setFullscreenToggleState) {
+                    window.mapIconUtils.setFullscreenToggleState(button, this.isFullscreen);
                 }
+                button.title = this.isFullscreen ? 'Exit Fullscreen' : 'Toggle Fullscreen';
             });
             
             return div;
@@ -1707,6 +1745,7 @@ class LeafletMapManager {
             .mapPopButton:hover {
                 background: rgba(0, 0, 0, 0.9);
             }
+
             
             /* Map Style Selector */
             .map-style-selector {
@@ -1716,6 +1755,7 @@ class LeafletMapManager {
                 box-shadow: none;
                 margin-bottom: 0;
             }
+
             
             /* Fullscreen Toggle */
             .fullscreen-toggle-container {

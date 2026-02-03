@@ -572,44 +572,463 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function getQuickstartCommandsHtml() {
+    const isLocalhost = window.location.hostname === 'localhost';
+    const stopServerButton = isLocalhost
+        ? `
+            <button class="btn btn-secondary" style="margin-left:auto;" onclick="stopLocalWebServer()">
+                Stop 8887 Server
+            </button>
+        `
+        : '';
+    return `
+        <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <span id="quickstart-cli-line">Using your Code CLI, start a web server (and python backend) within a virtual environment on port 8887:</span>
+            ${stopServerButton}
+        </div>
+        <div id="stop-8887-fallback"></div>
+        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server</code></pre>
+        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">Choose a Code CLI above to see more commands.</div>
+        <p style="color: var(--text-primary);">On Macs and Linux:</p>
+        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
+source env/bin/activate
+./desktop/install/quickstart.sh</code></pre>
+        <p style="color: var(--text-primary);">On Windows:</p>
+        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
+env\\Scripts\\activate
+./desktop/install/quickstart.sh</code></pre>
+        <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
+        <ul style="color: var(--text-secondary); margin-left: 20px;">
+            <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
+            <li>Activates the virtual environment</li>
+            <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+            <li>Installs the <code>anthropic</code> package if API key is present</li>
+            <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
+        </ul>
+        <p style="color: var(--text-primary);"><strong>Alternative (basic HTTP server without server-side Python execution):</strong></p>
+        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
+        <p style="color: var(--text-secondary); font-size: 14px;">
+            Note: The basic http.server above does not include server-side python capabilities.
+        </p>
+    `;
+}
+
+function renderQuickstartCommands(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = getQuickstartCommandsHtml();
+    attachQuickstartCliListeners();
+    updateQuickstartCliVisibility();
+}
+
+let quickstartCliListenersAttached = false;
+
+function attachQuickstartCliListeners() {
+    if (quickstartCliListenersAttached) {
+        return;
+    }
+
+    const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
+    const checkboxes = checkboxIds
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    if (!checkboxes.length) {
+        return;
+    }
+
+    checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', updateQuickstartCliVisibility);
+    });
+
+    quickstartCliListenersAttached = true;
+}
+
+function updateQuickstartCliVisibility() {
+    const line = document.getElementById('quickstart-cli-line');
+    const command = document.getElementById('quickstart-cli-command');
+    const placeholder = document.getElementById('quickstart-cli-placeholder');
+    if (!line) {
+        return;
+    }
+
+    const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
+    const isAnyChecked = checkboxIds.some((id) => {
+        const checkbox = document.getElementById(id);
+        return checkbox && checkbox.checked;
+    });
+
+    line.style.display = isAnyChecked ? 'inline' : 'none';
+    if (command) {
+        command.style.display = isAnyChecked ? 'block' : 'none';
+    }
+    if (placeholder) {
+        placeholder.style.display = isAnyChecked ? 'none' : 'block';
+    }
+}
+
+function getWebServerStatusState() {
+    const currentHost = window.location.hostname;
+    const currentPort = window.location.port;
+    const isLocalhost8887 = currentHost === 'localhost' && currentPort === '8887';
+    const currentUrl = window.location.href;
+    return { currentHost, currentPort, isLocalhost8887, currentUrl };
+}
+
+function getPythonBackendStatusMarkup(containerId) {
+    return `
+        <div id="${containerId}" style="color: var(--text-secondary);">
+            <div data-backend="pipeline" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
+                <span class="status-indicator loading"></span>
+                <span style="flex: 1;">Data-Pipeline Flask (port 5001): <span class="backend-text">Checking...</span></span>
+                <button class="btn btn-secondary backend-action" data-backend-action="pipeline" style="margin-left:auto;">Start Flask 5001</button>
+            </div>
+            <div data-backend="cloud" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
+                <span class="status-indicator loading"></span>
+                <span style="flex: 1;">Cloud/run Flask (port 8100): <span class="backend-text">Checking...</span></span>
+                <button class="btn btn-secondary backend-action" data-backend-action="cloud" style="margin-left:auto;">Start Flask 8100</button>
+            </div>
+        </div>
+    `;
+}
+
+function setBackendRowStatus(container, backendKey, isRunning) {
+    const row = container ? container.querySelector(`[data-backend="${backendKey}"]`) : null;
+    if (!row) return;
+    const indicator = row.querySelector('.status-indicator');
+    const text = row.querySelector('.backend-text');
+    const actionButton = row.querySelector('.backend-action');
+    if (!indicator || !text) return;
+
+    if (isRunning) {
+        indicator.className = 'status-indicator connected';
+        text.textContent = 'Running';
+        if (actionButton) {
+            actionButton.textContent = backendKey === 'pipeline' ? 'Stop Flask 5001' : 'Stop Flask 8100';
+            actionButton.dataset.running = 'true';
+        }
+    } else {
+        indicator.className = 'status-indicator error';
+        text.textContent = 'Not running';
+        if (actionButton) {
+            actionButton.textContent = backendKey === 'pipeline' ? 'Start Flask 5001' : 'Start Flask 8100';
+            actionButton.dataset.running = 'false';
+        }
+    }
+}
+
+function copyCommandToClipboard(command) {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).then(() => {
+            alert('Command copied to clipboard.');
+        }).catch(() => {
+            prompt('Copy this command:', command);
+        });
+    } else {
+        prompt('Copy this command:', command);
+    }
+}
+
+function attachBackendActionHandlers(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const buttons = container.querySelectorAll('.backend-action');
+    buttons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const backend = button.dataset.backendAction;
+            const isRunning = button.dataset.running === 'true';
+            let command = '';
+
+            if (backend === 'pipeline') {
+                command = isRunning ? 'lsof -ti:5001 | xargs kill -9' : 'start pipeline';
+            } else if (backend === 'cloud') {
+                command = isRunning ? 'lsof -ti:8100 | xargs kill -9' : 'start cloud';
+            }
+
+            if (command) {
+                copyCommandToClipboard(command);
+            }
+        });
+    });
+}
+
+function checkBackendAvailability(url) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    return fetch(url, { mode: 'no-cors', signal: controller.signal })
+        .then(() => true)
+        .catch(() => false)
+        .finally(() => clearTimeout(timeoutId));
+}
+
+function getBackendStatusCache() {
+    window.backendStatusCache = window.backendStatusCache || {};
+    return window.backendStatusCache;
+}
+
+function checkBackendAvailabilityCached(url, cacheKey, ttlMs = 5000) {
+    const cache = getBackendStatusCache();
+    const now = Date.now();
+    const cached = cache[cacheKey];
+
+    if (cached && typeof cached.value === 'boolean' && now - cached.timestamp < ttlMs) {
+        return Promise.resolve(cached.value);
+    }
+
+    if (cached && cached.promise) {
+        return cached.promise;
+    }
+
+    const promise = checkBackendAvailability(url)
+        .then((value) => {
+            cache[cacheKey] = { value, timestamp: Date.now() };
+            return value;
+        })
+        .finally(() => {
+            if (cache[cacheKey]) {
+                delete cache[cacheKey].promise;
+            }
+        });
+
+    cache[cacheKey] = { ...(cache[cacheKey] || {}), promise };
+    return promise;
+}
+
+function notifyStopResult(message, type = 'info') {
+    if (typeof showNotification === 'function') {
+        showNotification(message, type);
+        return;
+    }
+    alert(message);
+}
+
+async function stopLocalWebServer() {
+    const pythonAvailable = await checkBackendAvailabilityCached('http://localhost:8887/api/status', 'pythonServer');
+    const rustAvailable = pythonAvailable
+        ? false
+        : await checkBackendAvailabilityCached('http://localhost:8081/api/health', 'rustApi');
+
+    if (!pythonAvailable && !rustAvailable) {
+        showStopServerFallback();
+        return;
+    }
+
+    const confirmed = confirm('Your local website will be stopped.');
+    if (!confirmed) {
+        return;
+    }
+
+    if (pythonAvailable) {
+        try {
+            const response = await fetch('http://localhost:8887/api/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: 'stop_server' })
+            });
+            if (response.ok) {
+                notifyStopResult('Local web server stop requested.', 'success');
+                return;
+            }
+        } catch (error) {
+            console.warn('Failed to stop via Python backend:', error);
+        }
+    }
+
+    if (rustAvailable) {
+        try {
+            const response = await fetch('http://localhost:8081/api/config/stop-webroot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                notifyStopResult('Local web server stop requested.', 'success');
+                return;
+            }
+        } catch (error) {
+            console.warn('Failed to stop via Rust backend:', error);
+        }
+    }
+
+    showStopServerFallback();
+}
+
+window.stopLocalWebServer = stopLocalWebServer;
+
+function showStopServerFallback() {
+    const command = 'lsof -ti:8887 | xargs kill -9';
+    const safeCommand = command.replace(/'/g, "\\'");
+    const existingDialog = document.getElementById('stop-8887-dialog');
+    if (existingDialog) {
+        existingDialog.remove();
+    }
+
+    const dialog = document.createElement('div');
+    dialog.id = 'stop-8887-dialog';
+    dialog.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index: 9999;';
+    dialog.innerHTML = `
+        <div style="background: white; border-radius: 10px; padding: 16px; max-width: 460px; width: calc(100% - 40px); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 8px;">Stop Local Server</div>
+            <div style="color: var(--text-secondary); margin-bottom: 10px;">Backend stop is unavailable. Use this command to stop port 8887:</div>
+            <code style="display:block; background: var(--bg-tertiary); padding: 8px 10px; border-radius: 6px; font-size: 13px;">${command}</code>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 12px;">
+                <button class="btn btn-secondary" id="stop-8887-copy">Copy</button>
+                <button class="btn btn-secondary" id="stop-8887-cancel">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    const copyBtn = dialog.querySelector('#stop-8887-copy');
+    const cancelBtn = dialog.querySelector('#stop-8887-cancel');
+    const closeDialog = () => dialog.remove();
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            copyCommandToClipboard(safeCommand);
+            closeDialog();
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeDialog);
+    }
+}
+
+function updatePythonBackendStatus(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    attachBackendActionHandlers(containerId);
+
+    Promise.all([
+        checkBackendAvailability('http://localhost:5001/'),
+        checkBackendAvailability('http://localhost:8100/')
+    ]).then(([pipelineRunning, cloudRunning]) => {
+        setBackendRowStatus(container, 'pipeline', pipelineRunning);
+        setBackendRowStatus(container, 'cloud', cloudRunning);
+    });
+}
+
+function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
+    const toggleButton = document.getElementById(buttonId);
+    const commandsContainer = document.getElementById(commandsContainerId);
+    if (!toggleButton || !commandsContainer) return;
+
+    const setButtonState = (isOpen) => {
+        toggleButton.dataset.open = isOpen ? 'true' : 'false';
+        toggleButton.textContent = isOpen ? 'Hide Commands' : 'View Commands';
+        commandsContainer.style.display = isOpen ? 'block' : 'none';
+    };
+
+    setButtonState(false);
+
+    toggleButton.addEventListener('click', () => {
+        const isOpen = toggleButton.dataset.open === 'true';
+        if (!isOpen && typeof renderFn === 'function') {
+            if (!commandsContainer.dataset.loaded) {
+                renderFn(commandsContainerId);
+                commandsContainer.dataset.loaded = 'true';
+            }
+        }
+        setButtonState(!isOpen);
+    });
+}
+
+function setupWebServerStatusPanel(options) {
+    const statusIndicator = document.getElementById(options.statusIndicatorId);
+    const titleEl = document.getElementById(options.titleId);
+    const contentEl = document.getElementById(options.contentId);
+    if (!statusIndicator || !titleEl || !contentEl) return;
+
+    const { isLocalhost8887, currentUrl } = getWebServerStatusState();
+    const displayUrl = currentUrl
+        .replace(/^https?:\/\//, '')
+        .replace(/\/$/, '');
+    const connectedClass = options.buttonClassConnected || options.buttonClass || 'btn btn-secondary';
+    const defaultClass = options.buttonClassDefault || options.buttonClass || 'btn btn-secondary';
+    const buttonId = options.toggleButtonId;
+    const commandsContainerId = options.commandsContainerId;
+
+    if (isLocalhost8887) {
+        statusIndicator.className = 'status-indicator connected';
+        titleEl.textContent = 'Web Server Running';
+        contentEl.innerHTML = `
+            <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
+                <div class="status-text" style="display:flex; align-items:flex-start; gap:8px; flex: 1 1 360px;">
+                    <span class="status-indicator-holder" style="display:flex; align-items:center;"></span>
+                    <p style="color: var(--text-secondary); margin: 0;">
+                        Your local http server is runnning at <a href="${currentUrl}" style="color: var(--accent-blue); text-decoration: underline;">${displayUrl}</a><br>(Running serverside Python for Desktop)
+                    </p>
+                </div>
+                <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <button class="${connectedClass}" id="${buttonId}" style="margin-left:auto;">
+                        View Commands
+                    </button>
+                </div>
+            </div>
+            ${getPythonBackendStatusMarkup(options.pythonStatusId)}
+        `;
+        const statusHolder = contentEl.querySelector('.status-indicator-holder');
+        if (statusHolder) {
+            statusHolder.appendChild(statusIndicator);
+        }
+    } else {
+        statusIndicator.className = 'status-indicator loading';
+        titleEl.textContent = 'Local Web Server';
+        contentEl.innerHTML = `
+            <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
+                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 300px;">
+                    To contribute code, view at <a href="https://localhost:8887/team/admin/server">localhost:8887/team/admin/server</a>.
+                    If your localhost server is not started, click to copy commands:
+                </p>
+                <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <button class="${defaultClass}" id="${buttonId}" style="margin-left:auto;">
+                        View Commands
+                    </button>
+                </div>
+            </div>
+            ${getPythonBackendStatusMarkup(options.pythonStatusId)}
+        `;
+    }
+
+    setupCommandsToggle(buttonId, commandsContainerId, renderQuickstartCommands);
+    updatePythonBackendStatus(options.pythonStatusId);
+}
+
 // Shared function to setup quickstart instructions
-// Used by both root index.html and team/admin/server/index.html
+// Used by root index.html
 function setupQuickstartInstructions(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    const statusIndicatorId = `${containerId}-status-indicator`;
+    const titleId = `${containerId}-title`;
+    const contentId = `${containerId}-content`;
+    const toggleButtonId = `${containerId}-toggle`;
+    const commandsContainerId = `${containerId}-commands`;
+    const pythonStatusId = `${containerId}-python-status`;
+
     container.innerHTML = `
-        <h3 style="color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
-        <div class="readme-content">
-            <p style="color: var(--text-secondary);">
-                Using your Code CLI, start a web server (and python backend) within a virtual environment on port 8887:
-            </p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server</code></pre>
-            <p style="color: var(--text-secondary);">
-                The "start server" command runs ./desktop/install/quickstart.sh which creates a virtual environment in desktop/install/env/<!-- if it doesn't exist-->, and starts a HTTP server with server-side Python access.
-            </p>
-            <p style="color: var(--text-primary);"><strong>Or run without a Code CLI:</strong></p>
-            <p style="color: var(--text-primary);">On Macs and Linux:</p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
-source env/bin/activate
-./desktop/install/quickstart.sh</code></pre>
-            <p style="color: var(--text-primary);">On Windows:</p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
-env\\Scripts\\activate
-./desktop/install/quickstart.sh</code></pre>
-            <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
-            <ul style="color: var(--text-secondary); margin-left: 20px;">
-                <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
-                <li>Activates the virtual environment</li>
-                <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
-                <li>Installs the <code>anthropic</code> package if API key is present</li>
-                <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
-            </ul>
-            <p style="color: var(--text-primary);"><strong>Alternative (basic HTTP server without server-side Python execution):</strong></p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
-            <p style="color: var(--text-secondary); font-size: 14px;">
-                Note: The basic http.server above does not include server-side python capabilities.
-            </p>
+        <div style="margin-top: 12px;">
+            <h1 class="card-title" style="display:flex; align-items:center; gap:10px;">
+                <span class="status-indicator" id="${statusIndicatorId}"></span>
+                <span id="${titleId}">Local Web Server</span>
+            </h1>
+            <div id="${contentId}"></div>
+            <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
         </div>
     `;
+
+    setupWebServerStatusPanel({
+        statusIndicatorId,
+        titleId,
+        contentId,
+        toggleButtonId,
+        commandsContainerId,
+        pythonStatusId,
+        buttonClass: 'btn btn-secondary'
+    });
 }

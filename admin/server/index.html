@@ -54,6 +54,7 @@
                     Checking web server status...
                 </p>
             </div>
+            <div id="webserver-commands" class="readme-content" style="display:none; margin-top: 16px;"></div>
         </div>
 
         <div id="combined-rust-api-container"></div>
@@ -107,67 +108,20 @@
         const GEMINI_API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
         
         
-        // Web Server panel elements
-        const webServerPanel = document.getElementById('web-server-panel');
-        const webServerStatus = document.getElementById('web-server-status');
-        const webServerTitle = document.getElementById('web-server-title');
-        const webServerContent = document.getElementById('web-server-content');
-
         // Update Web Server panel status
         function updateWebServerPanel() {
-            const currentHost = window.location.hostname;
-            const currentPort = window.location.port;
-            const isLocalhost8887 = currentHost === 'localhost' && currentPort === '8887';
-            
-            if (isLocalhost8887) {
-                webServerStatus.className = 'status-indicator connected';
-                webServerTitle.textContent = 'Web Server Running';
-                const currentUrl = window.location; // window.location.origin
-                webServerContent.innerHTML = `
-                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        ✅ Your local http server is <a href="${currentUrl}" style="color: var(--accent-blue); text-decoration: underline;">${currentUrl}</a>
-                    </p>
-                    <div class="actions">
-                        <button class="btn btn-secondary" onclick="showWebserverCommand()">
-                            Webserver Command
-                        </button>
-                    </div>
-                `;
-            } else {
-                webServerStatus.className = 'status-indicator loading'; // grey dot for non-localhost
-                webServerTitle.textContent = 'Local Web Server';
-                webServerContent.innerHTML = `
-                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        To contribute code, view at <a href="https://localhost:8887/team/admin/server">localhost:8887/team/admin/server</a>. 
-                        If your localhost server is not started, click to copy commands:
-                    </p>
-                    <div class="actions">
-                        <button class="btn btn-primary" onclick="showWebserverCommand()">
-                            Start my local server
-                        </button>
-                    </div>
-                `;
-            }
-        }
+            if (typeof setupWebServerStatusPanel !== 'function') return;
 
-        // Show webserver command instructions
-        function showWebserverCommand() {
-            webServerContent.innerHTML = `
-                <div id="webserver-command-content">
-                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        Webserver setup instructions and commands:
-                    </p>
-                    <div id="webserver-status"></div>
-                    <button class="btn btn-secondary" onclick="updateWebServerPanel()" style="margin-top: 16px;">
-                        ← Back to Status
-                    </button>
-                </div>
-            `;
-
-            // Load webserver status content
-            setTimeout(() => {
-                loadWebServerStatus("webserver-status");
-            }, 100);
+            setupWebServerStatusPanel({
+                statusIndicatorId: 'web-server-status',
+                titleId: 'web-server-title',
+                contentId: 'web-server-content',
+                toggleButtonId: 'webserver-commands-toggle',
+                commandsContainerId: 'webserver-commands',
+                pythonStatusId: 'webserver-python-status',
+                buttonClassConnected: 'btn btn-secondary',
+                buttonClassDefault: 'btn btn-primary'
+            });
         }
 
 
@@ -196,12 +150,6 @@
         }
 
 
-
-        // Load README content for setup instructions
-        function loadWebServerStatus(containerId) {
-            // Use shared function from setup.js
-            setupQuickstartInstructions(containerId);
-        }
 
         // Show connection help (now displayed as a separate card below)
         function showConnectionHelp() {

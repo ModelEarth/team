@@ -109,7 +109,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 panel.appendChild(note);
 
                 const frontendText = document.createElement('div');
-                frontendText.textContent = 'If you are just vibing frontend, without Python or Rust, then run:';
+                frontendText.textContent = 'Or if you are vibing frontend code only, without Python or Rust updates, then just run:';
                 frontendText.style.marginTop = '12px';
                 frontendText.style.marginBottom = '0';
                 panel.appendChild(frontendText);
@@ -1905,6 +1905,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 checkBackendStatus();
                 dbIndicators.style.display = 'block';
             }
+
+            window.backendStatusCache = window.backendStatusCache || {};
+            window.backendStatusCache.rustApi = { value: true, timestamp: Date.now() };
             
             
         } else {
@@ -1985,6 +1988,9 @@ cargo run --bin partner_tools -- serve</code></pre>
             // Check database status independently
             checkBackendStatus();
         }
+
+        window.backendStatusCache = window.backendStatusCache || {};
+        window.backendStatusCache.rustApi = { value: false, timestamp: Date.now() };
         
         
         // Initialize feather icons for the info icon

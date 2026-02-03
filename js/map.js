@@ -43,6 +43,48 @@ function mapWidgetChange() {
         }
     }
 }
+
+function getMapIconUtils() {
+    return window.mapIconUtils || null;
+}
+
+function getFullscreenIconMarkup() {
+    const mapIconUtils = getMapIconUtils();
+    if (mapIconUtils?.getFullscreenIconsMarkup) {
+        return mapIconUtils.getFullscreenIconsMarkup();
+    }
+    return `
+        <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;" aria-hidden="true">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+        </svg>
+    `;
+}
+
+function setFullscreenToggleState(button, isExpanded) {
+    const mapIconUtils = getMapIconUtils();
+    if (mapIconUtils?.setFullscreenToggleState) {
+        mapIconUtils.setFullscreenToggleState(button, isExpanded);
+        return;
+    }
+    if (!button) {
+        return;
+    }
+    const expandIcon = button.querySelector('.expand-icon');
+    const collapseIcon = button.querySelector('.collapse-icon');
+    if (!expandIcon || !collapseIcon) {
+        return;
+    }
+    if (isExpanded) {
+        expandIcon.style.display = 'none';
+        collapseIcon.style.display = 'block';
+    } else {
+        expandIcon.style.display = 'block';
+        collapseIcon.style.display = 'none';
+    }
+}
 class ListingsDisplay {
 
     constructor(options = {}) {
@@ -2756,7 +2798,9 @@ Do not include any explanation or additional text.`;
                         ${this.renderDetailEmptyState()}
                     </div>
                     <div class="location-map">
-                        <div id="detailMap"></div>
+                        <div class="detailmap-wrap" style="max-height: 287px;">
+                            <div id="detailmap"></div>
+                        </div>
                         <div class="detail-map-caption" id="detailMapCaption">Select a listing to view the map.</div>
                     </div>
                 </div>
@@ -2903,7 +2947,7 @@ Do not include any explanation or additional text.`;
             if (headerTitle) {
                 headerTitle.textContent = 'Listing Details';
             }
-            const mapEl = document.getElementById('detailMap');
+            const mapEl = document.getElementById('detailmap');
             if (mapEl) {
                 mapEl.dataset.hasImages = 'false';
             }
@@ -2928,7 +2972,7 @@ Do not include any explanation or additional text.`;
             ${this.renderGalleryMarkup(galleryImages)}
         `;
 
-        const mapEl = document.getElementById('detailMap');
+        const mapEl = document.getElementById('detailmap');
         if (mapEl) {
             mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
         }
@@ -3409,8 +3453,328 @@ Do not include any explanation or additional text.`;
         return { lat: latNum, lng: lngNum };
     }
 
+    getDetailMapStyles() {
+        if (window.leafletMap && window.leafletMap.mapStyles) {
+            return window.leafletMap.mapStyles;
+        }
+
+        return {
+            openstreetmap: {
+                name: 'OpenStreetMap',
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attribution: '© OpenStreetMap contributors'
+            }
+        };
+    }
+
+    getDetailMapDefaultStyleKey() {
+        const styles = this.getDetailMapStyles();
+        const cachedStyle = window.leafletMap && typeof window.leafletMap.loadCachedMapStyle === 'function'
+            ? window.leafletMap.loadCachedMapStyle()
+            : null;
+        const preferredStyle = cachedStyle || (window.leafletMap ? window.leafletMap.currentMapStyle : null);
+
+        if (preferredStyle && styles[preferredStyle]) {
+            return preferredStyle;
+        }
+
+        const styleKeys = Object.keys(styles);
+        return styleKeys.length ? styleKeys[0] : 'openstreetmap';
+    }
+
+    setDetailMapStyle(styleKey) {
+        if (!this.detailMap) {
+            return;
+        }
+
+        const styles = this.getDetailMapStyles();
+        if (!styles[styleKey]) {
+            return;
+        }
+
+        this.detailMapCurrentStyle = styleKey;
+
+        this.detailMap.eachLayer((layer) => {
+            if (layer instanceof L.TileLayer) {
+                this.detailMap.removeLayer(layer);
+            }
+        });
+
+        const style = styles[styleKey];
+        const baseLayer = L.tileLayer(style.url, {
+            attribution: style.attribution,
+            maxZoom: 18
+        }).addTo(this.detailMap);
+        this.detailMapTileLayer = baseLayer;
+
+        if (style.overlayUrl) {
+            this.detailMapOverlayLayer = L.tileLayer(style.overlayUrl, {
+                attribution: style.overlayAttribution || '',
+                maxZoom: 18,
+                minZoom: 8
+            }).addTo(this.detailMap);
+        } else {
+            this.detailMapOverlayLayer = null;
+        }
+
+        if (style.filter) {
+            requestAnimationFrame(() => {
+                const mapContainer = document.getElementById('detailmap');
+                if (!mapContainer) {
+                    return;
+                }
+                const tilePanes = mapContainer.querySelectorAll('.leaflet-tile-pane');
+                tilePanes.forEach((pane) => {
+                    pane.style.filter = style.filter;
+                });
+            });
+        }
+
+        if (window.leafletMap && typeof window.leafletMap.saveCachedMapStyle === 'function') {
+            window.leafletMap.saveCachedMapStyle(styleKey);
+        }
+
+        if (this.detailMapStyleControl?.select) {
+            this.detailMapStyleControl.select.value = styleKey;
+        }
+    }
+
+    toggleDetailMapControl(container, isOpen) {
+        if (!container) {
+            return;
+        }
+        const nextState = typeof isOpen === 'boolean' ? isOpen : !container.classList.contains('is-open');
+        container.classList.toggle('is-open', nextState);
+    }
+
+    closeDetailMapControl(container) {
+        if (!container) {
+            return;
+        }
+        container.classList.remove('is-open');
+    }
+
+    addDetailMapStyleSelector() {
+        if (!this.detailMap) {
+            return;
+        }
+
+        const control = L.control({ position: 'bottomleft' });
+
+        control.onAdd = () => {
+            const div = L.DomUtil.create('div', 'map-style-selector detail-map-style-selector');
+            const styles = this.getDetailMapStyles();
+            div.innerHTML = `
+                <button type="button" class="map-style-icon mapPopButton" title="Map style" aria-label="Map style">
+                    <span class="material-icons" aria-hidden="true">layers</span>
+                </button>
+                <select class="map-style-select mapPopButton" aria-label="Map style">
+                    ${Object.entries(styles).map(([key, style]) =>
+                        `<option value="${key}">${style.name}</option>`
+                    ).join('')}
+                </select>
+            `;
+
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+
+            const button = div.querySelector('.map-style-icon');
+            const select = div.querySelector('.map-style-select');
+
+            div.addEventListener('click', (event) => event.stopPropagation());
+
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.toggleDetailMapControl(div);
+                this.closeDetailMapControl(this.detailMapZoomControl?.container);
+                if (div.classList.contains('is-open')) {
+                    select.focus();
+                }
+            });
+
+            select.addEventListener('change', (event) => {
+                this.setDetailMapStyle(event.target.value);
+                this.closeDetailMapControl(div);
+            });
+
+            this.detailMapStyleControl = { control, container: div, select, button };
+            return div;
+        };
+
+        control.addTo(this.detailMap);
+
+        const defaultStyle = this.getDetailMapDefaultStyleKey();
+        this.setDetailMapStyle(defaultStyle);
+    }
+
+    generateDetailMapZoomLevels(currentZoom) {
+        const minZoom = 1;
+        const maxZoom = 18;
+        const levels = [];
+
+        for (let i = minZoom; i <= maxZoom; i++) {
+            const isActive = i === currentZoom;
+            levels.push(`<div class="zoom-level-item ${isActive ? 'active' : ''}" data-zoom="${i}">Level: ${i}</div>`);
+        }
+
+        return levels.join('');
+    }
+
+    updateDetailMapZoomDisplay() {
+        if (!this.detailMapZoomControl?.container || !this.detailMap) {
+            return;
+        }
+
+        const currentZoom = this.detailMap.getZoom();
+        const button = this.detailMapZoomControl.button;
+        const levelsContainer = this.detailMapZoomControl.levelsContainer;
+
+        if (button) {
+            button.textContent = `L${currentZoom}`;
+            button.setAttribute('title', `Level: ${currentZoom}`);
+            button.setAttribute('aria-label', `Level ${currentZoom}`);
+        }
+
+        if (levelsContainer) {
+            levelsContainer.innerHTML = this.generateDetailMapZoomLevels(currentZoom);
+        }
+    }
+
+    addDetailMapZoomDisplay() {
+        if (!this.detailMap) {
+            return;
+        }
+
+        const control = L.control({ position: 'bottomleft' });
+
+        control.onAdd = () => {
+            const div = L.DomUtil.create('div', 'zoom-display-container detail-map-zoom-display');
+            const currentZoom = this.detailMap.getZoom();
+
+            div.innerHTML = `
+                <button type="button" class="zoom-display-current mapPopButton" title="Level: ${currentZoom}" aria-label="Level ${currentZoom}">
+                    L${currentZoom}
+                </button>
+                <div class="zoom-display-levels">
+                    ${this.generateDetailMapZoomLevels(currentZoom)}
+                </div>
+            `;
+
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+
+            const button = div.querySelector('.zoom-display-current');
+            const levelsContainer = div.querySelector('.zoom-display-levels');
+
+            div.addEventListener('click', (event) => event.stopPropagation());
+
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.toggleDetailMapControl(div);
+                this.closeDetailMapControl(this.detailMapStyleControl?.container);
+            });
+
+            div.addEventListener('click', (event) => {
+                if (!event.target.classList.contains('zoom-level-item')) {
+                    return;
+                }
+                const zoomLevel = parseInt(event.target.dataset.zoom, 10);
+                if (!Number.isNaN(zoomLevel)) {
+                    this.detailMap.setZoom(zoomLevel);
+                }
+                this.closeDetailMapControl(div);
+            });
+
+            this.detailMapZoomControl = { control, container: div, button, levelsContainer };
+            return div;
+        };
+
+        control.addTo(this.detailMap);
+    }
+
+    applyDetailMapZoomControlIcons() {}
+
+    addDetailMapExpandToggle() {
+        if (!this.detailMap) {
+            return;
+        }
+
+        const control = L.control({ position: 'topright' });
+        control.onAdd = () => {
+            const div = L.DomUtil.create('div', 'detail-map-expand-toggle');
+            div.innerHTML = `
+                <button type="button" class="fullscreen-toggle-btn" title="Expand map">
+                    ${getFullscreenIconMarkup()}
+                </button>
+            `;
+
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+
+            const button = div.querySelector('.fullscreen-toggle-btn');
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.detailMapExpanded = !this.detailMapExpanded;
+                setFullscreenToggleState(button, this.detailMapExpanded);
+                button.title = this.detailMapExpanded ? 'Collapse map' : 'Expand map';
+                if (typeof this.updateDetailMapLayout === 'function') {
+                    this.updateDetailMapLayout();
+                }
+            });
+
+            this.detailMapExpandControl = { control, container: div, button };
+            return div;
+        };
+
+        control.addTo(this.detailMap);
+    }
+
+    initializeDetailMapControls() {
+        if (!this.detailMap || this.detailMapControlsInitialized) {
+            return;
+        }
+
+        this.addDetailMapStyleSelector();
+        this.addDetailMapZoomDisplay();
+        this.addDetailMapExpandToggle();
+
+        this.detailMap.on('zoomend', () => {
+            this.updateDetailMapZoomDisplay();
+        });
+
+        if (!this.detailMapControlOutsideHandler) {
+            this.detailMapControlOutsideHandler = (event) => {
+                if (this.detailMapStyleControl?.container && this.detailMapStyleControl.container.contains(event.target)) {
+                    return;
+                }
+                if (this.detailMapZoomControl?.container && this.detailMapZoomControl.container.contains(event.target)) {
+                    return;
+                }
+                this.closeDetailMapControl(this.detailMapStyleControl?.container);
+                this.closeDetailMapControl(this.detailMapZoomControl?.container);
+            };
+            document.addEventListener('click', this.detailMapControlOutsideHandler);
+        }
+
+        this.detailMapControlsInitialized = true;
+    }
+
+    teardownDetailMapControls() {
+        this.detailMapControlsInitialized = false;
+        this.detailMapStyleControl = null;
+        this.detailMapZoomControl = null;
+        this.detailMapExpandControl = null;
+
+        if (this.detailMapControlOutsideHandler) {
+            document.removeEventListener('click', this.detailMapControlOutsideHandler);
+            this.detailMapControlOutsideHandler = null;
+        }
+    }
+
     updateDetailMap(listing) {
-        const mapEl = document.getElementById('detailMap');
+        const mapEl = document.getElementById('detailmap');
         const caption = document.getElementById('detailMapCaption');
         if (!mapEl) {
             return;
@@ -3424,7 +3788,26 @@ Do not include any explanation or additional text.`;
             }
             const baseHeight = (width * 10) / 9;
             const extra = hasImages ? 100 : 0;
-            mapEl.style.height = `${Math.round(baseHeight + extra)}px`;
+            const baseTotal = Math.round(baseHeight + extra);
+            const expandedTotal = Math.round(baseHeight + extra + 120);
+            mapEl.dataset.baseHeight = `${baseTotal}`;
+            mapEl.dataset.expandedHeight = `${expandedTotal}`;
+            let targetHeight = this.detailMapExpanded ? expandedTotal : baseTotal;
+            const wrap = mapEl.parentElement;
+            if (wrap) {
+                const baseMaxHeight = 287 + extra + (this.detailMapExpanded ? 120 : 0);
+                wrap.style.maxHeight = `${baseMaxHeight}px`;
+                targetHeight = Math.min(targetHeight, baseMaxHeight);
+                wrap.style.height = `${targetHeight}px`;
+            }
+            mapEl.style.height = `${targetHeight}px`;
+        };
+
+        this.updateDetailMapLayout = () => {
+            adjustDetailMapHeight();
+            if (this.detailMap) {
+                this.detailMap.invalidateSize();
+            }
         };
 
         const coords = this.getListingCoordinates(listing);
@@ -3436,6 +3819,7 @@ Do not include any explanation or additional text.`;
                 this.detailMap.remove();
                 this.detailMap = null;
                 this.detailMapMarker = null;
+                this.teardownDetailMapControls();
             }
             mapEl.innerHTML = '<div class="detail-map-empty">No coordinates available.</div>';
             if (caption) {
@@ -3455,20 +3839,35 @@ Do not include any explanation or additional text.`;
 
         if (!this.detailMap) {
             mapEl.innerHTML = '';
-            this.detailMap = L.map('detailMap', {
-                zoomControl: false,
+            this.detailMap = L.map('detailmap', {
+                zoomControl: true,
                 attributionControl: false,
                 dragging: true,
                 scrollWheelZoom: false
             });
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19
-            }).addTo(this.detailMap);
+            this.initializeDetailMapControls();
+            if (this.detailMapExpandControl?.button) {
+                setFullscreenToggleState(this.detailMapExpandControl.button, !!this.detailMapExpanded);
+            }
         }
 
-        this.detailMap.setView([coords.lat, coords.lng], 13);
+        this.detailMap.setView([coords.lat, coords.lng], 12);
         adjustDetailMapHeight();
+        if (!this.detailMapRecenteringRequested) {
+            this.detailMapRecenteringRequested = true;
+            const recenter = () => {
+                requestAnimationFrame(() => {
+                    adjustDetailMapHeight();
+                    this.detailMap.invalidateSize();
+                    this.detailMap.setView([coords.lat, coords.lng], 12, { animate: false });
+                });
+            };
+            if (this.detailMapTileLayer?.once) {
+                this.detailMapTileLayer.once('load', recenter);
+            } else {
+                this.detailMap.whenReady(recenter);
+            }
+        }
 
         if (this.detailMapMarker) {
             this.detailMapMarker.setLatLng([coords.lat, coords.lng]);
@@ -3497,11 +3896,10 @@ Do not include any explanation or additional text.`;
 
         requestAnimationFrame(() => {
             if (this.detailMap) {
-                adjustDetailMapHeight();
-                this.detailMap.invalidateSize();
+                this.updateDetailMapLayout();
             }
         });
-    }
+}
 
     renderSummaryListings(summaryListings) {
         if (!this.config?.geoColumns || this.config.geoColumns.length === 0) {
@@ -3893,6 +4291,7 @@ Do not include any explanation or additional text.`;
                 this.detailMap.remove();
                 this.detailMap = null;
                 this.detailMapMarker = null;
+                this.teardownDetailMapControls();
             }
             mapwidget.innerHTML = `
                 ${mapGallerySection}
@@ -3942,12 +4341,7 @@ Do not include any explanation or additional text.`;
                                     <!-- Expand Icon for Details -->
                                     <div class="fullscreen-toggle-container">
                                         <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
-                                            <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                            </svg>
-                                            <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                            </svg>
+                                            ${getFullscreenIconMarkup()}
                                         </button>
                                     </div>
                                 </div>
@@ -4003,12 +4397,7 @@ Do not include any explanation or additional text.`;
                             <!-- Expand Icon for Gallery -->
                             <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
                                 <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
-                                    <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                    </svg>
-                                    <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                    </svg>
+                                    ${getFullscreenIconMarkup()}
                                 </button>
                             </div>
                             <!-- ../../img/banner.webp --->
@@ -4030,12 +4419,7 @@ Do not include any explanation or additional text.`;
                                 <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
                                 <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
                                     <button class="fullscreen-toggle-btn" mywidgetpanel="widgetmapWrapper" onclick="window.listingsApp.myHero()" title="Expand Map">
-                                        <svg class="fullscreen-icon expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                                        </svg>
-                                        <svg class="fullscreen-icon collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                                        </svg>
+                                        ${getFullscreenIconMarkup()}
                                     </button>
                                 </div>
                             </div>
@@ -4455,10 +4839,6 @@ Do not include any explanation or additional text.`;
         const isExpanded = heroContainer.contains(contentDiv) && heroContainer.style.display !== 'none';
         
         
-        // Get the icons from the button (no cloning, so this is always the right button)
-        const expandIcon = button?.querySelector('.expand-icon');
-        const collapseIcon = button?.querySelector('.collapse-icon');
-        
         if (isExpanded) {
             // Collapsing - move panel back to original parent
             if (myparent) {
@@ -4477,10 +4857,7 @@ Do not include any explanation or additional text.`;
                     originalParent.style.display = '';
                     
                     // Update button icons - show expand, hide collapse (panel is now collapsed)
-                    if (expandIcon && collapseIcon) {
-                        expandIcon.style.display = 'block';
-                        collapseIcon.style.display = 'none';
-                    }
+                    setFullscreenToggleState(button, false);
                     
                     // Re-initialize map if it was the map that was collapsed
                     if (contentDiv.id === 'widgetmapWrapper') {
@@ -4518,11 +4895,7 @@ Do not include any explanation or additional text.`;
             heroContainer.style.display = 'block';
             
             // Update button icons - hide expand, show collapse (panel is now expanded)
-            if (expandIcon && collapseIcon) {
-                expandIcon.style.display = 'none';
-                collapseIcon.style.display = 'block';
-                
-            }
+            setFullscreenToggleState(button, true);
             
             // Re-initialize map if it was the map that was moved
             if (contentDiv.id === 'widgetmapWrapper') {
@@ -4723,10 +5096,6 @@ function initializeWidget() {
         const isExpanded = contentDiv.parentElement === heroContainer || 
                           (heroContainer.children.length > 0 && heroContainer.contains(contentDiv));
         
-        // Get the icons from the button (no cloning, so this is always the right button)
-        const expandIcon = button?.querySelector('.expand-icon');
-        const collapseIcon = button?.querySelector('.collapse-icon');
-        
         if (isExpanded) {
             // Collapsing - move panel back to original parent
             if (myparent) {
@@ -4745,10 +5114,7 @@ function initializeWidget() {
                     originalParent.style.display = '';
                     
                     // Update button icons - show expand, hide collapse (panel is now collapsed)
-                    if (expandIcon && collapseIcon) {
-                        expandIcon.style.display = 'block';
-                        collapseIcon.style.display = 'none';
-                    }
+                    setFullscreenToggleState(button, false);
                     
                     // Trigger chart resize
                     triggerChartResize(contentDiv, 'collapse', chartTypes);
@@ -4777,10 +5143,7 @@ function initializeWidget() {
             heroContainer.style.display = 'block';
             
             // Update button icons - hide expand, show collapse (panel is now expanded)
-            if (expandIcon && collapseIcon) {
-                expandIcon.style.display = 'none';
-                collapseIcon.style.display = 'block';
-            }
+            setFullscreenToggleState(button, true);
             
             // Trigger chart resize
             triggerChartResize(contentDiv, 'expand', chartTypes);

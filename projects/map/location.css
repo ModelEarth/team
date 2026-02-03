@@ -62,7 +62,7 @@
   flex-shrink: 0;
 }
 
-#detailMap {
+#detailmap {
   width: 100%;
   aspect-ratio: 9 / 10;
   height: auto;
@@ -72,8 +72,114 @@
   background: #e2e8f0;
 }
 
-#detailMap .marker-pin,
-#detailMap .marker-dot-tiny {
+.detailmap-wrap {
+  overflow: hidden;
+}
+
+#detailmap .leaflet-bottom.leaflet-left {
+  gap: 6px;
+  padding-left: 10px;
+}
+
+#detailmap .mapPopButton {
+  padding: 4px;
+  min-height: 22px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+#detailmap .map-style-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#detailmap .map-style-selector .map-style-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#detailmap .map-style-selector .map-style-icon .material-icons {
+  font-size: 16px;
+  line-height: 1;
+}
+
+#detailmap .map-style-selector .map-style-select {
+  min-height: 22px;
+  font-size: 12px;
+  padding: 2px 8px 2px 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+}
+
+#detailmap .map-style-selector.is-open .map-style-select {
+  display: inline-flex;
+}
+
+#detailmap .detail-map-zoom-display .zoom-display-current {
+  width: 34px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+#detailmap .detail-map-zoom-display .zoom-display-levels {
+  width: 50px;
+  max-height: 160px;
+  font-size: 10px;
+  opacity: 0;
+  visibility: hidden;
+}
+
+#detailmap .detail-map-zoom-display:hover .zoom-display-levels {
+  opacity: 0;
+  visibility: hidden;
+}
+
+#detailmap .detail-map-zoom-display.is-open .zoom-display-levels {
+  opacity: 1;
+  visibility: visible;
+}
+
+#detailmap .detail-map-zoom-display .zoom-level-item {
+  width: 50px;
+  padding: 4px 6px;
+  font-size: 10px;
+}
+
+#detailmap .leaflet-control-zoom a {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  margin-top: 6px;
+}
+
+#detailmap .detail-map-expand-toggle .fullscreen-toggle-btn {
+  width: 24px;
+  height: 24px;
+  padding: 2px;
+}
+
+#detailmap .detail-map-expand-toggle .fullscreen-toggle-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+#detailmap .marker-pin,
+#detailmap .marker-dot-tiny {
   background: #f7923c;
 }
 
@@ -244,7 +350,7 @@
   color: #94a3b8;
 }
 
-.dark #detailMap {
+.dark #detailmap {
   border-color: #1e293b;
   background: #0b1220;
 }
