@@ -1795,6 +1795,16 @@ Do not include any explanation or additional text.`;
             return `<a href="mailto:${strValue}">${strValue}</a>`;
         }
         
+        // Format links
+        if (fieldType === 'url') {
+            const link = this.formatUrlValue(strValue);
+            return link || strValue;
+        }
+        const linkedValue = this.linkifyAndShortenUrls(strValue);
+        if (linkedValue !== strValue) {
+            return linkedValue;
+        }
+
         // Format phone numbers
         if (fieldType === 'phone' || /^\+?[\d\s\-\(\)]+$/.test(strValue)) {
             return strValue.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
@@ -1809,6 +1819,49 @@ Do not include any explanation or additional text.`;
         }
         
         return strValue;
+    }
+
+    formatUrlValue(rawValue) {
+        if (!rawValue) {
+            return '';
+        }
+        let workingValue = rawValue.trim();
+        if (!workingValue) {
+            return '';
+        }
+        const hasScheme = /^https?:\/\//i.test(workingValue);
+        if (!hasScheme) {
+            workingValue = `https://${workingValue}`;
+        }
+        let parsed;
+        try {
+            parsed = new URL(workingValue);
+        } catch (error) {
+            return '';
+        }
+        const href = parsed.href;
+        let displayHost = parsed.hostname.toLowerCase();
+        if (displayHost.startsWith('www.')) {
+            displayHost = displayHost.slice(4);
+        }
+        return `<a href="${href}" target="_blank" rel="noopener">${displayHost}</a>`;
+    }
+
+    linkifyAndShortenUrls(text) {
+        if (!text) {
+            return '';
+        }
+        const urlPattern = /\b(https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s]*)?)\b/gi;
+        let hasMatch = false;
+        const replaced = text.replace(urlPattern, (match) => {
+            const linkMarkup = this.formatUrlValue(match);
+            if (linkMarkup) {
+                hasMatch = true;
+                return linkMarkup;
+            }
+            return match;
+        });
+        return hasMatch ? replaced : text;
     }
 
     formatCityStateZip(recognized) {
@@ -1829,42 +1882,43 @@ Do not include any explanation or additional text.`;
     }
 
     getContactName(listing) {
-        if (!listing) {
-            return '';
-        }
-        const keys = ['contact_name', 'Contact Name', 'contactName', 'Contact', 'contact'];
-        for (const key of keys) {
-            if (listing[key]) {
-                return listing[key];
-            }
-        }
-        return '';
+        return this.getFirstMatchingFieldValue(listing, [
+            'contact_name', 'Contact Name', 'contactName', 'Contact', 'contact'
+        ]);
     }
 
     getContactAddress(listing) {
-        if (!listing) {
-            return '';
-        }
-        const keys = ['contact_address', 'Contact Address', 'contactAddress', 'address', 'Address', 'street', 'Street'];
-        for (const key of keys) {
-            if (listing[key]) {
-                return listing[key];
-            }
-        }
-        return '';
+        return this.getFirstMatchingFieldValue(listing, [
+            'contact_address', 'Contact Address', 'contactAddress', 'address', 'Address', 'street', 'Street'
+        ]);
     }
 
     getContactEmail(listing) {
-        if (!listing) {
-            return '';
+        return this.getFirstMatchingFieldValue(listing, [
+            'contact_email', 'Contact Email', 'contactEmail', 'email', 'Email', 'EMAIL'
+        ]);
+    }
+
+    getFirstMatchingField(listing, keys = []) {
+        if (!listing || !keys.length) {
+            return { key: '', value: '' };
         }
-        const keys = ['contact_email', 'Contact Email', 'contactEmail', 'email', 'Email'];
+        const lookup = {};
+        Object.keys(listing).forEach((key) => {
+            lookup[key.toString().toLowerCase()] = key;
+        });
         for (const key of keys) {
-            if (listing[key]) {
-                return listing[key];
+            const actualKey = lookup[key.toString().toLowerCase()] || key;
+            const value = listing[actualKey];
+            if (value) {
+                return { key: actualKey, value };
             }
         }
-        return '';
+        return { key: '', value: '' };
+    }
+
+    getFirstMatchingFieldValue(listing, keys = []) {
+        return this.getFirstMatchingField(listing, keys).value || '';
     }
 
     getRecognizedDisplayRows(recognized, options = {}) {
@@ -2040,7 +2094,20 @@ Do not include any explanation or additional text.`;
                 ...omitRecognizedKeys
             ]
         });
-        return [...featuredRows, ...numberedGroupRows, ...recognizedRows];
+        const maxFeaturedRows = Number.isFinite(options.maxFeaturedRows)
+            ? Math.max(0, options.maxFeaturedRows)
+            : null;
+        const limitedFeaturedRows = maxFeaturedRows !== null
+            ? featuredRows.slice(0, maxFeaturedRows)
+            : featuredRows;
+        return [...limitedFeaturedRows, ...numberedGroupRows, ...recognizedRows];
+    }
+
+    getListFeaturedRowsMax() {
+        const baseMax = Number.isFinite(this.config?.listFeaturedColumnsMax)
+            ? this.config.listFeaturedColumnsMax
+            : 5;
+        return baseMax + 5;
     }
 
     getDetailMetaRows(listing, helpers = {}) {
@@ -2719,6 +2786,7 @@ Do not include any explanation or additional text.`;
         }
         
         const currentPageListings = this.getCurrentPageListings();
+        const listMaxFeaturedRows = this.getListFeaturedRowsMax();
         
         // Check if this is summary view
         if (this.isSummaryView()) {
@@ -2727,10 +2795,6 @@ Do not include any explanation or additional text.`;
         
         return currentPageListings.map((listing, index) => {
             const displayData = this.getDisplayData(listing);
-            const sharedRows = this.getSharedDisplayRows(listing);
-            const sharedRowsMarkup = sharedRows.map(row => `
-                <div class="listing-info"><strong>${row.label}:</strong> ${this.formatFieldValue(row.value)}</div>
-            `).join('');
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             const listingIndex = (this.currentPage - 1) * this.itemsPerPage + index;
             const listingHashId = this.getListingHashId(listing, listingIndex);
@@ -2775,6 +2839,7 @@ Do not include any explanation or additional text.`;
                             metaRows,
                             showMetaButtons: true,
                             showViewDetailsButton: true,
+                            maxFeaturedRows: listMaxFeaturedRows,
                             listingIndex,
                             listingHashId
                         })}
@@ -2993,9 +3058,21 @@ Do not include any explanation or additional text.`;
         const omitRecognizedKeys = new Set();
         const omitRowKeys = new Set();
         const titleText = displayData.primary || recognized.name || 'Listing';
-        const contactNameRaw = this.getContactName(listing);
-        const contactEmail = this.getContactEmail(listing) || recognized.email;
-        const contactAddress = this.getContactAddress(listing) || recognized.address;
+        const contactNameInfo = this.getFirstMatchingField(listing, [
+            'contact_name', 'Contact Name', 'contactName', 'Contact', 'contact'
+        ]);
+        const contactEmailInfo = this.getFirstMatchingField(listing, [
+            'contact_email', 'Contact Email', 'contactEmail', 'email', 'Email', 'EMAIL'
+        ]);
+        const contactAddressInfo = this.getFirstMatchingField(listing, [
+            'contact_address', 'Contact Address', 'contactAddress', 'address', 'Address', 'street', 'Street'
+        ]);
+        const cityInfo = this.getFirstMatchingField(listing, ['city', 'City', 'CITY']);
+        const stateInfo = this.getFirstMatchingField(listing, ['state', 'State', 'STATE']);
+        const zipInfo = this.getFirstMatchingField(listing, ['zip', 'Zip', 'ZIP', 'zipcode', 'postal_code']);
+        const contactNameRaw = contactNameInfo.value;
+        const contactEmail = contactEmailInfo.value || recognized.email;
+        const contactAddress = contactAddressInfo.value || recognized.address;
         const contactName = contactNameRaw && contactNameRaw.toString().trim() !== titleText.toString().trim()
             ? contactNameRaw
             : '';
@@ -3028,12 +3105,19 @@ Do not include any explanation or additional text.`;
 
         const tertiaryLine = displayData.tertiary || '';
         const showEmailLine = tertiaryLine && !(contactName && contactEmail);
+        const normalizeHeaderValue = (value) => {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            return this.formatFieldValue(value).toString().trim().toLowerCase();
+        };
         const headerValues = new Set([
             contactName,
             contactEmail,
             contactAddress,
-            tertiaryLine
-        ].filter(Boolean).map(value => value.toString().trim().toLowerCase()));
+            tertiaryLine,
+            cityStateZip
+        ].filter(Boolean).map(normalizeHeaderValue));
         Object.entries(recognized).forEach(([key, value]) => {
             if (!value) {
                 return;
@@ -3048,10 +3132,44 @@ Do not include any explanation or additional text.`;
         if (cityStateZip) {
             ['city', 'state', 'zip', 'zipcode', 'postal_code'].forEach(key => omitRecognizedKeys.add(key));
             ['city', 'state', 'zip', 'zipcode', 'postal_code'].forEach(key => omitRowKeys.add(key));
+            if (cityInfo.key) omitRowKeys.add(cityInfo.key.toString().toLowerCase());
+            if (stateInfo.key) omitRowKeys.add(stateInfo.key.toString().toLowerCase());
+            if (zipInfo.key) omitRowKeys.add(zipInfo.key.toString().toLowerCase());
         }
         if (contactEmail) {
             omitRecognizedKeys.add('email');
             omitRowKeys.add('email');
+            if (contactEmailInfo.key) omitRowKeys.add(contactEmailInfo.key.toString().toLowerCase());
+        }
+        if (contactAddress && contactAddressInfo.key) {
+            omitRowKeys.add(contactAddressInfo.key.toString().toLowerCase());
+        }
+        if (contactAddress && this.config?.addressColumn) {
+            omitRowKeys.add(this.config.addressColumn.toString().toLowerCase());
+        }
+        if ((contactName || contactEmail) && contactNameInfo.key) {
+            omitRowKeys.add(contactNameInfo.key.toString().toLowerCase());
+        }
+        if (headerValues.size && this.config?.featuredColumns?.length) {
+            const featuredColumns = this.config.featuredColumns;
+            featuredColumns.forEach((column) => {
+                let actualColumnName;
+                if (this.config?.allColumns && Array.isArray(this.config.allColumns)) {
+                    actualColumnName = column;
+                } else {
+                    actualColumnName = Object.keys(listing).find(key =>
+                        key.toLowerCase() === column.toLowerCase()
+                    ) || column;
+                }
+                const value = listing[actualColumnName];
+                if (!value) {
+                    return;
+                }
+                const normalizedValue = normalizeHeaderValue(value);
+                if (normalizedValue && headerValues.has(normalizedValue)) {
+                    omitRowKeys.add(column.toString().toLowerCase());
+                }
+            });
         }
         omitRecognizedKeys.add('name');
         omitRecognizedKeys.add('title');
@@ -3065,7 +3183,8 @@ Do not include any explanation or additional text.`;
         }
         const sharedRows = this.getSharedDisplayRows(listing, {
             omitRecognizedKeys: Array.from(omitRecognizedKeys),
-            omitRowKeys: Array.from(omitRowKeys)
+            omitRowKeys: Array.from(omitRowKeys),
+            maxFeaturedRows: options.maxFeaturedRows
         });
         const sharedRowsMarkup = sharedRows.map(row => `
             <div class="location-row">
