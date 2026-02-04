@@ -1,0 +1,119 @@
+{
+  "visits": {
+    "shortTitle": "City Visits",
+    "menuTitle": "City Visits",
+    "listTitle": "City Visits",
+    "datatype": "csv",
+    "dataset_via_api_inactive": "https://www.cognitoforms.com/api/forms/298/entries",
+    "dataset_api_slow": "https://www.cognitoforms.com/api/forms/298/entries",
+    "dataset_omit": "Email,Entry,Form,TotalParticipants_IncrementBy",
+    "dataset": "../../../display/team/map/visits.csv",
+    "markerType": "google",
+    "nameColumn": "City",
+    "featuredColumns": ["County", "Team", "Names", "Description", "StartDate", "TotalParticipants"],
+    "geoDataset": "cities.csv",
+    "geoColumns": ["City"],
+    "geoAggregate": ["TotalParticipants"],
+    "latitude": "32.8",
+    "longitude": "-83.4",
+    "zoom": "7",
+    "search": {
+      "In City": "City",
+      "In Team": "Team",
+      "In Description": "Description"
+    },
+    "datastates": ["GA"]
+  },
+  "liaisons": {
+    "shortTitle": "Liaisons",
+    "menuTitle": "Camera Ready Liaisons",
+    "listTitle": "Camera Ready Communities",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
+    "markerType": "google",
+    "nameColumn": "name",
+    "id": "liaison_id",
+    "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Contact_Title", "Office_Name", "Office_Phone", "Address", "City", "State", "Zip", "Population"],
+    "featuredColumns2": ["Airport_Distance"],
+    "omit_display": ["tag","listing_id","liaison_id","geo_json","Photo1","Phototext1","Photo2","Phototext2","Photo3","Phototext3","Photo4","Phototext4","Photo5","Phototext5","Photo6","Phototext6","Photo7","Phototext7","Photo8","Phototext8","Photo9","Phototext9","Photo10","Phototext10","Photo11","Phototext11","Photo12","Phototext12"],
+    "int_required": "liaison_id"
+  },
+  "locations": {
+    "shortTitle": "Locations",
+    "menuTitle": "Camera Ready Locations",
+    "listTitle": "Camera Ready Locations",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
+    "markerType": "google",
+    "nameColumn": "name",
+    "id": "listing_id",
+    "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Address", "City", "State", "Zip", "Population"],
+    "omit_display": ["tag","listing_id","liaison_id","geo_json","Photo1","Phototext1","Photo2","Phototext2","Photo3","Phototext3","Photo4","Phototext4","Photo5","Phototext5","Photo6","Phototext6","Photo7","Phototext7","Photo8","Phototext8","Photo9","Phototext9","Photo10","Phototext10","Photo11","Phototext11","Photo12","Phototext12"],
+    "imgOnly": "true",
+    "int_required": "listing_id"
+  },
+  "cities": {
+    "shortTitle": "Georgia Cities",
+    "menuTitle": "Georgia Cities",
+    "listTitle": "Georgia Cities",
+    "datatype": "csv",
+    "dataset": "cities.csv",
+    "markerType": "google",
+    "nameColumn": "city",
+    "featuredColumns": ["City", "Population", "County"],
+    "search": {
+      "In City": "City",
+      "In County Name": "County"
+    },
+    "datastates": ["GA"],
+    "mapInfo": "Cities in Georgia"
+  },
+  "airports": {
+    "shortTitle": "Georgia Airports",
+    "menuTitle": "Georgia Airports",
+    "listTitle": "Georgia Airports",
+    "datatype": "csv",
+    "dataset": "/display/data/airports/us/ga/ga.csv",
+    "dataadmin": "/display/data/airports/",
+    "markerType": "google",
+    "nameColumn": "Airport",
+    "id": "FAA",
+    "featuredColumns": ["Airport", "City", "FAA", "Type", "Role", "Enplanements"],
+    "search": {
+      "In City": "City",
+      "In County Name": "County"
+    },
+    "datastates": ["GA"],
+    "mapInfo": "Cities in Georgia"
+  },
+  "recyclers": {
+    "shortTitle": "B2B Recyclers",
+    "menuTitle": "B2B Recyclers",
+    "listTitle": "B2B Recyclers",
+    "googleCSV": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=1924677788&single=true&output=csv",
+    "googleCategories": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBRXb005Plt3mmmJunBMk6IejMu-VAJOPdlHWXUpyecTAF-SK4OpfSjPHNMN_KAePShbNsiOo2hZzt/pub?gid=381237740&single=true&output=csv",
+    "nameColumn": "organization name",
+    "featuredColumns": ["Organization Name", "Category", "County"],
+    "titleColumn": "organization name",
+    "searchFields": "organization name",
+    "addressColumn": "address",
+    "valueColumn": "category",
+    "valueColumnLabel": "Category",
+    "catColumn": "Category",
+    "subcatColumn": "Materials Accepted",
+    "itemsColumn": "Materials Accepted",
+    "color": "#E31C79",
+    "markerType": "google",
+    "search": {
+      "In Main Category": "Category",
+      "In Materials Accepted": "Materials Accepted",
+      "In Location Name": "organization name",
+      "In Address": "address",
+      "In County Name": "county",
+      "In Website URL": "website"
+    },
+    "datastates": ["GA"],
+    "state_required": "GA",
+    "mapInfo": "Add <a href='https://map.georgia.org/recycling/'>B2B&nbsp;Recycler Listings</a> or post comments to submit additions to our <a href='https://docs.google.com/spreadsheets/d/1YmfBPEFpfmaKmxcnxijPU8-esVkhaVBE1wLZqPNOKtY/edit?usp=sharing' target='georgia_recyclers_sheet'>Google&nbsp;Sheet</a>."
+  }
+}
