@@ -1381,6 +1381,18 @@ body {
   overflow: hidden;
 }
 
+.image-stack[data-count="1"] {
+  grid-template-columns: 1fr;
+}
+
+.image-stack[data-count="1"] .description-image {
+  max-width: 320px;
+}
+
+.image-stack[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .image-stack.slide-left {
   animation: location-slide-left 220ms ease;
 }
@@ -1861,6 +1873,10 @@ body {
   overflow: hidden;
 }
 
+.product-image-modal.nav-hidden .product-image-modal-content {
+  padding-bottom: 18px;
+}
+
 .product-image-modal-img {
   max-width: 100%;
   max-height: calc(88vh - 180px);
@@ -1996,5 +2012,12 @@ body {
 
   .product-image-modal-img {
     max-height: calc(88vh - 200px);
+  }
+}
+
+@media (max-height: 500px) {
+  .product-image-modal-content {
+    min-height: auto;
+    padding-bottom: 18px;
   }
 }

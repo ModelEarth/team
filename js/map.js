@@ -3506,10 +3506,11 @@ Do not include any explanation or additional text.`;
         const galleryClass = preferThreeCol ? "image-gallery three-col-prefer" : "image-gallery";
         const navImages = images.slice(0, 3);
         const showGalleryButton = images.length > 3;
+        const showNavControls = images.length > 1 || showGalleryButton;
 
         return `
             <div class="description-images-nav ${preferThreeCol ? 'three-col-prefer' : ''}" id="location-nav">
-                <div class="image-stack" data-current-set="0">
+                <div class="image-stack" data-current-set="0" data-count="${Math.min(3, images.length)}">
                     ${navImages.map((img, index) => `
                         <div class="image-item" data-image-index="${index}">
                             <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
@@ -3517,12 +3518,13 @@ Do not include any explanation or additional text.`;
                         </div>
                     `).join('')}
                 </div>
+                ${showNavControls ? `
                 <div class="image-nav-controls">
                     <button class="image-nav-btn image-nav-prev" aria-label="Previous image">‹</button>
                     <span class="image-counter">${images.length > 1 ? `1-${Math.min(3, images.length)} / ${images.length}` : `1 / ${images.length}`}</span>
                     <button class="image-nav-btn image-nav-next" aria-label="Next image">›</button>
                     ${showGalleryButton ? `<button class="view-gallery-btn" aria-label="View all images" title="View all images">⊞</button>` : ``}
-                </div>
+                </div>` : ''}
             </div>
             <div class="${galleryClass}" style="display: none;">
                 <div class="gallery-header">
@@ -3638,8 +3640,10 @@ Do not include any explanation or additional text.`;
         const currentUrl = list[modal._imageIndex];
         image.src = currentUrl;
         counter.textContent = `${modal._imageIndex + 1} / ${list.length}`;
-        nav.setAttribute("aria-hidden", list.length <= 1 ? "true" : "false");
-        nav.style.display = list.length <= 1 ? "none" : "flex";
+        const hideNav = list.length <= 1;
+        nav.setAttribute("aria-hidden", hideNav ? "true" : "false");
+        nav.style.display = hideNav ? "none" : "flex";
+        modal.classList.toggle("nav-hidden", hideNav);
         if (caption && captionText) {
             const dataList = modal._imageData || [];
             const currentData = dataList[modal._imageIndex] || null;
@@ -3722,6 +3726,7 @@ Do not include any explanation or additional text.`;
             const rangeLabel = startIndex + 1 === endIndex
                 ? `${endIndex} / ${images.length}`
                 : `${startIndex + 1}-${endIndex} / ${images.length}`;
+            imageStack.dataset.count = String(endIndex - startIndex);
             imageStack.innerHTML = images.slice(startIndex, endIndex).map((img, offset) => {
                 const index = startIndex + offset;
                 const showSource = this.shouldShowGallerySource(images, img);
