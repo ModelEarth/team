@@ -161,8 +161,8 @@
     <script type="text/javascript" src="../../localsite/js/embed.js?source=show.trade&map=cities.us"></script>
     -->
 
-    <!-- Load Shared Auth Modal -->
-    <script src="../js/auth-modal.js"></script>
+    <!-- Load Shared Auth Modal from better-auth-system -->
+    <script src="../../better-auth-system/public/js/auth-modal.js"></script>
 
     <style>
         /* Ensure all elements stay within container bounds */
@@ -1689,7 +1689,7 @@
         /* Small icon style inside buttons */
         .submodule-card .btn-pull svg, .submodule-card .btn-push svg { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
 
-        
+
         #list-title {
             border: none !important;
         }
@@ -11827,7 +11827,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             // Show loading status for list of lists
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
             document.getElementById('loadStatus').style.display = 'block';
-            
+
             // Check if this is a geo site - if so, load from show.json
             if (isGeoSite()) {
                 console.log('Geo site detected - loading list of lists from show.json');
@@ -11918,7 +11918,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
                 return;
             }
-            
+
             // Load and display the meta-list Google Sheet with all feeds
             const masterSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxfv7lxikjrmro3EJYGE_134vm5HdDszZKt4uKswHhsNJ_-afSaG9RoA4oeNV656r4mTuG3wTu38pM/pub?output=csv';
             
