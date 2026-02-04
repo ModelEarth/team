@@ -460,6 +460,14 @@ body {
     margin-bottom: 4px;
 }
 
+
+.block-system-breadcrumb-block {
+    display: none !important; /* hides "Home" link in Drupal when embedding */
+}
+.component--main_content h1 {
+    display: none !important; /* hides title above CR logo */
+}
+
 .listings-grid {
     display: grid;
     gap: 24px;
@@ -512,7 +520,7 @@ body {
 }
 
 .listing-title {
-    font-size: 1.1rem;
+    font-size: 16px;
     font-weight: 500;
     margin: 0;
 }
