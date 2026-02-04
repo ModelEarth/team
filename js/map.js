@@ -2933,6 +2933,7 @@ Do not include any explanation or additional text.`;
             <section class="location-section" id="location-section">
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
+                    <div id="detailHero"></div>
                     <button type="button" class="location-close-btn" aria-label="Close location details" title="Close">
                         <span class="material-icons" aria-hidden="true">cancel</span>
                     </button>
@@ -2942,10 +2943,14 @@ Do not include any explanation or additional text.`;
                         ${this.renderDetailEmptyState()}
                     </div>
                     <div class="location-map">
-                        <div class="detailmap-wrap" style="max-height: 287px;">
-                            <div id="detailmap"></div>
+                        <div id="detailmapPlaceholder" class="detailmap-placeholder">
+                            <div id="detailmapWrapper" class="detailmap-wrapper" myparent="detailmapPlaceholder">
+                                <div class="detailmap-wrap" style="max-height: 287px;">
+                                    <div id="detailmap"></div>
+                                </div>
+                                <div class="detail-map-caption" id="detailMapCaption">Select a listing to view the map.</div>
+                            </div>
                         </div>
-                        <div class="detail-map-caption" id="detailMapCaption">Select a listing to view the map.</div>
                     </div>
                 </div>
             </section>
@@ -3503,7 +3508,7 @@ Do not include any explanation or additional text.`;
         const showGalleryButton = images.length > 3;
 
         return `
-            <div class="description-images-nav" id="location-nav">
+            <div class="description-images-nav ${preferThreeCol ? 'three-col-prefer' : ''}" id="location-nav">
                 <div class="image-stack" data-current-set="0">
                     ${navImages.map((img, index) => `
                         <div class="image-item" data-image-index="${index}">
@@ -3731,8 +3736,25 @@ Do not include any explanation or additional text.`;
             if (counter) counter.textContent = rangeLabel;
         };
 
-        if (navControls && totalSets <= 1) {
-            navControls.style.display = 'none';
+        const updateGalleryNarrowState = () => {
+            if (!gallery) {
+                return;
+            }
+            const width = gallery.getBoundingClientRect().width;
+            if (!width) {
+                return;
+            }
+            gallery.classList.toggle('is-narrow', width <= 520);
+        };
+
+        if (gallery) {
+            updateGalleryNarrowState();
+            if (!gallery.dataset.narrowObserver && typeof ResizeObserver !== 'undefined') {
+                const observer = new ResizeObserver(() => updateGalleryNarrowState());
+                observer.observe(gallery);
+                gallery.dataset.narrowObserver = 'true';
+                gallery._narrowObserver = observer;
+            }
         }
 
         if (prevBtn && totalSets > 1) {
@@ -3755,6 +3777,7 @@ Do not include any explanation or additional text.`;
             viewGalleryBtn.addEventListener('click', () => {
                 gallery.style.display = 'block';
                 navContainer.style.display = 'none';
+                requestAnimationFrame(() => updateGalleryNarrowState());
             });
         }
 
@@ -4082,12 +4105,7 @@ Do not include any explanation or additional text.`;
             const button = div.querySelector('.fullscreen-toggle-btn');
             button.addEventListener('click', (event) => {
                 event.preventDefault();
-                this.detailMapExpanded = !this.detailMapExpanded;
-                setFullscreenToggleState(button, this.detailMapExpanded);
-                button.title = this.detailMapExpanded ? 'Collapse map' : 'Expand map';
-                if (typeof this.updateDetailMapLayout === 'function') {
-                    this.updateDetailMapLayout();
-                }
+                this.toggleDetailMapHero(button);
             });
 
             this.detailMapExpandControl = { control, container: div, button };
@@ -4095,6 +4113,73 @@ Do not include any explanation or additional text.`;
         };
 
         control.addTo(this.detailMap);
+    }
+
+    isDetailMapInHero() {
+        const heroContainer = document.getElementById('detailHero');
+        const wrapper = document.getElementById('detailmapWrapper');
+        return !!(heroContainer && wrapper && heroContainer.contains(wrapper) && heroContainer.style.display !== 'none');
+    }
+
+    setDetailMapExpandedState(isExpanded) {
+        this.detailMapExpanded = isExpanded;
+        const mapEl = document.getElementById('detailmap');
+        if (mapEl) {
+            mapEl.classList.toggle('detailmap-expanded', isExpanded);
+        }
+        const section = document.getElementById('location-section');
+        if (section) {
+            section.classList.toggle('detailmap-expanded', isExpanded);
+        }
+    }
+
+    toggleDetailMapHero(button) {
+        const wrapper = document.getElementById('detailmapWrapper');
+        const placeholder = document.getElementById('detailmapPlaceholder');
+        const heroContainer = document.getElementById('detailHero');
+
+        if (!wrapper || !placeholder || !heroContainer) {
+            const nextState = !this.detailMapExpanded;
+            this.setDetailMapExpandedState(nextState);
+            if (button) {
+                setFullscreenToggleState(button, nextState);
+                button.title = nextState ? 'Collapse map' : 'Expand map';
+            }
+            if (typeof this.updateDetailMapLayout === 'function') {
+                this.updateDetailMapLayout();
+            }
+            return;
+        }
+
+        const isExpanded = heroContainer.contains(wrapper) && heroContainer.style.display !== 'none';
+
+        if (isExpanded) {
+            placeholder.style.display = '';
+            placeholder.appendChild(wrapper);
+            this.setDetailMapExpandedState(false);
+            if (heroContainer.children.length === 0) {
+                heroContainer.style.display = 'none';
+            }
+        } else {
+            placeholder.style.display = 'none';
+            heroContainer.appendChild(wrapper);
+            heroContainer.style.display = 'block';
+            this.setDetailMapExpandedState(true);
+        }
+
+        if (button) {
+            setFullscreenToggleState(button, !isExpanded);
+            button.title = !isExpanded ? 'Collapse map' : 'Expand map';
+        }
+
+        if (typeof this.updateDetailMapLayout === 'function') {
+            this.updateDetailMapLayout();
+        }
+        if (this.detailMap) {
+            requestAnimationFrame(() => {
+                this.detailMap.invalidateSize();
+            });
+        }
     }
 
     initializeDetailMapControls() {
@@ -4145,6 +4230,7 @@ Do not include any explanation or additional text.`;
         if (!mapEl) {
             return;
         }
+        this.setDetailMapExpandedState(this.detailMapExpanded);
 
         const adjustDetailMapHeight = () => {
             const hasImages = mapEl.dataset.hasImages === 'true';
@@ -4160,6 +4246,14 @@ Do not include any explanation or additional text.`;
             mapEl.dataset.expandedHeight = `${expandedTotal}`;
             let targetHeight = this.detailMapExpanded ? expandedTotal : baseTotal;
             const wrap = mapEl.parentElement;
+            if (this.detailMapExpanded && this.isDetailMapInHero()) {
+                if (wrap) {
+                    wrap.style.maxHeight = 'none';
+                    wrap.style.height = '100%';
+                }
+                mapEl.style.height = '100%';
+                return;
+            }
             if (wrap) {
                 const baseMaxHeight = 287 + extra + (this.detailMapExpanded ? 120 : 0);
                 wrap.style.maxHeight = `${baseMaxHeight}px`;
