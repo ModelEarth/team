@@ -407,6 +407,8 @@ class LeafletMapManager {
                 filter: 'sepia(0.4) hue-rotate(35deg) saturate(1.1) contrast(1.1) brightness(0.9)'
             }
         };
+
+        window.leafletMapStyles = this.mapStyles;
         
         this.init();
     }
@@ -1536,7 +1538,7 @@ class LeafletMapManager {
     }
     
     updateZoomDisplay() {
-        const zoomDisplayContainer = document.querySelector('.zoom-display-container');
+        const zoomDisplayContainer = this.map?.getContainer?.().querySelector('.zoom-display-container');
         if (zoomDisplayContainer) {
             const currentLevel = this.map.getZoom();
             const currentDisplay = zoomDisplayContainer.querySelector('.zoom-display-current');

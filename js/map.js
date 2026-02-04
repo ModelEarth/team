@@ -3846,6 +3846,9 @@ Do not include any explanation or additional text.`;
         if (window.leafletMap && window.leafletMap.mapStyles) {
             return window.leafletMap.mapStyles;
         }
+        if (window.leafletMapStyles) {
+            return window.leafletMapStyles;
+        }
 
         return {
             openstreetmap: {
@@ -3943,6 +3946,41 @@ Do not include any explanation or additional text.`;
         container.classList.remove('is-open');
     }
 
+    refreshDetailMapStyleOptions() {
+        if (!this.detailMapStyleControl?.select) {
+            return;
+        }
+        const select = this.detailMapStyleControl.select;
+        const styles = this.getDetailMapStyles();
+        const currentValue = select.value;
+        select.innerHTML = Object.entries(styles).map(([key, style]) =>
+            `<option value="${key}">${style.name}</option>`
+        ).join('');
+
+        if (currentValue && styles[currentValue]) {
+            select.value = currentValue;
+        }
+    }
+
+    ensureDetailMapStylesReady() {
+        if (!this.detailMap || !this.detailMapStyleControl?.select) {
+            return;
+        }
+
+        const waitForStyles = () => {
+            const hasSharedStyles = Boolean(window.leafletMapStyles || (window.leafletMap && window.leafletMap.mapStyles));
+            if (!hasSharedStyles) {
+                requestAnimationFrame(waitForStyles);
+                return;
+            }
+            this.refreshDetailMapStyleOptions();
+            const defaultStyle = this.getDetailMapDefaultStyleKey();
+            this.setDetailMapStyle(defaultStyle);
+        };
+
+        requestAnimationFrame(waitForStyles);
+    }
+
     addDetailMapStyleSelector() {
         if (!this.detailMap) {
             return;
@@ -3979,6 +4017,11 @@ Do not include any explanation or additional text.`;
                 this.closeDetailMapControl(this.detailMapZoomControl?.container);
                 if (div.classList.contains('is-open')) {
                     select.focus();
+                    if (typeof select.showPicker === 'function') {
+                        select.showPicker();
+                    } else {
+                        select.click();
+                    }
                 }
             });
 
@@ -3992,9 +4035,7 @@ Do not include any explanation or additional text.`;
         };
 
         control.addTo(this.detailMap);
-
-        const defaultStyle = this.getDetailMapDefaultStyleKey();
-        this.setDetailMapStyle(defaultStyle);
+        this.ensureDetailMapStylesReady();
     }
 
     generateDetailMapZoomLevels(currentZoom) {
