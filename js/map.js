@@ -204,41 +204,111 @@ class ListingsDisplay {
                 const targetId = moreToggle.dataset.target;
                 const target = targetId ? document.getElementById(targetId) : null;
                 const group = moreToggle.dataset.group;
-                const groupButtons = group
-                    ? Array.from(document.querySelectorAll(`.location-more-toggle[data-group="${group}"]`))
-                    : [];
-                const groupTargets = groupButtons
-                    .map(btn => btn.dataset.target)
-                    .filter(Boolean)
-                    .map(id => document.getElementById(id))
-                    .filter(Boolean);
+                const toggleType = moreToggle.dataset.toggleType;
 
-                if (!target) {
-                    return;
+                // Check if this is in the detail view (location-section)
+                const isDetailView = moreToggle.closest('#location-section') !== null;
+
+                if (isDetailView) {
+                    // In detail view: use hash-based navigation
+                    if (toggleType === 'meta-less') {
+                        // Less button clicked - remove all meta views from hash
+                        if (typeof goHash === 'function' && typeof getHash === 'function') {
+                            const hash = getHash();
+                            const currentView = hash?.view || '';
+                            const viewArray = currentView ? currentView.split(',').map(v => v.trim()).filter(Boolean) : [];
+
+                            // Remove 'more' and 'evenmore' from the array
+                            const filteredArray = viewArray.filter(v => v !== 'more' && v !== 'evenmore');
+
+                            const newViewValue = filteredArray.join(',');
+                            goHash({ view: newViewValue });
+                        }
+                    } else if (target) {
+                        // Regular toggle button clicked
+                        const viewName = targetId.includes('nearby') ? 'nearby'
+                                       : targetId.includes('airports') ? 'airports'
+                                       : targetId.includes('even') ? 'evenmore'
+                                       : 'more';
+
+                        if (typeof goHash === 'function' && typeof getHash === 'function') {
+                            const hash = getHash();
+                            const currentView = hash?.view || '';
+                            const viewArray = currentView ? currentView.split(',').map(v => v.trim()).filter(Boolean) : [];
+
+                            if (toggleType === 'meta') {
+                                // Meta button (More/Even More) - remove all meta views and add this one
+                                const filteredArray = viewArray.filter(v => v !== 'more' && v !== 'evenmore');
+                                filteredArray.push(viewName);
+                                const newViewValue = filteredArray.join(',');
+                                goHash({ view: newViewValue });
+                            } else {
+                                // Independent toggle (Nearby/Airports) - toggle individually
+                                const index = viewArray.indexOf(viewName);
+                                if (index >= 0) {
+                                    viewArray.splice(index, 1);
+                                } else {
+                                    viewArray.push(viewName);
+                                }
+                                const newViewValue = viewArray.join(',');
+                                goHash({ view: newViewValue });
+                            }
+                        }
+                    }
+                } else {
+                    // In list view: use direct toggle
+                    const container = moreToggle.closest('.details-more-actions');
+                    const metaToggles = container ? Array.from(container.querySelectorAll('.meta-toggle')) : [];
+                    const lessBtn = container ? container.querySelector('.meta-less-btn') : null;
+
+                    if (toggleType === 'meta-less') {
+                        // Less button clicked - hide all meta sections, show meta buttons, hide less button
+                        const metaTargets = metaToggles
+                            .map(btn => btn.dataset.target)
+                            .filter(Boolean)
+                            .map(id => document.getElementById(id))
+                            .filter(Boolean);
+
+                        metaTargets.forEach(section => section.classList.remove('expanded'));
+                        metaToggles.forEach(btn => btn.style.display = '');
+                        if (lessBtn) lessBtn.style.display = 'none';
+                    } else if (toggleType === 'meta') {
+                        // Meta button clicked - show this section, hide meta buttons, show less button
+                        if (target) {
+                            // Collapse all meta sections first
+                            metaToggles.forEach(btn => {
+                                const btnTarget = btn.dataset.target;
+                                const section = btnTarget ? document.getElementById(btnTarget) : null;
+                                if (section) section.classList.remove('expanded');
+                            });
+
+                            // Expand this section
+                            target.classList.add('expanded');
+
+                            // Hide meta buttons, show less button
+                            metaToggles.forEach(btn => btn.style.display = 'none');
+                            if (lessBtn) lessBtn.style.display = '';
+                        }
+                    } else {
+                        // Independent toggle (Nearby/Airports) - toggle individually
+                        if (target) {
+                            const isExpanded = target.classList.contains('expanded');
+                            if (isExpanded) {
+                                target.classList.remove('expanded');
+                                moreToggle.classList.remove('active');
+                            } else {
+                                target.classList.add('expanded');
+                                moreToggle.classList.add('active');
+                            }
+                        }
+                    }
                 }
-
-                const isExpanded = target.classList.contains('expanded');
-                if (isExpanded) {
-                    groupTargets.forEach(node => node.classList.remove('expanded'));
-                    groupButtons.forEach(btn => {
-                        const label = btn.dataset.label;
-                        if (label) btn.textContent = label;
-                    });
-                    return;
-                }
-
-                groupTargets.forEach(node => node.classList.remove('expanded'));
-                target.classList.add('expanded');
-                groupButtons.forEach(btn => {
-                    const label = btn.dataset.label;
-                    if (label) btn.textContent = label;
-                });
-                moreToggle.textContent = 'Less';
             }
         });
 
         document.addEventListener('hashChangeEvent', () => {
             this.applyHashDetailSelection();
+            this.applyHashViewSelection();
         });
     }
     
@@ -456,7 +526,10 @@ class ListingsDisplay {
         
         this.config = showConfig;
         window.mapDataAdminPath = showConfig?.dataadmin || showConfig?.dataAdmin || '';
-        
+
+        // Initialize filter terms once from config
+        this.initializeFilterTerms();
+
         // Clear any previous geo merge info
         this.geoMergeInfo = null;
         
@@ -536,6 +609,17 @@ class ListingsDisplay {
             }
         }, 2000);
         */
+    }
+
+    initializeFilterTerms() {
+        // Check for nearby field in config (list-of-lists JSON) using lowercase key
+        const nearbyValue = this.config?.nearby;
+        this.hasNearbyFilter = !!nearbyValue;
+
+        // Parse comma-separated nearby values
+        this.nearbyFilterTerms = nearbyValue
+            ? nearbyValue.toString().split(',').map(term => term.trim().toLowerCase()).filter(Boolean)
+            : [];
     }
 
     async loadDataFromConfig(config) {
@@ -2779,15 +2863,7 @@ Do not include any explanation or additional text.`;
             }
         });
 
-        document.addEventListener('click', (e) => {
-            const closeBtn = e.target.closest('.location-close-btn');
-            if (closeBtn) {
-                e.preventDefault();
-                if (typeof goHash === 'function') {
-                    goHash({ id: '' });
-                }
-            }
-        });
+        // Location close button now handled by panel menu system
 
         // Handle window resize and scroll to reposition popup
         window.addEventListener('resize', () => {
@@ -2934,9 +3010,7 @@ Do not include any explanation or additional text.`;
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
-                    <button type="button" class="location-close-btn" aria-label="Close location details" title="Close">
-                        <span class="material-icons" aria-hidden="true">cancel</span>
-                    </button>
+                    <div id="locationSectionMenuControl" style="position: absolute; right: 0; top: 4px;"></div>
                 </div>
                 <div class="location-content">
                     <div class="location-details" id="location-details">
@@ -3070,6 +3144,114 @@ Do not include any explanation or additional text.`;
         this.updateMapGallerySection(null);
     }
 
+    applyHashViewSelection() {
+        if (typeof getHash !== 'function') {
+            return;
+        }
+        const hash = getHash();
+        const viewValue = hash?.view;
+
+        // Only apply to detail view (#location-section)
+        const locationSection = document.getElementById('location-section');
+        if (!locationSection) {
+            return;
+        }
+
+        // Check if location-section is actually visible (not display:none)
+        if (locationSection.style.display === 'none') {
+            return;
+        }
+
+        // Build mapping dynamically from buttons to avoid hardcoded IDs
+        const viewToTargetId = {
+            'nearby': 'map-gallery-nearby',
+            'airports': 'map-gallery-airports',
+            'more': 'location-meta',
+            'evenmore': 'location-meta-even'
+        };
+
+        // Parse comma-separated view values
+        const activeViews = viewValue ? viewValue.split(',').map(v => v.trim()).filter(Boolean) : [];
+
+        // Use waitForElm to ensure the content is loaded before manipulating
+        if (typeof waitForElm === 'function') {
+            waitForElm('.location-meta').then(() => {
+                this.updateViewSections(locationSection, viewToTargetId, activeViews);
+            });
+        } else {
+            // Fallback if waitForElm is not available
+            this.updateViewSections(locationSection, viewToTargetId, activeViews);
+        }
+    }
+
+    updateViewSections(locationSection, viewToTargetId, activeViews) {
+        // Get all sections and buttons
+        const allSections = Object.values(viewToTargetId)
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        const allButtons = Array.from(locationSection.querySelectorAll('.location-more-toggle:not(.meta-less-btn)'));
+        const metaToggles = Array.from(locationSection.querySelectorAll('.meta-toggle'));
+        const lessBtn = locationSection.querySelector('.meta-less-btn');
+
+        // Check if any meta views (more/evenmore) are active
+        const hasMetaView = activeViews.some(v => v === 'more' || v === 'evenmore');
+
+        // If no active views, collapse all sections and reset buttons
+        if (activeViews.length === 0) {
+            allSections.forEach(section => section.classList.remove('expanded'));
+            allButtons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.display = '';
+                const label = btn.dataset.label;
+                if (label) btn.textContent = label;
+            });
+            if (lessBtn) lessBtn.style.display = 'none';
+            return;
+        }
+
+        // Get target sections for active views
+        const activeTargetIds = activeViews.map(v => viewToTargetId[v]).filter(Boolean);
+        const activeSections = activeTargetIds.map(id => document.getElementById(id)).filter(Boolean);
+
+        // Update all sections
+        allSections.forEach(section => {
+            if (activeSections.includes(section)) {
+                section.classList.add('expanded');
+            } else {
+                section.classList.remove('expanded');
+            }
+        });
+
+        // Update buttons based on type
+        allButtons.forEach(btn => {
+            const targetId = btn.dataset.target;
+            const toggleType = btn.dataset.toggleType;
+            const isActive = activeTargetIds.includes(targetId);
+
+            if (toggleType === 'independent') {
+                // Nearby/Airports - keep label, just toggle active class
+                if (isActive) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+                // Always show independent toggles
+                btn.style.display = '';
+            } else if (toggleType === 'meta') {
+                // More/Even More - hide when meta view is active
+                btn.classList.remove('active');
+                const label = btn.dataset.label;
+                if (label) btn.textContent = label;
+                btn.style.display = hasMetaView ? 'none' : '';
+            }
+        });
+
+        // Show/hide Less button based on meta view state
+        if (lessBtn) {
+            lessBtn.style.display = hasMetaView ? '' : 'none';
+        }
+    }
+
     showListingDetailsByIndex(index) {
         if (!this.filteredListings[index]) {
             return;
@@ -3078,18 +3260,27 @@ Do not include any explanation or additional text.`;
         this.selectedListingIndex = index;
         this.updateMapGallerySection(this.filteredListings[index]);
 
-        const section = document.getElementById('location-section');
-        if (section) {
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Don't scroll if tour is playing
+        const hash = this.getCurrentHash();
+        if (hash && hash.detailplay !== 'true') {
+            const section = document.getElementById('location-section');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
     }
 
     updateMapGallerySection(listing) {
         const detailsContainer = document.getElementById('location-details');
         const headerTitle = document.querySelector('.location-header .location-title');
+        const section = document.getElementById('location-section');
         if (!detailsContainer) {
             return;
         }
+
+        // Check if tour is playing for fade effect
+        const hash = this.getCurrentHash();
+        const isTourPlaying = hash && hash.detailplay === 'true';
 
         if (!listing) {
             detailsContainer.innerHTML = this.renderDetailEmptyState();
@@ -3107,28 +3298,72 @@ Do not include any explanation or additional text.`;
         const galleryImages = this.getListingImages(listing);
         const displayData = this.getDisplayData(listing);
         const recognized = this.getRecognizedFields(listing);
-        if (headerTitle) {
-            headerTitle.textContent = displayData.primary || recognized.name || 'Listing Details';
-        }
-        detailsContainer.innerHTML = `
-            ${this.renderListingDetailContent(listing, {
-                metaId: 'location-meta',
-                evenMetaId: 'location-meta-even',
-                metaGroup: 'map-gallery',
-                metaRows: this.getDetailMetaRows(listing),
-                showMetaButtons: true
-            })}
-            ${this.renderGalleryMarkup(galleryImages)}
-        `;
 
-        const mapEl = document.getElementById('detailmap');
-        if (mapEl) {
-            mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
+        // Trigger fade transition during tour
+        if (isTourPlaying && section) {
+            section.classList.add('fading');
+            // Small delay to trigger CSS transition
+            setTimeout(() => {
+                if (headerTitle) {
+                    headerTitle.textContent = displayData.primary || recognized.name || 'Listing Details';
+                }
+                detailsContainer.innerHTML = `
+                    ${this.renderListingDetailContent(listing, {
+                        metaId: 'location-meta',
+                        evenMetaId: 'location-meta-even',
+                        metaGroup: 'map-gallery',
+                        metaRows: this.getDetailMetaRows(listing),
+                        showMetaButtons: true
+                    })}
+                    ${this.renderGalleryMarkup(galleryImages)}
+                `;
+
+                const mapEl = document.getElementById('detailmap');
+                if (mapEl) {
+                    mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
+                }
+
+                this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
+                this.ensureGalleryImageModal();
+                this.updateDetailMap(listing);
+
+                // Remove fading class to fade back in
+                setTimeout(() => {
+                    section.classList.remove('fading');
+                }, 50);
+            }, 150);
+        } else {
+            // No fade for non-tour navigation
+            if (headerTitle) {
+                headerTitle.textContent = displayData.primary || recognized.name || 'Listing Details';
+            }
+            detailsContainer.innerHTML = `
+                ${this.renderListingDetailContent(listing, {
+                    metaId: 'location-meta',
+                    evenMetaId: 'location-meta-even',
+                    metaGroup: 'map-gallery',
+                    metaRows: this.getDetailMetaRows(listing),
+                    showMetaButtons: true
+                })}
+                ${this.renderGalleryMarkup(galleryImages)}
+            `;
+
+            const mapEl = document.getElementById('detailmap');
+            if (mapEl) {
+                mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
+            }
+
+            this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
+            this.ensureGalleryImageModal();
+            this.updateDetailMap(listing);
         }
 
-        this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
-        this.ensureGalleryImageModal();
-        this.updateDetailMap(listing);
+        // Check if tour is playing and restore pause icon
+        if (isTourPlaying && typeof updateTourIcon === 'function') {
+            waitForElm('#location-sectionMenuToggleIcon').then(() => {
+                updateTourIcon('location-section', 'pause');
+            });
+        }
     }
 
     renderListingDetailContent(listing, options = {}) {
@@ -3331,6 +3566,48 @@ Do not include any explanation or additional text.`;
             ? `<br>${contactParts.join('')}`
             : ` ${contactParts.join(' ')}`;
 
+        // Use pre-computed filter terms from config (set once in initializeFilterTerms)
+        const hasNearby = this.hasNearbyFilter;
+        const nearbyFilterTerms = this.nearbyFilterTerms || [];
+
+        // Check for Airport_Distance field in this specific listing row
+        const airportDistanceInfo = this.getFirstMatchingField(listing, [
+            'Airport_Distance', 'airport_distance', 'AirportDistance'
+        ]);
+        const hasAirportDistance = !!airportDistanceInfo.value;
+        const airportFilterTerms = ['airport'];
+
+        // Helper function to format field names for display
+        const formatFieldLabel = (key) => {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/([A-Z])/g, ' $1')
+                .trim()
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+        };
+
+        // Filter More rows to find fields matching airport terms (same process as nearby)
+        const airportRows = hasAirportDistance && hasMetaRows
+            ? metaRows.filteredRows.filter(row => {
+                const labelLower = row.label.toLowerCase();
+                return airportFilterTerms.some(term => labelLower.includes(term));
+            })
+            : [];
+
+        // Filter More rows to find fields matching nearby terms
+        const nearbyRows = hasNearby && hasMetaRows
+            ? metaRows.filteredRows.filter(row => {
+                const labelLower = row.label.toLowerCase();
+                return nearbyFilterTerms.some(term => labelLower.includes(term));
+            })
+            : [];
+
+        // Generate IDs for these sections
+        const airportsId = `${metaGroup}-airports`;
+        const nearbyId = `${metaGroup}-nearby`;
+
         return `
             <div class="location-listing">
                 ${(contactName || contactEmail) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
@@ -3338,11 +3615,35 @@ Do not include any explanation or additional text.`;
                 ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
                 ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
                 ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
-                ${(options.showMetaButtons && (viewDetailsButton || (isDevMode && (moreCount || evenMoreCount)))) ? `
+                ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount || (isDevMode && evenMoreCount))) ? `
                     <div class="details-more-actions" style="margin-top:10px">
                         ${viewDetailsButton}
-                        ${(isDevMode && moreCount) ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})">More (${moreCount})</button>` : ''}
-                        ${(isDevMode && evenMoreCount) ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount})">Even More (${evenMoreCount})</button>` : ''}
+                        ${hasNearby ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${nearbyId}" data-label="Nearby" data-toggle-type="independent">Nearby</button>` : ''}
+                        ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
+                        ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})" data-toggle-type="meta">More (${moreCount})</button>` : ''}
+                        ${(isDevMode && evenMoreCount) ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount})" data-toggle-type="meta">Even More (${evenMoreCount})</button>` : ''}
+                        <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
+                        ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
+                    </div>
+                ` : ''}
+                ${hasNearby ? `
+                    <div class="location-meta" id="${nearbyId}">
+                        ${nearbyRows.map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${hasAirportDistance ? `
+                    <div class="location-meta" id="${airportsId}">
+                        ${airportRows.map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value}</span>
+                            </div>
+                        `).join('')}
                     </div>
                 ` : ''}
                 ${hasMetaRows ? `
@@ -3362,7 +3663,8 @@ Do not include any explanation or additional text.`;
                             </div>
                         `).join('')}
                     </div>
-                ` : '<div class="location-empty">No details available.</div>'}
+                ` : ''}
+                ${!hasMetaRows && !hasNearby && !hasAirportDistance ? '<div class="location-empty">No details available.</div>' : ''}
             </div>
         `;
     }
@@ -3709,6 +4011,11 @@ Do not include any explanation or additional text.`;
         const setSize = 3;
         const totalSets = Math.ceil(images.length / setSize);
         let currentSet = 0;
+
+        // Hide navigation controls if 3 or fewer images
+        if (navControls) {
+            navControls.style.display = images.length <= 3 ? 'none' : '';
+        }
 
         const animateStack = (direction) => {
             imageStack.classList.remove('slide-left', 'slide-right');
@@ -4140,25 +4447,113 @@ Do not include any explanation or additional text.`;
         control.onAdd = () => {
             const div = L.DomUtil.create('div', 'detail-map-expand-toggle');
             div.innerHTML = `
-                <button type="button" class="fullscreen-toggle-btn" title="Expand map">
-                    ${getFullscreenIconMarkup()}
-                </button>
+                <div id="detailmapMenuToggleHolder" class="iconPadding menuToggleHolderMap"
+                     style="position:relative; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;"
+                     title="Map menu">
+                    <i class="material-icons circle-bg" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:24px;">circle</i>
+                    <i id="detailmapMenuToggleIcon" class="material-icons"
+                       style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:18px;">arrow_right</i>
+                </div>
             `;
 
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
 
-            const button = div.querySelector('.fullscreen-toggle-btn');
-            button.addEventListener('click', (event) => {
+            // Setup click handler for menu toggle
+            const holder = div.querySelector('#detailmapMenuToggleHolder');
+            holder.addEventListener('click', (event) => {
                 event.preventDefault();
-                this.toggleDetailMapHero(button);
+                event.stopPropagation();
+                const menu = document.getElementById('detailmapMenu');
+                if (menu) {
+                    const isVisible = menu.style.display !== 'none';
+                    menu.style.display = isVisible ? 'none' : 'block';
+                    if (typeof refreshPanelToggleIcon === 'function') {
+                        refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
+                    }
+                }
             });
 
-            this.detailMapExpandControl = { control, container: div, button };
+            this.detailMapExpandControl = { control, container: div, holder };
             return div;
         };
 
         control.addTo(this.detailMap);
+
+        // Add the menu to the body after the control is created
+        setTimeout(() => {
+            if (typeof buildMenuConfig === 'function' && typeof document !== 'undefined') {
+                const menuItems = buildMenuConfig('Map', 'detailmap', '');
+                let menuHtml = `<div id="detailmapMenu" class="menuToggleMenu" style="display:none; position:fixed;">`;
+                menuItems.forEach(item => {
+                    if (item.divider) {
+                        menuHtml += '<div class="menuToggleDivider"></div>';
+                    } else {
+                        const displayStyle = item.display ? `display:${item.display};` : '';
+                        const className = item.class ? ` ${item.class}` : '';
+                        const dataAction = item.action ? ` data-action="${item.action}"` : '';
+                        menuHtml += `<div class="menuToggleItem${className}"${dataAction} style="${displayStyle}">`;
+                        if (item.icon) {
+                            menuHtml += `<i class="material-icons">${item.icon}</i>`;
+                        }
+                        menuHtml += item.label;
+                        menuHtml += '</div>';
+                    }
+                });
+                menuHtml += '</div>';
+
+                // Remove existing menu if present
+                const existingMenu = document.getElementById('detailmapMenu');
+                if (existingMenu) {
+                    existingMenu.remove();
+                }
+
+                // Add menu to body
+                document.body.insertAdjacentHTML('beforeend', menuHtml);
+
+                // Setup menu item click handlers
+                const menu = document.getElementById('detailmapMenu');
+                if (menu) {
+                    menu.addEventListener('click', (e) => {
+                        const item = e.target.closest('.menuToggleItem');
+                        if (!item) return;
+
+                        const action = item.dataset.action;
+                        if (action && typeof handlePanelAction === 'function') {
+                            handlePanelAction(action, 'detailmap', 'Map');
+                        }
+
+                        menu.style.display = 'none';
+                        if (typeof refreshPanelToggleIcon === 'function') {
+                            refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
+                        }
+                    });
+
+                    // Position menu relative to the toggle
+                    const positionMenu = () => {
+                        const holder = document.getElementById('detailmapMenuToggleHolder');
+                        if (holder) {
+                            const rect = holder.getBoundingClientRect();
+                            menu.style.left = rect.right + 'px';
+                            menu.style.top = rect.bottom + 5 + 'px';
+                        }
+                    };
+
+                    // Position on open
+                    const holder = document.getElementById('detailmapMenuToggleHolder');
+                    if (holder) {
+                        const observer = new MutationObserver((mutations) => {
+                            mutations.forEach((mutation) => {
+                                if (mutation.attributeName === 'style' && menu.style.display === 'block') {
+                                    positionMenu();
+                                }
+                            });
+                        });
+                        observer.observe(menu, { attributes: true });
+                    }
+                }
+            }
+        }, 100);
     }
 
     isDetailMapInHero() {
@@ -4168,6 +4563,12 @@ Do not include any explanation or additional text.`;
     }
 
     setDetailMapExpandedState(isExpanded) {
+        // Don't toggle during tour playback
+        const hash = this.getCurrentHash();
+        if (hash && hash.detailplay === 'true') {
+            return;
+        }
+
         this.detailMapExpanded = isExpanded;
         const mapEl = document.getElementById('detailmap');
         if (mapEl) {
@@ -4897,11 +5298,7 @@ Do not include any explanation or additional text.`;
                                             <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                         </button>
                                     </div>
-                                    <!-- Expand Icon for Details -->
-                                    <div class="fullscreen-toggle-container">
-                                        <button class="fullscreen-toggle-btn" mywidgetpanel="widgetDetails" onclick="window.listingsApp.myHero()" title="Expand Details">
-                                            ${getFullscreenIconMarkup()}
-                                        </button>
+                                    <div id="widgetDetailsMenuControl" class="search-fields-control" style="min-width: auto; width: 48px;">
                                     </div>
                                 </div>
                             </div>
@@ -4956,12 +5353,6 @@ Do not include any explanation or additional text.`;
                         <!-- Gallery Section -->
                         <div id="widgetGalleryParent" style="display:none">
                         <div id="pageGallery" myparent="widgetGalleryParent" style="display:none" class="earth">
-                            <!-- Expand Icon for Gallery -->
-                            <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 10;">
-                                <button class="fullscreen-toggle-btn" mywidgetpanel="pageGallery" onclick="window.listingsApp.myHero()" title="Expand Gallery">
-                                    ${getFullscreenIconMarkup()}
-                                </button>
-                            </div>
                             <!-- ../../img/banner.webp --->
                             <!--
                             <img src="../../../community/img/hero/hero.png" alt="Banner" class="gallery-banner">
@@ -4978,12 +5369,6 @@ Do not include any explanation or additional text.`;
                                 <div style="position: absolute; top: 8px; left: 8px; z-index: 1000;">
                                     <a href="/team/projects/edit.html?add=visit" class="btn add-visit-btn list-cities" style="display:none">Add Visit</a>
                                 </div>
-                                <!-- Expand Icon for Map - Outside the map container but inside wrapper -->
-                                <div class="fullscreen-toggle-container" style="position: absolute; top: 8px; right: 8px; z-index: 1000;">
-                                    <button class="fullscreen-toggle-btn" mywidgetpanel="widgetmapWrapper" onclick="window.listingsApp.myHero()" title="Expand Map">
-                                        ${getFullscreenIconMarkup()}
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -4997,6 +5382,7 @@ Do not include any explanation or additional text.`;
         this.updateMapGallerySection(this.getSelectedListing());
 
         this.applyHashDetailSelection();
+        this.applyHashViewSelection();
 
         // Apply domain-based sign-in button visibility
         this.applySignInVisibility();
@@ -5022,8 +5408,88 @@ Do not include any explanation or additional text.`;
                 debugAlert("🚫 SKIPPING initializeMap during filtering to preserve map");
             }
             this.setupPrintDownloadIcons();
+            this.setupPanelMenuToggles();
         //}, 0);
-          
+
+    }
+
+    setupPanelMenuToggles() {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            // Get datasource path for List Insights link
+            const datasourcePath = this.config?.dataset || '';
+
+            // Setup panel menu for widgetDetails (List type)
+            const detailsPanel = document.getElementById('widgetDetails');
+            if (detailsPanel && typeof addPanelMenu === 'function') {
+                const detailsMenu = addPanelMenu({
+                    panelType: 'List',
+                    targetPanelId: 'widgetDetails',
+                    containerSelector: '#widgetDetailsMenuControl',
+                    datasourcePath: datasourcePath,
+                    inline: true,
+                    menuPopupHolder: '.listings-scroll-container'
+                });
+                detailsMenu.render();
+            }
+
+            // Setup panel menu for widgetmapWrapper (Map type)
+            const mapWrapper = document.getElementById('widgetmapWrapper');
+            if (mapWrapper && typeof addPanelMenu === 'function') {
+                const mapMenu = addPanelMenu({
+                    panelType: 'Map',
+                    targetPanelId: 'widgetmapWrapper',
+                    containerSelector: '#widgetmapWrapper'
+                });
+                mapMenu.render();
+            }
+
+            // Setup panel menu for pageGallery (Content type)
+            const galleryPanel = document.getElementById('pageGallery');
+            if (galleryPanel && typeof addPanelMenu === 'function') {
+                const galleryMenu = addPanelMenu({
+                    panelType: 'Content',
+                    targetPanelId: 'pageGallery',
+                    containerSelector: '#pageGallery'
+                });
+                galleryMenu.render();
+            }
+
+            // Setup panel menu for location-section (View type)
+            const locationSection = document.getElementById('location-section');
+            if (locationSection && typeof addPanelMenu === 'function') {
+                const viewMenu = addPanelMenu({
+                    panelType: 'View',
+                    targetPanelId: 'location-section',
+                    containerSelector: '#locationSectionMenuControl',
+                    datasourcePath: datasourcePath
+                });
+                viewMenu.render();
+
+                // Check if tour is playing (detailplay in hash)
+                const hash = this.getCurrentHash();
+                if (hash && hash.detailplay === 'true') {
+                    // Restart the tour with isReload=true
+                    // Increased delay to ensure menu is fully rendered
+                    if (typeof startTour === 'function') {
+                        setTimeout(() => {
+                            startTour('location-section', true);
+                        }, 800);
+                    }
+                }
+
+                // Setup browser back button handler to pause tour
+                window.addEventListener('popstate', () => {
+                    const currentHash = this.getCurrentHash();
+                    // If we have a detail view and detailplay is true, remove it to pause
+                    if (currentHash && currentHash.detailplay === 'true' && (currentHash.id || currentHash.detail)) {
+                        if (typeof goHash === 'function') {
+                            goHash({ detailplay: '' });
+                        }
+                    }
+                });
+            }
+        }, 100);
     }
     
     //conditionalMapInit() {
@@ -5417,10 +5883,15 @@ Do not include any explanation or additional text.`;
                     
                     // Show the original parent
                     originalParent.style.display = '';
-                    
+
                     // Update button icons - show expand, hide collapse (panel is now collapsed)
                     setFullscreenToggleState(button, false);
-                    
+
+                    // Refresh panel menu toggle icon
+                    if (typeof refreshPanelToggleIcon === 'function') {
+                        refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
+                    }
+
                     // Re-initialize map if it was the map that was collapsed
                     if (contentDiv.id === 'widgetmapWrapper') {
                         setTimeout(() => {
@@ -5455,10 +5926,15 @@ Do not include any explanation or additional text.`;
             
             // Show hero container
             heroContainer.style.display = 'block';
-            
+
             // Update button icons - hide expand, show collapse (panel is now expanded)
             setFullscreenToggleState(button, true);
-            
+
+            // Refresh panel menu toggle icon
+            if (typeof refreshPanelToggleIcon === 'function') {
+                refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
+            }
+
             // Re-initialize map if it was the map that was moved
             if (contentDiv.id === 'widgetmapWrapper') {
                 setTimeout(() => {

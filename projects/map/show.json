@@ -35,6 +35,8 @@
     "id": "liaison_id",
     "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Contact_Title", "Office_Name", "Office_Phone", "Address", "City", "State", "Zip", "Population"],
     "featuredColumns2": ["Airport_Distance"],
+    "airportdata":["/display/data/airports/us/ga/ga.csv"],
+    "nearby": ["Topograhy,Filmography,Lodging,Shopping,Restaurants,Hospitals,Media,Notes"],
     "omit_display": ["tag","listing_id","liaison_id","geo_json","Photo1","Phototext1","Photo2","Phototext2","Photo3","Phototext3","Photo4","Phototext4","Photo5","Phototext5","Photo6","Phototext6","Photo7","Phototext7","Photo8","Phototext8","Photo9","Phototext9","Photo10","Phototext10","Photo11","Phototext11","Photo12","Phototext12"],
     "int_required": "liaison_id"
   },

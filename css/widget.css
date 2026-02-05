@@ -1168,15 +1168,10 @@ body {
   margin-top: 6px;
 }
 
-#detailmap .detail-map-expand-toggle .fullscreen-toggle-btn {
-  width: 24px;
-  height: 24px;
-  padding: 2px;
-}
-
-#detailmap .detail-map-expand-toggle .fullscreen-toggle-btn svg {
-  width: 14px;
-  height: 14px;
+.detail-map-expand-toggle {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 #detailmap .marker-pin,
@@ -1286,11 +1281,38 @@ body {
   background: #cbd5f5;
 }
 
+.location-more-toggle.active {
+  background: #3b82f6;
+  color: white;
+  font-weight: 500;
+}
+
+.meta-less-btn {
+  background: #94a3b8 !important;
+  color: white !important;
+}
+
 .details-more-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.details-more-actions a {
+  padding: 6px 12px;
+  background: #e2e8f0;
+  color: #334155;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 12.75px;
+  display: inline-block;
+  transition: background 0.2s;
+}
+
+.details-more-actions a:hover {
+  background: #cbd5f5;
 }
 
 .location-section .details-more-actions {
@@ -1362,6 +1384,26 @@ body {
 }
 
 .dark .location-more-toggle:hover {
+  background: #2a3750;
+}
+
+.dark .location-more-toggle.active {
+  background: #3b82f6;
+  color: white;
+  font-weight: 500;
+}
+
+.dark .meta-less-btn {
+  background: #64748b !important;
+  color: white !important;
+}
+
+.dark .details-more-actions a {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark .details-more-actions a:hover {
   background: #2a3750;
 }
 
