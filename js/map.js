@@ -3136,6 +3136,15 @@ Do not include any explanation or additional text.`;
         }
         const hash = getHash();
         const hashId = hash?.id || hash?.detail;
+
+        // Check if id actually changed using priorHash
+        const priorHashId = window.priorHash?.id || window.priorHash?.detail;
+
+        if (hashId === priorHashId) {
+            // Hash id hasn't changed, don't update
+            return;
+        }
+
         if (!hashId) {
             this.selectedListingIndex = null;
             const section = document.getElementById('location-section');
@@ -4648,6 +4657,8 @@ Do not include any explanation or additional text.`;
     }
 
     setDetailMapExpandedState(isExpanded) {
+        return; // Prevent every-other map display.
+
         // Don't toggle during tour playback
         const hash = this.getCurrentHash();
         if (hash && hash.detailplay === 'true') {
@@ -4761,10 +4772,6 @@ Do not include any explanation or additional text.`;
         if (!mapEl) {
             return;
         }
-
-        // Reset recentering flag so map initializes properly for each listing
-        this.detailMapRecenteringRequested = false;
-
         this.setDetailMapExpandedState(this.detailMapExpanded);
 
         const adjustDetailMapHeight = () => {
