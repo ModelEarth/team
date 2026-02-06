@@ -2883,6 +2883,66 @@ Do not include any explanation or additional text.`;
             }
         });
 
+        // Handle Expand List button click
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('expand-list-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const widgetDetails = document.getElementById('widgetDetails');
+                const heroContainer = document.getElementById('widgetHero');
+
+                if (!widgetDetails || !heroContainer) {
+                    return;
+                }
+
+                // Check if currently expanded
+                const isExpanded = heroContainer.contains(widgetDetails) && heroContainer.style.display !== 'none';
+
+                // Create a synthetic button element with mywidgetpanel attribute for myHero
+                const syntheticButton = document.createElement('button');
+                syntheticButton.className = 'fullscreen-toggle-btn';
+                syntheticButton.setAttribute('mywidgetpanel', 'widgetDetails');
+
+                // Create synthetic event
+                const syntheticEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+
+                // Override event.target to point to our synthetic button
+                Object.defineProperty(syntheticEvent, 'target', {
+                    value: syntheticButton,
+                    enumerable: true
+                });
+
+                // Store original event in window to allow myHero to access it
+                window.event = syntheticEvent;
+
+                // Call myHero to toggle expansion
+                this.myHero(null, ['widgetDetails']);
+
+                // Update button text based on new state (will be opposite of current)
+                const newIsExpanded = heroContainer.contains(widgetDetails) && heroContainer.style.display !== 'none';
+                e.target.textContent = newIsExpanded ? 'Collapse List' : 'Expand List';
+
+                // Remove/add height restriction on listings container
+                const listingsContainer = document.querySelector('.listings-scroll-container');
+                if (listingsContainer) {
+                    if (newIsExpanded) {
+                        listingsContainer.style.maxHeight = 'none';
+                        // Scroll to top when expanding
+                        setTimeout(() => {
+                            listingsContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                        }, 100);
+                    } else {
+                        listingsContainer.style.maxHeight = '';
+                    }
+                }
+            }
+        });
+
         // Location close button now handled by panel menu system
 
         // Handle window resize and scroll to reposition popup
@@ -3026,8 +3086,18 @@ Do not include any explanation or additional text.`;
     }
 
     renderMapGallerySection() {
+        // Check if there's a hash.id to determine initial visibility
+        let initialDisplay = 'none';
+        if (typeof getHash === 'function') {
+            const hash = getHash();
+            const hashId = hash?.id || hash?.detail;
+            if (hashId) {
+                initialDisplay = 'block';
+            }
+        }
+
         return `
-            <section class="location-section" id="location-section">
+            <section class="location-section" id="location-section" style="display: ${initialDisplay};">
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
@@ -3321,7 +3391,16 @@ Do not include any explanation or additional text.`;
                 mapEl.dataset.hasImages = 'false';
             }
             this.updateDetailMap(null);
+            // Hide location section when no listing
+            if (section) {
+                section.style.display = 'none';
+            }
             return;
+        }
+
+        // Show location section when there's a listing
+        if (section) {
+            section.style.display = 'block';
         }
 
         const galleryImages = this.getListingImages(listing);
@@ -5206,15 +5285,42 @@ Do not include any explanation or additional text.`;
         const summaryData = Object.values(groups).sort((a, b) => b.count - a.count);
         
         debugAlert(`📊 SUMMARIZE: Created ${summaryData.length} summary groups`);
-        
+
         // Store original data and set summary as filtered listings
         this.originalListings = this.listings;
         this.originalFilteredListings = this.filteredListings;
         this.filteredListings = summaryData;
         this.currentPage = 1; // Reset to first page
-        
+
         // Update display
         this.updateListingsDisplay();
+    }
+
+    updateExpandListButtonText() {
+        const expandBtn = document.querySelector('.expand-list-btn');
+        if (!expandBtn) {
+            return;
+        }
+
+        const widgetDetails = document.getElementById('widgetDetails');
+        const heroContainer = document.getElementById('widgetHero');
+
+        if (!widgetDetails || !heroContainer) {
+            return;
+        }
+
+        const isExpanded = heroContainer.contains(widgetDetails) && heroContainer.style.display !== 'none';
+        expandBtn.textContent = isExpanded ? 'Collapse List' : 'Expand List';
+
+        // Also update listings container max-height
+        const listingsContainer = document.querySelector('.listings-scroll-container');
+        if (listingsContainer) {
+            if (isExpanded) {
+                listingsContainer.style.maxHeight = 'none';
+            } else {
+                listingsContainer.style.maxHeight = '';
+            }
+        }
     }
 
     UnsummarizeList() {
@@ -5251,20 +5357,26 @@ Do not include any explanation or additional text.`;
                 const viewSourceLink = this.renderViewSourceLink();
                 detailsBottom.innerHTML = `
                     <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                        <div class="search-results">
-                            ${this.renderSearchResults()}
+                        <button class="expand-list-btn">Expand List</button>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="search-results">
+                                ${this.renderSearchResults()}
+                            </div>
+                            ${viewSourceLink ? `<div class="search-results-source">– ${viewSourceLink}</div>` : ''}
                         </div>
-                        ${viewSourceLink ? `<div class="search-results-source">${viewSourceLink}</div>` : ''}
                     </div>
                     <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
                         ${this.renderPagination()}
                     </div>
                 `;
             }
-            
+
             // Update summarize button visibility based on current dataset
             this.updateSummarizeButtonVisibility();
-            
+
+            // Update expand list button text based on current state
+            this.updateExpandListButtonText();
+
             // Event listeners are handled by global delegation, no need to re-attach
         }
     }
@@ -5428,10 +5540,13 @@ Do not include any explanation or additional text.`;
                         <!-- Widget Details Bottom Container -->
                         <div id="widgetDetailsBottom">
                             <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                                <div class="search-results">
-                                    ${this.renderSearchResults()}
+                                <button class="expand-list-btn">Expand List</button>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="search-results">
+                                        ${this.renderSearchResults()}
+                                    </div>
+                                    ${viewSourceLink ? `<div class="search-results-source">– ${viewSourceLink}</div>` : ''}
                                 </div>
-                                ${viewSourceLink ? `<div class="search-results-source">${viewSourceLink}</div>` : ''}
                             </div>
                             <div class="pagination-container" style="${this.filteredListings.length <= 500 ? 'display: none;' : ''}">
                                 ${this.renderPagination()}
@@ -5984,6 +6099,11 @@ Do not include any explanation or additional text.`;
                         refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
                     }
 
+                    // Update expand list button if it was the list that was collapsed
+                    if (contentDiv.id === 'widgetDetails') {
+                        setTimeout(() => this.updateExpandListButtonText(), 10);
+                    }
+
                     // Re-initialize map if it was the map that was collapsed
                     if (contentDiv.id === 'widgetmapWrapper') {
                         setTimeout(() => {
@@ -6025,6 +6145,11 @@ Do not include any explanation or additional text.`;
             // Refresh panel menu toggle icon
             if (typeof refreshPanelToggleIcon === 'function') {
                 refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
+            }
+
+            // Update expand list button if it was the list that was expanded
+            if (contentDiv.id === 'widgetDetails') {
+                setTimeout(() => this.updateExpandListButtonText(), 10);
             }
 
             // Re-initialize map if it was the map that was moved

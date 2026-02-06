@@ -342,6 +342,27 @@ body {
     color: #666;
 }
 
+.expand-list-btn {
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.expand-list-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.expand-list-btn:active {
+    background: #e2e8f0;
+}
+
 .pagination-container {
     display: flex;
     justify-content: center;
