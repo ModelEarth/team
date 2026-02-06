@@ -1032,14 +1032,15 @@ body {
 }
 
 .location-map {
-  width: 260px;
+  width: 323px;
   flex-shrink: 0;
 }
 
 #detailmap {
   width: 100%;
-  aspect-ratio: 9 / 10;
-  height: auto;
+  aspect-ratio: 1 / 1;
+  max-height: 387px;
+  min-height: 323px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   overflow: hidden;
@@ -1216,6 +1217,7 @@ body {
 .location-citystate {
   color: #475569;
   font-size: 0.9em;
+  margin-bottom: 10px;
 }
 
 .location-summary {

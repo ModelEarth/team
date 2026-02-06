@@ -1816,7 +1816,14 @@ Do not include any explanation or additional text.`;
                 recognized.description = listing[field];
             }
         });
-        
+
+        // Notes field
+        ['notes', 'Notes', 'NOTES', 'note', 'Note'].forEach(field => {
+            if (listing[field] && !recognized.notes) {
+                recognized.notes = listing[field];
+            }
+        });
+
         // Population field
         ['population', 'Population', 'POPULATION', 'pop'].forEach(field => {
             if (listing[field] && !recognized.population) {
@@ -1849,6 +1856,8 @@ Do not include any explanation or additional text.`;
             'url',
             'description',
             'details',
+            'notes',
+            'note',
             'contact_name',
             'contactname',
             'contact name',
@@ -2309,6 +2318,17 @@ Do not include any explanation or additional text.`;
                 label: this.formatKeyName(key),
                 value: value ? this.formatFieldValue(value) : ''
             }));
+
+        // Add coordinates to the end if available
+        const coords = this.getListingCoordinates(listing);
+        if (coords) {
+            const coordinatesRow = {
+                label: 'Coordinates',
+                value: `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
+            };
+            filteredRows.push(coordinatesRow);
+            unfilteredRows.push(coordinatesRow);
+        }
 
         return { filteredRows, unfilteredRows };
     }
@@ -2996,7 +3016,8 @@ Do not include any explanation or additional text.`;
                             showViewDetailsButton: true,
                             maxFeaturedRows: listMaxFeaturedRows,
                             listingIndex,
-                            listingHashId
+                            listingHashId,
+                            truncateLength: 100
                         })}
                     </div>
                 </div>
@@ -3019,10 +3040,9 @@ Do not include any explanation or additional text.`;
                     <div class="location-map">
                         <div id="detailmapPlaceholder" class="detailmap-placeholder">
                             <div id="detailmapWrapper" class="detailmap-wrapper" myparent="detailmapPlaceholder">
-                                <div class="detailmap-wrap" style="max-height: 287px;">
+                                <div class="detailmap-wrap">
                                     <div id="detailmap"></div>
                                 </div>
-                                <div class="detail-map-caption" id="detailMapCaption">Select a listing to view the map.</div>
                             </div>
                         </div>
                     </div>
@@ -3315,15 +3335,27 @@ Do not include any explanation or additional text.`;
                         metaRows: this.getDetailMetaRows(listing),
                         showMetaButtons: true
                     })}
-                    ${this.renderGalleryMarkup(galleryImages)}
                 `;
+
+                // Insert gallery markup after .location-content
+                const locationContent = document.querySelector('.location-content');
+                if (locationContent) {
+                    // Remove any existing gallery markup (both .description-images-nav and .image-gallery divs)
+                    let nextSibling = locationContent.nextElementSibling;
+                    while (nextSibling && (nextSibling.classList.contains('description-images-nav') || nextSibling.classList.contains('image-gallery'))) {
+                        const toRemove = nextSibling;
+                        nextSibling = nextSibling.nextElementSibling;
+                        toRemove.remove();
+                    }
+                    locationContent.insertAdjacentHTML('afterend', this.renderGalleryMarkup(galleryImages));
+                }
 
                 const mapEl = document.getElementById('detailmap');
                 if (mapEl) {
                     mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
                 }
 
-                this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
+                this.setupGalleryNavigation(section, galleryImages, galleryImages);
                 this.ensureGalleryImageModal();
                 this.updateDetailMap(listing);
 
@@ -3345,15 +3377,27 @@ Do not include any explanation or additional text.`;
                     metaRows: this.getDetailMetaRows(listing),
                     showMetaButtons: true
                 })}
-                ${this.renderGalleryMarkup(galleryImages)}
             `;
+
+            // Insert gallery markup after .location-content
+            const locationContent = document.querySelector('.location-content');
+            if (locationContent) {
+                // Remove any existing gallery markup (both .description-images-nav and .image-gallery divs)
+                let nextSibling = locationContent.nextElementSibling;
+                while (nextSibling && (nextSibling.classList.contains('description-images-nav') || nextSibling.classList.contains('image-gallery'))) {
+                    const toRemove = nextSibling;
+                    nextSibling = nextSibling.nextElementSibling;
+                    toRemove.remove();
+                }
+                locationContent.insertAdjacentHTML('afterend', this.renderGalleryMarkup(galleryImages));
+            }
 
             const mapEl = document.getElementById('detailmap');
             if (mapEl) {
                 mapEl.dataset.hasImages = galleryImages.length ? 'true' : 'false';
             }
 
-            this.setupGalleryNavigation(detailsContainer, galleryImages, galleryImages);
+            this.setupGalleryNavigation(section, galleryImages, galleryImages);
             this.ensureGalleryImageModal();
             this.updateDetailMap(listing);
         }
@@ -3397,6 +3441,33 @@ Do not include any explanation or additional text.`;
             : '';
         const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
         const cityStateZip = this.formatCityStateZip(recognized);
+
+        // Get truncation length from options (100 for list, 255 for detail view)
+        const truncateLength = options.truncateLength || 255;
+
+        // Helper function to truncate text and add "more" link
+        const truncateWithMore = (text, maxLength = truncateLength) => {
+            if (!text) return '';
+            const textStr = text.toString().trim();
+            if (textStr.length <= maxLength) {
+                const formatted = this.formatFieldValue(textStr);
+                // Remove leading &nbsp; if present
+                return formatted.replace(/^&nbsp;\s*/, '');
+            }
+            const truncated = textStr.substring(0, maxLength);
+            const remaining = textStr.substring(maxLength);
+            const uniqueId = `more-${Math.random().toString(36).substr(2, 9)}`;
+            const formattedTruncated = this.formatFieldValue(truncated).replace(/^&nbsp;\s*/, '');
+            const formattedRemaining = this.formatFieldValue(remaining).replace(/^&nbsp;\s*/, '');
+            return `
+                ${formattedTruncated}<span id="${uniqueId}-dots">...</span><span id="${uniqueId}-more" style="display:none;">${formattedRemaining}</span>
+                <a href="#" id="${uniqueId}-link" style="color:#94a3b8; text-decoration:none; margin-left:4px;" onclick="event.preventDefault(); const dots=document.getElementById('${uniqueId}-dots'); const more=document.getElementById('${uniqueId}-more'); const link=document.getElementById('${uniqueId}-link'); if(more.style.display==='none'){more.style.display='inline';dots.style.display='none';link.textContent='less';}else{more.style.display='none';dots.style.display='inline';link.textContent='more';}">more</a>
+            `;
+        };
+
+        // Extract description and notes
+        const descriptionText = recognized.description ? truncateWithMore(recognized.description) : '';
+        const notesText = recognized.notes ? truncateWithMore(recognized.notes) : '';
 
         Object.entries(extraFields).some(([key]) => {
             if (key === fieldMapping.latitude || key === fieldMapping.longitude) {
@@ -3494,6 +3565,16 @@ Do not include any explanation or additional text.`;
         omitRecognizedKeys.add('title');
         omitRowKeys.add('name');
         omitRowKeys.add('title');
+        if (descriptionText) {
+            omitRecognizedKeys.add('description');
+            omitRowKeys.add('description');
+            omitRowKeys.add('details');
+        }
+        if (notesText) {
+            omitRecognizedKeys.add('notes');
+            omitRowKeys.add('notes');
+            omitRowKeys.add('note');
+        }
         if (showEmailLine && tertiaryLine.includes(':')) {
             const label = tertiaryLine.split(':')[0].trim().toLowerCase();
             if (label) {
@@ -3610,11 +3691,15 @@ Do not include any explanation or additional text.`;
 
         return `
             <div class="location-listing">
-                ${(contactName || contactEmail) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
-                ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
-                ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
-                ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
-                ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
+                <div id="generalFields">
+                    ${(contactName || contactEmail) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
+                    ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
+                    ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
+                    ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
+                    ${descriptionText ? `<div class="location-description">${descriptionText}</div>` : ''}
+                    ${notesText ? `<div class="location-notes">${notesText}</div>` : ''}
+                    ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
+                </div>
                 ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount || (isDevMode && evenMoreCount))) ? `
                     <div class="details-more-actions" style="margin-top:10px">
                         ${viewDetailsButton}
@@ -3646,7 +3731,7 @@ Do not include any explanation or additional text.`;
                         `).join('')}
                     </div>
                 ` : ''}
-                ${hasMetaRows ? `
+                ${hasMetaRows || moreCount || evenMoreCount ? `
                     <div class="location-meta" id="${metaId}">
                         ${metaRows.filteredRows.map(row => `
                             <div class="location-row">
@@ -3664,7 +3749,7 @@ Do not include any explanation or additional text.`;
                         `).join('')}
                     </div>
                 ` : ''}
-                ${!hasMetaRows && !hasNearby && !hasAirportDistance ? '<div class="location-empty">No details available.</div>' : ''}
+                ${!hasMetaRows && !hasNearby && !hasAirportDistance && !moreCount && !evenMoreCount ? '<div class="location-empty">No details available.</div>' : ''}
             </div>
         `;
     }
@@ -4673,10 +4758,13 @@ Do not include any explanation or additional text.`;
 
     updateDetailMap(listing) {
         const mapEl = document.getElementById('detailmap');
-        const caption = document.getElementById('detailMapCaption');
         if (!mapEl) {
             return;
         }
+
+        // Reset recentering flag so map initializes properly for each listing
+        this.detailMapRecenteringRequested = false;
+
         this.setDetailMapExpandedState(this.detailMapExpanded);
 
         const adjustDetailMapHeight = () => {
@@ -4685,7 +4773,8 @@ Do not include any explanation or additional text.`;
             if (!width) {
                 return;
             }
-            const baseHeight = (width * 10) / 9;
+            // Square aspect ratio (1:1)
+            const baseHeight = width;
             const extra = hasImages ? 100 : 0;
             const baseTotal = Math.round(baseHeight + extra);
             const expandedTotal = Math.round(baseHeight + extra + 120);
@@ -4702,12 +4791,12 @@ Do not include any explanation or additional text.`;
                 return;
             }
             if (wrap) {
-                const baseMaxHeight = 287 + extra + (this.detailMapExpanded ? 120 : 0);
-                wrap.style.maxHeight = `${baseMaxHeight}px`;
-                targetHeight = Math.min(targetHeight, baseMaxHeight);
-                wrap.style.height = `${targetHeight}px`;
+                // Remove inline height constraints to let CSS aspect-ratio work
+                wrap.style.maxHeight = '';
+                wrap.style.height = '';
             }
-            mapEl.style.height = `${targetHeight}px`;
+            // Remove inline height to let CSS aspect-ratio work
+            mapEl.style.height = '';
         };
 
         this.updateDetailMapLayout = () => {
@@ -4729,9 +4818,6 @@ Do not include any explanation or additional text.`;
                 this.teardownDetailMapControls();
             }
             mapEl.innerHTML = '<div class="detail-map-empty">No coordinates available.</div>';
-            if (caption) {
-                caption.textContent = 'No location available for this listing.';
-            }
             return;
         }
 
@@ -4809,10 +4895,6 @@ Do not include any explanation or additional text.`;
             });
         } else if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
             window.leafletMap.setDetailMarker(coords, listing, this.config, listingHashId);
-        }
-
-        if (caption) {
-            caption.textContent = `Closeup: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
         }
 
         requestAnimationFrame(() => {
