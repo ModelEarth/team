@@ -2613,9 +2613,9 @@ Do not include any explanation or additional text.`;
     showSearchPopup() {
         // Remove any existing popup
         this.hideSearchPopup();
-        
+
         // Create and insert the popup
-        const container = document.querySelector('.listings-scroll-container');
+        const container = document.getElementById('widgetDetailsPopups');
         if (container && this.availableFields.size > 0) {
             const popupHTML = this.renderSearchPopup();
             container.insertAdjacentHTML('afterbegin', popupHTML);
@@ -5321,7 +5321,10 @@ Do not include any explanation or additional text.`;
                             ` : ''}
 
                         </div>
-                        
+
+                        <!-- Popups Container -->
+                        <div id="widgetDetailsPopups" style="position: relative;"></div>
+
                         <!-- Listings Grid -->
                         <!-- Above-the-fold key/value pairs come from getRecognizedFields + config.featuredColumns. -->
                         <div class="listings-scroll-container">
@@ -5428,7 +5431,7 @@ Do not include any explanation or additional text.`;
                     containerSelector: '#widgetDetailsMenuControl',
                     datasourcePath: datasourcePath,
                     inline: true,
-                    menuPopupHolder: '.listings-scroll-container'
+                    menuPopupHolder: '#widgetDetailsPopups'
                 });
                 detailsMenu.render();
             }
