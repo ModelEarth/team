@@ -2956,6 +2956,32 @@ Do not include any explanation or additional text.`;
             }
         });
 
+        // Handle image crop toggle
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('image-crop-toggle')) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const button = e.target;
+                const locationSection = document.getElementById('location-section');
+                if (!locationSection) return;
+
+                const currentState = button.dataset.cropState || 'cropped';
+
+                if (currentState === 'cropped') {
+                    // Switch to uncropped
+                    locationSection.classList.remove('images-cropped');
+                    button.dataset.cropState = 'uncropped';
+                    button.textContent = 'Uncropped';
+                } else {
+                    // Switch to cropped
+                    locationSection.classList.add('images-cropped');
+                    button.dataset.cropState = 'cropped';
+                    button.textContent = 'Cropped';
+                }
+            }
+        });
+
         // Location close button now handled by panel menu system
 
         // Handle window resize and scroll to reposition popup
@@ -3110,7 +3136,7 @@ Do not include any explanation or additional text.`;
         }
 
         return `
-            <section class="location-section" id="location-section" style="display: ${initialDisplay};">
+            <section class="location-section images-cropped" id="location-section" style="display: ${initialDisplay};">
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
@@ -3812,13 +3838,16 @@ Do not include any explanation or additional text.`;
                     ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
                 </div>
                 ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount)) ? `
-                    <div class="details-more-actions" style="margin-top:10px">
-                        ${viewDetailsButton}
-                        ${hasNearby ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${nearbyId}" data-label="Nearby" data-toggle-type="independent">Nearby</button>` : ''}
-                        ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
-                        ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})" data-toggle-type="meta">More (${moreCount})</button>` : ''}
-                        <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
-                        ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
+                    <div class="details-more-actions" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            ${viewDetailsButton}
+                            ${hasNearby ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${nearbyId}" data-label="Nearby" data-toggle-type="independent">Nearby</button>` : ''}
+                            ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
+                            ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})" data-toggle-type="meta">More (${moreCount})</button>` : ''}
+                            <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
+                            ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
+                        </div>
+                        <button class="image-crop-toggle location-btn" type="button" data-crop-state="cropped">Cropped</button>
                     </div>
                 ` : ''}
                 ${hasNearby ? `
@@ -4168,6 +4197,8 @@ Do not include any explanation or additional text.`;
     }
 
     openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
+        alert('openGalleryImageModal called with imageUrl: ' + imageUrl);
+
         if (!imageUrl) {
             return;
         }
@@ -4717,36 +4748,9 @@ Do not include any explanation or additional text.`;
                     document.body.insertAdjacentHTML('beforeend', menuHtml);
                 }
 
-                // Setup menu item click handlers
-                const menu = document.getElementById('detailmapMenu');
-                if (menu) {
-                    menu.addEventListener('click', (e) => {
-                        const item = e.target.closest('.menuToggleItem');
-                        if (!item) return;
-
-                        const action = item.dataset.action;
-                        if (action && typeof handlePanelAction === 'function') {
-                            handlePanelAction(action, 'detailmap', 'Map');
-                        }
-
-                        menu.style.display = 'none';
-                        if (typeof refreshPanelToggleIcon === 'function') {
-                            refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
-                        }
-                    });
-
-                    // Add click-outside handler to close menu
-                    document.addEventListener('click', (e) => {
-                        const holder = document.getElementById('detailmapMenuToggleHolder');
-                        if (!e.target.closest('#detailmapMenuToggleHolder') &&
-                            !e.target.closest('#detailmapMenu') &&
-                            menu.style.display !== 'none') {
-                            menu.style.display = 'none';
-                            if (typeof refreshPanelToggleIcon === 'function') {
-                                refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
-                            }
-                        }
-                    });
+                // Setup event listeners using the shared function
+                if (typeof setupPanelMenuEvents === 'function') {
+                    setupPanelMenuEvents('detailmap', 'Map');
                 }
             }
         }, 100);
@@ -4808,7 +4812,7 @@ Do not include any explanation or additional text.`;
         } else {
             placeholder.style.display = 'none';
             heroContainer.appendChild(wrapper);
-            heroContainer.style.display = 'block';
+            heroContainer.style.display = 'flex';
             this.setDetailMapExpandedState(true);
         }
 
