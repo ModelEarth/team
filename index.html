@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="css/projects.css">
     <link rel="stylesheet" href="css/people-teams.css">
     <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="../projects/css/issues.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css">
 
     <link type="text/css" rel="stylesheet" href="../localsite/css/base.css" id="/localsite/css/base.css" />
     <script src="../localsite/js/localsite.js?showheader=true"></script>
@@ -423,24 +425,6 @@
 
                     <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
 
-                    <div class="welcome-hero geo-hide">
-<!--                             
-                        <div style="float:right">
-                            <a href="https://bolt.new/" target="bolt"><img onclick="goWelcome()" style="cursor:pointer; width:130px;" src="img/xxxx"></a>
-                        </div>
-                         -->
-                        <div style="overflow:auto">
-                            <h1 class="hero-title">Collaborative Parter Tools</h1>
-                            <p class="hero-subtitle">The AI<!--ultimate--> collaboration platform for <!--code automation --> location-focused&nbsp;team&nbsp;projects</p><!--
-                            <button class="btn btn-secondary" onclick="showAuthModal()" style="margin-bottom:15px">Create Account</button>
-                            -->
-                            <!--
-                            <button class="btn btn-secondary" onclick="goPreferences()">Preferences</button>
-                            -->
-                        </div>
-
-                    </div>
-
                     <div style="float:right; margin-right:20px">
                         <!--<b><a href="admin">Admin Dashboard</a></b><br>-->
                     </div>
@@ -465,7 +449,7 @@
                                 <i data-feather="users"></i>
                             </div>
                             <h3 class="feature-title">Team Collaboration</h3>
-                            <p class="feature-desc">Connect with your vibe programmers, join innovation bond projects, and collaborate on AI implementations for realtime job creation.</p>
+                            <p class="feature-desc">Automate projects and collaborate on AI implementations for workforce development and realtime job creation.</p>
                         </div>
 
                         <div style="display:none" class="earth">
@@ -533,30 +517,16 @@
                         <h2 class="card-title">Dashboard</h2>
                         <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-green);">10</div>
-                                <div style="color: var(--text-secondary); font-size: 14px;">Active Projects</div>
-                            </div>
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-blue);">28</div>
-                                <div style="color: var(--text-secondary); font-size: 14px;">Pending Tasks</div>
-                            </div>
-                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); text-align: center;">
-                                <div style="font-size: 24px; font-weight: 600; color: var(--accent-orange);">89</div>
-                                <div style="color: var(--text-secondary); font-size: 14px;">Team Members</div>
-                            </div>
-                        </div>
-
                         <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
-                            <h4 style="margin-bottom: 12px;">Recent Activity</h4>
-                            <div style="font-size: 14px; color: var(--text-secondary);">
-                                <div style="margin-bottom: 8px;">• Sarah Johnson joined "Local Logistics Summit Planning"</div>
-                                <div style="margin-bottom: 8px;">• Team "Innovation Catalysts" completed milestone review</div>
-                            </div>
+                            <div id="issuesWidget"
+                                 data-container-id="issuesWidget"
+                                 data-github-owner="modelearth"
+                                 data-detect-current-folder="true"
+                                 data-multi-repo-roots="webroot,modelearth"
+                                 data-show-project="true"></div>
                         </div>
                         
-                        <div style="margin-top: 24px;">
+                        <div id="projectButtons" style="margin-top: 24px;">
                             <a href="https://github.com/modelearth/projects/issues/" class="btn btn-info" style="text-decoration: none;" target="_blank">
                                 <i data-feather="folder"></i>
                                 View Projects
@@ -2223,10 +2193,11 @@
         /* Compact styling for minimal mode */
         #github-auth-minimal {
             background: var(--bg-secondary, #fff);
-            border-bottom: 1px solid var(--border-light, #e5e7eb);
             padding: 8px 16px;
         }
     </style>
+
+    <script src="../projects/js/issues.js"></script>
 
 </body>
 </html>
