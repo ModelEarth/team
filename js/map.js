@@ -2899,6 +2899,12 @@ Do not include any explanation or additional text.`;
                 // Check if currently expanded
                 const isExpanded = heroContainer.contains(widgetDetails) && heroContainer.style.display !== 'none';
 
+                // Scroll to top BEFORE expanding
+                const listingsContainer = document.querySelector('.listings-scroll-container');
+                if (!isExpanded && listingsContainer) {
+                    listingsContainer.scrollTop = 0;
+                }
+
                 // Create a synthetic button element with mywidgetpanel attribute for myHero
                 const syntheticButton = document.createElement('button');
                 syntheticButton.className = 'fullscreen-toggle-btn';
@@ -2928,17 +2934,24 @@ Do not include any explanation or additional text.`;
                 e.target.textContent = newIsExpanded ? 'Collapse List' : 'Expand List';
 
                 // Remove/add height restriction on listings container
-                const listingsContainer = document.querySelector('.listings-scroll-container');
                 if (listingsContainer) {
                     if (newIsExpanded) {
                         listingsContainer.style.maxHeight = 'none';
-                        // Scroll to top when expanding
-                        setTimeout(() => {
-                            listingsContainer.scrollTo({ top: 0, behavior: 'smooth' });
-                        }, 100);
                     } else {
                         listingsContainer.style.maxHeight = '';
                     }
+                }
+            }
+        });
+
+        // Handle menuToggleItem clicks - hide parent menu
+        document.addEventListener('click', (e) => {
+            const menuItem = e.target.closest('.menuToggleItem');
+            if (menuItem) {
+                // Find the parent menu
+                const parentMenu = menuItem.closest('.menuToggleMenu');
+                if (parentMenu) {
+                    parentMenu.style.display = 'none';
                 }
             }
         });
@@ -3341,7 +3354,17 @@ Do not include any explanation or additional text.`;
                 btn.classList.remove('active');
                 const label = btn.dataset.label;
                 if (label) btn.textContent = label;
-                btn.style.display = hasMetaView ? 'none' : '';
+
+                // Special handling for "Even More" button
+                const isEvenMoreButton = targetId && targetId.includes('even');
+                if (isEvenMoreButton) {
+                    // Show "Even More" button when viewing "more" but hide when viewing "evenmore"
+                    const isViewingEvenMore = activeViews.includes('evenmore');
+                    btn.style.display = isViewingEvenMore ? 'none' : '';
+                } else {
+                    // Hide "More" button when any meta view is active
+                    btn.style.display = hasMetaView ? 'none' : '';
+                }
             }
         });
 
@@ -3788,13 +3811,12 @@ Do not include any explanation or additional text.`;
                     ${notesText ? `<div class="location-notes">${notesText}</div>` : ''}
                     ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
                 </div>
-                ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount || (isDevMode && evenMoreCount))) ? `
+                ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount)) ? `
                     <div class="details-more-actions" style="margin-top:10px">
                         ${viewDetailsButton}
                         ${hasNearby ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${nearbyId}" data-label="Nearby" data-toggle-type="independent">Nearby</button>` : ''}
                         ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
                         ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})" data-toggle-type="meta">More (${moreCount})</button>` : ''}
-                        ${(isDevMode && evenMoreCount) ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount})" data-toggle-type="meta">Even More (${evenMoreCount})</button>` : ''}
                         <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
                         ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
                     </div>
@@ -3827,6 +3849,11 @@ Do not include any explanation or additional text.`;
                                 <span class="location-value">${row.value}</span>
                             </div>
                         `).join('')}
+                        ${(evenMoreCount > moreCount) ? `
+                            <div style="margin-top:10px">
+                                <button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount - moreCount})" data-toggle-type="meta">Even More (${evenMoreCount - moreCount})</button>
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="location-meta" id="${evenMetaId}">
                         ${metaRows.unfilteredRows.map(row => `
@@ -4657,7 +4684,7 @@ Do not include any explanation or additional text.`;
         setTimeout(() => {
             if (typeof buildMenuConfig === 'function' && typeof document !== 'undefined') {
                 const menuItems = buildMenuConfig('Map', 'detailmap', '');
-                let menuHtml = `<div id="detailmapMenu" class="menuToggleMenu" style="display:none; position:fixed;">`;
+                let menuHtml = `<div id="detailmapMenu" class="menuToggleMenu" style="display:none;">`;
                 menuItems.forEach(item => {
                     if (item.divider) {
                         menuHtml += '<div class="menuToggleDivider"></div>';
@@ -4681,8 +4708,14 @@ Do not include any explanation or additional text.`;
                     existingMenu.remove();
                 }
 
-                // Add menu to body
-                document.body.insertAdjacentHTML('beforeend', menuHtml);
+                // Add menu to the map wrapper container
+                const mapWrapper = document.getElementById('detailmapWrapper');
+                if (mapWrapper) {
+                    mapWrapper.insertAdjacentHTML('beforeend', menuHtml);
+                } else {
+                    // Fallback to body if wrapper not found
+                    document.body.insertAdjacentHTML('beforeend', menuHtml);
+                }
 
                 // Setup menu item click handlers
                 const menu = document.getElementById('detailmapMenu');
@@ -4702,28 +4735,18 @@ Do not include any explanation or additional text.`;
                         }
                     });
 
-                    // Position menu relative to the toggle
-                    const positionMenu = () => {
+                    // Add click-outside handler to close menu
+                    document.addEventListener('click', (e) => {
                         const holder = document.getElementById('detailmapMenuToggleHolder');
-                        if (holder) {
-                            const rect = holder.getBoundingClientRect();
-                            menu.style.left = rect.right + 'px';
-                            menu.style.top = rect.bottom + 5 + 'px';
+                        if (!e.target.closest('#detailmapMenuToggleHolder') &&
+                            !e.target.closest('#detailmapMenu') &&
+                            menu.style.display !== 'none') {
+                            menu.style.display = 'none';
+                            if (typeof refreshPanelToggleIcon === 'function') {
+                                refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
+                            }
                         }
-                    };
-
-                    // Position on open
-                    const holder = document.getElementById('detailmapMenuToggleHolder');
-                    if (holder) {
-                        const observer = new MutationObserver((mutations) => {
-                            mutations.forEach((mutation) => {
-                                if (mutation.attributeName === 'style' && menu.style.display === 'block') {
-                                    positionMenu();
-                                }
-                            });
-                        });
-                        observer.observe(menu, { attributes: true });
-                    }
+                    });
                 }
             }
         }, 100);

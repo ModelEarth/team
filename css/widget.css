@@ -1072,9 +1072,13 @@ body {
   overflow: hidden;
 }
 
-.detailmap-placeholder,
+.detailmap-placeholder {
+  width: 100%;
+}
+
 .detailmap-wrapper {
   width: 100%;
+  position: relative;
 }
 
 #detailmap .leaflet-bottom.leaflet-left {
@@ -1248,7 +1252,7 @@ body {
 .location-meta {
   margin-top: 12px;
   display: grid;
-  gap: 6px;
+  gap: 1px;
   display: none;
 }
 
