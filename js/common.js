@@ -455,6 +455,10 @@ function createOSDetectionPanel(containerId) {
             <div id="command-display">python3 -m venv env
 source env/bin/activate
 npx @anthropic-ai/claude-code</div>
+            <div id="codex-reasoning-tip" style="display: none; margin-top: 8px; font-size: 0.9em;">
+                For a complex problem, turn on reasoning (not normally needed):
+                <pre><code>codex -c model_reasoning_effort="medium" "fix this bug"</code></pre>
+            </div>
             <div style="font-size: .8em;" id="cli-tips">
                 Since context grows is passed to Claude with each request, use a new terminal window when your context changes, or run /clear.<br>
                 Also, use /compact with instructions on what to keep. (These approaches will keep responses fast and will use fewer tokens.)
@@ -729,6 +733,10 @@ function initializeOSDetectionPanel() {
 
             // Update command display based on OS and radio button selection
             updateCommandsForOS(selectedOS, codexChecked, claudeCodeChecked);
+            const codexReasoningTip = document.getElementById('codex-reasoning-tip');
+            if (codexReasoningTip) {
+                codexReasoningTip.style.display = codexChecked ? 'block' : 'none';
+            }
         } else {
             // Hide the entire CLI commands section
             if (cliCommands) {
