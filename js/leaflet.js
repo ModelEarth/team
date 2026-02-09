@@ -1,188 +1,19 @@
 // Leaflet Map Integration for Team Projects
 // Displays listings data on an interactive map with customizable popups
 
-// Debug function that only shows messages on localhost with model.georgia
+// Debug function that only shows messages on localhost - uses inspect mode
 function debugAlert(message) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    //const isTestSite = Cookies.get('modelsite') === 'model.georgia';
-    
-    if (isLocalhost) { // && isTestSite
-        // Create or find debug holder div
-        let debugHolder = document.getElementById('debug-messages-holder');
-        if (!debugHolder) {
-            debugHolder = document.createElement('div');
-            debugHolder.id = 'debug-messages-holder';
-            debugHolder.style.cssText = 'position: fixed; bottom: 0; left: 0; right: 0; z-index: 10000; display: none;';
-            
-            // Create control buttons container first
-            const controlsDiv = document.createElement('div');
-            controlsDiv.className = 'control-buttons-container';
-            controlsDiv.style.cssText = 'position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 10001;';
-            
-            // Create the debug messages div
-            const debugDiv = document.createElement('div');
-            debugDiv.id = 'debug-messages';
-            debugDiv.style.cssText = 'background: rgba(0,0,0,0.8); color: white; padding: 10px; font-family: monospace; font-size: 12px; max-height: 54px; overflow-y: scroll; position: relative; cursor: ns-resize;';
-            
-            // Add drag handle
-            const dragHandle = document.createElement('div');
-            dragHandle.id = 'debug-drag-handle';
-            dragHandle.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; height: 8px; cursor: ns-resize; background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent); z-index: 10002;';
-            
-            // Append elements in order
-            debugHolder.appendChild(controlsDiv);
-            debugHolder.appendChild(debugDiv);
-            debugDiv.appendChild(dragHandle);
-            
-            document.body.appendChild(debugHolder);
-            
-            // Add control buttons if function is available
-            if (typeof addDebugControlButtons === 'function') {
-                addDebugControlButtons(debugHolder);
-            }
-            
-            // Add drag functionality
-            let isDragging = false;
-            let startY = 0;
-            let startHeight = 54;
-            
-            dragHandle.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startY = e.clientY;
-                startHeight = parseInt(window.getComputedStyle(debugDiv).getPropertyValue('max-height'));
-                dragHandle.style.cursor = 'row-resize';
-                debugDiv.style.cursor = 'row-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-            
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                
-                const deltaY = startY - e.clientY;
-                const newHeight = Math.max(54, Math.min(400, startHeight + deltaY));
-                debugDiv.style.maxHeight = newHeight + 'px';
-            });
-            
-            document.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    dragHandle.style.cursor = 'ns-resize';
-                    debugDiv.style.cursor = 'default';
-                    document.body.style.userSelect = '';
-                }
-            });
-        }
-        
-        // Get the actual debug messages div
-        const debugDiv = document.getElementById('debug-messages') || debugHolder.querySelector('#debug-messages');
-        
-        // Ensure debug messages are visible when a new entry is added
-        debugHolder.style.display = '';
 
-        // Add timestamp and message
-        const timestamp = new Date().toLocaleTimeString();
-        const messageElement = document.createElement('div');
-        messageElement.textContent = `${timestamp}: ${message}`;
-        debugDiv.appendChild(messageElement);
-        
-        // Keep only last 50 messages
-        while (debugDiv.children.length > 50) {
-            debugDiv.removeChild(debugDiv.firstChild);
-        }
-        
-        // Auto-scroll to bottom
-        debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-}
-/*
-waitForElm("#debug-container").then((elm) => {
-    alert("found");
-        //let debugContainer = document.getElementById('debug-container');
-        //addDebugControlButtons(debugContainer);
-});
-*/
-// Add control buttons to debug container (X, expand, copy)
-function addDebugControlButtons(debugContainer) {
-    const controlsDiv = debugContainer.querySelector('.control-buttons-container');
-    if (!controlsDiv || controlsDiv.querySelector('.debug-controls')) {
-        return; // Controls already added or no container found
-    }
-    
-    // Create controls wrapper
-    const controlsWrapper = document.createElement('div');
-    controlsWrapper.className = 'debug-controls';
-    
-    // Expand button
-    const expandBtn = document.createElement('button');
-    expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">north_west</span>';
-    expandBtn.title = 'Toggle expand';
-    expandBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        const currentHeight = parseInt(debugDiv.style.maxHeight);
-        if (currentHeight <= 54) {
-            debugDiv.style.maxHeight = '300px';
-            expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">south_east</span>';
+    if (isLocalhost) {
+        // Use the new inspect debug system if available
+        if (window.listingsApp && typeof window.listingsApp.displayDebugMessage === 'function') {
+            window.listingsApp.displayDebugMessage(message, 'info');
         } else {
-            debugDiv.style.maxHeight = '54px';
-            expandBtn.innerHTML = '<span class="material-icons" aria-hidden="true">north_west</span>';
+            // Fallback to console if listingsApp not ready yet
+            console.log('DEBUG:', message);
         }
-    };
-
-    // Close (X) button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '<span class="material-icons" aria-hidden="true">close</span>';
-    closeBtn.title = 'Close debug messages';
-    closeBtn.onclick = () => debugContainer.style.display = 'none';
-    
-    // Copy button
-    const copyBtn = document.createElement('button');
-    copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">content_copy</span>';
-    copyBtn.title = 'Copy debug messages';
-    copyBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        const messages = Array.from(debugDiv.children)
-            .filter(child => !child.id?.includes('debug-drag-handle'))
-            .map(child => child.textContent)
-            .join('\n');
-        navigator.clipboard.writeText(messages).then(() => {
-            copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">check</span>';
-            setTimeout(() => {
-                copyBtn.innerHTML = '<span class="material-icons" aria-hidden="true">content_copy</span>';
-            }, 1000);
-        });
-    };
-
-    const adminPath = (typeof window !== 'undefined' && window.mapDataAdminPath)
-        ? window.mapDataAdminPath
-        : '';
-    const adminLink = document.createElement('a');
-    if (adminPath) {
-        adminLink.className = 'debug-control-link';
-        adminLink.href = adminPath;
-        adminLink.target = '_blank';
-        adminLink.rel = 'noopener';
-        adminLink.title = 'Open data admin';
-        adminLink.innerHTML = '<span class="material-icons" aria-hidden="true">build</span>';
     }
-
-    // Create clear button
-    const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = '<span class="material-icons" aria-hidden="true">delete</span>';
-    clearBtn.title = 'Clear debug messages';
-    clearBtn.onclick = () => {
-        const debugDiv = debugContainer.querySelector('#debug-messages');
-        debugDiv.innerHTML = '<div id="debug-drag-handle" style="height: 3px; background: rgba(255,255,255,0.3); margin: 0 -10px 5px; cursor: ns-resize;"></div>';
-    };
-    
-    controlsWrapper.appendChild(expandBtn);
-    if (adminPath) {
-        controlsWrapper.appendChild(adminLink);
-    }
-    controlsWrapper.appendChild(clearBtn);
-    controlsWrapper.appendChild(copyBtn);
-    controlsWrapper.appendChild(closeBtn);
-    controlsDiv.appendChild(controlsWrapper);
 }
 
 window.mapIconUtils = window.mapIconUtils || {

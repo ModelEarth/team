@@ -422,10 +422,12 @@ pre code {
 /* Team tabs styling */
 .page-tab-container {
     background: #eee;
-    padding: 12px;
+    padding: 8px;
+    padding-left: 10px;
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
+    align-items: center;
     margin-bottom: 0;
     position: relative;
     border-radius: 8px 8px 0 0;
@@ -464,8 +466,15 @@ pre code {
     color: white;
     box-shadow: 0 2px 4px rgba(0,123,255,0.3);
 }
+.page-tab.btn-secondary {
+    background: #6B7280;
+    color: white;
+}
+.page-tab.btn-secondary:hover {
+    background: #4B5563;
+}
 .page-tab-line {
-    height: 5px;
+    height: 2px;
     background: #4b5563;
     background: #333;
     margin-top: -1px;

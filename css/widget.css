@@ -922,37 +922,6 @@ body {
     border: none;
 }
 
-/* Debug Controls Container */
-.debug-controls {
-    display: flex !important;
-    gap: 2px !important;
-    align-items: center !important;
-}
-
-/* Debug Controls Button Styles */
-.debug-controls button,
-.debug-controls .debug-control-link {
-    background: rgba(255,255,255,0.18) !important;
-    border: none !important;
-    color: white !important;
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 6px !important;
-    cursor: pointer !important;
-    font-size: 16px !important;
-    line-height: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    vertical-align: top !important;
-    text-decoration: none !important;
-}
-
-.debug-controls .material-icons {
-    font-size: 16px !important;
-    line-height: 1 !important;
-}
-
 /* From location.css */
 .location-section {
   margin-bottom: 32px;

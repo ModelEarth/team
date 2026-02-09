@@ -10,14 +10,19 @@ document.addEventListener('hashChangeEvent', function (elem) {
 }, false);
 function mapWidgetChange() {
     let hash = getHash();
-    //let currentMap = hash.map || window.param.map;
-    if (hash.map != priorHash.map) {
-        if (!hash.map) {
+    // Use show parameter if map is not present
+    let currentMap = hash.map || hash.show;
+    let priorMap = priorHash.map || priorHash.show;
+
+    console.log("currentMap:", currentMap, "priorMap:", priorMap);
+
+    if (currentMap != priorMap || !priorMap) {
+        if (!currentMap) {
             // Hide #mapwidget here. First rename #widgetwidget to something distinct
         } else {
             // Check if listingsApp exists before calling changeShow
-            if (hash.map && window.listingsApp && typeof window.listingsApp.changeShow === 'function') {
-                window.listingsApp.changeShow(hash.map);
+            if (window.listingsApp && typeof window.listingsApp.changeShow === 'function') {
+                window.listingsApp.changeShow(currentMap);
             } else {
                 console.log("Maybe no changeShow function yet. currentMap: " + currentMap);
             }
@@ -112,7 +117,9 @@ class ListingsDisplay {
         this.selectedListingIndex = null;
         this.detailMap = null;
         this.detailMapMarker = null;
-        
+        this.inspectMode = false; // Track inspect mode for debug messages
+        this.debugMessages = []; // Store debug messages
+
         // Configuration for paths
         this.pathConfig = {
             basePath: options.basePath || this.detectBasePath()
@@ -120,47 +127,6 @@ class ListingsDisplay {
         
         this.init();
         this.setupGlobalEventListeners();
-
-        // Initialize debug message queue watcher
-        ListingsDisplay.initDebugDivWatcher();
-    }
-
-    // Static properties for debug message queue
-    static debugMessageQueue = [];
-    static debugDivReady = false;
-    static debugDivCheckStarted = false;
-
-    // Initialize debug div watcher
-    static initDebugDivWatcher() {
-        if (this.debugDivCheckStarted) return;
-        this.debugDivCheckStarted = true;
-
-        const checkForDiv = () => {
-            const debugDiv = document.getElementById('debug-messages');
-            if (debugDiv) {
-                console.log('✅ debug-messages div found, flushing queue with', this.debugMessageQueue.length, 'messages');
-                this.debugDivReady = true;
-                this.flushDebugMessageQueue();
-            } else {
-                // Keep checking every 100ms
-                setTimeout(checkForDiv, 100);
-            }
-        };
-        checkForDiv();
-    }
-
-    static flushDebugMessageQueue() {
-        const debugDiv = document.getElementById('debug-messages');
-        if (!debugDiv || this.debugMessageQueue.length === 0) return;
-
-        console.log('📤 Flushing', this.debugMessageQueue.length, 'queued messages to debug div');
-
-        // Insert all queued messages (oldest first, so they appear in correct order)
-        this.debugMessageQueue.reverse().forEach(html => {
-            debugDiv.insertAdjacentHTML('afterbegin', html);
-        });
-
-        this.debugMessageQueue = [];
     }
 
     setupGlobalEventListeners() {
@@ -196,6 +162,25 @@ class ListingsDisplay {
                             this.showListingDetailsByIndex(resolvedIndex);
                         }
                     }
+                }
+            }
+
+            // Handle close debug messages button
+            if (e.target.id === 'close-inspect-debug' || e.target.closest('#close-inspect-debug')) {
+                this.inspectMode = false;
+                // Update menu item check state
+                const menu = document.getElementById('widgetDetailsMenu');
+                if (menu) {
+                    const inspectItem = menu.querySelector('[data-action="inspect"]');
+                    const checkMark = inspectItem?.querySelector('.menuToggleCheck');
+                    if (checkMark) {
+                        checkMark.style.display = 'none';
+                    }
+                }
+                // Remove debug card immediately instead of re-rendering
+                const debugCard = document.getElementById('inspect-debug-card');
+                if (debugCard) {
+                    debugCard.remove();
                 }
             }
 
@@ -405,7 +390,7 @@ class ListingsDisplay {
         
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const fromHash = urlParams.has('map'); // True or false
+        const fromHash = urlParams.has('map') || urlParams.has('show'); // True or false
 
         // TEMPORARY - So Location Visits can avoid maps on some pages.
         // Use param object (set in localsite.js) instead of checking script URL directly
@@ -570,7 +555,10 @@ class ListingsDisplay {
             data = this.sortDataAlphabetically(data, showConfig);
             console.log(`Sorted ${data.length} rows alphabetically`);
         }
-        
+
+        // Normalize coordinate fields - add standardized latitude/longitude to each row
+        data = this.normalizeCoordinateFields(data);
+
         this.listings = data;
         this.filteredListings = data;
         this.currentPage = 1;
@@ -1552,31 +1540,78 @@ Do not include any explanation or additional text.`;
     }
 
     displayDebugMessage(message, type = 'info') {
+        // Always log to console
+        console.log('DEBUG:', message);
 
         const colors = {
-            'success': { bg: '#d4edda', border: '#28a745', text: '#155724' },
-            'warning': { bg: '#fff3cd', border: '#ffc107', text: '#856404' },
-            'info': { bg: '#d1ecf1', border: '#17a2b8', text: '#0c5460' },
-            'error': { bg: '#f8d7da', border: '#dc3545', text: '#721c24' }
+            'success': { bg: '#155724', border: '#28a745', text: '#00ff00' },
+            'warning': { bg: '#856404', border: '#ffc107', text: '#ffeb3b' },
+            'info': { bg: '#0c5460', border: '#17a2b8', text: '#00ffff' },
+            'error': { bg: '#721c24', border: '#dc3545', text: '#ff4444' }
         };
 
         const color = colors[type] || colors.info;
 
+        const timestamp = new Date().toLocaleTimeString();
         const messageHtml = `
             <div style="border-left: 4px solid ${color.border}; padding: 8px 12px; margin: 5px 0; background: ${color.bg}; color: ${color.text}; font-family: monospace; font-size: 12px;">
-                ${message}
+                ${timestamp}: ${message}
             </div>
         `;
 
-        // Queue or display immediately depending on div readiness
-        const debugDiv = document.getElementById('debug-messages');
-        if (debugDiv && ListingsDisplay.debugDivReady) {
-            console.log('📢 Displaying debug message immediately:', message);
-            debugDiv.insertAdjacentHTML('afterbegin', messageHtml);
-        } else {
-            console.log('📥 Queueing debug message (div not ready yet):', message);
-            ListingsDisplay.debugMessageQueue.push(messageHtml);
+        // Store message in queue
+        if (!this.debugMessages) {
+            this.debugMessages = [];
         }
+        this.debugMessages.unshift(messageHtml); // Add to beginning
+
+        // Keep only last 50 messages
+        if (this.debugMessages.length > 50) {
+            this.debugMessages.pop();
+        }
+
+        // Insert into the inspect mode debug div if it exists and inspect mode is enabled
+        if (this.inspectMode) {
+            const debugDiv = document.getElementById('inspect-debug-messages');
+            if (debugDiv) {
+                debugDiv.insertAdjacentHTML('afterbegin', messageHtml);
+
+                // Keep only last 50 messages in the DOM too
+                while (debugDiv.children.length > 50) {
+                    debugDiv.removeChild(debugDiv.lastChild);
+                }
+            }
+        }
+    }
+
+    showDebugCard() {
+        // Show debug card immediately without re-rendering all listings
+        const listingsGrid = document.querySelector('.listings-grid');
+        if (!listingsGrid) return;
+
+        // Don't add if it already exists
+        if (document.getElementById('inspect-debug-card')) return;
+
+        // Get stored debug messages
+        const storedMessages = this.debugMessages ? this.debugMessages.join('') : '';
+        const messagesContent = storedMessages || '<div style="color: #00ff00; padding: 8px;">No debug messages yet. Messages will appear here as they are generated.</div>';
+
+        const debugCardHtml = `
+            <div class="listing-card" id="inspect-debug-card" style="background: #1a1a1a; color: #00ff00; border: 2px solid #00ff00; position: relative;">
+                <div class="listing-content">
+                    <h3 class="listing-title" style="color: #00ff00; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Debug Messages</span>
+                        <button id="close-inspect-debug" style="background: none; border: none; color: #00ff00; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Close debug messages">&times;</button>
+                    </h3>
+                    <div id="inspect-debug-messages" style="font-family: 'Courier New', monospace; font-size: 12px; max-height: 400px; overflow-y: auto;">
+                        ${messagesContent}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Insert at the beginning of the listings grid
+        listingsGrid.insertAdjacentHTML('afterbegin', debugCardHtml);
     }
 
     parseCSV(csvText, config = null) {
@@ -1693,51 +1728,82 @@ Do not include any explanation or additional text.`;
     }
 
     getFieldMapping() {
-        debugAlert(`🗺️ getFieldMapping()`); // Why is function called dozens of time?
-        // When allColumns exists, create a mapping from standard field names to allColumns field names
+        // Data is normalized on load, so coordinates always use standard field names
+        return {
+            latitude: 'Latitude',
+            longitude: 'Longitude'
+        };
+    }
+
+    normalizeCoordinateFields(data) {
+        // Add standardized Latitude/Longitude fields to each row
+        // This happens once per dataset load instead of repeatedly during rendering
+        if (!data || data.length === 0) {
+            return data;
+        }
+
+        // Get the field mapping from the first row
+        const sampleRow = data[0];
+        const fieldNames = Object.keys(sampleRow);
+        let latField = null;
+        let lngField = null;
+
+        // Check allColumns first if available
         if (this.config && this.config.allColumns && Array.isArray(this.config.allColumns)) {
-            const mapping = {};
-            const allColumns = this.config.allColumns;
-            
-            // Map standard geographic coordinate fields
-            allColumns.forEach(field => {
+            this.config.allColumns.forEach(field => {
                 const lowerField = field.toLowerCase();
                 if (lowerField === 'lat' || lowerField === 'latitude') {
-                    mapping.latitude = field;
+                    latField = field;
                 } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
-                    mapping.longitude = field;
+                    lngField = field;
                 }
             });
-            
-            return mapping;
-        }
-        
-        // Default mapping when no allColumns - detect from actual data fields
-        const mapping = {
-            latitude: 'latitude',
-            longitude: 'longitude'
-        };
-        
-        // If we have data, check actual field names for coordinate fields
-        if (this.listings && this.listings.length > 0) {
-            const sampleRow = this.listings[0];
-            const fieldNames = Object.keys(sampleRow);
-            
+        } else {
+            // Detect from actual field names
             fieldNames.forEach(field => {
                 const lowerField = field.toLowerCase();
                 if (lowerField === 'lat' || lowerField === 'latitude') {
-                    mapping.latitude = field;
-                    //debugAlert(`🗺️ FIELD MAPPING: Found latitude field: ${field}`);
+                    latField = field;
                 } else if (lowerField === 'lng' || lowerField === 'lon' || lowerField === 'longitude') {
-                    mapping.longitude = field;
-                    //debugAlert(`🗺️ FIELD MAPPING: Found longitude field: ${field}`);
+                    lngField = field;
                 }
             });
         }
-        
-        //debugAlert(`🗺️ FIELD MAPPING: Final mapping - latitude: '${mapping.latitude}', longitude: '${mapping.longitude}'`);
-        
-        return mapping;
+
+        // Add standardized fields and remove originals
+        if (latField && lngField) {
+            data.forEach(row => {
+                // Copy to standardized field names (capital L)
+                if (!row.hasOwnProperty('Latitude') && row.hasOwnProperty(latField)) {
+                    row.Latitude = row[latField];
+                    // Remove original field if it's different from 'Latitude'
+                    if (latField !== 'Latitude') {
+                        delete row[latField];
+                    }
+                }
+                if (!row.hasOwnProperty('Longitude') && row.hasOwnProperty(lngField)) {
+                    row.Longitude = row[lngField];
+                    // Remove original field if it's different from 'Longitude'
+                    if (lngField !== 'Longitude') {
+                        delete row[lngField];
+                    }
+                }
+            });
+
+            // Update allColumns config if it exists
+            if (this.config && this.config.allColumns && Array.isArray(this.config.allColumns)) {
+                const updatedColumns = this.config.allColumns.map(col => {
+                    if (col === latField && latField !== 'Latitude') return 'Latitude';
+                    if (col === lngField && lngField !== 'Longitude') return 'Longitude';
+                    return col;
+                });
+                this.config.allColumns = updatedColumns;
+            }
+
+            this.displayDebugMessage(`Normalized - removed ${latField} and ${lngField}, added Latitude and Longitude`, 'success');
+        }
+
+        return data;
     }
 
     getRecognizedFields(listing) {
@@ -2713,19 +2779,25 @@ Do not include any explanation or additional text.`;
     async changeShow(showKey, updateCache = true) {
         this.currentShow = showKey;
         this.searchPopupOpen = false;
-        
+
         // Dataset change - keep existing map, just update data
         debugAlert("🔄 Dataset change: Keeping existing map, will update data only");
-        
+
+        // Update the dropdown to reflect the current hash value
+        const showSelect = document.getElementById('mapDataSelect');
+        if (showSelect && showSelect.value !== showKey) {
+            showSelect.value = showKey;
+        }
+
         // Update URL hash
         //this.updateUrlHash(showKey); // Avoid because hash is driving
-        
+
         // Only save to cache if this is a user-initiated change
         if (updateCache) {
             this.saveCachedShow(showKey);
         }
         //alert("priorHash.map " + priorHash.map);
-        if (priorHash.map) { // Also need to allow for map-none-map sequence.
+        if (priorHash.map || priorHash.show) { // Also need to allow for map-none-map sequence.
             // Set flag to prevent render() from updating map (we'll do it manually like filtering)
             this.isDatasetChanging = true;
         }
@@ -3047,7 +3119,7 @@ Do not include any explanation or additional text.`;
         if (this.dataLoadError) {
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const errorDetails = isLocalhost ? this.getErrorDetails() : '';
-            
+
             return `
                 <div class="listing-error">
                     <div class="error-box">
@@ -3058,16 +3130,38 @@ Do not include any explanation or additional text.`;
                 </div>
             `;
         }
-        
+
         const currentPageListings = this.getCurrentPageListings();
         const listMaxFeaturedRows = this.getListFeaturedRowsMax();
-        
+
         // Check if this is summary view
         if (this.isSummaryView()) {
             return this.renderSummaryListings(currentPageListings);
         }
-        
-        return currentPageListings.map((listing, index) => {
+
+        // Prepend debug messages card if inspect mode is enabled
+        let debugCard = '';
+        if (this.inspectMode) {
+            // Get stored debug messages
+            const storedMessages = this.debugMessages ? this.debugMessages.join('') : '';
+            const messagesContent = storedMessages || '<div style="color: #00ff00; padding: 8px;">No debug messages yet. Messages will appear here as they are generated.</div>';
+
+            debugCard = `
+                <div class="listing-card" id="inspect-debug-card" style="background: #1a1a1a; color: #00ff00; border: 2px solid #00ff00; position: relative;">
+                    <div class="listing-content">
+                        <h3 class="listing-title" style="color: #00ff00; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Debug Messages</span>
+                            <button id="close-inspect-debug" style="background: none; border: none; color: #00ff00; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Close debug messages">&times;</button>
+                        </h3>
+                        <div id="inspect-debug-messages" style="font-family: 'Courier New', monospace; font-size: 12px; max-height: 400px; overflow-y: auto;">
+                            ${messagesContent}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const listingsHtml = currentPageListings.map((listing, index) => {
             const displayData = this.getDisplayData(listing);
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             const listingIndex = (this.currentPage - 1) * this.itemsPerPage + index;
@@ -3122,6 +3216,8 @@ Do not include any explanation or additional text.`;
                 </div>
             `;
         }).join('');
+
+        return debugCard + listingsHtml;
     }
 
     renderMapGallerySection() {
@@ -3470,7 +3566,8 @@ Do not include any explanation or additional text.`;
                         evenMetaId: 'location-meta-even',
                         metaGroup: 'map-gallery',
                         metaRows: this.getDetailMetaRows(listing),
-                        showMetaButtons: true
+                        showMetaButtons: true,
+                        showCroppedButton: true
                     })}
                 `;
 
@@ -3512,7 +3609,8 @@ Do not include any explanation or additional text.`;
                     evenMetaId: 'location-meta-even',
                     metaGroup: 'map-gallery',
                     metaRows: this.getDetailMetaRows(listing),
-                    showMetaButtons: true
+                    showMetaButtons: true,
+                    showCroppedButton: true
                 })}
             `;
 
@@ -3847,7 +3945,7 @@ Do not include any explanation or additional text.`;
                             <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
                             ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
                         </div>
-                        <button class="image-crop-toggle location-btn" type="button" data-crop-state="cropped">Cropped</button>
+                        ${options.showCroppedButton ? '<button class="image-crop-toggle location-btn" type="button" data-crop-state="cropped">Cropped</button>' : ''}
                     </div>
                 ` : ''}
                 ${hasNearby ? `
@@ -5655,7 +5753,9 @@ Do not include any explanation or additional text.`;
 
             // Setup panel menu for widgetDetails (List type)
             const detailsPanel = document.getElementById('widgetDetails');
-            if (detailsPanel && typeof addPanelMenu === 'function') {
+            // Check if menu toggle holder already exists to prevent duplicates
+            const existingDetailsToggle = document.getElementById('widgetDetailsMenuToggleHolder');
+            if (detailsPanel && typeof addPanelMenu === 'function' && !existingDetailsToggle) {
                 const detailsMenu = addPanelMenu({
                     panelType: 'List',
                     targetPanelId: 'widgetDetails',
@@ -5669,7 +5769,9 @@ Do not include any explanation or additional text.`;
 
             // Setup panel menu for widgetmapWrapper (Map type)
             const mapWrapper = document.getElementById('widgetmapWrapper');
-            if (mapWrapper && typeof addPanelMenu === 'function') {
+            // Check if menu toggle holder already exists to prevent duplicates
+            const existingMapToggle = document.getElementById('widgetmapWrapperMenuToggleHolder');
+            if (mapWrapper && typeof addPanelMenu === 'function' && !existingMapToggle) {
                 const mapMenu = addPanelMenu({
                     panelType: 'Map',
                     targetPanelId: 'widgetmapWrapper',
@@ -5680,7 +5782,9 @@ Do not include any explanation or additional text.`;
 
             // Setup panel menu for pageGallery (Content type)
             const galleryPanel = document.getElementById('pageGallery');
-            if (galleryPanel && typeof addPanelMenu === 'function') {
+            // Check if menu toggle holder already exists to prevent duplicates
+            const existingGalleryToggle = document.getElementById('pageGalleryMenuToggleHolder');
+            if (galleryPanel && typeof addPanelMenu === 'function' && !existingGalleryToggle) {
                 const galleryMenu = addPanelMenu({
                     panelType: 'Content',
                     targetPanelId: 'pageGallery',
@@ -5691,7 +5795,9 @@ Do not include any explanation or additional text.`;
 
             // Setup panel menu for location-section (View type)
             const locationSection = document.getElementById('location-section');
-            if (locationSection && typeof addPanelMenu === 'function') {
+            // Check if menu toggle holder already exists to prevent duplicates
+            const existingLocationToggle = document.getElementById('location-sectionMenuToggleHolder');
+            if (locationSection && typeof addPanelMenu === 'function' && !existingLocationToggle) {
                 const viewMenu = addPanelMenu({
                     panelType: 'View',
                     targetPanelId: 'location-section',
@@ -5871,8 +5977,8 @@ Do not include any explanation or additional text.`;
         if (typeof getHash === 'function') {
             hash = getHash();
         }
-        
-        let currentList = hash.map || window.param.map;
+
+        let currentList = hash.map || hash.show || window.param.map;
         return currentList;
     }
     

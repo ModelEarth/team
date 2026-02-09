@@ -2420,7 +2420,7 @@ function addControlButtons(parentDivId, options = {}) {
     const defaults = {
         showCloseButton: true,
         showExpandButton: true,
-        showClearButton: false, // Only show for specific divs like debug-messages
+        showClearButton: false, // Only show for specific divs when needed
         closeButtonText: '×',
         expandButtonText: '⛶',
         clearButtonText: '🗑️',
@@ -2483,12 +2483,8 @@ function addControlButtons(parentDivId, options = {}) {
             if (config.onClear && typeof config.onClear === 'function') {
                 config.onClear(parentDiv, clearButton);
             } else {
-                // Default clear behavior - clear text content
-                if (parentDivId === 'debug-messages') {
-                    parentDiv.innerHTML = '';
-                } else {
-                    parentDiv.textContent = '';
-                }
+                // Default clear behavior - clear content
+                parentDiv.innerHTML = '';
             }
         });
         
