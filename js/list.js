@@ -833,35 +833,47 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
     }
 }
 
+// Cache for show.json data to avoid duplicate fetches
+let showJsonCache = null;
+let showJsonCachePromise = null;
+
 // Load configuration from show.json for geo sites
 async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
-    // Calculate the correct relative path to show.json based on current location
-    let SHOW_JSON_URL;
-    const currentPath = window.location.pathname;
-    
-    if (currentPath.includes('/team/projects')) {
-        // Already in team/projects directory, so show.json is in map/ subdirectory
-        SHOW_JSON_URL = 'map/show.json';
-    } else if (currentPath.includes('/team/')) {
-        // In team directory, so show.json is in projects/map/ subdirectory
-        SHOW_JSON_URL = 'projects/map/show.json';
-    } else {
-        // Outside team directory, use full relative path
-        SHOW_JSON_URL = 'team/projects/map/show.json';
-    }
-    
-    console.log(`Calculated show.json path: ${SHOW_JSON_URL} (from ${currentPath})`);
-    
+    // Use absolute path with domain for widget compatibility
+    const SHOW_JSON_URL = `${window.location.origin}/display/data/data.json`;
+
+    console.log(`Calculated show.json path: ${SHOW_JSON_URL}`);
+
     try {
-        console.log('Loading from show.json file...');
-        const response = await fetch(SHOW_JSON_URL);
-        
-        if (!response.ok) {
-            throw new Error(`show.json not available: ${response.status} ${response.statusText}`);
+        let showConfigs;
+
+        // Return cached data if available
+        if (showJsonCache) {
+            console.log('Using cached show.json data');
+            showConfigs = showJsonCache;
+        } else if (showJsonCachePromise) {
+            // If a fetch is already in progress, wait for it
+            console.log('Waiting for in-progress show.json fetch...');
+            showConfigs = await showJsonCachePromise;
+        } else {
+            // Start new fetch and cache the promise
+            console.log('Loading from show.json file...');
+            showJsonCachePromise = fetch(SHOW_JSON_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`show.json not available: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    showJsonCache = data;
+                    showJsonCachePromise = null;
+                    return data;
+                });
+
+            showConfigs = await showJsonCachePromise;
+            console.log('Successfully loaded show.json');
         }
-        
-        const showConfigs = await response.json();
-        console.log('Successfully loaded show.json');
         
         // Process show.json entries and add to dropdown
         const customOption = fileSelect.querySelector('option[value="custom"]');
@@ -882,8 +894,9 @@ async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
             if (config.dataset) {
                 let datasetUrl = config.dataset;
                 
-                // If dataset is relative (doesn't start with http/https), make it relative to show.json location
-                if (!datasetUrl.startsWith('http')) {
+                // If dataset is relative (doesn't start with http/https or /), make it relative to show.json location
+                // Paths starting with / are absolute from webroot and should not be modified
+                if (!datasetUrl.startsWith('http') && !datasetUrl.startsWith('/')) {
                     // Get the directory path of show.json and combine with dataset path
                     const showJsonDir = SHOW_JSON_URL.substring(0, SHOW_JSON_URL.lastIndexOf('/'));
                     datasetUrl = showJsonDir + '/' + datasetUrl;

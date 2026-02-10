@@ -1614,6 +1614,17 @@ Do not include any explanation or additional text.`;
         listingsGrid.insertAdjacentHTML('afterbegin', debugCardHtml);
     }
 
+    populateDebugCard() {
+        // Populate the debug card with actual messages
+        const debugMessagesDiv = document.getElementById('inspect-debug-messages');
+        if (!debugMessagesDiv) return;
+
+        const storedMessages = this.debugMessages ? this.debugMessages.join('') : '';
+        const messagesContent = storedMessages || '<div style="color: #00ff00; padding: 8px;">No debug messages yet. Messages will appear here as they are generated.</div>';
+
+        debugMessagesDiv.innerHTML = messagesContent;
+    }
+
     parseCSV(csvText, config = null) {
         const lines = this.splitCSVIntoLines(csvText.trim());
         
@@ -2872,7 +2883,7 @@ Do not include any explanation or additional text.`;
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
-                goHash({ map: e.target.value, id: '' });
+                goHash({ show: e.target.value, id: '' });
             });
         }
 
@@ -3163,6 +3174,7 @@ Do not include any explanation or additional text.`;
 
         const listingsHtml = currentPageListings.map((listing, index) => {
             const displayData = this.getDisplayData(listing);
+            const recognized = this.getRecognizedFields(listing);
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             const listingIndex = (this.currentPage - 1) * this.itemsPerPage + index;
             const listingHashId = this.getListingHashId(listing, listingIndex);
@@ -3567,7 +3579,7 @@ Do not include any explanation or additional text.`;
                         metaGroup: 'map-gallery',
                         metaRows: this.getDetailMetaRows(listing),
                         showMetaButtons: true,
-                        showCroppedButton: true
+                        showCroppedButton: galleryImages.length >= 2
                     })}
                 `;
 
@@ -3610,7 +3622,7 @@ Do not include any explanation or additional text.`;
                     metaGroup: 'map-gallery',
                     metaRows: this.getDetailMetaRows(listing),
                     showMetaButtons: true,
-                    showCroppedButton: true
+                    showCroppedButton: galleryImages.length >= 2
                 })}
             `;
 
@@ -5729,7 +5741,7 @@ Do not include any explanation or additional text.`;
             this.attachSearchInputListener();
             if (showSelect) {
                 showSelect.addEventListener('change', (e) => {
-                    goHash({'map':e.target.value});
+                    goHash({'show':e.target.value});
                 });
             }
             

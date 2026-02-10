@@ -1731,16 +1731,17 @@
             margin-bottom: 4px;
             font-size: 16px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
+            line-height: 1.2;
         }
         
         .columns-checkbox {
             width: 18px;
             height: 18px;
             margin-right: 8px;
-            vertical-align: middle;
             cursor: pointer;
             z-index: 10;
+            flex-shrink: 0;
         }
         
         /* 3-dot menu for participant cards */
@@ -1769,7 +1770,7 @@
         .columns-menu-dropdown {
             position: absolute;
             top: 100%;
-            right: 26px;
+            right: 0;
             background: var(--bg-secondary);
             border: 1px solid var(--border-light);
             border-radius: var(--radius-md);
@@ -1777,13 +1778,13 @@
             min-width: 150px;
             z-index: 999999;
             display: none;
-            margin-top: -20px;
+            margin-top: 4px;
         }
 
         /* Specific positioning for table view dropdown */
         .participants-table .columns-menu-dropdown {
-            right: 32px;
-            margin-top: -34px;
+            right: 0;
+            margin-top: 4px;
         }
         
         
@@ -2025,8 +2026,9 @@
             font-weight: 700;
             margin-bottom: 8px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            line-height: 1.2;
         }
         
         .gallery-info {
@@ -2252,8 +2254,8 @@
         
         .status-checkbox {
             margin-right: 8px;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
         }
         
@@ -11462,16 +11464,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             if (isGeoSite()) {
                 // For geo sites, point to show.json
                 const currentPath = window.location.pathname;
-                let showJsonPath;
-                
-                if (currentPath.includes('/team/projects')) {
-                    showJsonPath = 'map/show.json';
-                } else if (currentPath.includes('/team/')) {
-                    showJsonPath = 'projects/map/show.json';
-                } else {
-                    showJsonPath = 'team/projects/map/show.json';
-                }
-                
+                // Use absolute path with domain for widget compatibility
+                const showJsonPath = `${window.location.origin}/display/data/data.json`;
+
                 allListsOption.setAttribute('data-url', showJsonPath);
                 console.log('Set "all" option data-url for geo site to:', showJsonPath);
             } else {
@@ -11832,17 +11827,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             if (isGeoSite()) {
                 console.log('Geo site detected - loading list of lists from show.json');
 
-                // Calculate the correct relative path to show.json
-                let showJsonPath;
-                const currentPath = window.location.pathname;
-
-                if (currentPath.includes('/team/projects')) {
-                    showJsonPath = 'map/show.json';
-                } else if (currentPath.includes('/team/')) {
-                    showJsonPath = 'projects/map/show.json';
-                } else {
-                    showJsonPath = 'team/projects/map/show.json';
-                }
+                // Use absolute path with domain for widget compatibility
+                const showJsonPath = `${window.location.origin}/display/data/data.json`;
 
                 console.log('Loading show.json from:', showJsonPath);
 
@@ -11912,7 +11898,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     })
                     .catch(error => {
                         console.error('Error loading show.json:', error);
-                        document.getElementById('loadStatus').innerHTML = `<div class="error-message">Error loading lists: ${error.message}</div>`;
+                        document.getElementById('loadStatus').innerHTML = `<div class="error-message">Error loading lists: ${error.message} - Path: ${showJsonPath}</div>`;
                         document.getElementById('loadStatus').style.display = 'block';
                     });
 

@@ -1068,13 +1068,17 @@ body {
   padding-left: 10px;
 }
 
-#detailmap .mapPopButton {
+
+.mapPopButton {
   padding: 4px;
   min-height: 22px;
   font-size: 12px;
   border-radius: 4px;
+  background: #555 !important;
 }
-
+#widgetmap .mapPopButton {
+  min-height: 26px;
+}
 #detailmap .map-style-selector {
   position: relative;
   display: flex;
