@@ -4234,10 +4234,45 @@ Do not include any explanation or additional text.`;
         `;
     }
 
-    ensureGalleryImageModal() {
-        const modal = document.getElementById("gallery-image-modal");
+    async ensureGalleryImageModal() {
+        let modal = document.getElementById("gallery-image-modal");
+
+        if (modal && modal.dataset.ready === "true") {
+            return modal;
+        }
+
         if (!modal) {
-            return null;
+            modal = document.createElement("div");
+            modal.id = "gallery-image-modal";
+            modal.className = "product-image-modal";
+            modal.setAttribute("aria-hidden", "true");
+            modal.innerHTML = `
+                <div class="product-image-modal-backdrop"></div>
+                <div class="product-image-modal-content" role="dialog" aria-modal="true" aria-label="Gallery image preview">
+                    <button type="button" class="product-image-modal-close" aria-label="Close image">
+                        <span class="material-icons">close</span>
+                    </button>
+                    <img class="product-image-modal-img" alt="Gallery image preview">
+                    <div class="product-image-modal-caption" aria-live="polite">
+                        <span class="product-image-modal-caption-text"></span>
+                        <button type="button" class="product-image-modal-caption-toggle" aria-expanded="false">More</button>
+                    </div>
+                    <div class="product-image-modal-nav" aria-hidden="true">
+                        <button type="button" class="product-image-modal-prev" aria-label="Previous image">
+                            <span class="material-icons">chevron_left</span>
+                        </button>
+                        <span class="product-image-modal-counter">1 / 1</span>
+                        <button type="button" class="product-image-modal-next" aria-label="Next image">
+                            <span class="material-icons">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        if (modal.dataset.ready === "true") {
+            return modal;
         }
 
         const closeButton = modal.querySelector(".product-image-modal-close");
@@ -4245,10 +4280,6 @@ Do not include any explanation or additional text.`;
         const prevButton = modal.querySelector(".product-image-modal-prev");
         const nextButton = modal.querySelector(".product-image-modal-next");
         const captionToggle = modal.querySelector(".product-image-modal-caption-toggle");
-
-        if (modal.dataset.ready === "true") {
-            return modal;
-        }
 
         const closeModal = () => {
             modal.classList.remove("active");
@@ -4354,17 +4385,16 @@ Do not include any explanation or additional text.`;
         this.adjustGalleryImageModalNav(modal);
     }
 
-    openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
-        alert('openGalleryImageModal called with imageUrl: ' + imageUrl);
-
+    async openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
         if (!imageUrl) {
             return;
         }
 
-        const modal = this.ensureGalleryImageModal();
+        const modal = await this.ensureGalleryImageModal();
         if (!modal) {
             return;
         }
+
         const hasObjects = Array.isArray(imageList) && imageList.length && typeof imageList[0] === 'object';
         const dataList = hasObjects ? imageList : [];
         const list = hasObjects
