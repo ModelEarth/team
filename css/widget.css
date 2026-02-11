@@ -924,6 +924,7 @@ body {
 
 /* From location.css */
 .location-section {
+  margin-top: 16px;
   margin-bottom: 32px;
   padding: 24px;
   background: #f8fafc;

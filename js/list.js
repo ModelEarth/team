@@ -840,7 +840,7 @@ let showJsonCachePromise = null;
 // Load configuration from show.json for geo sites
 async function loadShowJsonConfig(fileSelect, hashParam = 'feed') {
     // Use absolute path with domain for widget compatibility
-    const SHOW_JSON_URL = `${window.location.origin}/display/data/data.json`;
+    const SHOW_JSON_URL = `${window.location.origin}/display/data/show.json`;
 
     console.log(`Calculated show.json path: ${SHOW_JSON_URL}`);
 
@@ -1404,7 +1404,11 @@ async function loadUnifiedData(url, options = {}) {
     const { forceCorsProxy = false, API_BASE = 'http://localhost:8081/api', allFields = null, config = null, forceCSV = false } = options;
 
     try {
+        const listName = (typeof getHash === 'function') ? (getHash().list || 'Unknown') : 'Unknown';
+        const isSecondaryLoad = url.includes('people.env') || url.includes('state') || url.includes('coordinates');
+
         console.log('=== LOAD UNIFIED DATA DEBUG ===');
+        console.log('List parameter:', listName, isSecondaryLoad ? '(secondary merge)' : '(main load)');
         console.log('Loading unified data from:', url);
         console.log('forceCorsProxy:', forceCorsProxy);
         console.log('forceCSV:', forceCSV);

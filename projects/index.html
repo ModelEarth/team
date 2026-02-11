@@ -11465,7 +11465,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 // For geo sites, point to show.json
                 const currentPath = window.location.pathname;
                 // Use absolute path with domain for widget compatibility
-                const showJsonPath = `${window.location.origin}/display/data/data.json`;
+                const showJsonPath = `${window.location.origin}/display/data/show.json`;
 
                 allListsOption.setAttribute('data-url', showJsonPath);
                 console.log('Set "all" option data-url for geo site to:', showJsonPath);
@@ -11828,7 +11828,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 console.log('Geo site detected - loading list of lists from show.json');
 
                 // Use absolute path with domain for widget compatibility
-                const showJsonPath = `${window.location.origin}/display/data/data.json`;
+                const showJsonPath = `${window.location.origin}/display/data/show.json`;
 
                 console.log('Loading show.json from:', showJsonPath);
 
@@ -12504,8 +12504,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 checkShowReposFromURL();
 
                 // Handle list parameter changes - only load data if list actually changed
-                if (listParam && listParam !== currentLoadedList) {
-                    console.log('HASHCHANGE: List changed from', currentLoadedList, 'to', listParam);
+                // Use priorHash to detect if list parameter actually changed (not just other hash params)
+                const priorListParam = window.priorHash?.list;
+                if (listParam && listParam !== priorListParam) {
+                    console.log('HASHCHANGE: List changed from', priorListParam, 'to', listParam);
                     currentLoadedList = listParam;
 
                     // Hide detail view when list changes

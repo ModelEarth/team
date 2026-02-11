@@ -330,12 +330,12 @@ class ListingsDisplay {
         if (typeof local_app !== 'undefined' && typeof local_app.web_root === 'function') {
             const web_root = local_app.web_root();
             if (web_root) {
-                // Ensure trailing slash and append team/projects/map/
+                // Ensure trailing slash and append display/data/
                 const baseRoot = web_root.endsWith('/') ? web_root : web_root + '/';
-                return baseRoot + 'team/projects/map/';
+                return baseRoot + 'display/data/';
             }
         }
-        
+
         // Fallback to using this.pathConfig.basePath if local_app.web_root() is not available
         return this.pathConfig.basePath;
     }
@@ -384,10 +384,10 @@ class ListingsDisplay {
     }
 
     async init() {
-        
+
         //this.showLoadingState("Loading Dataset Choices");
         await this.loadShowConfigs();
-        
+
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
         const fromHash = urlParams.has('map') || urlParams.has('show'); // True or false
@@ -395,7 +395,7 @@ class ListingsDisplay {
         // TEMPORARY - So Location Visits can avoid maps on some pages.
         // Use param object (set in localsite.js) instead of checking script URL directly
         //const loadMapDataParam = (typeof param !== 'undefined' && param.showmap === 'true') || (typeof param !== 'undefined' && param.showmap === true);
-        
+
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
@@ -429,77 +429,116 @@ class ListingsDisplay {
         `;
     }
 
+    getNotFoundMessage(listName) {
+        return `
+            <span class="material-icons" style="font-size: 48px; color: #999;">search_off</span>
+            <p>List ${listName} not found.</p>
+        `;
+    }
+
+    async syncDetailMapZoomFromWidget() {
+        // Only run once on initial load
+        if (this.detailMapZoomSynced) {
+            return;
+        }
+        this.detailMapZoomSynced = true;
+
+        // Wait for widget map to be ready
+        if (!window.leafletMap || !window.leafletMap.map) {
+            return;
+        }
+
+        // Check if there's a detail currently showing
+        const hash = typeof getHash === 'function' ? getHash() : {};
+        const hasDetail = hash.id || hash.detail;
+
+        if (!hasDetail || !this.detailMap) {
+            return;
+        }
+
+        // Get widget map zoom level
+        const widgetZoom = window.leafletMap.map.getZoom();
+
+        // If widget map is zoomed out (level 1 or 2), adjust detail map to level 3
+        if (widgetZoom === 1 || widgetZoom === 2) {
+            const center = this.detailMap.getCenter();
+            this.detailMap.setView(center, 3, { animate: true });
+            console.log('Detail map zoom synced from widget: widget zoom=' + widgetZoom + ', detail zoom set to 3');
+        }
+    }
+
     async loadShowConfigs() {
         // Check for source parameter from param object (set in localsite.js)
         let listsJson = (typeof param !== 'undefined' && param.source) ? param.source : null;
-        
+
         // If no source parameter, use default logic
         if (!listsJson) {
-            listsJson = "trade.json"
-            if (Cookies.get('modelsite')?.indexOf("geo") >= 0 || 
-                location.host.indexOf("geo") >= 0 || 
-                location.host.indexOf("locations.pages.dev") >= 0) {
-                listsJson = '/display/data/data.json'
-            }
+            listsJson = "/team/projects/map/trade.json";if(Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) { listsJson = "/display/data/show.json" }
         }
         const configUrl = this.resolveConfigUrl(listsJson);
         console.log('map.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${configUrl}`);
         const response = await fetch(configUrl);
-        
+
         if (response.ok) {
             this.showConfigs = await response.json();
             return;
+        } else {
+            this.showConfigs = {}; // Blank response.
+            return;
         }
+        // message here maybe
 
-        // Fallback to embedded show.json configuration
-        this.showConfigs = {
-                "cities": {
-                    "shortTitle": "Team Locations (fallback)",
-                    "listTitle": "Team Locations (fallback)",
-                    "dataTitle": "Team Locations (fallback)",
-                    "datatype": "csv",
-                    "dataset": "cities.csv",
-                    "markerType": "google",
-                    "nameColumn": "city",
-                    "featuredColumns": ["City", "Population", "County"],
-                    "search": {
-                        "In City": "City",
-                        "In County Name": "County"
-                    }
-                }
-            };
     }
 
     async loadShowData() {
         console.log("loadShowData: " + this.currentShow);
         this.loading = true;
         this.dataLoaded = false;
-        
+
         let showConfig = this.showConfigs[this.currentShow];
-        
+
         let alwaysLoadSomething = false;
         if (window.param.showmap != "false") {
             alwaysLoadSomething = true;
         }
+
+        // If showConfig is found, clear any previous error display
+        if (showConfig) {
+            this.dataLoadError = null;
+            this.error = null;
+            // Check if we're recovering from an error (no widget content exists)
+            const widgetContent = document.getElementById('widgetContent');
+            if (!widgetContent) {
+                // Force full render by clearing the dataset changing flag
+                this.recoveringFromError = true;
+            }
+            // Clear error message from spinner if it exists
+            const spinner = document.querySelector("#mapwidget .loading");
+            if (spinner && spinner.innerHTML.includes('not found')) {
+                spinner.innerHTML = '<div class="spinner"></div><div>Loading listings...</div>';
+            }
+        }
+
         //alert(alwaysLoadSomething); // Hmm, this is also true for tabs. Figure out if we need alwaysLoadSomething.
         if (!showConfig && alwaysLoadSomething) { // AVOIDING, ELSE TABS ALWAYS SHOW THE FIRST MAP
-            
-            // If requested list not found, use the first available list
-            const availableKeys = Object.keys(this.showConfigs);
-            if (availableKeys.length > 0) {
-                const firstKey = availableKeys[0];
-                console.warn(`List "${this.currentShow}" not found, using "${firstKey}" instead`);
-                this.currentShow = firstKey;
-                showConfig = this.showConfigs[firstKey];
-                
-                // Update URL hash to reflect the actual list being used
-                this.updateUrlHash(firstKey);
-            } else {
-                this.error = `No show configurations available`;
-                this.loading = false;
-                return;
-            }
+
+            // Clear the prior display and show error message
+            this.listings = [];
+            this.filteredListings = [];
+
+            // Set error message (reused by renderListings)
+            this.dataLoadError = this.getNotFoundMessage(this.currentShow);
+            this.loading = false;
+
+            // Wait for and replace the loading spinner with error message
+            waitForElm("#mapwidget .loading").then((spinner) => {
+                if (spinner) {
+                    spinner.innerHTML = this.getNotFoundMessage(this.currentShow);
+                }
+            });
+
+            return;
         }
         
         // If no showConfig found and alwaysLoadSomething is false, exit early
@@ -4788,12 +4827,12 @@ Do not include any explanation or additional text.`;
         control.onAdd = () => {
             const div = L.DomUtil.create('div', 'detail-map-expand-toggle');
             div.innerHTML = `
-                <div id="detailmapMenuToggleHolder" class="iconPadding menuToggleHolderMap"
+                <div id="detailmapMenuToggleHolder" class="menuIconHolder menuToggleHolderMap"
                      style="position:relative; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;"
                      title="Map menu">
-                    <i class="material-icons circle-bg" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:24px;">circle</i>
-                    <i id="detailmapMenuToggleIcon" class="material-icons"
-                       style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:18px;">arrow_right</i>
+                    <i class="material-icons circle-bg" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);">circle</i>
+                    <i id="detailmapMenuToggleIcon" class="material-icons menu-toggle-arrow"
+                       style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);">arrow_right</i>
                 </div>
             `;
 
@@ -5073,7 +5112,21 @@ Do not include any explanation or additional text.`;
             }
         }
 
-        this.detailMap.setView([coords.lat, coords.lng], 12);
+        // Determine detail map zoom level
+        let detailZoom = 12; // Default zoom level
+
+        // Check if we're coming from list view (no prior detail)
+        const hadPriorDetail = window.priorHash && (window.priorHash.id || window.priorHash.detail);
+
+        if (!hadPriorDetail && window.leafletMap && window.leafletMap.map) {
+            const widgetZoom = window.leafletMap.map.getZoom();
+            // If widget map is zoomed out (level 1 or 2), zoom detail map to level 3
+            if (widgetZoom === 1 || widgetZoom === 2) {
+                detailZoom = 3;
+            }
+        }
+
+        this.detailMap.setView([coords.lat, coords.lng], detailZoom);
         adjustDetailMapHeight();
         if (!this.detailMapRecenteringRequested) {
             this.detailMapRecenteringRequested = true;
@@ -5081,7 +5134,7 @@ Do not include any explanation or additional text.`;
                 requestAnimationFrame(() => {
                     adjustDetailMapHeight();
                     this.detailMap.invalidateSize();
-                    this.detailMap.setView([coords.lat, coords.lng], 12, { animate: false });
+                    this.detailMap.setView([coords.lat, coords.lng], detailZoom, { animate: false });
                 });
             };
             if (this.detailMapTileLayer?.once) {
@@ -5203,7 +5256,7 @@ Do not include any explanation or additional text.`;
         }
         
         // Show config source
-        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? '/display/data/data.json' : 'trade.json';
+        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? '/display/data/show.json' : 'trade.json';
         const configPath = this.resolveConfigUrl(listsJson);
         details += `• Config file: <code>${configPath}</code><br>`;
         
@@ -5537,13 +5590,18 @@ Do not include any explanation or additional text.`;
 
     render() {
         debugAlert('🔍 RENDER() called');
-        
+
         console.trace('Render call stack:');
         // Force clear loading state if we have data
         if (this.dataLoaded && this.listings && this.listings.length > 0 && this.loading) {
             this.loading = false;
         }
-        if (!(this.isFilteringInProgress || this.isDatasetChanging)) {
+        // Allow full render when recovering from error, even if dataset is changing
+        const forceFullRender = this.recoveringFromError;
+        if (forceFullRender) {
+            this.recoveringFromError = false; // Reset flag
+        }
+        if (!(this.isFilteringInProgress || this.isDatasetChanging) || forceFullRender) {
             //alert("render() overwrites map")
             const mapwidget = document.getElementById('mapwidget');
             if (mapwidget) mapwidget.style.display = 'block';
@@ -5945,6 +6003,11 @@ Do not include any explanation or additional text.`;
                             getMapListings: () => this.getCurrentPageListings()
                         };
                         window.leafletMap.updateFromListingsApp(limitedListingsApp);
+
+                        // Async: After widget map loads, sync detail map zoom if needed
+                        setTimeout(() => {
+                            this.syncDetailMapZoomFromWidget();
+                        }, 50);
                     //}, 100);
                 }
             } catch (error) {
@@ -5964,9 +6027,9 @@ Do not include any explanation or additional text.`;
             console.log(`Skipping hash update - using embedded map parameter: ${showKey}`);
             return;
         }
-        
-        console.log("Add #map=" + showKey);
-        updateHash({'map':showKey}); // Avoid triggering hash event, like goHash() would.
+
+        console.log("Add #show=" + showKey);
+        goHash({'show':showKey}); // Trigger hash event so other components can respond
 
         /*
         const currentHash = window.location.hash.substring(1);
