@@ -197,14 +197,14 @@ class ListingsDisplay {
                 if (isDetailView) {
                     // In detail view: use hash-based navigation
                     if (toggleType === 'meta-less') {
-                        // Less button clicked - remove all meta views from hash
+                        // Less button clicked - remove all meta views and independent views from hash
                         if (typeof goHash === 'function' && typeof getHash === 'function') {
                             const hash = getHash();
                             const currentView = hash?.view || '';
                             const viewArray = currentView ? currentView.split(',').map(v => v.trim()).filter(Boolean) : [];
 
-                            // Remove 'more' and 'evenmore' from the array
-                            const filteredArray = viewArray.filter(v => v !== 'more' && v !== 'evenmore');
+                            // Remove 'more', 'evenmore', 'nearby', and 'airports' from the array
+                            const filteredArray = viewArray.filter(v => v !== 'more' && v !== 'evenmore' && v !== 'nearby' && v !== 'airports');
 
                             const newViewValue = filteredArray.join(',');
                             goHash({ view: newViewValue });
@@ -257,6 +257,15 @@ class ListingsDisplay {
                         metaTargets.forEach(section => section.classList.remove('expanded'));
                         metaToggles.forEach(btn => btn.style.display = '');
                         if (lessBtn) lessBtn.style.display = 'none';
+
+                        // Also close independent sections (Nearby, Airports)
+                        const independentToggles = container ? Array.from(container.querySelectorAll('.location-more-toggle[data-toggle-type="independent"]')) : [];
+                        independentToggles.forEach(btn => {
+                            const targetId = btn.dataset.target;
+                            const section = targetId ? document.getElementById(targetId) : null;
+                            if (section) section.classList.remove('expanded');
+                            btn.classList.remove('active');
+                        });
                     } else if (toggleType === 'meta') {
                         // Meta button clicked - show this section, hide meta buttons, show less button
                         if (target) {
@@ -3740,8 +3749,8 @@ Do not include any explanation or additional text.`;
                 // Remove leading &nbsp; if present
                 return formatted.replace(/^&nbsp;\s*/, '');
             }
-            const truncated = textStr.substring(0, maxLength);
-            const remaining = textStr.substring(maxLength);
+            const truncated = textStr.substring(0, maxLength).trimEnd();
+            const remaining = textStr.substring(maxLength).trimStart();
             const uniqueId = `more-${Math.random().toString(36).substr(2, 9)}`;
             const formattedTruncated = this.formatFieldValue(truncated).replace(/^&nbsp;\s*/, '');
             const formattedRemaining = this.formatFieldValue(remaining).replace(/^&nbsp;\s*/, '');
@@ -3992,7 +4001,7 @@ Do not include any explanation or additional text.`;
                             ${viewDetailsButton}
                             ${hasNearby ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${nearbyId}" data-label="Nearby" data-toggle-type="independent">Nearby</button>` : ''}
                             ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
-                            ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More (${moreCount})" data-toggle-type="meta">More (${moreCount})</button>` : ''}
+                            ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More${isDevMode ? ' (' + moreCount + ')' : ''}" data-toggle-type="meta">More${isDevMode ? ' (' + moreCount + ')' : ''}</button>` : ''}
                             <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
                             ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
                         </div>
@@ -4027,7 +4036,7 @@ Do not include any explanation or additional text.`;
                                 <span class="location-value">${row.value}</span>
                             </div>
                         `).join('')}
-                        ${(evenMoreCount > moreCount) ? `
+                        ${(isDevMode && evenMoreCount > moreCount) ? `
                             <div style="margin-top:10px">
                                 <button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount - moreCount})" data-toggle-type="meta">Even More (${evenMoreCount - moreCount})</button>
                             </div>
