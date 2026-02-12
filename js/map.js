@@ -4,7 +4,7 @@
 
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
-    waitForElm('#mapwidget').then((elm) => {
+    waitForElm('#listwidget').then((elm) => {
         mapWidgetChange();
     });
 }, false);
@@ -18,7 +18,7 @@ function mapWidgetChange() {
 
     if (currentMap != priorMap || !priorMap) {
         if (!currentMap) {
-            // Hide #mapwidget here. First rename #widgetwidget to something distinct
+            // Hide #listwidget here. First rename #widgetwidget to something distinct
         } else {
             // Check if listingsApp exists before calling changeShow
             if (window.listingsApp && typeof window.listingsApp.changeShow === 'function') {
@@ -45,6 +45,25 @@ function mapWidgetChange() {
             if (summarizeButton) {
                 summarizeButton.textContent = hash.summarize === 'true' ? 'Unsummarize' : 'Summarize';
             }
+        }
+    }
+}
+
+// Global function to toggle "more/less" links for truncated descriptions
+function toggleMoreLess(uniqueId) {
+    const dots = document.getElementById(`${uniqueId}-dots`);
+    const more = document.getElementById(`${uniqueId}-more`);
+    const link = document.getElementById(`${uniqueId}-link`);
+
+    if (more && dots && link) {
+        if (more.style.display === 'none') {
+            more.style.display = 'inline';
+            dots.style.display = 'none';
+            link.textContent = 'less';
+        } else {
+            more.style.display = 'none';
+            dots.style.display = 'inline';
+            link.textContent = 'more';
         }
     }
 }
@@ -119,6 +138,7 @@ class ListingsDisplay {
         this.detailMapMarker = null;
         this.inspectMode = false; // Track inspect mode for debug messages
         this.debugMessages = []; // Store debug messages
+        this.citydataCache = null; // Cache for citydata lookup
 
         // Configuration for paths
         this.pathConfig = {
@@ -429,8 +449,8 @@ class ListingsDisplay {
     }
     
     showLoadingState(message) {
-        const mapwidget = document.getElementById('mapwidget');
-        mapwidget.innerHTML = `
+        const listwidget = document.getElementById('listwidget');
+        listwidget.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
                 <p>${message}</p>
@@ -523,7 +543,7 @@ class ListingsDisplay {
                 this.recoveringFromError = true;
             }
             // Clear error message from spinner if it exists
-            const spinner = document.querySelector("#mapwidget .loading");
+            const spinner = document.querySelector("#listwidget .loading");
             if (spinner && spinner.innerHTML.includes('not found')) {
                 spinner.innerHTML = '<div class="spinner"></div><div>Loading listings...</div>';
             }
@@ -541,7 +561,7 @@ class ListingsDisplay {
             this.loading = false;
 
             // Wait for and replace the loading spinner with error message
-            waitForElm("#mapwidget .loading").then((spinner) => {
+            waitForElm("#listwidget .loading").then((spinner) => {
                 if (spinner) {
                     spinner.innerHTML = this.getNotFoundMessage(this.currentShow);
                 }
@@ -562,6 +582,18 @@ class ListingsDisplay {
 
         // Initialize filter terms once from config
         this.initializeFilterTerms();
+
+        // Load citydata if configured (only once when config is loaded)
+        if (this.config?.citydata && !this.citydataCache) {
+            const citydataPath = this.config.citydata.toString();
+            const citydataUrl = this.resolveDatasetUrl(citydataPath);
+            this.loadCSVData(citydataUrl).then(data => {
+                this.citydataCache = data;
+                console.log(`Citydata loaded: ${data.length} rows`);
+            }).catch(err => {
+                console.error('Failed to load citydata:', err);
+            });
+        }
 
         // Clear any previous geo merge info
         this.geoMergeInfo = null;
@@ -2116,6 +2148,10 @@ Do not include any explanation or additional text.`;
         if (!text) {
             return '';
         }
+        // Skip if already contains HTML anchor tags
+        if (text.includes('<a href=') || text.includes('<a href"')) {
+            return text;
+        }
         if (text.includes('@')) {
             return text;
         }
@@ -2250,8 +2286,18 @@ Do not include any explanation or additional text.`;
         }
         const rows = [];
 
+        // Get omit_display list from config
+        const omitList = this.config?.omit_display || [];
+        const omitSet = new Set(omitList.map(col => col.toLowerCase()));
+
         featuredColumns.forEach((column) => {
             const normalizedColumn = column.toLowerCase();
+
+            // Skip if this column is in omit_display
+            if (omitSet.has(normalizedColumn)) {
+                return;
+            }
+
             let actualColumnName;
             let value;
 
@@ -2377,18 +2423,24 @@ Do not include any explanation or additional text.`;
     getSharedDisplayRows(listing, options = {}) {
         const omitRecognizedKeys = new Set((options.omitRecognizedKeys || []).map(key => key.toString().toLowerCase()));
         const omitRowKeys = new Set((options.omitRowKeys || []).map(key => key.toString().toLowerCase()));
+
+        // Get omit_display list from config
+        const omitDisplayList = this.config?.omit_display || [];
+        const omitDisplaySet = new Set(omitDisplayList.map(col => col.toLowerCase()));
+
         const recognized = this.getRecognizedFields(listing);
         const featuredRows = this.getFeaturedDisplayRows(listing)
             .filter(row => !row.key || !omitRowKeys.has(row.key));
         const numberedGroupRows = this.getNumberedGroupData(listing).rows
-            .filter(row => !row.key || !omitRowKeys.has(row.key));
+            .filter(row => !row.key || (!omitRowKeys.has(row.key) && !omitDisplaySet.has(row.key)));
         const featuredColumns = this.config?.featuredColumns || [];
         const featuredKeySet = new Set(featuredColumns.map(col => col.toString().toLowerCase()));
         const recognizedRows = this.getRecognizedDisplayRows(recognized, {
             omitKeys: [
                 'name', 'title', 'address', 'city', 'state', 'zip', 'zipcode', 'postal_code', 'email',
                 ...featuredKeySet,
-                ...omitRecognizedKeys
+                ...omitRecognizedKeys,
+                ...omitDisplaySet
             ]
         });
         const maxFeaturedRows = Number.isFinite(options.maxFeaturedRows)
@@ -2420,7 +2472,6 @@ Do not include any explanation or additional text.`;
             .filter(([key, value]) =>
                 !isInFeaturedColumns(key) &&
                 !numberedGroupKeys.has(key.toLowerCase()) &&
-                !isInOmitList(key) &&
                 value &&
                 value.toString().trim() !== '' &&
                 value.toString().trim() !== '-' &&
@@ -3296,6 +3347,10 @@ Do not include any explanation or additional text.`;
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
+                    <div id="detailArrows">
+                        <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
+                        <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
+                    </div>
                     <div id="locationSectionMenuControl" style="position: absolute; right: 0; top: 4px;"></div>
                 </div>
                 <div class="location-content">
@@ -3564,14 +3619,20 @@ Do not include any explanation or additional text.`;
         this.selectedListingIndex = index;
         this.updateMapGallerySection(this.filteredListings[index]);
 
-        // Don't scroll if tour is playing
-        const hash = this.getCurrentHash();
-        if (hash && hash.detailplay !== 'true') {
-            const section = document.getElementById('location-section');
-            if (section) {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Scroll to listwidget with margin above (only if header exists)
+        const header = document.querySelector('header') || document.getElementById('headerbar');
+        if (header) {
+            const listwidget = document.getElementById('listwidget');
+            if (listwidget) {
+                const headerHeight = header.offsetHeight;
+                const marginTop = 10;
+                const listwidgetTop = listwidget.getBoundingClientRect().top + window.pageYOffset - headerHeight - marginTop;
+                window.scrollTo({ top: listwidgetTop, behavior: 'smooth' });
             }
         }
+
+        // Clear arrow navigation flag
+        this.arrowNavigation = false;
     }
 
     updateMapGallerySection(listing) {
@@ -3703,6 +3764,144 @@ Do not include any explanation or additional text.`;
                 updateTourIcon('location-section', 'pause');
             });
         }
+
+        // Restart tour to set timeout for next slide (if tour is playing)
+        if (isTourPlaying && typeof startTour === 'function') {
+            setTimeout(() => {
+                startTour('location-section', true);
+            }, 100);
+        }
+
+        // Populate listing IDs for arrow navigation (reuse tour logic)
+        if (typeof window.tourState !== 'undefined') {
+            const listingCards = document.querySelectorAll('.listing-card[data-listing-id]');
+            const listingIds = Array.from(listingCards)
+                .map(card => card.getAttribute('data-listing-id'))
+                .filter(id => id);
+
+            if (listingIds.length > 0) {
+                window.tourState.listingIds = listingIds;
+            }
+        }
+
+        // Setup back arrow and add alert based on tour state
+        const backArrow = document.getElementById('tourBackArrow');
+        if (backArrow) {
+            // Setup click handler for back arrow - navigate to previous listing using tour sequence
+            backArrow.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('Back arrow clicked');
+
+                // Get current hash
+                const currentHash = this.getCurrentHash();
+                const currentId = currentHash.id;
+
+                // Use tour state listing IDs (same sequence as forward navigation)
+                if (typeof window.tourState !== 'undefined' && window.tourState.listingIds && window.tourState.listingIds.length > 0) {
+                    const listingIds = window.tourState.listingIds;
+
+                    // Find current ID in the tour sequence
+                    const currentIndex = listingIds.indexOf(currentId);
+
+                    console.log('Current ID:', currentId);
+                    console.log('Current index in tour:', currentIndex);
+                    console.log('Total listings:', listingIds.length);
+
+                    if (currentIndex > 0) {
+                        // Navigate to previous listing in sequence
+                        const previousId = listingIds[currentIndex - 1];
+                        console.log('Navigating to previous ID:', previousId);
+                        if (typeof goHash === 'function') {
+                            // Set temporary flag to prevent scrolling
+                            this.arrowNavigation = true;
+                            goHash({ id: previousId, view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
+                        }
+                    } else if (currentIndex === 0) {
+                        // At first slide - remove id from hash
+                        console.log('At first slide - removing id from hash');
+                        if (typeof goHash === 'function') {
+                            // Set temporary flag to prevent scrolling
+                            this.arrowNavigation = true;
+                            goHash({ id: '', view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
+                        }
+                    } else {
+                        console.log('Current ID not found in tour sequence');
+                    }
+                } else {
+                    console.log('Tour state not available');
+                }
+
+                /* Commented out - pause tour when going back (restore if needed)
+                // Stop the tour
+                if (typeof stopTour === 'function') {
+                    stopTour('location-section');
+                }
+                // Navigate with detailplay removed
+                goHash({ id: previousId, detailplay: '', view: currentHash.view || '' });
+                */
+            };
+        }
+
+        // Setup forward arrow
+        const forwardArrow = document.getElementById('tourForwardArrow');
+        if (forwardArrow) {
+            // Setup click handler for forward arrow - navigate to next listing using tour sequence
+            forwardArrow.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('Forward arrow clicked');
+
+                // Get current hash
+                const currentHash = this.getCurrentHash();
+                const currentId = currentHash.id;
+
+                // Use tour state listing IDs (same sequence as tour navigation)
+                if (typeof window.tourState !== 'undefined' && window.tourState.listingIds && window.tourState.listingIds.length > 0) {
+                    const listingIds = window.tourState.listingIds;
+
+                    // Find current ID in the tour sequence
+                    const currentIndex = listingIds.indexOf(currentId);
+
+                    console.log('Current ID:', currentId);
+                    console.log('Current index in tour:', currentIndex);
+                    console.log('Total listings:', listingIds.length);
+
+                    if (currentIndex >= 0 && currentIndex < listingIds.length - 1) {
+                        // Navigate to next listing in sequence
+                        const nextId = listingIds[currentIndex + 1];
+                        console.log('Navigating to next ID:', nextId);
+                        if (typeof goHash === 'function') {
+                            // Set temporary flag to prevent scrolling
+                            this.arrowNavigation = true;
+                            goHash({ id: nextId, view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
+                        }
+                    } else if (currentIndex === listingIds.length - 1) {
+                        // At last slide - loop back to first
+                        console.log('At last slide - looping to first');
+                        if (typeof goHash === 'function') {
+                            // Set temporary flag to prevent scrolling
+                            this.arrowNavigation = true;
+                            goHash({ id: listingIds[0], view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
+                        }
+                    } else {
+                        console.log('Current ID not found in tour sequence');
+                    }
+                } else {
+                    console.log('Tour state not available');
+                }
+            };
+        }
+
+        // Alert turned off per user request
+        // if (isTourPlaying) {
+        //     const displayData = this.getDisplayData(listing);
+        //     const recognized = this.getRecognizedFields(listing);
+        //     const title = displayData.primary || recognized.name || 'Listing';
+        //     alert(`Tour: Loaded ${title} at ${new Date().toLocaleTimeString()}`);
+        // }
     }
 
     renderListingDetailContent(listing, options = {}) {
@@ -3715,6 +3914,16 @@ Do not include any explanation or additional text.`;
 
         const omitRecognizedKeys = new Set();
         const omitRowKeys = new Set();
+
+        // Get omit_display list from config
+        const omitList = this.config?.omit_display || [];
+        const omitSet = new Set(omitList.map(col => col.toLowerCase()));
+
+        // Helper function to check if a field should be omitted
+        const shouldOmitField = (fieldNames) => {
+            return fieldNames.some(name => omitSet.has(name.toLowerCase()));
+        };
+
         const titleText = displayData.primary || recognized.name || 'Listing';
         const contactNameInfo = this.getFirstMatchingField(listing, [
             'contact_name', 'Contact Name', 'contactName', 'Contact', 'contact'
@@ -3728,14 +3937,20 @@ Do not include any explanation or additional text.`;
         const cityInfo = this.getFirstMatchingField(listing, ['city', 'City', 'CITY']);
         const stateInfo = this.getFirstMatchingField(listing, ['state', 'State', 'STATE']);
         const zipInfo = this.getFirstMatchingField(listing, ['zip', 'Zip', 'ZIP', 'zipcode', 'postal_code']);
+
+        // Check if fields should be omitted
+        const omitContact = shouldOmitField(['contact', 'contact_name', 'contact_email']);
+        const omitAddress = shouldOmitField(['address', 'contact_address']);
+        const omitCityStateZip = shouldOmitField(['city', 'state', 'zip', 'zipcode', 'postal_code']);
+
         const contactNameRaw = contactNameInfo.value;
         const contactEmail = contactEmailInfo.value || recognized.email;
         const contactAddress = contactAddressInfo.value || recognized.address;
         const contactName = contactNameRaw && contactNameRaw.toString().trim() !== titleText.toString().trim()
             ? contactNameRaw
             : '';
-        const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
-        const cityStateZip = this.formatCityStateZip(recognized);
+        const addressLine = contactAddress && !omitAddress ? this.formatFieldValue(contactAddress) : '';
+        const cityStateZip = !omitCityStateZip ? this.formatCityStateZip(recognized) : '';
 
         // Get truncation length from options (100 for list, 255 for detail view)
         const truncateLength = options.truncateLength || 255;
@@ -3746,18 +3961,38 @@ Do not include any explanation or additional text.`;
             const textStr = text.toString().trim();
             if (textStr.length <= maxLength) {
                 const formatted = this.formatFieldValue(textStr);
-                // Remove leading &nbsp; if present
-                return formatted.replace(/^&nbsp;\s*/, '');
+                // Remove all <p>, </p>, and <br> tags, and leading &nbsp;
+                return formatted
+                    .replace(/^&nbsp;\s*/, '')
+                    .replace(/<\/?p>/gi, '')
+                    .replace(/<br\s*\/?>/gi, '')
+                    .trim();
             }
-            const truncated = textStr.substring(0, maxLength).trimEnd();
-            const remaining = textStr.substring(maxLength).trimStart();
+
+            // Find the last space before maxLength to break at word boundary
+            let breakPoint = maxLength;
+            const lastSpace = textStr.lastIndexOf(' ', maxLength);
+            if (lastSpace > maxLength * 0.8) { // Only break at word if we're at least 80% to the limit
+                breakPoint = lastSpace;
+            }
+
+            const truncated = textStr.substring(0, breakPoint).trimEnd();
+            const remaining = textStr.substring(breakPoint).trimStart();
             const uniqueId = `more-${Math.random().toString(36).substr(2, 9)}`;
-            const formattedTruncated = this.formatFieldValue(truncated).replace(/^&nbsp;\s*/, '');
-            const formattedRemaining = this.formatFieldValue(remaining).replace(/^&nbsp;\s*/, '');
-            return `
-                ${formattedTruncated}<span id="${uniqueId}-dots">...</span><span id="${uniqueId}-more" style="display:none;">${formattedRemaining}</span>
-                <a href="#" id="${uniqueId}-link" style="color:#94a3b8; text-decoration:none; margin-left:4px;" onclick="event.preventDefault(); const dots=document.getElementById('${uniqueId}-dots'); const more=document.getElementById('${uniqueId}-more'); const link=document.getElementById('${uniqueId}-link'); if(more.style.display==='none'){more.style.display='inline';dots.style.display='none';link.textContent='less';}else{more.style.display='none';dots.style.display='inline';link.textContent='more';}">more</a>
-            `;
+            let formattedTruncated = this.formatFieldValue(truncated).replace(/^&nbsp;\s*/, '');
+            let formattedRemaining = this.formatFieldValue(remaining).replace(/^&nbsp;\s*/, '');
+
+            // Remove ALL <p>, </p>, and <br> tags to prevent extra spacing
+            formattedTruncated = formattedTruncated
+                .replace(/<\/?p>/gi, '')
+                .replace(/<br\s*\/?>/gi, '')
+                .trim();
+            formattedRemaining = formattedRemaining
+                .replace(/<\/?p>/gi, '')
+                .replace(/<br\s*\/?>/gi, '')
+                .trim();
+
+            return `${formattedTruncated}<span id="${uniqueId}-dots">...</span><span id="${uniqueId}-more" style="display:none;"> ${formattedRemaining}</span> <a href="#" id="${uniqueId}-link" style="color:#94a3b8; text-decoration:none; margin-left:4px;" onclick="event.preventDefault(); toggleMoreLess('${uniqueId}');">more</a>`;
         };
 
         // Extract description and notes
@@ -3946,12 +4181,19 @@ Do not include any explanation or additional text.`;
         const hasNearby = this.hasNearbyFilter;
         const nearbyFilterTerms = this.nearbyFilterTerms || [];
 
-        // Check for Airport_Distance field in this specific listing row
-        const airportDistanceInfo = this.getFirstMatchingField(listing, [
-            'Airport_Distance', 'airport_distance', 'AirportDistance'
-        ]);
-        const hasAirportDistance = !!airportDistanceInfo.value;
+        // Check for any field containing "airport" in the key
+        const hasAirportDistance = Object.keys(listing).some(key =>
+            key.toLowerCase().includes('airport') && listing[key] && listing[key].toString().trim()
+        );
         const airportFilterTerms = ['airport'];
+
+        // Log airport fields found
+        if (hasAirportDistance) {
+            const airportFields = Object.keys(listing).filter(key =>
+                key.toLowerCase().includes('airport') && listing[key] && listing[key].toString().trim()
+            );
+            console.log('Airport fields found:', airportFields, 'Values:', airportFields.map(k => listing[k]));
+        }
 
         // Helper function to format field names for display
         const formatFieldLabel = (key) => {
@@ -3980,6 +4222,23 @@ Do not include any explanation or additional text.`;
             })
             : [];
 
+        // Get FIPS code from citydata if available (only in detail view)
+        let cityFIPS = null;
+
+        // Only do FIPS lookup in detail view and if citydata cache exists
+        const isDetailView = options.metaGroup === 'map-gallery';
+
+        if (isDetailView && hasAirportDistance && this.citydataCache && recognized.city) {
+            const cityName = recognized.city.toString().trim();
+            const cityRow = this.citydataCache.find(row => {
+                const rowCity = row.City || row.city || row.CITY || '';
+                return rowCity.toString().trim().toLowerCase() === cityName.toLowerCase();
+            });
+            if (cityRow) {
+                cityFIPS = cityRow.FIPS || cityRow.fips || cityRow.Fips || null;
+            }
+        }
+
         // Generate IDs for these sections
         const airportsId = `${metaGroup}-airports`;
         const nearbyId = `${metaGroup}-nearby`;
@@ -3987,7 +4246,7 @@ Do not include any explanation or additional text.`;
         return `
             <div class="location-listing">
                 <div id="generalFields">
-                    ${(contactName || contactEmail) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
+                    ${(!omitContact && (contactName || contactEmail)) ? `<div class="location-contact"><strong>${contactLabel}</strong>${contactValue}</div>` : ''}
                     ${showEmailLine ? `<div class="location-email">${tertiaryLine}</div>` : ''}
                     ${addressLine ? `<div class="location-address">${addressLine}</div>` : ''}
                     ${cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''}
@@ -4003,7 +4262,6 @@ Do not include any explanation or additional text.`;
                             ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
                             ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More${isDevMode ? ' (' + moreCount + ')' : ''}" data-toggle-type="meta">More${isDevMode ? ' (' + moreCount + ')' : ''}</button>` : ''}
                             <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
-                            ${(isDevMode && this.config?.airportdata) ? `<a href="${this.config.airportdata}" target="_blank">Airport Data</a>` : ''}
                         </div>
                         ${options.showCroppedButton ? '<button class="image-crop-toggle location-btn" type="button" data-crop-state="cropped">Cropped</button>' : ''}
                     </div>
@@ -4021,16 +4279,31 @@ Do not include any explanation or additional text.`;
                 ${hasAirportDistance ? `
                     <div class="location-meta" id="${airportsId}">
                         ${airportRows.map(row => `
-                            <div class="location-row">
-                                <span class="location-label">${row.label}</span>
+                            <div class="location-row no-label">
                                 <span class="location-value">${row.value}</span>
                             </div>
                         `).join('')}
+                        ${cityFIPS ? `
+                            <div class="location-row no-label">
+                                <span class="location-value">FIPS: ${cityFIPS}</span>
+                            </div>
+                        ` : ''}
+                        ${this.config?.airportdata ? `
+                            <div class="location-row no-label" style="margin-top: 8px;">
+                                <a href="${this.config.airportdata}" target="_blank" style="color: #3b82f6; text-decoration: none;">All Airports (CSV)</a>
+                            </div>
+                        ` : ''}
                     </div>
                 ` : ''}
                 ${hasMetaRows || moreCount || evenMoreCount ? `
                     <div class="location-meta" id="${metaId}">
-                        ${metaRows.filteredRows.map(row => `
+                        ${metaRows.filteredRows.filter(row => {
+                            // Omit Airport Distance if it's shown in the dedicated Airports section
+                            if (hasAirportDistance && row.label && row.label.toLowerCase().replace(/\s+/g, '') === 'airportdistance') {
+                                return false;
+                            }
+                            return true;
+                        }).map(row => `
                             <div class="location-row">
                                 <span class="location-label">${row.label}</span>
                                 <span class="location-value">${row.value}</span>
@@ -5642,8 +5915,8 @@ Do not include any explanation or additional text.`;
         }
         if (!(this.isFilteringInProgress || this.isDatasetChanging) || forceFullRender) {
             //alert("render() overwrites map")
-            const mapwidget = document.getElementById('mapwidget');
-            if (mapwidget) mapwidget.style.display = 'block';
+            const listwidget = document.getElementById('listwidget');
+            if (listwidget) listwidget.style.display = 'block';
             
             if (this.loading) {
                 // FORCE clear loading if we have data but still loading
@@ -5688,7 +5961,7 @@ Do not include any explanation or additional text.`;
                 this.detailMapMarker = null;
                 this.teardownDetailMapControls();
             }
-            mapwidget.innerHTML = `
+            listwidget.innerHTML = `
                 ${mapGallerySection}
                 ${ window.param.showheaderX != "false" ? localwidgetHeader : '' }
                 <!-- Widget Hero Container -->
@@ -5815,12 +6088,13 @@ Do not include any explanation or additional text.`;
                     </div>
                 </div>
             `;
-        } 
+        }
 
 
         // ALLOWED MAP POINTS TO CHANGE WITH DAT
 
-        this.updateMapGallerySection(this.getSelectedListing());
+        // Removed duplicate call - applyHashDetailSelection handles this
+        // this.updateMapGallerySection(this.getSelectedListing());
 
         this.applyHashDetailSelection();
         this.applyHashViewSelection();
@@ -6535,8 +6809,8 @@ Do not include any explanation or additional text.`;
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
-    // Only initialize if the mapwidget element exists
-    const localwidgetElement = document.getElementById('mapwidget');
+    // Only initialize if the listwidget element exists
+    const localwidgetElement = document.getElementById('listwidget');
     if (localwidgetElement && !window.listingsApp) {
         window.listingsApp = new ListingsDisplay();
     }
