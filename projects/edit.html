@@ -1937,8 +1937,8 @@
     // Hash-based navigation functions
     function switchToView(view) {
         // Update hash
-        updateHash({'view': view});
-        
+        updateHash({'view': view, 'summarize': ''});
+
         // Apply the view
         applyView(view);
     }

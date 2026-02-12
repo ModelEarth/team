@@ -6116,7 +6116,7 @@ Do not include any explanation or additional text.`;
             this.attachSearchInputListener();
             if (showSelect) {
                 showSelect.addEventListener('change', (e) => {
-                    goHash({'show':e.target.value});
+                    goHash({'show':e.target.value, 'summarize':''});
                 });
             }
             
