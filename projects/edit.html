@@ -691,26 +691,21 @@
         </div>
     </div>
 
-    <div class="page-tab-container">
+    <div id="page-tabs-container"></div>
 
-            <button class="page-tab active" id="form-tab" onclick="switchToView('form')">
-                <span id="add-new-text">Add Project</span>
-            </button>
-            <button class="page-tab" id="visits-tab" onclick="switchToView('visits')">
-                <span id="view-projects-text">View Projects</span>
-            </button>
-            <button class="page-tab" id="tables-tab" onclick="switchToView('tables')">
-                <span id="tables-btn-text">View Tables</span>
-            </button>
-            <button class="page-tab" id="google-tab" onclick="switchToView('google')" style="display:none">
-                Google Config
-            </button>
-            <button class="page-tab" id="map-tab" onclick="switchToView('map')" style="display:none">
-                View Map
-            </button>
-        
-    </div>
-    <div class="page-tab-line"></div>
+    <script>
+        // Render page tabs from configuration (uses 'view' hash parameter instead of 'show')
+        renderPageTabs('team-projects-edit', 'page-tabs-container', { defaultShow: 'form', hashKey: 'view' });
+
+        // Update tabs when hash changes (browser back/forward)
+        window.addEventListener('hashchange', () => {
+            const hash = getHash();
+            const view = hash.view;
+            if (view) {
+                updateActiveTab('team-projects-edit', 'view');
+            }
+        });
+    </script>
 
     <h1>Project</h1>
     
@@ -1740,8 +1735,9 @@
             document.querySelector('h1').textContent = 'Project';
             document.querySelector('.add-visit-btn').textContent = 'Save Project';
         }
-        
-        document.getElementById('form-result').innerHTML = '';
+
+        const formResult = document.getElementById('form-result');
+        if (formResult) formResult.innerHTML = '';
     }
     
     // Add new project function - clears form and resets to add mode
@@ -1931,7 +1927,7 @@
     // Map redirect function
     function redirectToMap() {
         // Redirect to display/team with the correct hash
-        window.location.href = '../../display/team/#list=cities&view=visits';
+        window.location.href = 'map';
     }
     
     // Hash-based navigation functions

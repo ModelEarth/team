@@ -2624,3 +2624,158 @@ async function loadTeamDataForLookup() {
         console.error('Failed to load team data for lookup cache:', error);
     }
 }
+
+// ========== Page Tabs Configuration and Rendering ==========
+
+// Page-specific tab configurations
+// Structure: { 'show-key': { name: 'Display Name', [align: 'right'], [onclick: 'customFunction()'], [id: 'custom-id'] } }
+const showtabs = {
+    'explore-parks': {
+        'parks': { name: 'Parks' },
+        'cities': { name: 'Cities' },
+        'airports': { name: 'Airports' },
+        'recyclers': { name: 'Recycling' },
+        'liaisons': { name: 'Film Liaisons' }
+    },
+    'display-team': {
+        'visits': { name: 'City Visits', id: 'cityList' },
+        'offices': { name: 'Offices', id: 'userList' },
+        'profile': { name: 'My Profile', id: 'seeProfile' },
+        'liaisons': { name: 'Liaisons', id: 'liaisonsList' },
+        'airports': { name: 'Airports', id: 'airportsList' },
+        'bios': { name: 'Bios', id: 'biosList', hidden: true },
+        'mail': { name: 'News', id: 'readMail', hidden: true },
+        'signout': { name: 'Sign Out', id: 'signOut', align: 'right', onclick: 'signOut()', style: 'background-color:rgb(229, 231, 235); color:#222;' }
+    },
+    'team-projects-edit': {
+        'form': { name: 'Add Project', id: 'form-tab', textId: 'add-new-text', onclick: "switchToView('form')" },
+        'visits': { name: 'View Projects', id: 'visits-tab', textId: 'view-projects-text', onclick: "switchToView('visits')" },
+        'tables': { name: 'View Tables', id: 'tables-tab', textId: 'tables-btn-text', onclick: "switchToView('tables')" },
+        'google': { name: 'Google Config', id: 'google-tab', hidden: true, onclick: "switchToView('google')" },
+        'map': { name: 'View Map', id: 'map-tab', hidden: true, onclick: "switchToView('map')" }
+    }
+};
+
+/**
+ * Render page tabs from configuration
+ * @param {string} pageKey - The key for the page configuration in showtabs object
+ * @param {string} containerId - The ID of the container element to render tabs into
+ * @param {object} options - Optional settings (defaultShow: default active tab key, hashKey: hash parameter to use, default 'show')
+ */
+function renderPageTabs(pageKey, containerId, options = {}) {
+    const { defaultShow = null, hashKey = 'show' } = options;
+
+    // Get the tabs configuration for this page
+    const tabs = showtabs[pageKey];
+    if (!tabs) {
+        console.warn(`renderPageTabs: No tabs configuration found for page "${pageKey}"`);
+        return;
+    }
+
+    // Find the container
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`renderPageTabs: Container "${containerId}" not found`);
+        return;
+    }
+
+    // Get current hash to determine active tab
+    const hash = typeof getHash === 'function' ? getHash() : {};
+    const currentShow = hash[hashKey] || defaultShow;
+
+    // Build the tabs HTML
+    let tabsHTML = '<div class="page-tab-container">\n';
+
+    const tabKeys = Object.keys(tabs);
+    tabKeys.forEach((showKey, index) => {
+        const tab = tabs[showKey];
+
+        // Skip if hidden (will be handled separately with display:none wrapper)
+        if (tab.hidden && pageKey === 'display-team') {
+            return; // Skip for now, will add after main tabs
+        }
+
+        const isActive = (currentShow === showKey) || (!currentShow && index === 0) ? ' active' : '';
+        const alignStyle = tab.align === 'right' ? ' style="margin-left: auto;' + (tab.style ? ' ' + tab.style : '') + '"' : (tab.style ? ` style="${tab.style}"` : '');
+        const id = tab.id || `${showKey}-tab`;
+
+        // Handle onclick - use custom or default goHash
+        let onclick = '';
+        if (tab.onclick) {
+            onclick = tab.onclick;
+        } else {
+            onclick = `goHash({'show':'${showKey}','summarize':''})`;
+        }
+
+        // Build button HTML
+        let buttonHTML = `    <button class="page-tab${isActive}" id="${id}" onclick="${onclick}"${alignStyle}>`;
+
+        // Add text with optional span wrapper
+        if (tab.textId) {
+            buttonHTML += `<span id="${tab.textId}">${tab.name}</span>`;
+        } else {
+            buttonHTML += tab.name;
+        }
+
+        buttonHTML += `</button>\n`;
+
+        tabsHTML += buttonHTML;
+    });
+
+    // Add hidden tabs for display-team (bios, mail)
+    if (pageKey === 'display-team') {
+        tabsHTML += '    <div class="localX" style="display:none;">\n';
+        const biosTab = tabs['bios'];
+        if (biosTab) {
+            tabsHTML += `        <button class="page-tab" id="${biosTab.id}" onclick="goHash({'show':'bios','summarize':''})" style="display:none">${biosTab.name}</button>\n`;
+        }
+        tabsHTML += '    </div>\n';
+
+        tabsHTML += '    <div class="local" style="display:none">\n';
+        const mailTab = tabs['mail'];
+        if (mailTab) {
+            tabsHTML += `        <button class="page-tab" id="${mailTab.id}" onclick="goHash({'show':'mail','summarize':''})" style="display:none">${mailTab.name}</button>\n`;
+        }
+        tabsHTML += '    </div>\n';
+    }
+
+    // Add hidden tabs for team-projects-edit (google, map)
+    if (pageKey === 'team-projects-edit') {
+        const googleTab = tabs['google'];
+        const mapTab = tabs['map'];
+        if (googleTab) {
+            tabsHTML += `    <button class="page-tab" id="${googleTab.id}" onclick="switchToView('google')" style="display:none">${googleTab.name}</button>\n`;
+        }
+        if (mapTab) {
+            tabsHTML += `    <button class="page-tab" id="${mapTab.id}" onclick="switchToView('map')" style="display:none">${mapTab.name}</button>\n`;
+        }
+    }
+
+    tabsHTML += '</div>\n<div class="page-tab-line"></div>';
+
+    // Insert the tabs
+    container.innerHTML = tabsHTML;
+}
+
+/**
+ * Update active tab based on current hash
+ * @param {string} pageKey - The key for the page configuration in showtabs object
+ * @param {string} hashKey - Hash parameter to use (default 'show')
+ */
+function updateActiveTab(pageKey, hashKey = 'show') {
+    const hash = typeof getHash === 'function' ? getHash() : {};
+    const show = hash[hashKey];
+
+    if (!show) return;
+
+    // Remove active class from all tabs
+    document.querySelectorAll('.page-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Add active class to current tab
+    const activeTab = document.getElementById(show + '-tab');
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+}

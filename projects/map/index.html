@@ -57,13 +57,24 @@
         <div id="api-error-container" style="position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; max-width: 900px; width: 90%;"></div>
 
         <div id="listwidget">
-            Requires a "show" hash value.
-
-            <span style="display:none" class="georgia"><a href="#show=cities">Show cities</a></span>
-
-            <span class="georgia-hide"><a href="#show=dca">Show DCA</a></span>
-
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading listings...</p>
+            </div>
         </div>
+
+        <script>
+            // Set default show value based on site type (similar to display/team/)
+            function setInitialShow() {
+                let hash = getHash();
+                if (!hash.show) {
+                    // Use isGeoSite() from common.js to determine default
+                    const defaultShow = (typeof isGeoSite === 'function' && isGeoSite()) ? 'cities' : 'dca';
+                    goHash({'show': defaultShow});
+                }
+            }
+            setInitialShow();
+        </script>
 
     </div>
 

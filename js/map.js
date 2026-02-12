@@ -4292,11 +4292,20 @@ Do not include any explanation or additional text.`;
                                 <span class="location-value">FIPS: ${cityFIPS}</span>
                             </div>
                         ` : ''}
-                        ${isDevMode && this.config?.airportdata ? `
-                            <div class="location-row no-label" style="margin-top: 8px;">
-                                <a href="${web_root}${this.config.airportdata}" target="_blank" style="color: #3b82f6; text-decoration: none;">All Airports (CSV)</a>
-                            </div>
-                        ` : ''}
+                        ${isDevMode && (this.config?.airportdata || this.config?.airportdata_info) ? (() => {
+                            const csvLink = this.config?.airportdata ? `<a href="${web_root}${this.config.airportdata}" target="_blank" style="color: #3b82f6; text-decoration: none;">All Airports (CSV)</a>` : '';
+                            const infoText = this.config?.airportdata_info ? `<span style="font-size: 0.9em; color: #666;">${
+                                String(this.config.airportdata_info).replace(
+                                    /(https?:\/\/[^\s]+|\/[^\s]+)/g,
+                                    (match) => {
+                                        const href = match.startsWith('/') ? `${web_root}${match}` : match;
+                                        return `<a href="${href}" target="_blank" style="color: #3b82f6; text-decoration: none;">${match}</a>`;
+                                    }
+                                )
+                            }</span>` : '';
+                            const content = [csvLink, infoText].filter(Boolean).join(' | ');
+                            return `<div class="location-row no-label" style="margin-top: 8px;"><span>${content}</span></div>`;
+                        })() : ''}
                     </div>
                 ` : ''}
                 ${hasMetaRows || moreCount || evenMoreCount ? `
