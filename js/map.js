@@ -1,14 +1,13 @@
 //  1. Stores the int_required filtered data in DOM storage only once on initial load
 //  2. Apply search filters to the stored data rather than updating the stored data
 //  3. Only update DOM storage when the list= parameter changes (new dataset)
-
 document.addEventListener('hashChangeEvent', function (elem) {
     console.log("team/js/map.js detects URL hashChangeEvent");
     waitForElm('#listwidget').then((elm) => {
-        mapWidgetChange();
+        listwidgetChange();
     });
 }, false);
-function mapWidgetChange() {
+function listwidgetChange() {
     let hash = getHash();
     // Use show parameter if map is not present
     let currentMap = hash.map || hash.show;
@@ -3912,6 +3911,11 @@ Do not include any explanation or additional text.`;
         const devmode = (typeof Cookies !== 'undefined' && Cookies.get && Cookies.get('devmode')) || '';
         const isDevMode = devmode === 'dev';
 
+        // Get web_root for constructing full URLs
+        const web_root = (typeof local_app !== 'undefined' && typeof local_app.web_root === 'function')
+            ? local_app.web_root()
+            : '';
+
         const omitRecognizedKeys = new Set();
         const omitRowKeys = new Set();
 
@@ -4288,9 +4292,9 @@ Do not include any explanation or additional text.`;
                                 <span class="location-value">FIPS: ${cityFIPS}</span>
                             </div>
                         ` : ''}
-                        ${this.config?.airportdata ? `
+                        ${isDevMode && this.config?.airportdata ? `
                             <div class="location-row no-label" style="margin-top: 8px;">
-                                <a href="${this.config.airportdata}" target="_blank" style="color: #3b82f6; text-decoration: none;">All Airports (CSV)</a>
+                                <a href="${web_root}${this.config.airportdata}" target="_blank" style="color: #3b82f6; text-decoration: none;">All Airports (CSV)</a>
                             </div>
                         ` : ''}
                     </div>
