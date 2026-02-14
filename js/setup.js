@@ -304,7 +304,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
-                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary btn-width" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
                 </div>
             </div>
         `;
@@ -345,7 +345,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
-                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary btn-width" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
                 </div>
             </div>
         `;
@@ -576,7 +576,7 @@ function getQuickstartCommandsHtml() {
     const isLocalhost = window.location.hostname === 'localhost';
     const stopServerButton = isLocalhost
         ? `
-            <button class="btn btn-secondary" style="margin-left:auto;" onclick="stopLocalWebServer()">
+            <button class="btn btn-secondary btn-width" style="margin-left:auto;" onclick="stopLocalWebServer()">
                 Stop 8887 Server
             </button>
         `
@@ -587,7 +587,7 @@ function getQuickstartCommandsHtml() {
             ${stopServerButton}
         </div>
         <div id="stop-8887-fallback"></div>
-        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server</code></pre>
+        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in AGENTS.md</code></pre>
         <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">Choose a Code CLI above to see more commands.</div>
         <p style="color: var(--text-primary);">On Macs and Linux:</p>
         <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
@@ -667,12 +667,38 @@ function updateQuickstartCliVisibility() {
     }
 }
 
-function getWebServerStatusState() {
+async function getWebServerStatusState() {
     const currentHost = window.location.hostname;
-    const currentPort = window.location.port;
-    const isLocalhost8887 = currentHost === 'localhost' && currentPort === '8887';
+    const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
     const currentUrl = window.location.href;
-    return { currentHost, currentPort, isLocalhost8887, currentUrl };
+    const currentOriginUrl = `${window.location.protocol}//${window.location.host}/`;
+
+    const localhost8887Url = 'http://localhost:8887/';
+    const localhost8887Running = await checkBackendAvailabilityCached(localhost8887Url, 'webServerLocalhost8887');
+    const currentOriginRunning = await checkBackendAvailabilityCached(currentOriginUrl, 'webServerCurrentOrigin');
+
+    let isRunning = false;
+    let detectedUrl = '';
+    let detectedLabel = '';
+
+    if (localhost8887Running) {
+        isRunning = true;
+        detectedUrl = localhost8887Url;
+        detectedLabel = 'port 8887';
+    } else if (currentOriginRunning) {
+        isRunning = true;
+        detectedUrl = currentOriginUrl;
+        detectedLabel = window.location.host || `${currentHost}:${currentPort}`;
+    }
+
+    return {
+        currentHost,
+        currentPort,
+        currentUrl,
+        isRunning,
+        detectedUrl,
+        detectedLabel
+    };
 }
 
 function getPythonBackendStatusMarkup(containerId) {
@@ -680,13 +706,13 @@ function getPythonBackendStatusMarkup(containerId) {
         <div id="${containerId}" style="color: var(--text-secondary);">
             <div data-backend="pipeline" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
                 <span class="status-indicator loading"></span>
-                <span style="flex: 1;">Data-Pipeline Flask (port 5001): <span class="backend-text">Checking...</span></span>
-                <button class="btn btn-secondary backend-action" data-backend-action="pipeline" style="margin-left:auto;">Start Flask 5001</button>
+                <span style="flex: 1;"><a href="/data-pipeline/new">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
+                <button class="btn btn-secondary btn-width backend-action" data-backend-action="pipeline" style="margin-left:auto;">Start Flask 5001</button>
             </div>
             <div data-backend="cloud" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
                 <span class="status-indicator loading"></span>
-                <span style="flex: 1;">Cloud/run Flask (port 8100): <span class="backend-text">Checking...</span></span>
-                <button class="btn btn-secondary backend-action" data-backend-action="cloud" style="margin-left:auto;">Start Flask 8100</button>
+                <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
+                <button class="btn btn-secondary btn-width backend-action" data-backend-action="cloud" style="margin-left:auto;">Start Flask 8100</button>
             </div>
         </div>
     `;
@@ -873,8 +899,8 @@ function showStopServerFallback() {
             <div style="color: var(--text-secondary); margin-bottom: 10px;">Backend stop is unavailable. Use this command to stop port 8887:</div>
             <code style="display:block; background: var(--bg-tertiary); padding: 8px 10px; border-radius: 6px; font-size: 13px;">${command}</code>
             <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 12px;">
-                <button class="btn btn-secondary" id="stop-8887-copy">Copy</button>
-                <button class="btn btn-secondary" id="stop-8887-cancel">Cancel</button>
+                <button class="btn btn-secondary btn-width" id="stop-8887-copy">Copy</button>
+                <button class="btn btn-secondary btn-width" id="stop-8887-cancel">Cancel</button>
             </div>
         </div>
     `;
@@ -937,30 +963,34 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     });
 }
 
-function setupWebServerStatusPanel(options) {
+async function setupWebServerStatusPanel(options) {
     const statusIndicator = document.getElementById(options.statusIndicatorId);
     const titleEl = document.getElementById(options.titleId);
     const contentEl = document.getElementById(options.contentId);
     if (!statusIndicator || !titleEl || !contentEl) return;
 
-    const { isLocalhost8887, currentUrl } = getWebServerStatusState();
-    const displayUrl = currentUrl
+    const { isRunning, detectedUrl, detectedLabel } = await getWebServerStatusState();
+    const activeUrl = detectedUrl || window.location.href;
+    const displayUrl = activeUrl
         .replace(/^https?:\/\//, '')
         .replace(/\/$/, '');
-    const connectedClass = options.buttonClassConnected || options.buttonClass || 'btn btn-secondary';
-    const defaultClass = options.buttonClassDefault || options.buttonClass || 'btn btn-secondary';
+    const withBtnWidth = (className) => className && className.includes('btn-width')
+        ? className
+        : `${className} btn-width`;
+    const connectedClass = withBtnWidth(options.buttonClassConnected || options.buttonClass || 'btn btn-secondary');
+    const defaultClass = withBtnWidth(options.buttonClassDefault || options.buttonClass || 'btn btn-secondary');
     const buttonId = options.toggleButtonId;
     const commandsContainerId = options.commandsContainerId;
 
-    if (isLocalhost8887) {
+    if (isRunning) {
         statusIndicator.className = 'status-indicator connected';
-        titleEl.textContent = 'Web Server Running';
+        titleEl.textContent = `Web Server Running (${detectedLabel})`;
         contentEl.innerHTML = `
             <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
                 <div class="status-text" style="display:flex; align-items:flex-start; gap:8px; flex: 1 1 360px;">
                     <span class="status-indicator-holder" style="display:flex; align-items:center;"></span>
                     <p style="color: var(--text-secondary); margin: 0;">
-                        Your local http server is runnning at <a href="${currentUrl}" style="color: var(--accent-blue); text-decoration: underline;">${displayUrl}</a><br>(Running serverside Python for Desktop)
+                        Your local http server is runnning at <a href="${activeUrl}">${displayUrl}</a><br>(Running serverside <a href="/desktop">Python for Desktop Suite</a>)
                     </p>
                 </div>
                 <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
@@ -992,6 +1022,12 @@ function setupWebServerStatusPanel(options) {
             </div>
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         `;
+    }
+
+    const commandsContainer = document.getElementById(commandsContainerId);
+    const statusRow = contentEl.querySelector('.web-server-status-row');
+    if (commandsContainer && statusRow) {
+        statusRow.insertAdjacentElement('afterend', commandsContainer);
     }
 
     setupCommandsToggle(buttonId, commandsContainerId, renderQuickstartCommands);

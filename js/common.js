@@ -396,7 +396,7 @@ function createOSDetectionPanel(containerId) {
 
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
             <span style="font-weight: 500;">I'll be coding with...</span>
-            <span class="mac-instructions" style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
+            <span class="mac-instructions" style="font-size: 12px; white-space: nowrap;">
                 <a href="https://iterm2.com/" target="_blank">iTerm2</a> is a great terminal app
             </span>
         </div>
@@ -1818,14 +1818,14 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                 </div>
                 <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; min-height: 120px;">
                     <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                        <button class="btn btn-secondary" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0; width: 100%;" id="reload-status-btn">
+                        <button class="btn btn-secondary btn-width" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0; width: 100%;" id="reload-status-btn">
                                 Reload Status
                         </button>
-                        <button class="btn btn-danger" onclick="stopRustServer()" style="display: none;margin: 0 0 2px 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
+                        <button class="btn btn-danger btn-width" onclick="stopRustServer()" style="display: none;margin: 0 0 2px 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
                                 Stop Rust
                         </button>
                         <!-- Admin Detail Button -->
-                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-secondary" style="margin: 0; width: 100%;">
+                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-secondary btn-width" style="margin: 0; width: 100%;">
                             Admin Details
                         </button>
                     </div>

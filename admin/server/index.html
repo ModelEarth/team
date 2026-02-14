@@ -25,10 +25,6 @@
 </head>
 <body>
     <div class="container">
-        <div class="breadcrumb">
-            <a href="../">Partner Tools</a>
-        </div>
-
         <div class="header">
             <h1 style="justify-content: center;">
                 <div class="gemini-icon">C</div>
@@ -54,7 +50,7 @@
                     Checking web server status...
                 </p>
             </div>
-            <div id="webserver-commands" class="readme-content" style="display:none; margin-top: 16px;"></div>
+            <div id="webserver-commands" class="readme-content" style="display:none; margin-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); margin-bottom: 10px;"></div>
         </div>
 
         <div id="combined-rust-api-container"></div>
@@ -119,7 +115,7 @@
                 toggleButtonId: 'webserver-commands-toggle',
                 commandsContainerId: 'webserver-commands',
                 pythonStatusId: 'webserver-python-status',
-                buttonClassConnected: 'btn btn-secondary',
+                buttonClassConnected: 'btn btn-secondary btn-width',
                 buttonClassDefault: 'btn btn-primary'
             });
         }
