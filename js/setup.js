@@ -587,7 +587,7 @@ function getQuickstartCommandsHtml() {
             ${stopServerButton}
         </div>
         <div id="stop-8887-fallback"></div>
-        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in AGENTS.md</code></pre>
+        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">Choose a Code CLI above to see more commands.</div>
         <p style="color: var(--text-primary);">On Macs and Linux:</p>
         <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
@@ -706,7 +706,7 @@ function getPythonBackendStatusMarkup(containerId) {
         <div id="${containerId}" style="color: var(--text-secondary);">
             <div data-backend="pipeline" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
                 <span class="status-indicator loading"></span>
-                <span style="flex: 1;"><a href="/data-pipeline/new">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
+                <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
                 <button class="btn btn-secondary btn-width backend-action" data-backend-action="pipeline" style="margin-left:auto;">Start Flask 5001</button>
             </div>
             <div data-backend="cloud" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">

@@ -69,6 +69,9 @@ When you type "start server", run:
 nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
 ```
 
+**IMPORTANT**: When executing this command, always use this exact description:
+"Start HTTP server with server-side python enabled on port 8887"
+
 **What this command does:**
 The quickstart.sh script automatically:
 - Creates a virtual environment in `desktop/install/env/` if it doesn't exist
@@ -193,12 +196,22 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 **NEVER add Claude Code attribution or co-authored-by lines to commits**
 
+### Standard Git Workflow
+
+**CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
+
+**When asked to push:**
+1. **Pull first**: `./git.sh pull` - Get latest changes from all repositories
+2. **Push changes**: `./git.sh push` - Push changes to all modified repositories
+
+**Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
+
 When push or pull requests are received, ask the user:
 
 1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
 2. Send the request directly to Github
 
-The ./git.sh commands are`./git.sh push` and `./git.sh pull`
+The ./git.sh commands are `./git.sh push` and `./git.sh pull`
 
 **IMPORTANT**: Always navigate to webroot before running git.sh (see Repository Root Navigation section)
 
@@ -222,8 +235,18 @@ When you type "pull" or "pull all" and choose workflow #1 (direct), run this com
 When a user says "push [name]" and chooses option 1 (git.sh script):
 
 ```bash
-./git.sh push [name] [nopr]
+./git.sh push [name] [nopr] [nopull]
 ```
+
+**Options:**
+- `nopr` - Skip PR creation on push failures
+- `nopull` - Skip auto-pull before push (use when history has diverged, after git filter-repo, or when you need to force push)
+
+**When to use `nopull`:**
+- After using `git filter-repo` to clean git history (histories have diverged)
+- When you need to force push without pulling first
+- When you know the local history is correct and should overwrite remote
+- **Warning**: Only use when you understand the implications of not pulling first
 
 ### Claude-Enhanced Commit Messages
 When Claude Code invokes git.sh push operations:

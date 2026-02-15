@@ -2324,6 +2324,7 @@ case "$1" in
         echo ""
         echo "Options:"
         echo "  nopr                               - Skip PR creation on push failures"
+        echo "  nopull                             - Skip auto-pull before push (use after git filter-repo or when history diverges)"
         echo "  overwrite-local                    - Overwrite local commits with parent repository state"
         echo ""
         echo "Safety Features:"
