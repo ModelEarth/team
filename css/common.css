@@ -19,6 +19,7 @@
     --line-height: 1.6;
 }
 .dark {
+    --bg-primary: #222;
     --bg-secondary: #555;
     --bg-tertiary: #555;
     --text-primary: #aaa;
@@ -109,7 +110,7 @@ h2 {
     box-sizing: border-box;
 }
 .dark .card {
-    background: #555;
+    background: #333;
 }
 .card-title {
     font-size: 20px;
