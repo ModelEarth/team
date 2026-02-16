@@ -1955,7 +1955,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 <!-- Default to With Claude content -->
                 <div id="with-claude-content" class="rust-tab-content active">
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        🤖 If you already have Claude Code running, say: <strong>"Start Rust"</strong> or similar.
+                        🤖 If you already have Claude Code running, say: <strong>"start rust"</strong> or similar.
                     </p>
                     <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
                         Claude option will automatically start the server and databases for you.
