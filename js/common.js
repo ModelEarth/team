@@ -1807,7 +1807,8 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                             <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth Industry Database inactive</span>
                         </div>
-                        <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <!-- Locations Database - hidden by default, shown only when active -->
+                        <div class="status-indicator-item" id="location-db-container" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
                             <span class="status-box" id="location-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                         </div>
@@ -1894,8 +1895,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             ` : '';
 
             content.innerHTML = `
-                <div style="color: var(--accent-green); margin-bottom: 16px;">
-                    ✅ Backend Rust API is accessible
+                <div style="color: var(--accent-green); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 20px; display: flex; align-items: center; justify-content: center;">✅</span>
+                    <span>Backend Rust API is accessible</span>
                 </div>
                 ${fallbackToggleHtml}
             `;
@@ -2148,13 +2150,27 @@ async function checkBackendStatus() {
             'Industry database active',
             'ModelEarth Industry Database inactive'
         ),
-        checkDatabaseConnection(
-            'test-locations-connection',
-            'location-db-indicator',
-            'location-db-text',
-            'Locations Database active',
-            'Locations Database inactive'
-        )
+        // Locations Database - only show when active
+        (async () => {
+            try {
+                const response = await fetch(`http://localhost:8081/api/db/test-locations-connection`);
+                const result = await response.json();
+                const container = document.getElementById('location-db-container');
+                if (result.success) {
+                    updateStatusIndicator('location-db-indicator', 'location-db-text', true, 'Locations Database active', 'Locations Database inactive');
+                    if (container) container.style.display = 'flex';
+                } else {
+                    // Keep hidden when inactive
+                    if (container) container.style.display = 'none';
+                }
+                return result.success;
+            } catch (error) {
+                // Keep hidden on error
+                const container = document.getElementById('location-db-container');
+                if (container) container.style.display = 'none';
+                return false;
+            }
+        })()
     ]);
 }
 
