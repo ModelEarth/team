@@ -520,9 +520,11 @@ get_current_user() {
 is_repo_owner() {
     local repo_name="$1"
     local current_origin=$(git remote get-url origin 2>/dev/null || echo "")
-    
-    # Extract username from origin URL
-    if [[ "$current_origin" =~ github\.com[:/]([^/]+)/$repo_name ]]; then
+
+    # Extract username from origin URL using actual repo name in URL
+    local origin_repo="${current_origin%.git}"
+    origin_repo="${origin_repo##*/}"
+    if [[ "$current_origin" =~ github\.com[:/]([^/]+)/$origin_repo ]]; then
         local repo_owner="${BASH_REMATCH[1]}"
         
         # Try to get GitHub CLI user first
@@ -627,7 +629,10 @@ check_user_change() {
     
     # Check current origin remote
     local current_origin=$(git remote get-url origin 2>/dev/null || echo "")
-    local expected_origin="https://github.com/$current_user/$name.git"
+    # Derive actual repo name from current origin URL (don't assume name matches)
+    local origin_repo_name="${current_origin%.git}"
+    origin_repo_name="${origin_repo_name##*/}"
+    local expected_origin="https://github.com/$current_user/$origin_repo_name.git"
     
     # ADDITIONAL SAFEGUARD: Verify we're in the correct repository before updating remote
     # Check for context mismatch - if we're trying to update the wrong repository
