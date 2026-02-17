@@ -958,21 +958,29 @@ safe_single_submodule_update() {
 # Fix detached HEAD state by merging into main branch
 fix_detached_head() {
     local name="$1"
-    
+
     # Check if we're in detached HEAD state
     local current_branch=$(git symbolic-ref -q HEAD 2>/dev/null || echo "")
     if [ -z "$current_branch" ]; then
-        echo "⚠️ $name is in detached HEAD state - fixing..."
-        
-        # Get the current commit hash
         local detached_commit=$(git rev-parse HEAD)
-        
+
+        # If this is a submodule, check if the detached commit matches what the parent expects
+        # A matching detached HEAD is intentional (pinned submodule) - don't "fix" it
+        if [ -f "../.gitmodules" ]; then
+            local parent_expected=$(git -C .. ls-tree HEAD "$name" 2>/dev/null | awk '{print $3}')
+            if [ "$detached_commit" = "$parent_expected" ]; then
+                return 0
+            fi
+        fi
+
+        echo "⚠️ $name is in detached HEAD state - fixing..."
+
         # Switch to main branch
         git checkout main 2>/dev/null || git checkout master 2>/dev/null || {
             echo "⚠️ No main/master branch found in $name"
             return 1
         }
-        
+
         # Check if we need to merge the detached commit
         if ! git merge-base --is-ancestor "$detached_commit" HEAD; then
             echo "🔄 Merging detached commit $detached_commit into main branch"
@@ -980,6 +988,7 @@ fix_detached_head() {
                 echo "✅ Successfully merged detached HEAD in $name"
             else
                 echo "⚠️ Merge conflicts in $name - manual resolution needed"
+                git merge --abort 2>/dev/null
                 return 1
             fi
         else
