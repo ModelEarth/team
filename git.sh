@@ -16,6 +16,12 @@ SAFE_SUBMODULE_UPDATES=true
 # Store the webroot directory at script start
 WEBROOT_DIR=""
 
+# Derive parent repo name from origin URL (instead of hardcoding "webroot")
+_origin_url=$(git remote get-url origin 2>/dev/null || echo "")
+PARENT_REPO_NAME="${_origin_url%.git}"
+PARENT_REPO_NAME="${PARENT_REPO_NAME##*/}"
+PARENT_REPO_NAME="${PARENT_REPO_NAME:-webroot}"
+
 # Parse command line arguments for global flags
 for arg in "$@"; do
     case $arg in
@@ -1941,11 +1947,11 @@ push_specific_repo() {
         echo "✅ Pull completed for $name, proceeding with push..."
     fi
     
-    # Check if it's webroot
-    if [[ "$name" == "webroot" ]]; then
-        commit_push "webroot" "$skip_pr"
-        
-        # Check if webroot needs PR after direct changes
+    # Check if it's the parent repo
+    if [[ "$name" == "webroot" ]] || [[ "$name" == "$PARENT_REPO_NAME" ]]; then
+        commit_push "$PARENT_REPO_NAME" "$skip_pr"
+
+        # Check if parent repo needs PR after direct changes
         local webroot_commits_ahead=$(git rev-list --count upstream/main..HEAD 2>/dev/null || echo "0")
         if [[ "$webroot_commits_ahead" -gt "0" ]] && [[ "$skip_pr" != "nopr" ]]; then
             create_webroot_pr "$skip_pr"
@@ -2111,9 +2117,9 @@ push_all() {
             done
         fi
     fi
-    commit_push "webroot" "$skip_pr"
-    
-    # Check if webroot needs PR after direct changes
+    commit_push "$PARENT_REPO_NAME" "$skip_pr"
+
+    # Check if parent repo needs PR after direct changes
     local webroot_commits_ahead=$(git rev-list --count upstream/main..HEAD 2>/dev/null || echo "0")
     if [[ "$webroot_commits_ahead" -gt "0" ]] && [[ "$skip_pr" != "nopr" ]]; then
         create_webroot_pr "$skip_pr"
