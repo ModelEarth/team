@@ -923,7 +923,7 @@ body {
 }
 
 /* From location.css */
-.location-section {
+.locationDetails {
   margin-top: 16px;
   margin-bottom: 32px;
   padding: 24px;
@@ -941,7 +941,7 @@ body {
 #detailHero {
   display: none;
   width: 100%;
-  height: 100vh;
+  min-height: 320px;
   flex-direction: column;
   gap: 20px;
   padding: 20px;
@@ -1066,16 +1066,16 @@ body {
   align-items: flex-start;
 }
 
-.location-section.detailmap-expanded .location-content {
+.locationDetails.detailmap-expanded .location-content {
   flex-direction: column;
 }
 
-.location-section.detailmap-expanded .location-map {
+.locationDetails.detailmap-expanded .location-map {
   width: 100%;
   display: none;
 }
 
-.location-section.detailmap-expanded .location-details {
+.locationDetails.detailmap-expanded .location-details {
   width: 100%;
 }
 
@@ -1389,7 +1389,7 @@ body {
   background: #cbd5f5;
 }
 
-.location-section .details-more-actions {
+.locationDetails .details-more-actions {
   margin-bottom: 10px;
 }
 
@@ -1407,7 +1407,7 @@ body {
   background: #5a8f38;
 }
 
-.dark .location-section {
+.dark .locationDetails {
   background: #1e293b;
   border: none;
 }
@@ -1624,7 +1624,7 @@ body {
 }
 
 /* Cropped image view - taller ratio for even display */
-.location-section.images-cropped .description-image {
+.locationDetails.images-cropped .description-image {
   aspect-ratio: 4 / 3 !important;
   object-fit: cover !important;
   height: auto !important;
@@ -2115,7 +2115,7 @@ body {
 }
 
 @media (max-width: 600px) {
-  .location-section {
+  .locationDetails {
     padding: 16px;
   }
 

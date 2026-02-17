@@ -210,8 +210,8 @@ class ListingsDisplay {
                 const group = moreToggle.dataset.group;
                 const toggleType = moreToggle.dataset.toggleType;
 
-                // Check if this is in the detail view (location-section)
-                const isDetailView = moreToggle.closest('#location-section') !== null;
+                // Check if this is in the detail view (locationDetails)
+                const isDetailView = moreToggle.closest('#locationDetails') !== null;
 
                 if (isDetailView) {
                     // In detail view: use hash-based navigation
@@ -3144,7 +3144,7 @@ Do not include any explanation or additional text.`;
                 e.stopPropagation();
 
                 const button = e.target;
-                const locationSection = document.getElementById('location-section');
+                const locationSection = document.getElementById('locationDetails');
                 if (!locationSection) return;
 
                 const currentState = button.dataset.cropState || 'cropped';
@@ -3342,7 +3342,7 @@ Do not include any explanation or additional text.`;
         }
 
         return `
-            <section class="location-section images-cropped" id="location-section" style="display: ${initialDisplay};">
+            <section class="locationDetails images-cropped" id="locationDetails" style="display: ${initialDisplay};">
                 <div class="location-header">
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
@@ -3350,7 +3350,7 @@ Do not include any explanation or additional text.`;
                         <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
                         <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
                     </div>
-                    <div id="locationSectionMenuControl" style="position: absolute; right: 0; top: 4px;"></div>
+                    <div id="locationDetailsMenuMount" style="position: absolute; right: 0; top: 4px;"></div>
                 </div>
                 <div class="location-content">
                     <div class="location-details" id="location-details">
@@ -3466,14 +3466,14 @@ Do not include any explanation or additional text.`;
 
         if (!hashId) {
             this.selectedListingIndex = null;
-            const section = document.getElementById('location-section');
+            const section = document.getElementById('locationDetails');
             if (section) {
                 section.style.display = 'none';
             }
             this.updateMapGallerySection(null);
             return;
         }
-        const section = document.getElementById('location-section');
+        const section = document.getElementById('locationDetails');
         if (section) {
             section.style.display = '';
         }
@@ -3499,13 +3499,13 @@ Do not include any explanation or additional text.`;
         const hash = getHash();
         const viewValue = hash?.view;
 
-        // Only apply to detail view (#location-section)
-        const locationSection = document.getElementById('location-section');
+        // Only apply to detail view (#locationDetails)
+        const locationSection = document.getElementById('locationDetails');
         if (!locationSection) {
             return;
         }
 
-        // Check if location-section is actually visible (not display:none)
+        // Check if locationDetails is actually visible (not display:none)
         if (locationSection.style.display === 'none') {
             return;
         }
@@ -3637,7 +3637,7 @@ Do not include any explanation or additional text.`;
     updateMapGallerySection(listing) {
         const detailsContainer = document.getElementById('location-details');
         const headerTitle = document.querySelector('.location-header .location-title');
-        const section = document.getElementById('location-section');
+        const section = document.getElementById('locationDetails');
         if (!detailsContainer) {
             return;
         }
@@ -3759,15 +3759,15 @@ Do not include any explanation or additional text.`;
 
         // Check if tour is playing and restore pause icon
         if (isTourPlaying && typeof updateTourIcon === 'function') {
-            waitForElm('#location-sectionMenuToggleIcon').then(() => {
-                updateTourIcon('location-section', 'pause');
+            waitForElm('#locationDetailsMenuToggleIcon').then(() => {
+                updateTourIcon('locationDetails', 'pause');
             });
         }
 
         // Restart tour to set timeout for next slide (if tour is playing)
         if (isTourPlaying && typeof startTour === 'function') {
             setTimeout(() => {
-                startTour('location-section', true);
+                startTour('locationDetails', true);
             }, 100);
         }
 
@@ -3835,7 +3835,7 @@ Do not include any explanation or additional text.`;
                 /* Commented out - pause tour when going back (restore if needed)
                 // Stop the tour
                 if (typeof stopTour === 'function') {
-                    stopTour('location-section');
+                    stopTour('locationDetails');
                 }
                 // Navigate with detailplay removed
                 goHash({ id: previousId, detailplay: '', view: currentHash.view || '' });
@@ -5152,7 +5152,7 @@ Do not include any explanation or additional text.`;
         control.onAdd = () => {
             const div = L.DomUtil.create('div', 'detail-map-expand-toggle');
             div.innerHTML = `
-                <div id="detailmapMenuToggleHolder" class="menuIconHolder menuToggleHolderMap"
+                <div id="detailmapMenuControl" class="menuIconHolder menuToggleHolderMap"
                      style="position:relative; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;"
                      title="Map menu">
                     <i class="material-icons circle-bg" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);">circle</i>
@@ -5165,7 +5165,7 @@ Do not include any explanation or additional text.`;
             L.DomEvent.disableScrollPropagation(div);
 
             // Setup click handler for menu toggle
-            const holder = div.querySelector('#detailmapMenuToggleHolder');
+            const holder = div.querySelector('#detailmapMenuControl');
             holder.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -5174,7 +5174,7 @@ Do not include any explanation or additional text.`;
                     const isVisible = menu.style.display !== 'none';
                     menu.style.display = isVisible ? 'none' : 'block';
                     if (typeof refreshPanelToggleIcon === 'function') {
-                        refreshPanelToggleIcon('detailmapMenuToggleHolder', 'detailmap');
+                        refreshPanelToggleIcon('detailmapMenuControl', 'detailmap');
                     }
                 }
             });
@@ -5226,6 +5226,17 @@ Do not include any explanation or additional text.`;
                 if (typeof setupPanelMenuEvents === 'function') {
                     setupPanelMenuEvents('detailmap', 'Map');
                 }
+                if (!window.panelMenuOptions) {
+                    window.panelMenuOptions = {};
+                }
+                window.panelMenuOptions.detailmap = {
+                    panelType: 'Map',
+                    panelLabel: 'Map',
+                    expandBehavior: 'custom',
+                    siblingPanelId: 'detailmapWrapper',
+                    isExpanded: () => this.isDetailMapInHero(),
+                    toggleExpand: () => this.toggleDetailMapHero()
+                };
             }
         }, 100);
     }
@@ -5250,7 +5261,7 @@ Do not include any explanation or additional text.`;
         if (mapEl) {
             mapEl.classList.toggle('detailmap-expanded', isExpanded);
         }
-        const section = document.getElementById('location-section');
+        const section = document.getElementById('locationDetails');
         if (section) {
             section.classList.toggle('detailmap-expanded', isExpanded);
         }
@@ -5280,6 +5291,7 @@ Do not include any explanation or additional text.`;
             placeholder.style.display = '';
             placeholder.appendChild(wrapper);
             this.setDetailMapExpandedState(false);
+            heroContainer.style.height = '';
             if (heroContainer.children.length === 0) {
                 heroContainer.style.display = 'none';
             }
@@ -5367,15 +5379,25 @@ Do not include any explanation or additional text.`;
             const expandedTotal = Math.round(baseHeight + extra + 120);
             mapEl.dataset.baseHeight = `${baseTotal}`;
             mapEl.dataset.expandedHeight = `${expandedTotal}`;
-            let targetHeight = this.detailMapExpanded ? expandedTotal : baseTotal;
             const wrap = mapEl.parentElement;
             if (this.detailMapExpanded && this.isDetailMapInHero()) {
+                const heroContainer = document.getElementById('detailHero');
+                if (heroContainer) {
+                    const rect = heroContainer.getBoundingClientRect();
+                    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+                    const availableHeight = Math.max(320, Math.round(viewportHeight - rect.top - 16));
+                    heroContainer.style.height = `${availableHeight}px`;
+                }
                 if (wrap) {
                     wrap.style.maxHeight = 'none';
                     wrap.style.height = '100%';
                 }
                 mapEl.style.height = '100%';
                 return;
+            }
+            const heroContainer = document.getElementById('detailHero');
+            if (heroContainer) {
+                heroContainer.style.height = '';
             }
             if (wrap) {
                 // Remove inline height constraints to let CSS aspect-ratio work
@@ -6019,7 +6041,7 @@ Do not include any explanation or additional text.`;
                                             <span class="button-text">${this.getSearchFieldsSummary()}</span>
                                         </button>
                                     </div>
-                                    <div id="widgetDetailsMenuControl" class="search-fields-control" style="min-width: auto; width: 48px;">
+                                    <div id="widgetDetailsMenuMount" class="search-fields-control" style="min-width: auto; width: 48px;">
                                     </div>
                                 </div>
                             </div>
@@ -6150,12 +6172,12 @@ Do not include any explanation or additional text.`;
             // Setup panel menu for widgetDetails (List type)
             const detailsPanel = document.getElementById('widgetDetails');
             // Check if menu toggle holder already exists to prevent duplicates
-            const existingDetailsToggle = document.getElementById('widgetDetailsMenuToggleHolder');
+            const existingDetailsToggle = document.getElementById('widgetDetailsMenuControl');
             if (detailsPanel && typeof addPanelMenu === 'function' && !existingDetailsToggle) {
                 const detailsMenu = addPanelMenu({
                     panelType: 'List',
                     targetPanelId: 'widgetDetails',
-                    containerSelector: '#widgetDetailsMenuControl',
+                    containerSelector: '#widgetDetailsMenuMount',
                     datasourcePath: datasourcePath,
                     inline: true,
                     menuPopupHolder: '#widgetDetailsPopups'
@@ -6166,7 +6188,7 @@ Do not include any explanation or additional text.`;
             // Setup panel menu for widgetmapWrapper (Map type)
             const mapWrapper = document.getElementById('widgetmapWrapper');
             // Check if menu toggle holder already exists to prevent duplicates
-            const existingMapToggle = document.getElementById('widgetmapWrapperMenuToggleHolder');
+            const existingMapToggle = document.getElementById('widgetmapWrapperMenuControl');
             if (mapWrapper && typeof addPanelMenu === 'function' && !existingMapToggle) {
                 const mapMenu = addPanelMenu({
                     panelType: 'Map',
@@ -6179,7 +6201,7 @@ Do not include any explanation or additional text.`;
             // Setup panel menu for pageGallery (Content type)
             const galleryPanel = document.getElementById('pageGallery');
             // Check if menu toggle holder already exists to prevent duplicates
-            const existingGalleryToggle = document.getElementById('pageGalleryMenuToggleHolder');
+            const existingGalleryToggle = document.getElementById('pageGalleryMenuControl');
             if (galleryPanel && typeof addPanelMenu === 'function' && !existingGalleryToggle) {
                 const galleryMenu = addPanelMenu({
                     panelType: 'Content',
@@ -6189,15 +6211,17 @@ Do not include any explanation or additional text.`;
                 galleryMenu.render();
             }
 
-            // Setup panel menu for location-section (View type)
-            const locationSection = document.getElementById('location-section');
+            // Setup panel menu for locationDetails (Details type)
+            const locationSection = document.getElementById('locationDetails');
             // Check if menu toggle holder already exists to prevent duplicates
-            const existingLocationToggle = document.getElementById('location-sectionMenuToggleHolder');
+            const existingLocationToggle = document.getElementById('locationDetailsMenuControl');
             if (locationSection && typeof addPanelMenu === 'function' && !existingLocationToggle) {
                 const viewMenu = addPanelMenu({
-                    panelType: 'View',
-                    targetPanelId: 'location-section',
-                    containerSelector: '#locationSectionMenuControl',
+                    panelType: 'Details',
+                    panelLabel: 'Details',
+                    expandBehavior: 'fullscreen',
+                    targetPanelId: 'locationDetails',
+                    containerSelector: '#locationDetailsMenuMount',
                     datasourcePath: datasourcePath
                 });
                 viewMenu.render();
@@ -6209,7 +6233,7 @@ Do not include any explanation or additional text.`;
                     // Increased delay to ensure menu is fully rendered
                     if (typeof startTour === 'function') {
                         setTimeout(() => {
-                            startTour('location-section', true);
+                            startTour('locationDetails', true);
                         }, 800);
                     }
                 }
@@ -6630,7 +6654,7 @@ Do not include any explanation or additional text.`;
 
                     // Refresh panel menu toggle icon
                     if (typeof refreshPanelToggleIcon === 'function') {
-                        refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
+                        refreshPanelToggleIcon(contentDiv.id + 'MenuControl', contentDiv.id);
                     }
 
                     // Update expand list button if it was the list that was collapsed
@@ -6678,7 +6702,7 @@ Do not include any explanation or additional text.`;
 
             // Refresh panel menu toggle icon
             if (typeof refreshPanelToggleIcon === 'function') {
-                refreshPanelToggleIcon(contentDiv.id + 'MenuToggleHolder', contentDiv.id);
+                refreshPanelToggleIcon(contentDiv.id + 'MenuControl', contentDiv.id);
             }
 
             // Update expand list button if it was the list that was expanded

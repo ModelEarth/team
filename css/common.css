@@ -143,16 +143,6 @@ h1.card-title {
 }
 
 /* ===== BUTTONS ===== */
-.btn {
-    border: none;
-    border-radius: var(--radius-md);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    /* font-size: 14px; */
-    align-items: center;
-    gap: 8px;
-}
 
 .btn:disabled {
     opacity: 0.6;
