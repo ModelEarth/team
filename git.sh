@@ -219,19 +219,19 @@ check_webroot() {
     
     # Validate the context matches the expected repository
     if [ "$OPERATING_ON_WEBROOT" = true ]; then
-        if [[ "$CURRENT_REMOTE" != *"webroot"* ]]; then
-            echo "⚠️ ERROR: Expected to operate on webroot but found remote: $CURRENT_REMOTE"
-            echo "   Current directory: $(pwd)"
-            echo "   Context: Webroot operation"
-            exit 1
+        # Check if team submodule exists in .gitmodules
+        if [ -f ".gitmodules" ]; then
+            if ! grep -q "path = team" .gitmodules 2>/dev/null; then
+                echo "⚠️ WARNING: Operating on parent repository but 'team' submodule not found in .gitmodules"
+                echo "   Current directory: $(pwd)"
+                echo "   Remote: $CURRENT_REMOTE"
+            fi
         fi
     else
-        if [[ "$CURRENT_REMOTE" == *"webroot"* ]]; then
-            echo "⚠️ ERROR: Expected to operate on team but found webroot remote: $CURRENT_REMOTE"
+        # Operating on team submodule - verify parent has .gitmodules
+        if [ ! -f "../.gitmodules" ]; then
+            echo "⚠️ WARNING: Operating on team but parent .gitmodules not found"
             echo "   Current directory: $(pwd)"
-            echo "   Context: Team operation"
-            echo "   This indicates the team submodule's remote URLs are misconfigured"
-            exit 1
         fi
     fi
     
@@ -395,10 +395,11 @@ get_site_repos() {
 }
 
 # Check if repo has capital M (ModelEarth) based on .gitmodules URL
-is_capital_repo() {
+# Get the upstream account name for a repo from .gitmodules URL casing
+get_upstream_account() {
     local repo_name="$1"
     local gitmodules_file
-    
+
     if [ -f ".gitmodules" ]; then
         gitmodules_file=".gitmodules"
     elif [ -f "../.gitmodules" ]; then
@@ -406,60 +407,82 @@ is_capital_repo() {
     else
         # Fallback to hardcoded check
         if [[ "$repo_name" == "localsite" ]] || [[ "$repo_name" == "home" ]] || [[ "$repo_name" == "webroot" ]]; then
-            echo "true"
+            echo "ModelEarth"
         else
-            echo "false"
+            echo "modelearth"
         fi
         return
     fi
-    
+
     local url=$(grep -A2 "^\[submodule \"$repo_name\"\]" "$gitmodules_file" | grep "url" | head -1)
     if [[ "$url" == *"ModelEarth"* ]]; then
-        echo "true"
+        echo "ModelEarth"
     else
-        echo "false"
+        echo "modelearth"
     fi
+}
+
+# Extract account and repo name from origin remote URL
+get_origin_account() {
+    local origin_url=$(git remote get-url origin 2>/dev/null || echo "")
+    # Extract account: second-to-last path component
+    local without_git="${origin_url%.git}"
+    local account="${without_git%/*}"
+    account="${account##*/}"
+    echo "$account"
+}
+
+get_origin_repo_name() {
+    local origin_url=$(git remote get-url origin 2>/dev/null || echo "")
+    local repo_name="${origin_url%.git}"
+    repo_name="${repo_name##*/}"
+    echo "$repo_name"
 }
 
 # Add upstream remote if it doesn't exist
 add_upstream() {
     local repo_name="$1"
-    local is_capital="$2"
-    
+    local account="$2"
+
     if [ -z "$(git remote | grep upstream)" ]; then
-        if [[ "$is_capital" == "true" ]]; then
-            git remote add upstream "https://github.com/ModelEarth/$repo_name.git"
-        else
-            git remote add upstream "https://github.com/modelearth/$repo_name.git"
-        fi
+        git remote add upstream "https://github.com/$account/$repo_name.git"
     fi
 }
 
 # Merge from upstream with fallback branches
 merge_upstream() {
     local repo_name="$1"
-    git fetch upstream 2>/dev/null || git fetch upstream
-    
+    if ! git fetch upstream 2>/dev/null; then
+        echo "⏭️  Skipping upstream merge for $repo_name (upstream not found)"
+        return 0
+    fi
+
     # Try main/master first for all repos
     local merge_output
-    merge_output=$(git merge upstream/main --no-edit 2>&1)
-    if [[ $? -eq 0 ]]; then
+    merge_output=$(git merge upstream/main --no-edit 2>&1) || true
+    if [[ "$merge_output" == *"unrelated histories"* ]]; then
+        echo "⏭️  Skipping upstream merge for $repo_name (unrelated histories)"
+        return 0
+    elif [[ "$merge_output" != *"fatal"* ]] && [[ "$merge_output" != *"CONFLICT"* ]]; then
         if [[ "$merge_output" != *"Already up to date"* ]]; then
             echo "$merge_output"
         fi
         return 0
     fi
-    
-    merge_output=$(git merge upstream/master --no-edit 2>&1)
-    if [[ $? -eq 0 ]]; then
+
+    merge_output=$(git merge upstream/master --no-edit 2>&1) || true
+    if [[ "$merge_output" == *"unrelated histories"* ]]; then
+        echo "⏭️  Skipping upstream merge for $repo_name (unrelated histories)"
+        return 0
+    elif [[ "$merge_output" != *"fatal"* ]] && [[ "$merge_output" != *"CONFLICT"* ]]; then
         if [[ "$merge_output" != *"Already up to date"* ]]; then
             echo "$merge_output"
         fi
         return 0
-    else
-        echo "⚠️ Merge conflicts - manual resolution needed"
-        return 1
     fi
+
+    echo "⚠️ Merge conflicts - manual resolution needed"
+    return 1
 }
 
 # Detect parent repository account (modelearth or partnertools)
@@ -1236,11 +1259,12 @@ pull_command() {
         echo "$output"
     fi
     
-    # Update webroot from parent (skip partnertools)
-    WEBROOT_REMOTE=$(git_webroot remote get-url origin)
-    if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
-        add_upstream "webroot" "true"
-        merge_upstream "webroot"
+    # Update parent repo from upstream (skip if already at modelearth or partnertools level)
+    local parent_account=$(git_webroot remote get-url origin | sed 's/.*github.com[:/]\([^/]*\)\/.*/\1/')
+    local parent_repo=$(git_webroot remote get-url origin | sed 's/.*\/\([^/]*\)\.git.*/\1/')
+    if [[ "$parent_account" != *"modelearth"* ]] && [[ "$parent_account" != *"ModelEarth"* ]] && [[ "$parent_account" != *"partnertools"* ]] && [[ "$parent_account" != *"PartnerTools"* ]]; then
+        add_upstream "$parent_repo" "ModelEarth"
+        merge_upstream "$parent_repo"
     fi
     
     # Pull submodules
@@ -1320,8 +1344,8 @@ pull_command() {
         # Try upstream merge if not partnertools
         REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
         if [[ "$REMOTE" != *"partnertools"* ]]; then
-            local is_capital=$(is_capital_repo "$sub")
-            add_upstream "$sub" "$is_capital"
+            local account=$(get_upstream_account "$sub")
+            add_upstream "$sub" "$account"
             if ! merge_upstream "$sub"; then
                 echo "⚠️ Upstream merge failed for $sub"
                 failed_submodules+=("$sub (upstream merge)")
@@ -1419,7 +1443,7 @@ pull_command() {
         
         REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
         if [[ "$REMOTE" != *"partnertools"* ]]; then
-            add_upstream "$repo" "false"
+            add_upstream "$repo" "modelearth"
             merge_upstream "$repo"
         fi
         cd_webroot
@@ -1485,10 +1509,11 @@ pull_specific_repo() {
             echo "$output"
         fi
         
-        WEBROOT_REMOTE=$(git_webroot remote get-url origin)
-        if [[ "$WEBROOT_REMOTE" != *"partnertools"* ]]; then
-            add_upstream "webroot" "true"
-            merge_upstream "webroot"
+        local parent_account=$(git_webroot remote get-url origin | sed 's/.*github.com[:/]\([^/]*\)\/.*/\1/')
+        local parent_repo=$(git_webroot remote get-url origin | sed 's/.*\/\([^/]*\)\.git.*/\1/')
+        if [[ "$parent_account" != *"modelearth"* ]] && [[ "$parent_account" != *"ModelEarth"* ]] && [[ "$parent_account" != *"partnertools"* ]] && [[ "$parent_account" != *"PartnerTools"* ]]; then
+            add_upstream "$parent_repo" "ModelEarth"
+            merge_upstream "$parent_repo"
         fi
         echo "✅ Webroot pull completed!"
         return
@@ -1545,8 +1570,8 @@ pull_specific_repo() {
             
             REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
             if [[ "$REMOTE" != *"partnertools"* ]]; then
-                local is_capital=$(is_capital_repo "$repo_name")
-                add_upstream "$repo_name" "$is_capital"
+                local account=$(get_upstream_account "$repo_name")
+                add_upstream "$repo_name" "$account"
                 merge_upstream "$repo_name"
             fi
             
@@ -1610,7 +1635,7 @@ pull_specific_repo() {
             
             REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
             if [[ "$REMOTE" != *"partnertools"* ]]; then
-                add_upstream "$repo_name" "false"
+                add_upstream "$repo_name" "modelearth"
                 merge_upstream "$repo_name"
             fi
             cd_webroot
