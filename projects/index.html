@@ -5254,7 +5254,8 @@
                             // already rendered in the New files block
                             return;
                         }
-                        const filename = escapeHtml(f.filename || '(unknown)');
+                        const rawFilename = (f.filename || '(unknown)');
+                        const displayFilename = escapeHtml(`${repo}/${rawFilename}`);
                         const fileLink = f.blob_url ? f.blob_url : (f.raw_url ? f.raw_url : '');
                         // each will be array of { type: 'added'|'removed'|'context'|'empty', text: '...' }
                         let leftLines = [];
@@ -5287,7 +5288,7 @@
                         }
 
                         // Build HTML for this file — render a GitHub-style side-by-side diff table with line numbers.
-                        let fileHtml = '<div class="pr-diff-file"><div class="pr-diff-filename"><div>' + filename + '</div>' + (fileLink ? ('<div><a href="' + escapeHtml(fileLink) + '" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>') : '') + '</div>';
+                        let fileHtml = '<div class="pr-diff-file"><div class="pr-diff-filename"><div>' + displayFilename + '</div>' + (fileLink ? ('<div><a href="' + escapeHtml(fileLink) + '" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>') : '') + '</div>';
 
                         if (f.patch) {
                             const patchLines = f.patch.split(/\r?\n/);
@@ -5394,9 +5395,11 @@
                                 const navPath = (window.location.pathname || '') + (window.location.search || '');
                                 const navClean = navPath.replace(/#.*$/, '').replace(/\/$/, '');
                                 const safeFile = (filename || '').toString().replace(/^\//, '');
+                                const repoPrefix = (typeof repo !== 'undefined' && repo) ? (repo + '/') : '';
+                                const normalizedFile = (repoPrefix && safeFile.startsWith(repoPrefix)) ? safeFile.slice(repoPrefix.length) : safeFile;
                                 // Use only the repo name (no URL) before the filename, e.g. /my-repo/path/to/file
                                 const repoNameSegment = (typeof repo !== 'undefined' && repo) ? ('/' + repo) : '';
-                                const combinedPath = repoNameSegment + '/' + safeFile;
+                                const combinedPath = repoNameSegment + '/' + normalizedFile;
                                 const prompt = `Please analyze the following diff for file ${combinedPath || '(unknown)'}:\n\n${snippet}\n\nProvide a concise explanation of what changed and potential issues to watch for.`;
                                 try {
                                     localStorage.setItem('codechat_prefill_prompt', prompt);
@@ -5405,8 +5408,9 @@
                                     const navPathOnly = (window.location.pathname || '') + (window.location.search || '');
                                     const navCleanOnly = navPathOnly.replace(/#.*$/, '').replace(/\/$/, '');
                                     const safeFilename = (filename || '').toString().replace(/^\//, '');
+                                    const normalizedFilename = (repoPrefix && safeFilename.startsWith(repoPrefix)) ? safeFilename.slice(repoPrefix.length) : safeFilename;
                                     const repoSegment = (typeof repo !== 'undefined' && repo) ? '/' + repo : '';
-                                    const repoLocal = repoSegment + '/' + safeFilename;
+                                    const repoLocal = repoSegment + '/' + normalizedFilename;
                                     const meta = {
                                         repo: `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
                                         navigation: navCleanOnly,
