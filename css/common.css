@@ -149,15 +149,6 @@ h1.card-title {
     cursor: not-allowed;
 }
 
-.btn-primary {
-    background: #137AD1;
-    color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: #1164A3;
-}
-
 .btn-secondary {
     background: var(--border-light);
     color: var(--text-secondary);
