@@ -67,6 +67,62 @@ function toggleMoreLess(uniqueId) {
     }
 }
 
+// Shared DOM-level alphabet filter for listings grids.
+function applyAlphabetFilterToListingsGrid(letter) {
+    const grid = document.querySelector('.listing-grid, .listings-grid');
+    if (!grid) {
+        return false;
+    }
+
+    const normalizedLetter = (letter || '').toString().trim().toLowerCase();
+    const candidates = Array.from(grid.querySelectorAll('.listing-card, .listing-row, .list-row, .listTable > div, .listTable tr'));
+    const items = candidates.length ? candidates : Array.from(grid.children).filter((el) => el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE');
+    if (!items.length) {
+        return false;
+    }
+
+    const getTitleText = (el) => {
+        return (el.dataset?.title ||
+            el.querySelector('.listing-title, .title, .name, h2, h3, strong, a')?.textContent ||
+            el.textContent ||
+            '').trim();
+    };
+
+    let visibleCount = 0;
+    items.forEach((item) => {
+        if (!normalizedLetter) {
+            item.style.display = '';
+            visibleCount += 1;
+            return;
+        }
+        const titleText = getTitleText(item);
+        const startsWithLetter = titleText.toLowerCase().startsWith(normalizedLetter);
+        item.style.display = startsWithLetter ? '' : 'none';
+        if (startsWithLetter) {
+            visibleCount += 1;
+        }
+    });
+
+    const noResultsId = 'listings-grid-letter-empty';
+    let noResults = document.getElementById(noResultsId);
+    if (!noResults) {
+        noResults = document.createElement('div');
+        noResults.id = noResultsId;
+        noResults.style.display = 'none';
+        noResults.style.padding = '12px 0';
+        grid.appendChild(noResults);
+    }
+    if (normalizedLetter && visibleCount === 0) {
+        noResults.textContent = `No listings found for "${normalizedLetter.toUpperCase()}".`;
+        noResults.style.display = 'block';
+    } else {
+        noResults.style.display = 'none';
+    }
+
+    return true;
+}
+window.applyAlphabetFilterToListingsGrid = applyAlphabetFilterToListingsGrid;
+
 function getMapIconUtils() {
     return window.mapIconUtils || null;
 }
@@ -2685,7 +2741,10 @@ Do not include any explanation or additional text.`;
         const wasSearchInputFocused = activeElement && activeElement.id === 'searchInput';
         const cursorPosition = wasSearchInputFocused ? activeElement.selectionStart : null;
         
-        if (!this.searchTerm.trim()) {
+        const normalizedSearchTerm = this.searchTerm.trim().toLowerCase();
+        const isSingleLetterSearch = /^[a-z]$/.test(normalizedSearchTerm);
+
+        if (!normalizedSearchTerm) {
             this.filteredListings = this.listings;
         } else {
             // If no search fields are selected, search all fields
@@ -2694,9 +2753,25 @@ Do not include any explanation or additional text.`;
                 Array.from(this.availableFields);
             
             this.filteredListings = this.listings.filter(listing => {
+                if (isSingleLetterSearch) {
+                    let primaryValue = '';
+                    if (this.config?.nameColumn && listing[this.config.nameColumn]) {
+                        primaryValue = listing[this.config.nameColumn].toString();
+                    } else if (this.config?.titleColumn && listing[this.config.titleColumn]) {
+                        primaryValue = listing[this.config.titleColumn].toString();
+                    } else {
+                        const preferredNameKey = Object.keys(listing).find((key) =>
+                            ['name', 'title', 'company', 'locationname', 'organization'].includes(key.toLowerCase())
+                        );
+                        if (preferredNameKey && listing[preferredNameKey]) {
+                            primaryValue = listing[preferredNameKey].toString();
+                        }
+                    }
+                    return primaryValue.toLowerCase().startsWith(normalizedSearchTerm);
+                }
                 return fieldsToSearch.some(field => {
                     const value = listing[field];
-                    return value && value.toString().toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return value && value.toString().toLowerCase().includes(normalizedSearchTerm);
                 });
             });
         }

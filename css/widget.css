@@ -39,7 +39,11 @@ body {
     position: sticky;
     top: 0;
     z-index: 1000;
+    background: #fff;
     overflow: visible;
+}
+.dark #widgetDetailsControls {
+    background: #333;
 }
 .search-container {
     display: flex;
@@ -362,6 +366,9 @@ body {
 .expand-list-btn:active {
     background: #e2e8f0;
 }
+.dark .expand-list-btn {
+    color: #ddd;
+}
 
 .pagination-container {
     display: flex;
@@ -426,9 +433,12 @@ body {
 #widgetDetailsBottom {
     position: sticky;
     bottom: 0;
+    margin-top: auto;
     background: white;
     padding: 15px;
     border-top: 1px solid #e5e5e5;
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
     z-index: 10;
 }
 
@@ -497,11 +507,17 @@ body {
 
 .listings-scroll-container {
     position: relative;
+    background: #fff;
     overflow-y: auto;
     max-height: calc(100vh - 100px);
+    flex: 1 1 auto;
+    min-height: 0;
     /* min-height: 300px; Caused too much space above .no-results-content */
     margin-top: -20px; /* Places under control fade out */
     padding-top: 15px;
+}
+.dark .listings-scroll-container {
+    background: #333;
 }
 
 .listing-card {
@@ -806,6 +822,10 @@ body {
 #widgetDetails {
     position: relative;
     overflow: visible;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
 }
 #pageMap {
     border-radius: 8px;
