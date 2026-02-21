@@ -1,5 +1,22 @@
 {
-
+  "airports": {
+    "shortTitle": "Airports",
+    "menuTitle": "Airports Sample Data",
+    "listTitle": "Airports Sample",
+    "datatype": "csv",
+    "dataset": "/airports/us/ga/ga.csv",
+    "dataadmin": "/display/data/airports/",
+    "markerType": "google",
+    "nameColumn": "Airport",
+    "id": "FAA",
+    "featuredColumns": ["Airport", "City", "FAA", "Type", "Role", "Enplanements"],
+    "search": {
+      "In City": "City",
+      "In County Name": "County"
+    },
+    "datastates": ["GA"],
+     "mapInfo": "<a href='/airports'>Airports Data</a>"
+  },
   "modelteam": {
     "shortTitle": "Model.Earth Team",
     "menuTitle": "Model.Earth Team",
@@ -19,9 +36,9 @@
     }
   },
   "dca": {
-    "shortTitle": "Deep-Containment SMRs",
-    "menuTitle": "Deep-Containment Sites",
-    "listTitle": "Deep-Containment Architecture for SMRs",
+    "shortTitle": "Underground SMRs",
+    "menuTitle": "Underground Energy",
+    "listTitle": "Deep-Containment Architecture",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
     "dataset_offline": "/community/projects/nuclear/locations.csv",
