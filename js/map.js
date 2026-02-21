@@ -471,6 +471,7 @@ class ListingsDisplay {
 
         //this.showLoadingState("Loading Dataset Choices");
         await this.loadShowConfigs();
+        this.applyInitialShowFromIndex();
 
         // If currentShow came from hash, don't update cache on initial load
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
@@ -483,7 +484,7 @@ class ListingsDisplay {
         //alert("param.showmap " + param.showmap)
         //alert("fromHash " + fromHash)
 
-        if (fromHash || window.param.map) {
+        if (fromHash || window.param.map || window.param.show) {
             this.showLoadingState("Loading listings...");
             await this.loadShowData();
         //} else if (loadMapDataParam) { // Checks for map.js?showmap=true
@@ -6470,6 +6471,42 @@ Do not include any explanation or additional text.`;
         } catch (error) {
             console.warn('Failed to save show to cache:', error);
         }
+    }
+
+    applyInitialShowFromIndex() {
+        const hash = (typeof getHash === 'function') ? getHash() : {};
+        const hasExplicitShow = !!(hash.map || hash.show || window.param.map || window.param.show);
+        if (hasExplicitShow) {
+            return;
+        }
+
+        const showIndexRaw = hash.showindex || window.param.showindex;
+        if (showIndexRaw === undefined || showIndexRaw === null || showIndexRaw === '') {
+            return;
+        }
+
+        const parsedIndex = parseInt(showIndexRaw, 10);
+        if (Number.isNaN(parsedIndex) || parsedIndex < 1) {
+            console.warn(`Ignoring invalid showindex value: ${showIndexRaw}`);
+            return;
+        }
+
+        const showKeys = Object.keys(this.showConfigs || {});
+        if (!showKeys.length) {
+            return;
+        }
+
+        const showKey = showKeys[parsedIndex - 1];
+        if (!showKey) {
+            console.warn(`showindex=${parsedIndex} is out of range for available datasets (${showKeys.length}).`);
+            return;
+        }
+
+        this.currentShow = showKey;
+        if (typeof updateHash === 'function') {
+            updateHash({ show: showKey });
+        }
+        console.log(`Initial show resolved from showindex=${parsedIndex}: ${showKey}`);
     }
     
     getCurrentList() {

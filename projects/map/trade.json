@@ -1,21 +1,5 @@
 {
-  "dca": {
-    "shortTitle": "Deep-Containment SMRs",
-    "menuTitle": "Deep-Containment Sites",
-    "listTitle": "Deep-Containment Architecture for SMRs",
-    "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
-    "dataset_offline": "/community/projects/nuclear/locations.csv",
-    "markerType": "google",
-    "nameColumn": "Location",
-    "featuredColumns": ["Location", "CountyRegion", "Nearby City", "Deposit Distance", "Geological Notes", "Fuel Type", "Mineral Availability", "Type Form", "Fuel Depth", "Nearby City Distance"],
-    "omit_display": ["Country"],
-    "search": {
-      "In City": "Location",
-      "In County Name": "CountyRegion"
-    },
-    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
-  },
+
   "modelteam": {
     "shortTitle": "Model.Earth Team",
     "menuTitle": "Model.Earth Team",
@@ -34,42 +18,44 @@
       "By State Name": "State"
     }
   },
-  "products.in": {
-    "shortTitle": "Made in India",
-    "menuTitle": "Products Made in India",
-    "listTitle": "Construction Products Made in India",
+  "dca": {
+    "shortTitle": "Deep-Containment SMRs",
+    "menuTitle": "Deep-Containment Sites",
+    "listTitle": "Deep-Containment Architecture for SMRs",
     "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/Sirishaupadhyayula/products-data/refs/heads/main/IN.csv",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
+    "dataset_offline": "/community/projects/nuclear/locations.csv",
     "markerType": "google",
-    "nameColumn": "Name",
-    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "nameColumn": "Location",
+    "featuredColumns": ["Location", "CountyRegion", "Nearby City", "Deposit Distance", "Geological Notes", "Fuel Type", "Mineral Availability", "Type Form", "Fuel Depth", "Nearby City Distance"],
+    "omit_display": ["Country"],
     "search": {
-      "In City": "Name",
-      "In County Name": "County"
+      "In City": "Location",
+      "In County Name": "CountyRegion"
     },
-    "mapInfo": "Companies in India"
+    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
   },
   "products.us": {
     "shortTitle": "Made in USA",
     "menuTitle": "Products Made in USA",
     "listTitle": "Construction Products Made in USA",
     "datatype": "csv",
-    "dataset": "",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main/US/all.csv",
     "markerType": "google",
-    "nameColumn": "Name",
-    "featuredColumns": ["Name", "Address", "County", "Zip"],
+    "nameColumn": "name",
+    "featuredColumns": ["name","gwp","declared_unit","category"],
     "search": {
       "In City": "Name",
       "In County Name": "County"
     },
     "mapInfo": "Companies in USA"
   },
-  "products.us.ga": {
-    "shortTitle": "Made in Georgia, USA",
-    "menuTitle": "Products Made in Georgia",
-    "listTitle": "Construction Products Made in Georgia, USA",
+  "products.in": {
+    "shortTitle": "Made in India",
+    "menuTitle": "Products Made in India",
+    "listTitle": "Construction Products Made in India",
     "datatype": "csv",
-    "dataset": "",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main/IN.csv",
     "markerType": "google",
     "nameColumn": "Name",
     "featuredColumns": ["Name", "Address", "County", "Zip"],
@@ -77,6 +63,6 @@
       "In City": "Name",
       "In County Name": "County"
     },
-    "mapInfo": "Companies in Georgia, USA"
+    "mapInfo": "Companies in India <!-- data pull by Sirishaupadhyayula -->"
   }
 }
