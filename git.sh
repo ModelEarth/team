@@ -1316,7 +1316,17 @@ pull_command() {
             failed_submodules+=("$sub (directory access)")
             continue
         }
-        
+
+        # Skip submodules pinned at parent's expected commit (intentional detached HEAD)
+        if [ -z "$(git symbolic-ref -q HEAD 2>/dev/null)" ]; then
+            local detached_commit=$(git rev-parse HEAD)
+            local parent_expected=$(git -C .. ls-tree HEAD "$sub" 2>/dev/null | awk '{print $3}')
+            if [ "$detached_commit" = "$parent_expected" ]; then
+                cd_webroot || cd ..
+                continue
+            fi
+        fi
+
         # Try GitHub CLI merge for graceful conflict handling
         local pull_output=""
         local pull_success=true
