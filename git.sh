@@ -2073,6 +2073,15 @@ push_submodules() {
     
     for sub in "${submodules[@]}"; do
         [ ! -d "$sub" ] && continue
+        # Skip submodules pinned at parent's expected commit (intentional detached HEAD)
+        local sub_head=$(git -C "$sub" symbolic-ref -q HEAD 2>/dev/null)
+        if [ -z "$sub_head" ]; then
+            local sub_commit=$(git -C "$sub" rev-parse HEAD 2>/dev/null)
+            local parent_expected=$(git ls-tree HEAD "$sub" 2>/dev/null | awk '{print $3}')
+            if [ "$sub_commit" = "$parent_expected" ]; then
+                continue
+            fi
+        fi
         if ! safe_submodule_operation "$sub" "commit_push" "$sub" "$skip_pr"; then
             failed_pushes+=("$sub")
         fi
