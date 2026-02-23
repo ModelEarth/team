@@ -94,11 +94,14 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
         if (contentDiv.id === 'commonSetupDiv' && !document.getElementById('agents-guidance-note')) {
             const panel = osContainer.querySelector('#os-detection-panel');
             if (panel) {
+                const cliOnlyDiv = document.createElement('div');
+                cliOnlyDiv.className = 'cli-only';
+
                 const noteText = document.createElement('div');
                 noteText.textContent = 'IMPORTANT: Run to inform your Code CLI where to find guidance.';
                 noteText.style.marginTop = '12px';
                 noteText.style.marginBottom = '0';
-                panel.appendChild(noteText);
+                cliOnlyDiv.appendChild(noteText);
 
                 const note = document.createElement('pre');
                 note.id = 'agents-guidance-note';
@@ -106,20 +109,22 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 const code = document.createElement('code');
                 code.textContent = 'For active guidance, follow the AGENTS.md files in the webroot, localsite, and team repos';
                 note.appendChild(code);
-                panel.appendChild(note);
+                cliOnlyDiv.appendChild(note);
 
                 const frontendText = document.createElement('div');
                 frontendText.textContent = 'Or if you are vibing frontend code only, without Python or Rust updates, then just run:';
                 frontendText.style.marginTop = '12px';
                 frontendText.style.marginBottom = '0';
-                panel.appendChild(frontendText);
+                cliOnlyDiv.appendChild(frontendText);
 
                 const frontendNote = document.createElement('pre');
                 frontendNote.style.marginTop = '0';
                 const frontendCode = document.createElement('code');
                 frontendCode.textContent = 'For active guidance, follow localsite/AGENTS.md';
                 frontendNote.appendChild(frontendCode);
-                panel.appendChild(frontendNote);
+                cliOnlyDiv.appendChild(frontendNote);
+
+                panel.appendChild(cliOnlyDiv);
             }
         }
     }
@@ -418,9 +423,13 @@ function createOSDetectionPanel(containerId) {
                 <input type="checkbox" id="vscode-claude" style="margin: 0;">
                 <span>VS Code with Claude</span>
             </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="no-cli" style="margin: 0;">
+                <span>No CLI</span>
+            </label>
         </div>
     </div>
-    <div id="cli-commands" style="display: none;">
+    <div id="cli-commands" class="cli-only" style="display: none;">
         <div id="cli-code-commands" style="display: none;">
             <h4 style="margin: 0 0 8px 0;" id="cli-installation-title">CLI Installation:</h4>
             <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
@@ -598,6 +607,7 @@ function initializeOSDetectionPanel() {
     const claudeCodeCli = document.getElementById('claude-code-cli');
     const geminiCli = document.getElementById('gemini-cli');
     const vscodeClaude = document.getElementById('vscode-claude');
+    const noCli = document.getElementById('no-cli');
     const cliCommands = document.getElementById('cli-commands');
     const cliCodeCommands = document.getElementById('cli-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
@@ -657,6 +667,10 @@ function initializeOSDetectionPanel() {
     if (vscodeClaude && savedVscode === 'true') {
         vscodeClaude.checked = true;
     }
+    const savedNoCli = localStorage.getItem('no-cli-selected');
+    if (noCli && savedNoCli === 'true') {
+        noCli.checked = true;
+    }
     
     // Radio button initialization will be done in the setTimeout below
     
@@ -687,6 +701,7 @@ function initializeOSDetectionPanel() {
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
         const geminiChecked = geminiCli ? geminiCli.checked : false;
         const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
+        const noCliChecked = noCli ? noCli.checked : false;
 
         // Update OS-specific installation instructions
         updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked);
@@ -786,7 +801,33 @@ function initializeOSDetectionPanel() {
                 vscodeCommands.style.display = 'none';
             }
         }
-        
+
+        // Handle No CLI section — open View Commands in #quickstartDiv
+        if (noCliChecked) {
+            const toggleBtn = document.getElementById('quickstartDiv-toggle');
+            if (toggleBtn && toggleBtn.dataset.open !== 'true') {
+                toggleBtn.click();
+            }
+        }
+
+        // Hide cli-only elements when No CLI is the only selection
+        const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeCodeChecked && !geminiChecked && !vscodeChecked;
+        document.querySelectorAll('.cli-only').forEach(el => {
+            if (el.id === 'cli-commands') return; // Already managed by existing logic above
+            el.style.display = onlyNoCliChecked ? 'none' : '';
+        });
+        // Sync rust tab labels and active tab
+        updateRustTabState();
+
+        // Open "More Deploy Options" when No CLI is the only selection
+        if (onlyNoCliChecked) {
+            const deployGitPanel = document.getElementById('deployGit');
+            const showDeployGitBtn = document.getElementById('showDeployGit');
+            if (deployGitPanel && showDeployGitBtn && getComputedStyle(deployGitPanel).display === 'none') {
+                showDeployGitBtn.click();
+            }
+        }
+
         // Update GitHub CLI instructions based on OS
         const macInstructions = document.querySelectorAll('.mac-instructions');
         const pcInstructions = document.querySelectorAll('.pc-instructions');
@@ -957,7 +998,14 @@ ${cliCmd}</code></pre>`;
             updateCliCommands();
         });
     }
-    
+
+    if (noCli) {
+        noCli.addEventListener('change', function() {
+            localStorage.setItem('no-cli-selected', this.checked);
+            updateCliCommands();
+        });
+    }
+
     // Add event listeners for Claude install status radio buttons (with delay to ensure DOM is ready)
     setTimeout(() => {
         const installStatusRadios = document.querySelectorAll('input[name="claude-install-status"]');
@@ -1943,19 +1991,19 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             <!-- Tab Navigation -->
             <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">
                 <div style="display: flex; gap: 0;">
-                    <button class="rust-tab-btn active" data-tab="with-claude" onclick="switchRustTab('with-claude')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid var(--accent-blue); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
-                        🤖 With Claude
+                    <button class="rust-tab-btn active" data-tab="with-cli" onclick="switchRustTab('with-cli')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid var(--accent-blue); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
+                        🤖 With CLI
                     </button>
-                    <button class="rust-tab-btn" data-tab="without-claude" onclick="switchRustTab('without-claude')" style="padding: 12px 20px; border: 1px solid var(--border-medium); background: white; color: var(--text-primary); border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
-                        ⚙️ Without Claude
+                    <button class="rust-tab-btn" data-tab="without-cli" onclick="switchRustTab('without-cli')" style="padding: 12px 20px; border: 1px solid var(--border-medium); background: white; color: var(--text-primary); border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
+                        ⚙️ Without CLI
                     </button>
                 </div>
             </div>
             
             <!-- Tab Content -->
             <div id="rust-tab-content">
-                <!-- Default to With Claude content -->
-                <div id="with-claude-content" class="rust-tab-content active">
+                <!-- Default to With CLI content -->
+                <div id="with-cli-content" class="rust-tab-content active">
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
                         🤖 If you already have Claude Code running, say: <strong>"start rust"</strong> or similar.
                     </p>
@@ -1964,7 +2012,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                     </div>
                 </div>
                 
-                <div id="without-claude-content" class="rust-tab-content" style="display: none;">
+                <div id="without-cli-content" class="rust-tab-content" style="display: none;">
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
                         ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
                     </p>
@@ -1983,6 +2031,9 @@ cargo run --bin partner_tools -- serve</code></pre>
             </div>
         `;
         
+        // Sync tab labels and active tab with current CLI checkbox state
+        updateRustTabState();
+
         // Hide stop button when API is inactive, but keep reload button visible
         if (stopBtn) {
             stopBtn.style.display = 'none';
@@ -2008,6 +2059,35 @@ cargo run --bin partner_tools -- serve</code></pre>
             setTimeout(() => feather.replace(), 100);
         }
     }
+}
+
+// Read checkbox state and update rust tab labels + active tab
+function updateRustTabState() {
+    const noCliChecked   = document.getElementById('no-cli')          ? document.getElementById('no-cli').checked          : false;
+    const codexChecked   = document.getElementById('codex-cli')       ? document.getElementById('codex-cli').checked       : false;
+    const claudeChecked  = document.getElementById('claude-code-cli') ? document.getElementById('claude-code-cli').checked : false;
+    const geminiChecked  = document.getElementById('gemini-cli')      ? document.getElementById('gemini-cli').checked      : false;
+    const vscodeChecked  = document.getElementById('vscode-claude')   ? document.getElementById('vscode-claude').checked   : false;
+
+    const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeChecked && !geminiChecked && !vscodeChecked;
+
+    // Determine label when exactly one CLI is selected
+    const cliCount = [codexChecked, claudeChecked, geminiChecked, vscodeChecked].filter(Boolean).length;
+    let cliName = 'CLI';
+    if (cliCount === 1) {
+        if (codexChecked)  cliName = 'OpenAI Codex';
+        else if (claudeChecked) cliName = 'Claude Code';
+        else if (geminiChecked) cliName = 'Gemini CLI';
+        else if (vscodeChecked) cliName = 'VS Code';
+    }
+
+    // Update tab button labels
+    document.querySelectorAll('.rust-tab-btn').forEach(btn => {
+        if (btn.dataset.tab === 'with-cli')    btn.textContent = `🤖 With ${cliName}`;
+        if (btn.dataset.tab === 'without-cli') btn.textContent = `⚙️ Without ${cliName}`;
+    });
+
+    switchRustTab(onlyNoCliChecked ? 'without-cli' : 'with-cli');
 }
 
 // Helper functions for the combined panel
