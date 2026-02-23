@@ -1059,7 +1059,18 @@ commit_push() {
     
     # Fix detached HEAD before committing
     fix_detached_head "$name"
-    
+
+    # Fetch and rebase against remote before committing so the push is always
+    # a fast-forward, avoiding non-fast-forward rejections without needing force.
+    if git fetch origin 2>/dev/null; then
+        local current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [ "$current_branch" != "HEAD" ] && git rev-parse --verify origin/"$current_branch" >/dev/null 2>&1; then
+            if ! git rebase origin/"$current_branch" 2>/dev/null; then
+                git rebase --abort 2>/dev/null || true
+            fi
+        fi
+    fi
+
     # Check if there are changes to commit first
     local has_working_changes=false
     local commit_hash=""
