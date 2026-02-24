@@ -818,6 +818,7 @@ function initializeOSDetectionPanel() {
         });
         // Sync rust tab labels and active tab
         updateRustTabState();
+        updateWithoutCliCommand();
 
         // Open "More Deploy Options" when No CLI is the only selection
         if (onlyNoCliChecked) {
@@ -850,15 +851,9 @@ function initializeOSDetectionPanel() {
             let geminiContent = '';
 
             if (selectedOS === 'PC') {
-                geminiContent = `<pre class="no-bottom-margin"><code>python -m venv env
-env\\Scripts\\activate.bat
-npm install -g @google/generative-ai
-gemini</code></pre>`;
+                geminiContent = `<pre class="no-bottom-margin"><code>${getVenvPrefix('PC')}npm install -g @google/generative-ai && gemini</code></pre>`;
             } else {
-                geminiContent = `<pre class="no-bottom-margin"><code>python3 -m venv env
-source env/bin/activate
-npm install -g @google/generative-ai
-gemini</code></pre>`;
+                geminiContent = `<pre class="no-bottom-margin"><code>${getVenvPrefix('Mac')}npm install -g @google/generative-ai\ngemini</code></pre>`;
             }
 
             geminiCommandDisplay.innerHTML = geminiContent;
@@ -942,22 +937,14 @@ npm install -g openai-codex-cli</code></pre>`;
                 cliCmd = `codex\n# Or use:\n# ${claudeCmd}`;
             }
 
-            if (selectedOS === 'Mac' || selectedOS === 'Linux') {
-                newContent = `<pre><code>python3 -m venv env
-source env/bin/activate
-${cliCmd}</code></pre>`;
-            } else if (selectedOS === 'PC') {
-                newContent = `<pre><code>python -m venv env && env\\Scripts\\activate.bat && ${cliCmd}</code></pre>`;
+            if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'PC') {
+                newContent = `<pre><code>${getVenvPrefix(selectedOS)}${cliCmd}</code></pre>`;
             } else {
                 newContent = `<b>For Unix/Linux/Mac:</b>
-<pre><code>python3 -m venv env
-source env/bin/activate
-${cliCmd}</code></pre>
+<pre><code>${getVenvPrefix('Mac')}${cliCmd}</code></pre>
 
 <b>For Windows:</b>
-<pre><code>python -m venv env
-env\\Scripts\\activate.bat
-${cliCmd}</code></pre>`;
+<pre><code>${getVenvPrefix('PC')}${cliCmd}</code></pre>`;
             }
 
             commandDisplay.innerHTML = newContent;
@@ -1874,7 +1861,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                                 Stop Rust
                         </button>
                         <!-- Admin Detail Button -->
-                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-secondary btn-width" style="margin: 0; width: 100%;">
+                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-black btn-width" style="margin: 0; width: 100%;">
                             Admin Details
                         </button>
                     </div>
@@ -2017,12 +2004,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                         ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
                     </p>
                     <div style="margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                        <h5 style="margin: 0 0 12px 0;">Manual Setup Commands:</h5>
-                        <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code>cd team
+                        <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 8px 0;">Run in your terminal from the webroot directory.</p>
+                        <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code id="without-cli-cmd-display">cd team
 cargo run --bin partner_tools -- serve</code></pre>
-                        <p style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 0 0;">
-                            Run this in your terminal from the webroot directory.
-                        </p>
                     </div>
                     <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
                         Manual option shows commands to run yourself.
@@ -2031,8 +2015,9 @@ cargo run --bin partner_tools -- serve</code></pre>
             </div>
         `;
         
-        // Sync tab labels and active tab with current CLI checkbox state
+        // Sync tab labels, active tab, and without-cli command with current state
         updateRustTabState();
+        updateWithoutCliCommand();
 
         // Hide stop button when API is inactive, but keep reload button visible
         if (stopBtn) {
@@ -2058,6 +2043,26 @@ cargo run --bin partner_tools -- serve</code></pre>
         if (window.feather) {
             setTimeout(() => feather.replace(), 100);
         }
+    }
+}
+
+// Returns the venv activation prefix for the given OS
+function getVenvPrefix(selectedOS) {
+    if (selectedOS === 'PC') {
+        return 'python -m venv env && env\\Scripts\\activate.bat && ';
+    }
+    return 'python3 -m venv env\nsource env/bin/activate\n';
+}
+
+// Updates the without-cli command display based on current OS selection
+function updateWithoutCliCommand() {
+    const cmdEl = document.getElementById('without-cli-cmd-display');
+    if (!cmdEl) return;
+    const selectedOS = (document.getElementById('os') || {}).value || '';
+    if (selectedOS === 'PC') {
+        cmdEl.textContent = getVenvPrefix('PC') + 'cd team && cargo run --bin partner_tools -- serve';
+    } else {
+        cmdEl.textContent = getVenvPrefix('Mac') + 'cd team\ncargo run --bin partner_tools -- serve';
     }
 }
 
