@@ -1860,10 +1860,6 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <button class="btn btn-danger btn-width" onclick="stopRustServer()" style="display: none;margin: 0 0 2px 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
                                 Stop Rust
                         </button>
-                        <!-- Admin Detail Button -->
-                        <button onclick="toggleAdminDetail()" id="admin-detail-btn" class="btn btn-black btn-width" style="margin: 0; width: 100%;">
-                            Admin Details
-                        </button>
                     </div>
                 </div>
             </div>
@@ -2133,39 +2129,6 @@ function switchRustTab(tabName) {
     });
 }
 
-// Function to toggle the admin detail panel and README visibility
-function toggleAdminDetail() {
-    const readmeDiv = document.getElementById('readmeDiv');
-    const adminDetailBtn = document.getElementById('admin-detail-btn');
-    
-    if (!readmeDiv || !adminDetailBtn) return;
-    
-    const isVisible = readmeDiv.style.display !== 'none';
-    
-    // Toggle admin detail content
-    if (isVisible) {
-        readmeDiv.style.display = 'none';
-        adminDetailBtn.textContent = 'Admin Details';
-        adminDetailBtn.style.background = '';  // Reset to default
-        adminDetailBtn.style.color = '';  // Reset to default
-        adminDetailBtn.style.borderColor = '';  // Reset to default
-    } else {
-        readmeDiv.style.display = 'block';
-        adminDetailBtn.textContent = 'Hide Details';
-        adminDetailBtn.style.background = '#1A1A1A';  // Black background
-        adminDetailBtn.style.color = 'white !important';  // Force white text even in dark mode
-        adminDetailBtn.style.borderColor = '#1A1A1A';
-        
-        // Load README content only if not already loaded (check for the loading message)
-        const loadingMessage = readmeDiv.querySelector('p');
-        if (loadingMessage && loadingMessage.textContent.includes('Loading README.md')) {
-            if (typeof displayFile === 'function') {
-                displayFile("README.md", "readmeDiv", "_parent", null, false);
-            }
-        }
-    }
-}
-
 // Helper function to update a single status indicator
 function updateStatusIndicator(indicatorId, textId, isActive, activeText, inactiveText) {
     const indicator = document.getElementById(indicatorId);
@@ -2357,7 +2320,6 @@ window.checkDatabaseConnection = checkDatabaseConnection;
 window.updateStatusIndicator = updateStatusIndicator;
 window.checkIndividualDatabaseStatus = checkIndividualDatabaseStatus;
 window.switchRustTab = switchRustTab;
-window.toggleAdminDetail = toggleAdminDetail;
 window.checkDatabaseStatus = checkDatabaseStatus;
 window.stopRustServer = stopRustServer;
 window.apiCall = apiCall;

@@ -1021,10 +1021,12 @@ async function setupWebServerStatusPanel(options) {
                     <span class="status-indicator-holder" style="display:flex; align-items:center;"></span>
                     <p style="color: var(--text-secondary); margin: 0;">
                         Your local http server is running at <a href="${activeUrl}">${displayUrl}</a><br>
-                        (${serverSidePythonAvailable ? 'Server-side Python API detected' : 'Server-side Python API not detected'} at <a href="${localhost8887ApiStatusUrl}">${localhost8887ApiStatusDisplay}</a>)<br>
+                        ${serverSidePythonAvailable ? 'Server-side Python API detected' : 'Server-side Python API not detected'} at ${localhost8887ApiStatusDisplay}<br>
+                        <!--
                         <span style="font-size: 13px;">
                             Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhost8887Display}</code> (${localhost8887Running ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port 8887 (${localhost8887ApiRunning ? 'reachable' : 'not reachable'}).
                         </span>
+                        -->
                     </p>
                 </div>
                 <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
