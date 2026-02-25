@@ -43,8 +43,8 @@ function createWebrootSetupHTML() {
 function createTradeFlowReposHTML() {
     return `
         <h1 class="card-title">Extra Repos</h1>
-        <p>Optional: To contribute to our data-pipeline or industry tradeflow visualizations, run the following to fork and clone:<br>
-        data-pipeline, trade-data, nisar, community, evaporation-kits</p>
+        <p>Optional: To contribute to our tradeflow visualizations, run the following to fork and clone:<br>
+        trade-data, community, cv, nisar, evaporation-kits</p>
         
         <pre><code id="forkReposCmds">using guidance in webroot/AGENTS.md
 fork extra repos to [your github account]
@@ -57,14 +57,6 @@ clone extra repos from [your github account]
     `;
 }
 
-function createBackendInfo() {
-    return `<h1 class="card-title">Rust API Backend</h1>
-  Run "Start Rust" if your backend isn't started yet.<br><br>
-  <a href="http://localhost:8887/team/admin/sql/panel/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: #3B82F6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-right: 12px;">
-    <span>🗄️</span>
-    Rust API and Database
-  </a>`
-}
 // Function to update git account fields and browser storage
 function updateGitAccountFields() {
     const gitAccount = document.getElementById("gitAccount").value;
@@ -222,13 +214,6 @@ function setupTradeFlowRepos(containerId) {
         setTimeout(() => {
             updateForkReposCommands();
         }, 100);
-    }
-}
-function setupBackendInfo(containerId) {
-    const container = document.getElementById(containerId);
-    if (container) {
-        const backendInfoHTML = createBackendInfo();
-        container.innerHTML = backendInfoHTML;
     }
 }
 
@@ -574,31 +559,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function getQuickstartCommandsHtml() {
     const isLocalhost = window.location.hostname === 'localhost';
+    const basicCommandPreClass = isLocalhost
+        ? 'quickstart-8887-pre quickstart-8887-pre-with-stop'
+        : 'quickstart-8887-pre';
     const stopServerButton = isLocalhost
         ? `
-            <button class="btn btn-secondary btn-width" style="margin-left:auto;" onclick="stopLocalWebServer()">
+            <button class="btn btn-secondary quickstart-stop-8887-btn" onclick="stopLocalWebServer()">
                 Stop 8887 Server
             </button>
         `
         : '';
     return `
-        <p style="color: var(--text-primary);"><strong>Basic HTTP server without server-side Python execution:</strong></p>
-        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
-        <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-            <span id="quickstart-cli-line">Using your Code CLI, start a web server (and python backend) within a virtual environment on port 8887:</span>
+        <p style="color: var(--text-primary);"><strong>Start basic HTTP server without server-side Python execution:</strong></p>
+        <div class="quickstart-8887-wrap" style="position:relative; container-type:inline-size;">
+            <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
             ${stopServerButton}
+        </div>
+        <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top: 12px;">
+            <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port 8887:</span>
         </div>
         <div id="stop-8887-fallback"></div>
         <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">Choose a Code CLI above to see more commands.</div>
-        <p style="color: var(--text-primary);">On Macs and Linux:</p>
-        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
+        <div id="quickstart-mac-linux-section">
+            <p style="color: var(--text-primary);">The above start server command is the equivalent to:</p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
 source env/bin/activate
 ./desktop/install/quickstart.sh</code></pre>
-        <p style="color: var(--text-primary);">On Windows:</p>
-        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
+        </div>
+        <div id="quickstart-windows-section">
+            <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
+            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
 env\\Scripts\\activate
 ./desktop/install/quickstart.sh</code></pre>
+        </div>
         <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
         <ul style="color: var(--text-secondary); margin-left: 20px;">
             <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
@@ -610,35 +604,77 @@ env\\Scripts\\activate
     `;
 }
 
+function ensureQuickstartLayoutStyles() {
+    if (document.getElementById('quickstart-layout-styles')) {
+        return;
+    }
+    const style = document.createElement('style');
+    style.id = 'quickstart-layout-styles';
+    style.textContent = `
+        .quickstart-8887-pre {
+            margin: 0;
+        }
+        .quickstart-8887-pre-with-stop {
+            padding-right: 0;
+        }
+        .quickstart-8887-pre > code {
+            width: 100%;
+        }
+        .quickstart-stop-8887-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            margin: 0;
+            width: auto !important;
+            min-width: 0;
+            z-index: 1;
+        }
+        @container (max-width: 520px) {
+            .quickstart-8887-pre-with-stop {
+                padding-right: 0;
+            }
+            .quickstart-stop-8887-btn {
+                width: auto !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function renderQuickstartCommands(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    ensureQuickstartLayoutStyles();
     container.innerHTML = getQuickstartCommandsHtml();
     attachQuickstartCliListeners();
     updateQuickstartCliVisibility();
 }
 
 let quickstartCliListenersAttached = false;
+let quickstartOsListenerAttached = false;
 
 function attachQuickstartCliListeners() {
-    if (quickstartCliListenersAttached) {
-        return;
+    if (!quickstartCliListenersAttached) {
+        const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
+        const checkboxes = checkboxIds
+            .map((id) => document.getElementById(id))
+            .filter(Boolean);
+
+        if (checkboxes.length) {
+            checkboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', updateQuickstartCliVisibility);
+            });
+            quickstartCliListenersAttached = true;
+        }
     }
 
-    const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
-    const checkboxes = checkboxIds
-        .map((id) => document.getElementById(id))
-        .filter(Boolean);
-
-    if (!checkboxes.length) {
-        return;
+    if (!quickstartOsListenerAttached) {
+        const osSelect = document.getElementById('os');
+        if (osSelect) {
+            osSelect.addEventListener('change', updateQuickstartOsVisibility);
+            quickstartOsListenerAttached = true;
+        }
     }
-
-    checkboxes.forEach((checkbox) => {
-        checkbox.addEventListener('change', updateQuickstartCliVisibility);
-    });
-
-    quickstartCliListenersAttached = true;
 }
 
 function updateQuickstartCliVisibility() {
@@ -661,6 +697,30 @@ function updateQuickstartCliVisibility() {
     }
     if (placeholder) {
         placeholder.style.display = isAnyChecked ? 'none' : 'block';
+    }
+    updateQuickstartOsVisibility();
+}
+
+function updateQuickstartOsVisibility() {
+    const macLinuxSection = document.getElementById('quickstart-mac-linux-section');
+    const windowsSection = document.getElementById('quickstart-windows-section');
+
+    if (!macLinuxSection || !windowsSection) {
+        return;
+    }
+
+    const osSelect = document.getElementById('os');
+    const selectedOS = osSelect ? osSelect.value : '';
+
+    if (selectedOS === 'PC') {
+        macLinuxSection.style.display = 'none';
+        windowsSection.style.display = 'block';
+    } else if (selectedOS === 'Mac' || selectedOS === 'Linux') {
+        macLinuxSection.style.display = 'block';
+        windowsSection.style.display = 'none';
+    } else {
+        macLinuxSection.style.display = 'block';
+        windowsSection.style.display = 'block';
     }
 }
 
@@ -758,10 +818,14 @@ function setBackendRowStatus(container, backendKey, isRunning) {
     }
 }
 
-function copyCommandToClipboard(command) {
+function copyCommandToClipboard(command, options = {}) {
+    const { showCommandInAlert = false } = options;
+    const copiedMessage = showCommandInAlert
+        ? `Command copied to clipboard:\n${command}`
+        : 'Command copied to clipboard.';
     if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(command).then(() => {
-            alert('Command copied to clipboard.');
+            alert(copiedMessage);
         }).catch(() => {
             prompt('Copy this command:', command);
         });
@@ -788,7 +852,7 @@ function attachBackendActionHandlers(containerId) {
             }
 
             if (command) {
-                copyCommandToClipboard(command);
+                copyCommandToClipboard(command, { showCommandInAlert: true });
             }
         });
     });

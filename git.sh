@@ -2361,7 +2361,7 @@ case "$1" in
     # Legacy command support with helpful messages
     "update")
         echo "⚠️ Please use 'pull' or 'pull all' instead of 'update'. Examples:"
-        echo "  • pull           - Pull all changes from webroot, submodules, and industry repos"
+        echo "  • pull           - Pull all changes from webroot, submodules, and site repos"
         echo "  • pull [submodule] - Pull changes for specific submodule only"
         echo "  • pull webroot   - Pull changes for webroot only"
         echo ""

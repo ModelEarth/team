@@ -101,6 +101,7 @@ h2 {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: 24px;
+    padding-bottom: 4px;
     margin-bottom: 16px;
     
     /* Add these responsive properties */
@@ -128,6 +129,10 @@ h1.card-title {
     font-weight: 600;
     margin-top: 0px;
     margin-bottom: 16px;
+}
+
+#webrootSetup {
+    padding-bottom: 12px;
 }
 
 .log-output {

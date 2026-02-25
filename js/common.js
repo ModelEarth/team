@@ -100,7 +100,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 const noteText = document.createElement('div');
                 noteText.textContent = 'IMPORTANT: Run to inform your Code CLI where to find guidance.';
                 noteText.style.marginTop = '12px';
-                noteText.style.marginBottom = '0';
+                noteText.style.marginBottom = '8px';
                 cliOnlyDiv.appendChild(noteText);
 
                 const note = document.createElement('pre');
@@ -114,7 +114,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 const frontendText = document.createElement('div');
                 frontendText.textContent = 'Or if you are vibing frontend code only, without Python or Rust updates, then just run:';
                 frontendText.style.marginTop = '12px';
-                frontendText.style.marginBottom = '0';
+                frontendText.style.marginBottom = '8px';
                 cliOnlyDiv.appendChild(frontendText);
 
                 const frontendNote = document.createElement('pre');
@@ -408,12 +408,12 @@ function createOSDetectionPanel(containerId) {
         <div style="margin-bottom: 4px;"></div>
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="codex-cli" style="margin: 0;">
-                <span>OpenAI Codex (recommended, first month free)</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="claude-code-cli" style="margin: 0;">
                 <span>Claude Code CLI (recommended)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="codex-cli" style="margin: 0;">
+                <span>OpenAI Codex (recommended, first month free)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="gemini-cli" style="margin: 0;">
@@ -425,7 +425,7 @@ function createOSDetectionPanel(containerId) {
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="no-cli" style="margin: 0;">
-                <span>No CLI</span>
+                <span>No CLI Coding Agent</span>
             </label>
         </div>
     </div>
@@ -717,23 +717,35 @@ function initializeOSDetectionPanel() {
         const cliSubscriptionText = document.getElementById('cli-subscription-text');
         const optionalMigrate = document.getElementById('optional-migrate');
         const cliTips = document.getElementById('cli-tips');
+        const checkedInstallAgents = [];
+        if (codexChecked) checkedInstallAgents.push('OpenAI Codex');
+        if (claudeCodeChecked) checkedInstallAgents.push('Claude Code CLI');
+
+        if (cliInstallationTitle) {
+            cliInstallationTitle.textContent = checkedInstallAgents.length
+                ? `${checkedInstallAgents.join(' + ')} Installation:`
+                : 'CLI Installation:';
+        }
+        const cliCollapseStatus = document.querySelector('#cli-commands .collapse-status');
+        if (cliCollapseStatus) {
+            cliCollapseStatus.textContent = checkedInstallAgents.length
+                ? `${checkedInstallAgents.join(' + ')} Installation`
+                : 'CLI Installation';
+        }
 
         if (codexChecked && claudeCodeChecked) {
-            if (cliInstallationTitle) cliInstallationTitle.textContent = 'CLI Installation:';
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = 'Get subscriptions: <a href="https://openai.com/api/">OpenAI Codex</a> and <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
             }
             if (optionalMigrate) optionalMigrate.style.display = 'block';
             if (cliTips) cliTips.style.display = 'block';
         } else if (codexChecked) {
-            if (cliInstallationTitle) cliInstallationTitle.textContent = 'OpenAI Codex Installation:';
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = 'Get yourself an <a href="https://openai.com/api/">OpenAI API subscription</a>.';
             }
             if (optionalMigrate) optionalMigrate.style.display = 'none';
             if (cliTips) cliTips.style.display = 'none';
         } else if (claudeCodeChecked) {
-            if (cliInstallationTitle) cliInstallationTitle.textContent = 'Claude Code CLI Installation:';
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = 'Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
             }
@@ -1149,7 +1161,7 @@ npm install -g openai-codex-cli</code></pre>`;
     
     // Make sections collapsible after initialization
     setTimeout(() => {
-        makeCollapsible('cli-commands', 'Claude Code CLI Installation');
+        makeCollapsible('cli-commands', 'CLI Installation');
         makeCollapsible('vscode-cmds', 'VS Code Commands');
 
         // Setup custom Gemini toggle
@@ -1785,6 +1797,68 @@ if (document.readyState === 'loading') {
 // Make functions globally available
 window.handleApiConnectionError = handleApiConnectionError;
 
+function ensureRustApiStatusPanelStyles() {
+    if (document.getElementById('rust-api-status-panel-styles')) {
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'rust-api-status-panel-styles';
+    style.textContent = `
+        .rust-api-status-layout {
+            container-type: inline-size;
+        }
+        .rust-api-action-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 12px;
+        }
+        .rust-api-action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .rust-api-action-buttons .btn {
+            margin: 0;
+            width: auto;
+            min-width: 0;
+        }
+        .rust-api-status-content-wrap {
+            position: relative;
+        }
+        .rust-api-status-content-wrap #reload-status-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 1;
+            width: auto;
+            min-width: 0;
+            margin: 0;
+        }
+        .rust-api-status-content-wrap #rust-api-status-content {
+            padding-right: 160px;
+        }
+        @container (max-width: 560px) {
+            .rust-api-action-row {
+                justify-content: flex-start;
+            }
+            .rust-api-action-buttons {
+                align-items: flex-start;
+            }
+            .rust-api-status-content-wrap #rust-api-status-content {
+                padding-right: 0;
+                padding-top: 44px;
+            }
+            .rust-api-status-content-wrap #reload-status-btn {
+                right: auto;
+                left: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // Function to create combined Rust API Status and Connection panel
 function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     const container = document.getElementById(containerId);
@@ -1792,6 +1866,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
         console.warn(`createRustApiStatusPanel: Container '${containerId}' not found`);
         return;
     }
+    ensureRustApiStatusPanelStyles();
 
     // Determine the relative path to admin/server/ from current page
     let adminPath = 'admin/server/';
@@ -1819,13 +1894,22 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                 <span class="status-indicator" id="rust-api-status-indicator"></span>
                 <span id="rust-api-status-title">Backend Rust API and Database Status</span>
             </h2>
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                
-                <div>
-                    
+            <div class="rust-api-status-layout">
+                <div class="rust-api-action-row">
+                    <div class="rust-api-action-buttons">
+                        <button class="btn btn-danger btn-width" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
+                            Stop Rust
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rust-api-status-content-wrap">
+                    <button class="btn btn-secondary btn-width" onclick="updateRustApiStatusPanel()" style="display: none;" id="reload-status-btn">
+                        Reload Status
+                    </button>
+
                     <!-- Status Indicators -->
                     <div id="backend-status-indicators" style="display: none;">
-                        
                         <!-- Rust API Status Section -->
                         <div id="rust-api-status-content" style="margin-bottom: 16px;">
                             <p style="color: var(--text-secondary); margin-bottom: 16px;">
@@ -1847,19 +1931,6 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                             <span class="status-box" id="location-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                         </div>
-
-                       
-                    </div>
-
-                </div>
-                <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; min-height: 120px;">
-                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                        <button class="btn btn-secondary btn-width" onclick="updateRustApiStatusPanel()" style="display: none;margin: 0; width: 100%;" id="reload-status-btn">
-                                Reload Status
-                        </button>
-                        <button class="btn btn-danger btn-width" onclick="stopRustServer()" style="display: none;margin: 0 0 2px 0; background: #b87333; color: white; border-color: #b87333; width: 100%; opacity: 0.85;" id="stop-rust-btn">
-                                Stop Rust
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1867,6 +1938,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
             <!-- Admin Detail Content (hidden by default, shown when admin detail button clicked) -->
             <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                 Loading configuration...
+            </div>
+            <div style="margin-top: 12px;">
+                <a href="http://localhost:8887/team/admin/sql/panel/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: #3B82F6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                    Database Connections
+                </a>
             </div>
         </div>
     `;
@@ -1959,14 +2035,10 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         indicator.className = 'status-indicator error';
         title.textContent = 'Backend Rust API and Database Status';
         
-        const configureServerText = showConfigureLink 
-            ? `<a href="${adminPath}" style="color: #856404; text-decoration: underline;">Configure Your Local Server</a>`
-            : 'Configure Your Local Server';
-        
         content.innerHTML = `
             <div style="color: #856404; background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;">
                 <i data-feather="info" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
-                <span><strong>Demo Mode:</strong> Database connection inactive. ${configureServerText}</span>
+                <span><strong>Start Rust Locally</strong></span>
             </div>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
                 <span style="color: #dc3545; margin-right: 8px;">🔴</span>The Rust backend server needs to be started to access full configuration and testing capabilities.
@@ -1987,26 +2059,14 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             <div id="rust-tab-content">
                 <!-- Default to With CLI content -->
                 <div id="with-cli-content" class="rust-tab-content active">
-                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        🤖 If you already have Claude Code running, say: <strong>"start rust"</strong> or similar.
-                    </p>
-                    <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
-                        Claude option will automatically start the server and databases for you.
-                    </div>
+                    <pre><code>Using guidance in team/AGENTS.md start rust</code></pre>
                 </div>
                 
                 <div id="without-cli-content" class="rust-tab-content" style="display: none;">
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                        ⚙️ Alternative tools and manual setup options for running the server without Claude Code CLI.
+                        ⚙️ To start Rust directly, run in your webroot/team folder:
                     </p>
-                    <div style="margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                        <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 8px 0;">Run in your terminal from the webroot directory.</p>
-                        <pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; font-size: 14px; margin: 8px 0;"><code id="without-cli-cmd-display">cd team
-cargo run --bin partner_tools -- serve</code></pre>
-                    </div>
-                    <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
-                        Manual option shows commands to run yourself.
-                    </div>
+                    <pre><code id="without-cli-cmd-display">cargo run --bin partner_tools -- serve</code></pre>
                 </div>
             </div>
         `;
@@ -2056,9 +2116,9 @@ function updateWithoutCliCommand() {
     if (!cmdEl) return;
     const selectedOS = (document.getElementById('os') || {}).value || '';
     if (selectedOS === 'PC') {
-        cmdEl.textContent = getVenvPrefix('PC') + 'cd team && cargo run --bin partner_tools -- serve';
+        cmdEl.textContent = getVenvPrefix('PC') + 'cargo run --bin partner_tools -- serve';
     } else {
-        cmdEl.textContent = getVenvPrefix('Mac') + 'cd team\ncargo run --bin partner_tools -- serve';
+        cmdEl.textContent = getVenvPrefix('Mac') + 'cargo run --bin partner_tools -- serve';
     }
 }
 

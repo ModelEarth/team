@@ -225,7 +225,7 @@ The ./git.sh commands are `./git.sh push` and `./git.sh pull`
 - Keep push summaries factual and limited to the immediate operation
 
 ### Pull / Pull All
-When you type "pull" or "pull all" and choose workflow #1 (direct), run this comprehensive pull workflow that pulls from all parent repos, submodules and industry repos:
+When you type "pull" or "pull all" and choose workflow #1 (direct), run this comprehensive pull workflow that pulls from all parent repos, submodules, and site repos:
 
 ```bash
 ./git.sh pull
@@ -371,6 +371,8 @@ git remote -v
 Site repositories are used for specialized functionality and are cloned to the webroot root directory (not submodules). These repositories are defined in the `.siterepos` file in the webroot directory using the same format as `.gitmodules`.
 
 **IMPORTANT**: These site repos are cloned to the webroot root directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of webroot.
+
+**Submodule note**: `data-pipeline` is a submodule (defined in `.gitmodules`) and should not be included in `.siterepos`.
 
 ## Development Standards
 
