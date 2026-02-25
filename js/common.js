@@ -444,7 +444,7 @@ function createOSDetectionPanel(containerId) {
             </div>
             <div id="claude-install-text" style="display: block; margin-top: 12px; font-size: 14px;">
 
-                <span id="cli-subscription-text">Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.</span><br>
+                <span id="cli-subscription-text">Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.</span><br>
 
                 <div id="os-specific-install">
                     <!-- OS-specific installation instructions will be populated here -->
@@ -735,19 +735,19 @@ function initializeOSDetectionPanel() {
 
         if (codexChecked && claudeCodeChecked) {
             if (cliSubscriptionText) {
-                cliSubscriptionText.innerHTML = 'Get subscriptions: <a href="https://openai.com/api/">OpenAI Codex</a> and <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
+                cliSubscriptionText.innerHTML = 'Get subscriptions: <a href="https://openai.com/api/" target="_blank" rel="noopener noreferrer">OpenAI Codex</a> and <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.';
             }
             if (optionalMigrate) optionalMigrate.style.display = 'block';
             if (cliTips) cliTips.style.display = 'block';
         } else if (codexChecked) {
             if (cliSubscriptionText) {
-                cliSubscriptionText.innerHTML = 'Get yourself an <a href="https://openai.com/api/">OpenAI API subscription</a>.';
+                cliSubscriptionText.innerHTML = 'Get yourself <a href="https://chatgpt.com/codex/get-started" target="_blank" rel="noopener noreferrer">OpenAI Codex</a>.';
             }
             if (optionalMigrate) optionalMigrate.style.display = 'none';
             if (cliTips) cliTips.style.display = 'none';
         } else if (claudeCodeChecked) {
             if (cliSubscriptionText) {
-                cliSubscriptionText.innerHTML = 'Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code">Claude Code CLI</a>.';
+                cliSubscriptionText.innerHTML = 'Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.';
             }
             if (optionalMigrate) optionalMigrate.style.display = 'block';
             if (cliTips) cliTips.style.display = 'block';
