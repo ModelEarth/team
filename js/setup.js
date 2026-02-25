@@ -582,6 +582,8 @@ function getQuickstartCommandsHtml() {
         `
         : '';
     return `
+        <p style="color: var(--text-primary);"><strong>Basic HTTP server without server-side Python execution:</strong></p>
+        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
         <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
             <span id="quickstart-cli-line">Using your Code CLI, start a web server (and python backend) within a virtual environment on port 8887:</span>
             ${stopServerButton}
@@ -605,11 +607,6 @@ env\\Scripts\\activate
             <li>Installs the <code>anthropic</code> package if API key is present</li>
             <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
         </ul>
-        <p style="color: var(--text-primary);"><strong>Alternative (basic HTTP server without server-side Python execution):</strong></p>
-        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
-        <p style="color: var(--text-secondary); font-size: 14px;">
-            Note: The basic http.server above does not include server-side python capabilities.
-        </p>
     `;
 }
 
@@ -672,32 +669,50 @@ async function getWebServerStatusState() {
     const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
     const currentUrl = window.location.href;
     const currentOriginUrl = `${window.location.protocol}//${window.location.host}/`;
+    const isLocalOrigin = ['localhost', '127.0.0.1', '::1'].includes(currentHost);
 
     const localhost8887Url = 'http://localhost:8887/';
-    const localhost8887Running = await checkBackendAvailabilityCached(localhost8887Url, 'webServerLocalhost8887');
-    const currentOriginRunning = await checkBackendAvailabilityCached(currentOriginUrl, 'webServerCurrentOrigin');
+    const localhost8887ApiStatusUrl = 'http://localhost:8887/api/status';
+
+    const [localhost8887Running, localhost8887ApiRunning, currentOriginRunning] = await Promise.all([
+        checkBackendAvailabilityCached(localhost8887Url, 'webServerLocalhost8887'),
+        checkBackendAvailabilityCached(localhost8887ApiStatusUrl, 'webServerLocalhost8887Api'),
+        checkBackendAvailabilityCached(currentOriginUrl, 'webServerCurrentOrigin')
+    ]);
 
     let isRunning = false;
     let detectedUrl = '';
     let detectedLabel = '';
+    let detectedType = 'none';
 
     if (localhost8887Running) {
         isRunning = true;
         detectedUrl = localhost8887Url;
         detectedLabel = 'port 8887';
-    } else if (currentOriginRunning) {
+        detectedType = 'localhost8887';
+    } else if (isLocalOrigin && currentOriginRunning) {
         isRunning = true;
         detectedUrl = currentOriginUrl;
         detectedLabel = window.location.host || `${currentHost}:${currentPort}`;
+        detectedType = 'localOrigin';
     }
 
     return {
         currentHost,
         currentPort,
         currentUrl,
+        currentOriginUrl,
+        isLocalOrigin,
         isRunning,
         detectedUrl,
-        detectedLabel
+        detectedLabel,
+        detectedType,
+        localhost8887Url,
+        localhost8887ApiStatusUrl,
+        localhost8887Running,
+        localhost8887ApiRunning,
+        currentOriginRunning,
+        serverSidePythonAvailable: localhost8887ApiRunning
     };
 }
 
@@ -969,11 +984,26 @@ async function setupWebServerStatusPanel(options) {
     const contentEl = document.getElementById(options.contentId);
     if (!statusIndicator || !titleEl || !contentEl) return;
 
-    const { isRunning, detectedUrl, detectedLabel } = await getWebServerStatusState();
+    const {
+        isRunning,
+        detectedUrl,
+        detectedLabel,
+        currentOriginUrl,
+        isLocalOrigin,
+        localhost8887Url,
+        localhost8887ApiStatusUrl,
+        localhost8887Running,
+        localhost8887ApiRunning,
+        currentOriginRunning,
+        serverSidePythonAvailable
+    } = await getWebServerStatusState();
     const activeUrl = detectedUrl || window.location.href;
     const displayUrl = activeUrl
         .replace(/^https?:\/\//, '')
         .replace(/\/$/, '');
+    const currentOriginDisplay = currentOriginUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const localhost8887Display = localhost8887Url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const localhost8887ApiStatusDisplay = localhost8887ApiStatusUrl.replace(/^https?:\/\//, '');
     const withBtnWidth = (className) => className && className.includes('btn-width')
         ? className
         : `${className} btn-width`;
@@ -990,7 +1020,11 @@ async function setupWebServerStatusPanel(options) {
                 <div class="status-text" style="display:flex; align-items:flex-start; gap:8px; flex: 1 1 360px;">
                     <span class="status-indicator-holder" style="display:flex; align-items:center;"></span>
                     <p style="color: var(--text-secondary); margin: 0;">
-                        Your local http server is runnning at <a href="${activeUrl}">${displayUrl}</a><br>(Running serverside <a href="/desktop">Python for Desktop Suite</a>)
+                        Your local http server is running at <a href="${activeUrl}">${displayUrl}</a><br>
+                        (${serverSidePythonAvailable ? 'Server-side Python API detected' : 'Server-side Python API not detected'} at <a href="${localhost8887ApiStatusUrl}">${localhost8887ApiStatusDisplay}</a>)<br>
+                        <span style="font-size: 13px;">
+                            Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhost8887Display}</code> (${localhost8887Running ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port 8887 (${localhost8887ApiRunning ? 'reachable' : 'not reachable'}).
+                        </span>
                     </p>
                 </div>
                 <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
@@ -1020,6 +1054,10 @@ async function setupWebServerStatusPanel(options) {
                     </button>
                 </div>
             </div>
+            <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
+                ${!isLocalOrigin ? `This page is loaded from hosted origin <code>${currentOriginDisplay}</code>; hosted page reachability does not mean local server-side Python is running on your machine.<br>` : ''}
+                Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhost8887Display}</code> (${localhost8887Running ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port 8887 (${localhost8887ApiRunning ? 'reachable' : 'not reachable'}).
+            </p>
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         `;
     }
