@@ -1501,6 +1501,14 @@ Do not include any explanation or additional text.`;
     }
 
     async refreshLocalData() {
+        if (!document.getElementById('refreshSpinKeyframes')) {
+            const s = document.createElement('style');
+            s.id = 'refreshSpinKeyframes';
+            s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(s);
+        }
+        const spinner = document.getElementById('refreshLocalSpinner');
+        if (spinner) spinner.style.display = 'inline-block';
         try {
             // Get the API URL (prefer dataset_via_api, fall back to dataset_api_slow)
             const apiUrl = this.config?.dataset_via_api || this.config?.dataset_api_slow;
@@ -1574,21 +1582,36 @@ Do not include any explanation or additional text.`;
                 this.config._isRefreshingLocally = true;
             }
 
-            // Reload the data from the refreshed local file
-            this.loading = true;
-            this.render();
+            // Reload list and map without destroying the map container
+            this.isDatasetChanging = true;
             await this.loadShowData();
-            this.loading = false;
-            this.render();
+            this.updateListingsDisplay();
+            this.isDatasetChanging = false;
+            if (window.leafletMap) {
+                window.leafletMap.updateFromListingsApp(this);
+            }
 
             // Clear the flag after reload
             if (this.config) {
                 this.config._isRefreshingLocally = false;
             }
 
+            // Show timing breakdown on localhost
+            if (window.location.hostname === 'localhost' && result.data?.timings) {
+                const t = result.data.timings;
+                const lines = Object.entries(t).map(([k, v]) => `  ${k}: ${v >= 1000 ? (v/1000).toFixed(1)+'s' : v+'ms'}`);
+                alert(`Refresh complete — ${entriesCount} entries\n\n${lines.join('\n')}`);
+            }
+
         } catch (error) {
             console.error('Error refreshing local data:', error);
+            if (window.location.hostname === 'localhost' && error instanceof TypeError) {
+                const filePath = this.config?.dataset || '(unknown path)';
+                alert(`Could not connect to local Rust server. File path: ${filePath}`);
+            }
             this.displayDebugMessage(`❌ Failed to refresh local data: ${error.message}`, 'error');
+        } finally {
+            if (spinner) spinner.style.display = 'none';
         }
     }
 
@@ -5829,12 +5852,12 @@ Do not include any explanation or additional text.`;
         if (onlineMode === 'false' && this.config.dataset_offline) {
             return this.resolveDatasetUrl(this.config.dataset_offline);
         }
+        if (this.config.dataset) {
+            return this.resolveDatasetUrl(this.config.dataset);
+        }
         const apiUrl = this.config.dataset_via_api || this.config.dataset_api_slow;
         if (apiUrl) {
             return this.resolveConfigUrl(apiUrl);
-        }
-        if (this.config.dataset) {
-            return this.resolveDatasetUrl(this.config.dataset);
         }
         return '';
     }
@@ -6132,8 +6155,9 @@ Do not include any explanation or additional text.`;
                                     (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
                                     this.config?.dataset &&
                                     !this.config.dataset.startsWith('http')) ? `
-                                <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;" title="Fetch data from API and save to local file">
+                                <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Fetch data from API and save to local file">
                                     Refresh Locally
+                                    <span id="refreshLocalSpinner" style="display:none; width:12px; height:12px; border:2px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite;"></span>
                                 </button>
                                 ` : ''}
                             </div>

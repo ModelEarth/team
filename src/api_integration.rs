@@ -463,8 +463,11 @@ async fn read_merge_source_data(
 
     // Resolve the merge source file path - it's relative to the jsonList's directory
     let source_file_path = if merge_source_file.starts_with('/') {
-        // Absolute path
-        merge_source_file.to_string()
+        // Web-relative path: resolve from webroot (parent of current_dir)
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let webroot = current_dir.parent().unwrap_or(&current_dir).to_path_buf();
+        let web_relative = merge_source_file.trim_start_matches('/');
+        normalize_path(&webroot.join(web_relative)).to_string_lossy().to_string()
     } else {
         // Relative path - resolve from jsonList directory (same as local_file_path resolution)
         let source_path = json_list_dir.join(merge_source_file);
@@ -542,7 +545,11 @@ async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) ->
 
     // Determine the absolute file path
     let file_path = if local_file_path.starts_with('/') {
-        local_file_path.to_string()
+        // Web-relative path: resolve from webroot (parent of current_dir)
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let webroot = current_dir.parent().unwrap_or(&current_dir).to_path_buf();
+        let web_relative = local_file_path.trim_start_matches('/');
+        normalize_path(&webroot.join(web_relative)).to_string_lossy().to_string()
     } else {
         let current_dir = std::env::current_dir().unwrap_or_default();
         let json_list_dir = current_dir.join("projects/map");
@@ -669,13 +676,28 @@ pub async fn refresh_local_file(
     log::info!("Refreshing local file {} with data from {}", local_file_path, api_url);
     log::info!("Using merge column: {}", req.merge_column);
 
+    // Re-read the API key fresh at request time so .env changes are picked up
+    let config = {
+        let fresh_key = std::env::var("COGNITO_FORMS_API").unwrap_or_default();
+        if !fresh_key.is_empty() && fresh_key != config.api_key {
+            log::info!("Using fresh COGNITO_FORMS_API key from environment");
+            ApiConfig { api_key: fresh_key, ..config.as_ref().clone() }
+        } else {
+            config.as_ref().clone()
+        }
+    };
+
     // Get the jsonList's directory (where config files and reference CSVs are located)
     let current_dir = std::env::current_dir().map_err(|e| {
         actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
     })?;
     let json_list_dir = current_dir.join("projects/map");
 
+    let total_start = std::time::Instant::now();
+    let mut timings: Vec<(String, u128)> = Vec::new();
+
     // Check if a merge source file is provided (from geoDataset in config)
+    let step_start = std::time::Instant::now();
     let (merge_data_map, all_field_names) = if let Some(merge_source_file) = &req.merge_source_file {
         log::info!("Using merge source file from config: {}", merge_source_file);
 
@@ -698,8 +720,10 @@ pub async fn refresh_local_file(
         log::info!("No merge source file specified in config, skipping merge process");
         (std::collections::HashMap::new(), Vec::new())
     };
+    timings.push(("Load geo source".to_string(), step_start.elapsed().as_millis()));
 
     // Check if this is a Cognito Forms URL that needs special handling
+    let step_start = std::time::Instant::now();
     let entries = if api_url.starts_with("https://www.cognitoforms.com") && api_url.ends_with("/entries") {
         // Use the shared core fetch logic for Cognito Forms bulk entries
         log::info!("Detected Cognito Forms bulk entries URL - using fetch_cognito_entries_core");
@@ -766,10 +790,40 @@ pub async fn refresh_local_file(
 
         entries
     };
+    timings.push(("Fetch from API".to_string(), step_start.elapsed().as_millis()));
 
     log::info!("Converting {} entries to CSV", entries.len());
 
+    // Read existing coordinates from the current CSV so they are preserved and not re-looked up
+    let step_start = std::time::Instant::now();
+    let existing_coords = read_existing_coordinates(local_file_path, &req.merge_column).await;
+    log::info!("Preserved {} existing coordinate pairs from current CSV", existing_coords.len());
+    timings.push(("Read existing coords".to_string(), step_start.elapsed().as_millis()));
+
+    // Apply existing coordinates to entries that are missing them
+    let step_start = std::time::Instant::now();
+    let entries: Vec<serde_json::Value> = entries.into_iter().map(|mut entry| {
+        if let Some(obj) = entry.as_object_mut() {
+            let key = obj.get(&req.merge_column)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            if let Some(city_key) = key {
+                let has_lat = obj.contains_key("Latitude") || obj.contains_key("latitude") || obj.contains_key("LATITUDE");
+                let has_lon = obj.contains_key("Longitude") || obj.contains_key("longitude") || obj.contains_key("LONGITUDE");
+                if (!has_lat || !has_lon) {
+                    if let Some((lat, lon)) = existing_coords.get(&city_key) {
+                        if !lat.is_empty() { obj.insert("Latitude".to_string(), serde_json::Value::String(lat.clone())); }
+                        if !lon.is_empty() { obj.insert("Longitude".to_string(), serde_json::Value::String(lon.clone())); }
+                    }
+                }
+            }
+        }
+        entry
+    }).collect();
+    timings.push(("Apply coords".to_string(), step_start.elapsed().as_millis()));
+
     // Merge data from source file if a geoDataset is provided
+    let step_start = std::time::Instant::now();
     let entries_with_merged_data = if req.merge_source_file.is_some() && !merge_data_map.is_empty() {
         log::info!("Merging data from geoDataset into entries");
         merge_data(
@@ -782,8 +836,10 @@ pub async fn refresh_local_file(
         log::info!("No merge source or no merge data, using entries as-is");
         entries.clone()
     };
+    timings.push(("Merge geo data".to_string(), step_start.elapsed().as_millis()));
 
     // Convert JSON entries to CSV
+    let step_start = std::time::Instant::now();
     let csv_data = json_to_csv(&entries_with_merged_data).map_err(|e| {
         let err_msg = format!("Failed to convert JSON to CSV: {}", e);
         log::error!("{}", err_msg);
@@ -793,7 +849,10 @@ pub async fn refresh_local_file(
     // Determine the absolute file path
     // Relative paths are relative to the jsonList's directory (already calculated above)
     let file_path = if local_file_path.starts_with('/') {
-        local_file_path.clone()
+        // Web-relative path: resolve from webroot (parent of current_dir)
+        let webroot = current_dir.parent().unwrap_or(&current_dir).to_path_buf();
+        let web_relative = local_file_path.trim_start_matches('/');
+        normalize_path(&webroot.join(web_relative)).to_string_lossy().to_string()
     } else {
         // The path is relative to the jsonList's directory
 
@@ -804,22 +863,37 @@ pub async fn refresh_local_file(
         normalize_path(&full_path).to_string_lossy().to_string()
     };
 
+    timings.push(("Convert to CSV".to_string(), step_start.elapsed().as_millis()));
+
     log::info!("Writing CSV to file: {}", file_path);
 
     // Write the CSV data to the file
+    let step_start = std::time::Instant::now();
     std::fs::write(&file_path, csv_data).map_err(|e| {
         let err_msg = format!("Failed to write to file {}: {}", file_path, e);
         log::error!("{}", err_msg);
         actix_web::error::ErrorInternalServerError(err_msg)
     })?;
 
+    timings.push(("Write CSV file".to_string(), step_start.elapsed().as_millis()));
+    timings.push(("Total".to_string(), total_start.elapsed().as_millis()));
+
     log::info!("Successfully wrote {} entries to {}", entries.len(), file_path);
+
+    let timings_json: serde_json::Value = timings.iter()
+        .map(|(k, v)| (k.clone(), serde_json::json!(v)))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
 
     Ok(HttpResponse::Ok().json(ApiResponse {
         success: true,
         message: Some(format!("Successfully refreshed {} with {} entries", local_file_path, entries.len())),
         error: None,
-        data: Some(serde_json::json!({ "entries_count": entries.len(), "file_path": local_file_path })),
+        data: Some(serde_json::json!({
+            "entries_count": entries.len(),
+            "file_path": local_file_path,
+            "timings": timings_json
+        })),
     }))
 }
 
@@ -829,7 +903,7 @@ fn json_to_csv(entries: &Vec<serde_json::Value>) -> Result<String, String> {
         return Err("No entries to convert".to_string());
     }
 
-    // Get all unique keys from all entries
+    // Collect all unique keys across all entries, sorted for consistent column order
     let mut all_keys = std::collections::HashSet::new();
     for entry in entries {
         if let Some(obj) = entry.as_object() {
@@ -838,44 +912,33 @@ fn json_to_csv(entries: &Vec<serde_json::Value>) -> Result<String, String> {
             }
         }
     }
-
     let mut keys: Vec<String> = all_keys.into_iter().collect();
-    keys.sort(); // Sort keys alphabetically for consistent column order
+    keys.sort();
 
-    // Build CSV header
-    let mut csv = keys.join(",") + "\n";
+    let mut wtr = csv::Writer::from_writer(vec![]);
 
-    // Build CSV rows
+    // Write header
+    wtr.write_record(&keys).map_err(|e| e.to_string())?;
+
+    // Write rows
     for entry in entries {
         let row: Vec<String> = keys.iter().map(|key| {
-            if let Some(obj) = entry.as_object() {
-                if let Some(value) = obj.get(key) {
-                    // Convert value to string and escape quotes
-                    let value_str = match value {
-                        serde_json::Value::String(s) => s.clone(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        serde_json::Value::Bool(b) => b.to_string(),
-                        serde_json::Value::Null => String::new(),
-                        _ => serde_json::to_string(value).unwrap_or_default(),
-                    };
-                    // Escape quotes and wrap in quotes if contains comma, quote, or newline
-                    if value_str.contains(',') || value_str.contains('"') || value_str.contains('\n') {
-                        format!("\"{}\"", value_str.replace('"', "\"\""))
-                    } else {
-                        value_str
-                    }
-                } else {
-                    String::new()
-                }
-            } else {
-                String::new()
-            }
+            entry.as_object()
+                .and_then(|obj| obj.get(key))
+                .map(|value| match value {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    serde_json::Value::Null => String::new(),
+                    _ => serde_json::to_string(value).unwrap_or_default(),
+                })
+                .unwrap_or_default()
         }).collect();
-        csv.push_str(&row.join(","));
-        csv.push('\n');
+        wtr.write_record(&row).map_err(|e| e.to_string())?;
     }
 
-    Ok(csv)
+    let bytes = wtr.into_inner().map_err(|e| e.to_string())?;
+    String::from_utf8(bytes).map_err(|e| e.to_string())
 }
 
 // Request structure for save dataset endpoint
@@ -896,7 +959,13 @@ pub async fn save_dataset(
 
     // Determine the absolute file path
     let absolute_path = if file_path.starts_with('/') {
-        file_path.clone()
+        // Web-relative path: resolve from webroot (parent of current_dir)
+        let current_dir = std::env::current_dir().map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))
+        })?;
+        let webroot = current_dir.parent().unwrap_or(&current_dir).to_path_buf();
+        let web_relative = file_path.trim_start_matches('/');
+        normalize_path(&webroot.join(web_relative)).to_string_lossy().to_string()
     } else {
         let current_dir = std::env::current_dir().map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!("Failed to get current directory: {}", e))

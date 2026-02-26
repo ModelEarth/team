@@ -302,6 +302,9 @@ class LeafletMapManager {
             [this.options.defaultLat, this.options.defaultLng], 
             this.options.defaultZoom
         );
+        if (this.map.zoomControl && typeof this.map.zoomControl.setPosition === 'function') {
+            this.map.zoomControl.setPosition('bottomright');
+        }
 
         
         // Add click event to toggle scroll zoom
