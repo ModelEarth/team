@@ -459,7 +459,7 @@ add_upstream() {
 merge_upstream() {
     local repo_name="$1"
     if ! git fetch upstream 2>/dev/null; then
-        echo "⏭️  Skipping upstream merge for $repo_name (upstream not found)"
+        echo "⏭️  Skipping upstream merge for $repo_name (since not a contributor's fork)"
         return 0
     fi
 
