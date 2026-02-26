@@ -821,7 +821,7 @@ function setBackendRowStatus(container, backendKey, isRunning) {
 function copyCommandToClipboard(command, options = {}) {
     const { showCommandInAlert = false } = options;
     const copiedMessage = showCommandInAlert
-        ? `Command copied to clipboard:\n${command}`
+        ? `Command copied to clipboard: ${command}`
         : 'Command copied to clipboard.';
     if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(command).then(() => {
