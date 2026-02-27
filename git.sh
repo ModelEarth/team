@@ -784,7 +784,7 @@ safe_submodule_update() {
     local submodules=($(get_submodules))
     
     for sub in "${submodules[@]}"; do
-        if [ -d "$sub" ] && [ -d "$sub/.git" ]; then
+        if [ -d "$sub" ] && [ -e "$sub/.git" ]; then
             cd "$sub"
             
             # Always fetch latest from parent repository first
@@ -887,9 +887,9 @@ safe_single_submodule_update() {
     local sub="$1"
     echo "🛡️ Safely updating submodule: $sub"
     
-    if [ -d "$sub" ] && [ -d "$sub/.git" ]; then
+    if [ -d "$sub" ] && [ -e "$sub/.git" ]; then
         cd "$sub"
-        
+
         # Always fetch latest from parent repository first
         echo "📥 Fetching latest from parent repository for $sub..."
         git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null || echo "⚠️ Could not fetch from origin"
