@@ -3421,12 +3421,18 @@
     <script src="../js/list.js"></script>
     <script src="../../docker/js/llm-configs.js"></script>
     <script>
+        // Fallback when docker/js/llm-configs.js is not available locally
+        if (typeof LLM_CONFIGS === 'undefined') { window.LLM_CONFIGS = []; }
+        if (typeof loadLLMConfig !== 'function') { window.loadLLMConfig = async function() {}; }
+        if (typeof LLM_API_ENDPOINT === 'undefined') { window.LLM_API_ENDPOINT = null; }
+    </script>
+    <script>
             // Leaflet heatmap helpers
             let _participantsMap = null;
             let _participantsHeatLayer = null;
             let _participantsStateLayer = null;
             let _cityDetailLayer = null;
-            let heatmapVisible = true;
+            let heatmapVisible = localStorage.getItem('heatmapHidden') !== '1';
 
             function initParticipantsHeatmap() {
                 if (_participantsMap) return _participantsMap;
@@ -4034,6 +4040,13 @@
                     }
                 } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
                 initParticipantsHeatmap();
+                // Restore saved map visibility preference
+                if (!heatmapVisible) {
+                    const mapElPref = document.getElementById('participants-map');
+                    const btnPref = document.getElementById('toggle-heatmap-btn');
+                    if (mapElPref) mapElPref.style.display = 'none';
+                    if (btnPref) btnPref.textContent = 'Show map';
+                }
                 // Ensure the heat layer exists and the map container has non-zero size
                 ensureParticipantsHeatLayer().then(() => {
                     try {
@@ -4105,6 +4118,7 @@
                                 mapEl.style.display = 'block';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Hide map';
+                                localStorage.removeItem('heatmapHidden');
                                 try { if (cont && cont.dataset) delete cont.dataset.userHidden; } catch(e){}
                                 setTimeout(() => {
                                     try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch (err){}
@@ -4114,6 +4128,7 @@
                                 mapEl.style.display = 'none';
                                 if (noDataEl) noDataEl.style.display = 'none';
                                 e.target.textContent = 'Show map';
+                                localStorage.setItem('heatmapHidden', '1');
                                 try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
                             }
                         } else if (id === 'toggle-state-counts-btn') {
@@ -7157,12 +7172,16 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     if (isLocalhost) {
                         console.log('📂 Loading people.env from ../../community/people.env');
                         // First, normalize the people.env data to match our column names
-                        const peopleEnvResult = await loadUnifiedData('../../community/people.env', {
-                            forceCorsProxy: false,
-                            API_BASE: GEMINI_API_BASE,
-                            forceCSV: true
-                        });
-
+                        let peopleEnvResult = { data: [] };
+                        try {
+                            peopleEnvResult = await loadUnifiedData('../../community/people.env', {
+                                forceCorsProxy: false,
+                                API_BASE: GEMINI_API_BASE,
+                                forceCSV: true
+                            });
+                        } catch (e) {
+                            console.log('⚠️ community/people.env not available locally - skipping merge');
+                        }
 
                         if (peopleEnvResult.data && peopleEnvResult.data.length > 0) {
                             // Map people.env columns to match target data columns
@@ -14354,6 +14373,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             // Initialize widget if not already done
             if (!githubAuthWidget) {
                 try {
+                    if (typeof GitHubIssuesManager === 'undefined') {
+                        console.warn('⚠️ GitHubIssuesManager not available (projects submodule not loaded locally)');
+                        return;
+                    }
                     console.log('✅ Initializing GitHub auth in minimal mode');
 
                     // Create GitHubIssuesManager with showProject: false
