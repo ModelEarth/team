@@ -265,14 +265,14 @@ function updateGeminiKeyUI(keyIsAvailable) {
     
     if (keyIsAvailable) {
         // Key is available - update to activated state
-        titleElement.innerHTML = '✅ Your Gemini Key is Activated';
+        titleElement.innerHTML = '✅ Your Insights Key is Activated';
 
         // Use teamPathSetup to get correct relative path to projects
         const projectsPath = teamPathSetup + 'projects/#list=all';
 
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
-            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> resides in docker/.env - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
+            <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> is active on the server - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
             <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
@@ -289,7 +289,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
-                    <button onclick="cancelGeminiKey()" class="btn btn-secondary btn-width" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
                 </div>
             </div>
         `;
@@ -302,7 +302,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
         
         // Determine button text and title based on available keys
         const buttonText = cachedKey ? 'Change Key' : 'Add Key';
-        const titlePrefix = cachedKey ? '🟡 Gemini Key Available (Browser Cache)' : '🔴 Add Gemini Key';
+        const titlePrefix = cachedKey ? '🟡 Insights Key Available (Browser Cache)' : '🔴 Add Insights Key';
         const storageText = cachedKey ? 'Your key is stored in your browser cache only' : 'Your key will be stored in your browser cache only';
         const envText = cachedKey ? `To use additional keys residing in docker/.env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to docker/.env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
         const linkText = cachedKey ? 'Get another Gemini key' : 'Get your Gemini key';
@@ -330,7 +330,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="password" id="browser-gemini-key" placeholder="AIza..." style="flex: 1; max-width: 300px; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary);" value="${cachedKey || ''}">
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
-                    <button onclick="cancelGeminiKey()" class="btn btn-secondary btn-width" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
+                    <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
                 </div>
             </div>
         `;
