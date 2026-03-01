@@ -1424,13 +1424,12 @@ pull_command() {
             fi
         done
         if [ "$has_changes" = true ]; then
-            git commit -m "Update submodule references"
             echo "✅ Updated submodule references"
         else
             echo "ℹ️  No submodule reference changes to commit"
         fi
     fi
-    
+
     # Check for and fix any detached HEAD states after pulls
     fix_all_detached_heads
     
