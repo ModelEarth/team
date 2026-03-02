@@ -1,0 +1,4 @@
+record_id,location_name,country,admin_level_1,area_type,area_name,postal_code,latitude,longitude,subsidence_value,subsidence_unit,source_label,source_url,observation_notes
+houston_harris,Houston area,United States,Texas,county,Harris County,77002,29.7604,-95.3698,1,cm/year,Task brief provided by project owner,,Areas of Houston are dropping about 1 centimeter per year due to groundwater over-pumping.
+tehran_area,Tehran area,Iran,Tehran Province,postal_or_district,Tehran urban districts,11369,35.6892,51.3890,13,in/year,Task brief provided by project owner,,Areas of Tehran are dropping about 13 inches per year due to groundwater over-pumping.
+north_jakarta,North Jakarta,Indonesia,DKI Jakarta,postal_or_district,North Jakarta districts,14410,-6.1384,106.8637,11,in/year,Task brief provided by project owner,,Areas of North Jakarta are dropping about 11 inches per year due to groundwater over-pumping.
