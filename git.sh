@@ -126,26 +126,6 @@ get_commit_message() {
 validate_and_fix_remotes() {
     # Silent validation - only output if corruption is found
     
-    # Check webroot repository
-    local webroot_remote=""
-    if [ -n "$WEBROOT_CONTEXT" ]; then
-        webroot_remote=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
-    elif [ -f ".gitmodules" ]; then
-        webroot_remote=$(git remote get-url origin 2>/dev/null || echo "")
-    fi
-    
-    if [[ -n "$webroot_remote" ]] && [[ "$webroot_remote" == *"team"* ]]; then
-        echo "🚨 CRITICAL: Webroot repository pointing to team URL - fixing..."
-        if [ -n "$WEBROOT_CONTEXT" ]; then
-            git -C "$WEBROOT_CONTEXT" remote set-url origin "https://github.com/ModelEarth/webroot.git"
-            git -C "$WEBROOT_CONTEXT" remote set-url upstream "https://github.com/ModelEarth/webroot.git"
-        else
-            git remote set-url origin "https://github.com/ModelEarth/webroot.git"
-            git remote set-url upstream "https://github.com/ModelEarth/webroot.git"
-        fi
-        echo "✅ Fixed webroot remote URL"
-    fi
-    
     # Check team repository - Enhanced detection
     local team_remote=""
     local team_upstream=""
