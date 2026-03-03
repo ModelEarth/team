@@ -9,7 +9,7 @@ Append "nopr" if you are not yet ready to send a Pull Request.
 For the first usage, include extra guidance. 
 Your push will also pull recent updates from others on Github.
 
-	push using webroot/AGENTS.md with git.sh  
+	push using webroot/AGENTS.md guidance with git.sh  
 
 
 If you find "push" is asking for multiple approvals, your CLI isn't following its AGENTS.md instructions.
