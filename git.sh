@@ -142,7 +142,7 @@ validate_and_fix_remotes() {
     fi
     
     # Fix team repository if corrupted
-    if [[ -n "$team_remote" ]] && [[ "$team_remote" == *"webroot"* ]]; then
+    if [[ -n "$team_remote" ]] && [[ "$team_remote" =~ /webroot(\.git)?$ ]]; then
         echo "🚨 CRITICAL: Team repository origin pointing to webroot URL - fixing..."
         if [ -f "../.gitmodules" ] && [ -f ".git" ]; then
             git remote set-url origin "https://github.com/ModelEarth/team.git"
@@ -152,7 +152,7 @@ validate_and_fix_remotes() {
         echo "✅ Fixed team origin remote URL"
     fi
     
-    if [[ -n "$team_upstream" ]] && [[ "$team_upstream" == *"webroot"* ]]; then
+    if [[ -n "$team_upstream" ]] && [[ "$team_upstream" =~ /webroot(\.git)?$ ]]; then
         echo "🚨 CRITICAL: Team repository upstream pointing to webroot URL - fixing..."
         if [ -f "../.gitmodules" ] && [ -f ".git" ]; then
             git remote set-url upstream "https://github.com/ModelEarth/team.git"
@@ -520,16 +520,15 @@ is_repo_owner() {
         if [ $gh_result -eq 0 ] && [ "$gh_user" = "$repo_owner" ]; then
             return 0  # User owns the repo via GitHub CLI
         fi
-        
+
+        # If GitHub CLI confirms user but doesn't match owner, not the owner
+        if [ $gh_result -eq 0 ] && [ "$gh_user" != "$repo_owner" ]; then
+            return 1  # Confirmed different user
+        fi
+
         # If GitHub CLI fails, check if it's a personal fork (not ModelEarth/modelearth)
         if [[ "$repo_owner" != "ModelEarth" ]] && [[ "$repo_owner" != "modelearth" ]]; then
             return 0  # Likely a fork owned by the user
-        fi
-        
-        # Special case: if pointing to ModelEarth repositories, assume user has access
-        # (since they wouldn't have these repos cloned unless they have access)
-        if [[ "$repo_owner" == "ModelEarth" ]]; then
-            return 0  # Assume user has access to ModelEarth repositories
         fi
     fi
     
@@ -568,7 +567,7 @@ check_user_change() {
     if [[ "$name" == "webroot" ]] && [[ "$OPERATING_ON_WEBROOT" == "true" ]] && [[ -n "$WEBROOT_CONTEXT" ]]; then
         # We're in team directory but operating on webroot - check current directory's actual repo
         local current_remote=$(git remote get-url origin 2>/dev/null || echo "")
-        if [[ "$current_remote" == *"team"* ]]; then
+        if [[ "$current_remote" =~ /team(\.git)?$ ]]; then
             echo "🛡️ Skipping remote update for team repository (operating on webroot context)"
             return 0
         fi
@@ -622,12 +621,12 @@ check_user_change() {
     
     # ADDITIONAL SAFEGUARD: Verify we're in the correct repository before updating remote
     # Check for context mismatch - if we're trying to update the wrong repository
-    if [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"team"* ]]; then
+    if [[ "$name" == "webroot" ]] && [[ "$current_origin" =~ /team(\.git)?$ ]]; then
         echo "⚠️ ERROR: Attempted to update team repository remote to webroot URL - skipping"
         echo "   Current remote: $current_origin"
         echo "   Intended remote: $expected_origin"
         return 1
-    elif [[ "$name" == "team" ]] && [[ "$current_origin" == *"webroot"* ]]; then
+    elif [[ "$name" == "team" ]] && [[ "$current_origin" =~ /webroot(\.git)?$ ]]; then
         echo "⚠️ ERROR: Attempted to update webroot repository remote to team URL - skipping"
         echo "   Current remote: $current_origin" 
         echo "   Intended remote: $expected_origin"
@@ -636,7 +635,7 @@ check_user_change() {
     
     # CRITICAL FIX: When called from webroot context but in team directory, 
     # ensure we're operating on the correct repository
-    if [[ -n "$WEBROOT_CONTEXT" ]] && [[ "$name" == "webroot" ]] && [[ "$current_origin" == *"webroot"* ]]; then
+    if [[ -n "$WEBROOT_CONTEXT" ]] && [[ "$name" == "webroot" ]] && [[ "$current_origin" =~ /webroot(\.git)?$ ]]; then
         # We're correctly operating on webroot - use git -C to ensure we modify the right repo
         current_origin=$(git -C "$WEBROOT_CONTEXT" remote get-url origin 2>/dev/null || echo "")
         if [[ "$current_origin" != "$expected_origin" ]]; then
@@ -671,10 +670,10 @@ setup_fork() {
     
     # CRITICAL SAFEGUARD: Prevent cross-repository URL corruption
     local current_remote=$(git remote get-url origin 2>/dev/null || echo "")
-    if [[ "$name" == "webroot" ]] && [[ "$current_remote" == *"team"* ]]; then
+    if [[ "$name" == "webroot" ]] && [[ "$current_remote" =~ /team(\.git)?$ ]]; then
         echo "⚠️ ERROR: Attempted to setup webroot fork while in team repository - aborting"
         return 1
-    elif [[ "$name" == "team" ]] && [[ "$current_remote" == *"webroot"* ]]; then
+    elif [[ "$name" == "team" ]] && [[ "$current_remote" =~ /webroot(\.git)?$ ]]; then
         echo "⚠️ ERROR: Attempted to setup team fork while in webroot repository - aborting"
         return 1
     fi
@@ -1004,9 +1003,6 @@ ensure_push_completion() {
         elif git push origin HEAD:master 2>/dev/null; then
             echo "✅ Successfully pushed $name to master"
             return 0
-        elif git push --force-with-lease 2>/dev/null; then
-            echo "✅ Force pushed $name with lease"
-            return 0
         else
             ((retry_count++))
             echo "⚠️ Push attempt $retry_count failed for $name"
@@ -1123,17 +1119,9 @@ commit_push() {
                 else
                     echo "⚠️ Push failed for owned repository $name with error:"
                     echo "$push_error"
-                    echo "💡 Trying force push with lease..."
-                    if git push --force-with-lease 2>/dev/null; then
-                        echo "✅ Force pushed $name"
-                        ensure_push_completion "$name"
-                        cd "$original_dir"
-                        return 0
-                    else
-                        echo "❌ All push strategies failed for owned repo $name"
-                        cd "$original_dir"
-                        return 1
-                    fi
+                    echo "❌ Push rejected (non-fast-forward). Run 'git pull --rebase' in $name to resolve."
+                    cd "$original_dir"
+                    return 1
                 fi
             fi
         else
@@ -1162,16 +1150,9 @@ commit_push() {
                         echo "✅ Successfully pushed $name to your fork"
                         ensure_push_completion "$name"
                     else
-                        # Force push if normal push fails
-                        echo "🔄 Normal push failed, trying force push..."
-                        if git push --force-with-lease origin HEAD:$target_branch 2>/dev/null; then
-                            echo "✅ Force pushed $name to your fork"
-                            ensure_push_completion "$name"
-                        else
-                            echo "⚠️ Failed to push $name to fork"
-                            cd "$original_dir"
-                            return 1
-                        fi
+                        echo "⚠️ Failed to push $name to fork"
+                        cd "$original_dir"
+                        return 1
                     fi
                     
                     # Create PR if not skipped
