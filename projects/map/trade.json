@@ -41,7 +41,7 @@
     "listTitle": "Deep-Containment Architecture",
     "datatype": "csv",
     "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
-    "dataset_offline": "/community/projects/nuclear/locations.csv",
+    "dataset_offline": "/grid/nuclear/locations.csv",
     "markerType": "google",
     "nameColumn": "Location",
     "featuredColumns": ["Location", "CountyRegion", "Nearby City", "Deposit Distance", "Geological Notes", "Fuel Type", "Mineral Availability", "Type Form", "Fuel Depth", "Nearby City Distance"],
@@ -50,7 +50,7 @@
       "In City": "Location",
       "In County Name": "CountyRegion"
     },
-    "mapInfo": "<a href='https://model.earth/community/projects/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
+    "mapInfo": "<a href='https://model.earth/grid/nuclear/'>Underground Small Modular Reactors (SMRs)</a> - Closed-Loop Nuclear Site Design Considerations"
   },
   "products.us": {
     "shortTitle": "Made in USA",
