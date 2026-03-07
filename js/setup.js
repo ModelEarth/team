@@ -26,7 +26,11 @@ function createGitAccountFieldsHTML() {
 function createWebrootSetupHTML() {
     // Set parent repo based on selected modelsite (with URL fallback)
     const currentUrl = window.location.href.toLowerCase();
-    const selectedModelsite = getSelectedModelsite();
+    const modelsiteSelect = document.getElementById('modelsite');
+    const host = window.location.hostname.toLowerCase();
+    const selectedModelsite = (modelsiteSelect && modelsiteSelect.value)
+        ? modelsiteSelect.value
+        : ((host.includes('model.georgia') || host.includes('georgia.org')) ? 'model.georgia' : '');
     const parentRepoPath = selectedModelsite === 'model.georgia'
         ? 'GeorgiaData/iteam'
         : ((currentUrl.includes('locations') || currentUrl.includes('geo'))
@@ -199,14 +203,23 @@ function setupGitAccountFields(containerId) {
 function setupWebrootSetup(containerId) {
     const container = document.getElementById(containerId);
     if (container) {
-        // Insert the webroot setup HTML
-        const setupHTML = createWebrootSetupHTML();
-        container.innerHTML = setupHTML;
-        
-        // Update the webroot fork link after inserting the content
-        setTimeout(() => {
+        const renderWebrootSetup = () => {
+            const setupHTML = createWebrootSetupHTML();
+            container.innerHTML = setupHTML;
             updateWebrootForkLink();
-        }, 100);
+        };
+
+        // Initial render
+        renderWebrootSetup();
+
+        // Re-render after modelsite selector loads or changes
+        waitForElm('#modelsite').then((modelsiteSelect) => {
+            if (modelsiteSelect.dataset.webrootSetupBound !== 'true') {
+                modelsiteSelect.dataset.webrootSetupBound = 'true';
+                modelsiteSelect.addEventListener('change', renderWebrootSetup);
+            }
+            renderWebrootSetup();
+        });
     }
 }
 
