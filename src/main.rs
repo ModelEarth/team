@@ -434,6 +434,67 @@ async fn get_github_token() -> Result<HttpResponse> {
     })))
 }
 
+// GitHub CLI status endpoint - checks local gh install/auth state
+async fn get_github_cli_status() -> Result<HttpResponse> {
+    let version_output = Command::new("gh").arg("--version").output();
+
+    let (installed, version, install_error) = match version_output {
+        Ok(output) if output.status.success() => {
+            let version_text = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            (true, Some(version_text), None)
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            (
+                false,
+                None,
+                Some(if stderr.is_empty() {
+                    "gh --version returned non-zero status".to_string()
+                } else {
+                    stderr
+                }),
+            )
+        }
+        Err(err) => (false, None, Some(err.to_string())),
+    };
+
+    if !installed {
+        return Ok(HttpResponse::Ok().json(json!({
+            "installed": false,
+            "authenticated": false,
+            "version": version,
+            "install_error": install_error,
+            "auth_status": "GitHub CLI not available"
+        })));
+    }
+
+    let auth_output = Command::new("gh").args(["auth", "status"]).output();
+    let (authenticated, auth_status, auth_error) = match auth_output {
+        Ok(output) => {
+            let status_ok = output.status.success();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let details = if !stderr.is_empty() { stderr } else { stdout };
+            (status_ok, details, None)
+        }
+        Err(err) => (false, String::new(), Some(err.to_string())),
+    };
+
+    Ok(HttpResponse::Ok().json(json!({
+        "installed": true,
+        "authenticated": authenticated,
+        "version": version,
+        "auth_status": auth_status,
+        "install_error": install_error,
+        "auth_error": auth_error
+    })))
+}
+
 // Health check endpoint
 async fn health_check(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     match &data.db {
@@ -3010,6 +3071,10 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                     .service(
                         web::scope("/github")
                             .route("/token", web::get().to(get_github_token))
+                    )
+                    .service(
+                        web::scope("/github-cli")
+                            .route("/status", web::get().to(get_github_cli_status))
                     )
                     .service(
                         web::scope("/semantic-search")

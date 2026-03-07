@@ -24,18 +24,22 @@ function createGitAccountFieldsHTML() {
 
 // HTML content for the webroot setup instructions
 function createWebrootSetupHTML() {
-    // Set webroot Git URL based on current URL
+    // Set parent repo based on selected modelsite (with URL fallback)
     const currentUrl = window.location.href.toLowerCase();
-    const webrootGit = (currentUrl.includes('locations') || currentUrl.includes('geo')) 
-        ? 'https://github.com/partnertools/webroot/' 
-        : 'https://github.com/modelearth/webroot/';
+    const selectedModelsite = getSelectedModelsite();
+    const parentRepoPath = selectedModelsite === 'model.georgia'
+        ? 'GeorgiaData/iteam'
+        : ((currentUrl.includes('locations') || currentUrl.includes('geo'))
+            ? 'PartnerTools/webroot'
+            : 'ModelEarth/webroot');
+    const webrootGit = `https://github.com/${parentRepoPath}/`;
     
     return `
       <a href="/team/admin/">Partner Tools</a><h1 class="card-title">Webroot setup</h1>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper&nbsp;right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
-      4. Choose "To contribute to the parent project" (ModelEarth/webroot) as you clone via Github Desktop.<br>
+      4. Choose "To contribute to the parent project" (${parentRepoPath}) as you clone via Github Desktop.<br>
       5. Start your Command Line Interface (CLI) using the following commands:<br>`;
 }
 
@@ -93,7 +97,7 @@ function updateWebrootForkLink() {
     
     if (gitAccount && webrootForkSpans.length > 0) {
         const linkUrl = `https://github.com/${gitAccount}/${myWebrootForkName}`;
-        const linkHTML = `<a href="${linkUrl}" target="github_fork">your webroot fork</a>`;
+        const linkHTML = `<a href="${linkUrl}" target="github_fork">your ${myWebrootForkName} fork</a>`;
         
         webrootForkSpans.forEach(span => {
             span.innerHTML = linkHTML;
@@ -132,7 +136,7 @@ function initializeGitFields() {
     if (gitAccountField && localStorage.gitAccount && !gitAccountField.value) {
         gitAccountField.value = localStorage.gitAccount;
     }
-    if (myWebrootForkNameField && localStorage.myWebrootForkName && !myWebrootForkNameField.value) {
+    if (myWebrootForkNameField && localStorage.myWebrootForkName) {
         myWebrootForkNameField.value = localStorage.myWebrootForkName;
     }
     
@@ -147,10 +151,14 @@ function initializeGitFields() {
     }
     
     if (myWebrootForkNameField) {
-        myWebrootForkNameField.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && this.value.trim() === '') {
-                localStorage.removeItem('myWebrootForkName');
+        myWebrootForkNameField.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.value.trim() === '') {
+                    localStorage.removeItem('myWebrootForkName');
+                }
                 updateGitAccountFields();
+                this.blur();
             }
         });
     }
@@ -164,7 +172,7 @@ function initializeGitFields() {
         if (gitAccountField && localStorage.gitAccount && !gitAccountField.value) {
             gitAccountField.value = localStorage.gitAccount;
         }
-        if (myWebrootForkNameField && localStorage.myWebrootForkName && !myWebrootForkNameField.value) {
+        if (myWebrootForkNameField && localStorage.myWebrootForkName) {
             myWebrootForkNameField.value = localStorage.myWebrootForkName;
         }
         updateWebrootForkLink();
@@ -570,37 +578,43 @@ function getQuickstartCommandsHtml() {
         `
         : '';
     return `
-        <p style="color: var(--text-primary);"><strong>Start basic HTTP server without server-side Python execution:</strong></p>
+        <p style="color: var(--text-primary);"><strong>Full command</strong> - Does not include server-side Python execution</p>
         <div class="quickstart-8887-wrap" style="position:relative; container-type:inline-size;">
             <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
             ${stopServerButton}
         </div>
-        <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top: 12px;">
-            <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port 8887:</span>
+        <div id="quickstart-cli-prompt-wrap" style="display:none; margin-top: 12px;">
+            <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port 8887:</span>
+            </div>
+            <div id="stop-8887-fallback"></div>
+            <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         </div>
-        <div id="stop-8887-fallback"></div>
-        <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
-        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">Choose a Code CLI above to see more commands.</div>
-        <div id="quickstart-mac-linux-section">
-            <p style="color: var(--text-primary);">The above start server command is the equivalent to:</p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
+        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">
+            <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
+        </div>
+        <div id="quickstart-desktop-installer-details" style="display: none;">
+            <div id="quickstart-mac-linux-section">
+                <p style="color: var(--text-primary);">Or run a python backend for the <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a>:</p>
+                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
 source env/bin/activate
 ./desktop/install/quickstart.sh</code></pre>
-        </div>
-        <div id="quickstart-windows-section">
-            <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
-            <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
+            </div>
+            <div id="quickstart-windows-section">
+                <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
+                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
 env\\Scripts\\activate
 ./desktop/install/quickstart.sh</code></pre>
+            </div>
+            <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
+            <ul style="color: var(--text-secondary); margin-left: 20px;">
+                <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
+                <li>Activates the virtual environment</li>
+                <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+                <li>Installs the <code>anthropic</code> package if API key is present</li>
+                <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
+            </ul>
         </div>
-        <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
-        <ul style="color: var(--text-secondary); margin-left: 20px;">
-            <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
-            <li>Activates the virtual environment</li>
-            <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
-            <li>Installs the <code>anthropic</code> package if API key is present</li>
-            <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
-        </ul>
     `;
 }
 
@@ -646,16 +660,24 @@ function renderQuickstartCommands(containerId) {
     if (!container) return;
     ensureQuickstartLayoutStyles();
     container.innerHTML = getQuickstartCommandsHtml();
+    const aiPromptHost = document.getElementById(`${containerId}-ai-prompt-host`);
+    const aiPromptWrap = document.getElementById('quickstart-cli-prompt-wrap');
+    if (aiPromptHost && aiPromptWrap && aiPromptWrap.parentElement !== aiPromptHost) {
+        aiPromptHost.appendChild(aiPromptWrap);
+    }
     attachQuickstartCliListeners();
     updateQuickstartCliVisibility();
+    updateQuickstartDesktopInstallerStatus();
+    updateNoAiFlaskStartVisibility();
 }
 
 let quickstartCliListenersAttached = false;
 let quickstartOsListenerAttached = false;
+let quickstartUseAIListenerAttached = false;
 
 function attachQuickstartCliListeners() {
     if (!quickstartCliListenersAttached) {
-        const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
+        const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'grok-cli', 'vscode-claude'];
         const checkboxes = checkboxIds
             .map((id) => document.getElementById(id))
             .filter(Boolean);
@@ -675,9 +697,75 @@ function attachQuickstartCliListeners() {
             quickstartOsListenerAttached = true;
         }
     }
+
+    if (!quickstartUseAIListenerAttached) {
+        const useAISelect = document.getElementById('useAI');
+        if (useAISelect) {
+            useAISelect.addEventListener('change', updateNoAiFlaskStartVisibility);
+            quickstartUseAIListenerAttached = true;
+        }
+    }
+
+    const desktopInstallerToggle = document.getElementById('quickstart-desktop-installer-toggle');
+    const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
+    if (desktopInstallerToggle && desktopInstallerDetails) {
+        setQuickstartDesktopInstallerExpanded(false);
+        desktopInstallerToggle.onclick = function(event) {
+            event.preventDefault();
+            updateQuickstartDesktopInstallerStatus();
+            const isExpanded = desktopInstallerToggle.getAttribute('aria-expanded') === 'true';
+            setQuickstartDesktopInstallerExpanded(!isExpanded);
+        };
+    }
+}
+
+function setQuickstartDesktopInstallerExpanded(isExpanded) {
+    const desktopInstallerToggle = document.getElementById('quickstart-desktop-installer-toggle');
+    const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
+    const desktopInstallerArrow = document.getElementById('quickstart-desktop-installer-arrow');
+    if (desktopInstallerToggle) {
+        desktopInstallerToggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    }
+    if (desktopInstallerDetails) {
+        desktopInstallerDetails.style.display = isExpanded ? 'block' : 'none';
+    }
+    if (desktopInstallerArrow) {
+        desktopInstallerArrow.textContent = isExpanded ? '▾' : '▸';
+    }
+}
+
+async function isExecutablePythonRunning() {
+    const localhostHosts = ['localhost', '127.0.0.1', '::1'];
+    const onLocalhost8887 = localhostHosts.includes(window.location.hostname) && window.location.port === '8887';
+    const statusUrl = onLocalhost8887 ? '/api/status' : 'http://localhost:8887/api/status';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    try {
+        const response = await fetch(statusUrl, { signal: controller.signal });
+        if (!response.ok) return false;
+        await response.json();
+        return true;
+    } catch (error) {
+        return false;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function updateQuickstartDesktopInstallerStatus() {
+    const statusEl = document.getElementById('quickstart-desktop-installer-status');
+    if (!statusEl) return;
+
+    const pythonAvailable = await isExecutablePythonRunning();
+    statusEl.textContent = pythonAvailable ? '' : ' Executable python not running';
 }
 
 function updateQuickstartCliVisibility() {
+    const modeState = getBackendCommandState();
+    const aiPromptHost = document.querySelector('.quickstart-ai-prompt-host');
+    const showAiPrompt = !!modeState.withAi;
+    const promptWrap = document.getElementById('quickstart-cli-prompt-wrap');
     const line = document.getElementById('quickstart-cli-line');
     const command = document.getElementById('quickstart-cli-command');
     const placeholder = document.getElementById('quickstart-cli-placeholder');
@@ -685,18 +773,18 @@ function updateQuickstartCliVisibility() {
         return;
     }
 
-    const checkboxIds = ['codex-cli', 'claude-code-cli', 'gemini-cli', 'vscode-claude'];
-    const isAnyChecked = checkboxIds.some((id) => {
-        const checkbox = document.getElementById(id);
-        return checkbox && checkbox.checked;
-    });
-
-    line.style.display = isAnyChecked ? 'inline' : 'none';
+    if (aiPromptHost) {
+        aiPromptHost.style.display = showAiPrompt ? 'block' : 'none';
+    }
+    if (promptWrap) {
+        promptWrap.style.display = showAiPrompt ? 'block' : 'none';
+    }
+    line.style.display = showAiPrompt ? 'inline' : 'none';
     if (command) {
-        command.style.display = isAnyChecked ? 'block' : 'none';
+        command.style.display = showAiPrompt ? 'block' : 'none';
     }
     if (placeholder) {
-        placeholder.style.display = isAnyChecked ? 'none' : 'block';
+        placeholder.style.display = modeState.withAi ? 'none' : 'block';
     }
     updateQuickstartOsVisibility();
 }
@@ -768,29 +856,253 @@ async function getWebServerStatusState() {
         detectedLabel,
         detectedType,
         localhost8887Url,
-        localhost8887ApiStatusUrl,
         localhost8887Running,
         localhost8887ApiRunning,
-        currentOriginRunning,
-        serverSidePythonAvailable: localhost8887ApiRunning
+        currentOriginRunning
     };
 }
 
 function getPythonBackendStatusMarkup(containerId) {
     return `
         <div id="${containerId}" style="color: var(--text-secondary);">
-            <div data-backend="pipeline" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
-                <span class="status-indicator loading"></span>
-                <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
-                <button class="btn btn-secondary btn-width backend-action" data-backend-action="pipeline" style="margin-left:auto;">Start Flask 5001</button>
+            <div data-backend="pipeline" style="margin-top: 6px;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                    <span class="status-indicator loading"></span>
+                    <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
+                </div>
+                <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start pipeline</code></pre>
+                </div>
+                <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code># Check if data-pipeline Flask server is already running on port 5001
+if lsof -ti:5001 > /dev/null 2>&1; then
+  echo "Data pipeline Flask server already running on port 5001"
+else
+  # Navigate to data-pipeline/flask
+  cd data-pipeline/flask
+
+  # Create virtual environment if it doesn't exist
+  if [ ! -d "env" ]; then
+    python3 -m venv env
+  fi
+
+  # Activate virtual environment
+  source env/bin/activate
+
+  # Install Flask and CORS if not already installed
+  pip install -q flask flask-cors
+
+  # Start Flask server in background (disable debug/reloader for stable daemon mode)
+  nohup python -c "import flask_server as s; s.app.run(host='127.0.0.1', port=5001, debug=False, use_reloader=False)" > flask.log 2>&1 &
+
+  echo "Started data pipeline Flask server on port 5001"
+  echo "Health check: http://localhost:5001/health"
+  echo "Data pipeline API: http://localhost:5001/api/nodes/"
+
+  # Return to webroot
+  cd ../..
+fi</code></pre>
+                </div>
             </div>
-            <div data-backend="cloud" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top: 6px;">
-                <span class="status-indicator loading"></span>
-                <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
-                <button class="btn btn-secondary btn-width backend-action" data-backend-action="cloud" style="margin-left:auto;">Start Flask 8100</button>
+            <div data-backend="cloud" style="margin-top: 6px;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                    <span class="status-indicator loading"></span>
+                    <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
+                </div>
+                <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start cloud</code></pre>
+                </div>
+                <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code># Check if cloud/run Flask server is already running on port 8100
+if lsof -ti:8100 > /dev/null 2>&1; then
+  echo "Cloud run Flask server already running on port 8100"
+else
+  # Navigate to cloud/run
+  cd cloud/run
+
+  # Create virtual environment if it doesn't exist
+  if [ ! -d "env" ]; then
+    python3 -m venv env
+  fi
+
+  # Activate virtual environment
+  source env/bin/activate
+
+  # Install dependencies if requirements.txt exists
+  if [ -f "requirements.txt" ]; then
+    pip install -q -r requirements.txt
+  fi
+
+  # Install Flask and CORS if not already installed
+  pip install -q flask flask-cors
+
+  # Start Flask server in background
+  nohup python app.py > flask.log 2>&1 &
+
+  echo "Started cloud run Flask server on port 8100"
+  echo "Health check: http://localhost:8100/health"
+  echo "Cloud run API: http://localhost:8100/"
+
+  # Return to webroot
+  cd ../..
+fi</code></pre>
+                </div>
             </div>
         </div>
     `;
+}
+
+function getDefaultBackendCommandState() {
+    const useAISelect = document.getElementById('useAI');
+    const noCliCheckbox = document.getElementById('no-cli');
+    if (noCliCheckbox && noCliCheckbox.checked) {
+        return { withAi: false, withoutAi: true };
+    }
+    if (useAISelect && useAISelect.value === 'with') {
+        return { withAi: true, withoutAi: false };
+    }
+    return { withAi: false, withoutAi: true };
+}
+
+function getBackendCommandState() {
+    if (
+        window.quickstartBackendCommandModes
+        && typeof window.quickstartBackendCommandModes.withAi === 'boolean'
+        && typeof window.quickstartBackendCommandModes.withoutAi === 'boolean'
+    ) {
+        return {
+            withAi: window.quickstartBackendCommandModes.withAi,
+            withoutAi: window.quickstartBackendCommandModes.withoutAi
+        };
+    }
+    return getDefaultBackendCommandState();
+}
+
+function hasEnabledBackendCommandMode(state) {
+    return !!(state && (state.withAi || state.withoutAi));
+}
+
+function shouldShowFullCommandsContainer(state) {
+    return !!(state && state.withoutAi);
+}
+
+function setGlobalCommandToggleAppearance(state) {
+    const buttonGroup = document.querySelector('.quickstart-commands-toggle-group');
+    const buttons = buttonGroup ? buttonGroup.querySelectorAll('.quickstart-commands-toggle-btn') : [];
+    const safeState = state || getBackendCommandState();
+    buttons.forEach((button) => {
+        const isActive = button.dataset.mode === 'with-ai'
+            ? safeState.withAi
+            : safeState.withoutAi;
+        button.style.background = isActive
+            ? (button.dataset.mode === 'with-ai' ? '#2563eb' : '#b45309')
+            : '';
+        button.style.color = isActive ? '#ffffff' : '';
+        button.style.borderColor = isActive
+            ? (button.dataset.mode === 'with-ai' ? '#2563eb' : '#b45309')
+            : '';
+        button.dataset.active = isActive ? 'true' : 'false';
+    });
+}
+
+function updateBackendCommandForRow(row, isRunning) {
+    if (!row) return;
+    const modeState = getBackendCommandState();
+    const withAiBlock = row.querySelector('.with-ai-backend-cmd');
+    const commandBlock = row.querySelector('.no-ai-backend-cmd');
+    const fullCommandLabel = row.querySelector('.full-command-label');
+    const commandsVisible = !isRunning;
+    const showFullCommandLabel = commandsVisible && modeState.withAi && modeState.withoutAi;
+    if (withAiBlock) {
+        withAiBlock.style.display = commandsVisible && modeState.withAi ? 'block' : 'none';
+    }
+    if (commandBlock) {
+        commandBlock.style.display = commandsVisible && modeState.withoutAi ? 'block' : 'none';
+    }
+    if (fullCommandLabel) {
+        fullCommandLabel.style.display = showFullCommandLabel ? 'block' : 'none';
+    }
+}
+
+function updateNoAiFlaskStartVisibility() {
+    const modeState = getBackendCommandState();
+    setGlobalCommandToggleAppearance(modeState);
+    document.querySelectorAll('[data-backend]').forEach((row) => {
+        const indicator = row.querySelector('.status-indicator');
+        const isRunning = indicator ? indicator.classList.contains('connected') : false;
+        const isNotRunning = indicator ? indicator.classList.contains('error') : false;
+        if (isRunning) {
+            updateBackendCommandForRow(row, true);
+        } else if (isNotRunning) {
+            updateBackendCommandForRow(row, false);
+        } else {
+            updateBackendCommandForRow(row, true);
+        }
+    });
+}
+
+let noAiBackendUseAIListenerAttached = false;
+let noAiBackendNoCliListenerAttached = false;
+let noAiBackendModelsiteListenerAttached = false;
+let noAiBackendModelsiteWaitQueued = false;
+
+function refreshAllPythonBackendStatusPanels() {
+    const panels = document.querySelectorAll('[id$="-python-status"]');
+    panels.forEach((panel) => {
+        updatePythonBackendStatus(panel.id);
+    });
+}
+
+function attachNoAiBackendModelsiteListener(modelsiteSelect) {
+    if (!modelsiteSelect || noAiBackendModelsiteListenerAttached) return;
+    modelsiteSelect.addEventListener('change', refreshAllPythonBackendStatusPanels);
+    noAiBackendModelsiteListenerAttached = true;
+}
+
+function ensureNoAiBackendUseAIListener() {
+    const useAISelect = document.getElementById('useAI');
+    if (useAISelect && !noAiBackendUseAIListenerAttached) {
+        useAISelect.addEventListener('change', updateNoAiFlaskStartVisibility);
+        noAiBackendUseAIListenerAttached = true;
+    }
+    const noCliCheckbox = document.getElementById('no-cli');
+    if (noCliCheckbox && !noAiBackendNoCliListenerAttached) {
+        noCliCheckbox.addEventListener('change', updateNoAiFlaskStartVisibility);
+        noAiBackendNoCliListenerAttached = true;
+    }
+    if (!noAiBackendModelsiteListenerAttached) {
+        const modelsiteSelect = document.getElementById('modelsite');
+        if (modelsiteSelect) {
+            attachNoAiBackendModelsiteListener(modelsiteSelect);
+        } else if (!noAiBackendModelsiteWaitQueued && typeof waitForElm === 'function') {
+            noAiBackendModelsiteWaitQueued = true;
+            waitForElm('#modelsite').then((elm) => {
+                attachNoAiBackendModelsiteListener(elm);
+                refreshAllPythonBackendStatusPanels();
+                noAiBackendModelsiteWaitQueued = false;
+            });
+        }
+    }
+}
+
+function setBackendCommandMode(mode, enabled) {
+    const normalizedMode = mode === 'with-ai' ? 'with-ai' : 'without-ai';
+    const nextState = getBackendCommandState();
+    if (normalizedMode === 'with-ai') {
+        nextState.withAi = !!enabled;
+    } else {
+        nextState.withoutAi = !!enabled;
+    }
+    window.quickstartBackendCommandModes = nextState;
+    setGlobalCommandToggleAppearance(nextState);
+    document.querySelectorAll('[data-backend]').forEach((row) => {
+        const indicator = row.querySelector('.status-indicator');
+        const isRunning = indicator ? indicator.classList.contains('connected') : false;
+        updateBackendCommandForRow(row, isRunning);
+    });
+    return nextState;
 }
 
 function setBackendRowStatus(container, backendKey, isRunning) {
@@ -798,23 +1110,16 @@ function setBackendRowStatus(container, backendKey, isRunning) {
     if (!row) return;
     const indicator = row.querySelector('.status-indicator');
     const text = row.querySelector('.backend-text');
-    const actionButton = row.querySelector('.backend-action');
     if (!indicator || !text) return;
 
     if (isRunning) {
         indicator.className = 'status-indicator connected';
         text.textContent = 'Running';
-        if (actionButton) {
-            actionButton.textContent = backendKey === 'pipeline' ? 'Stop Flask 5001' : 'Stop Flask 8100';
-            actionButton.dataset.running = 'true';
-        }
+        updateBackendCommandForRow(row, true);
     } else {
         indicator.className = 'status-indicator error';
         text.textContent = 'Not running';
-        if (actionButton) {
-            actionButton.textContent = backendKey === 'pipeline' ? 'Start Flask 5001' : 'Start Flask 8100';
-            actionButton.dataset.running = 'false';
-        }
+        updateBackendCommandForRow(row, false);
     }
 }
 
@@ -834,30 +1139,6 @@ function copyCommandToClipboard(command, options = {}) {
     }
 }
 
-function attachBackendActionHandlers(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const buttons = container.querySelectorAll('.backend-action');
-    buttons.forEach((button) => {
-        button.addEventListener('click', () => {
-            const backend = button.dataset.backendAction;
-            const isRunning = button.dataset.running === 'true';
-            let command = '';
-
-            if (backend === 'pipeline') {
-                command = isRunning ? 'lsof -ti:5001 | xargs kill -9' : 'start pipeline';
-            } else if (backend === 'cloud') {
-                command = isRunning ? 'lsof -ti:8100 | xargs kill -9' : 'start cloud';
-            }
-
-            if (command) {
-                copyCommandToClipboard(command, { showCommandInAlert: true });
-            }
-        });
-    });
-}
-
 function checkBackendAvailability(url) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2500);
@@ -866,6 +1147,87 @@ function checkBackendAvailability(url) {
         .then(() => true)
         .catch(() => false)
         .finally(() => clearTimeout(timeoutId));
+}
+
+function checkWebrootFileExists(path, cacheKey, ttlMs = 15000) {
+    const cache = getBackendStatusCache();
+    const key = `file:${cacheKey}`;
+    const now = Date.now();
+    const cached = cache[key];
+
+    if (cached && typeof cached.value === 'boolean' && now - cached.timestamp < ttlMs) {
+        return Promise.resolve(cached.value);
+    }
+    if (cached && cached.promise) {
+        return cached.promise;
+    }
+
+    const promise = (async () => {
+        try {
+            const headResponse = await fetch(path, { method: 'HEAD', cache: 'no-store' });
+            if (headResponse.ok) return true;
+            if (headResponse.status !== 405 && headResponse.status !== 501) return false;
+        } catch (error) {
+            // Fall back to GET below when HEAD fails.
+        }
+
+        try {
+            const getResponse = await fetch(path, { method: 'GET', cache: 'no-store' });
+            return getResponse.ok;
+        } catch (error) {
+            return false;
+        }
+    })().then((value) => {
+        cache[key] = { value, timestamp: Date.now() };
+        return value;
+    }).finally(() => {
+        if (cache[key]) {
+            delete cache[key].promise;
+        }
+    });
+
+    cache[key] = { ...(cache[key] || {}), promise };
+    return promise;
+}
+
+function getSelectedModelsite() {
+    const modelsiteSelect = document.getElementById('modelsite');
+    if (modelsiteSelect && modelsiteSelect.value) {
+        return modelsiteSelect.value;
+    }
+    if (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function') {
+        return Cookies.get('modelsite') || '';
+    }
+    return '';
+}
+
+function isGeorgiaModelsiteSelected() {
+    return getSelectedModelsite() === 'model.georgia';
+}
+
+async function updateBackendSectionVisibilityByFiles(container) {
+    const pipelineRow = container ? container.querySelector('[data-backend="pipeline"]') : null;
+    const cloudRow = container ? container.querySelector('[data-backend="cloud"]') : null;
+    const hideForGeorgia = isGeorgiaModelsiteSelected();
+
+    const [pipelineExists, cloudExists] = await Promise.all([
+        checkWebrootFileExists('/data-pipeline/index.html', 'dataPipelineIndex'),
+        checkWebrootFileExists('/cloud/index.html', 'cloudIndex')
+    ]);
+
+    if (pipelineRow) {
+        pipelineRow.classList.toggle('georgia-hide', hideForGeorgia);
+        pipelineRow.style.display = pipelineExists && !hideForGeorgia ? '' : 'none';
+    }
+    if (cloudRow) {
+        cloudRow.classList.toggle('georgia-hide', hideForGeorgia);
+        cloudRow.style.display = cloudExists && !hideForGeorgia ? '' : 'none';
+    }
+
+    return {
+        pipelineExists: pipelineExists && !hideForGeorgia,
+        cloudExists: cloudExists && !hideForGeorgia
+    };
 }
 
 function getBackendStatusCache() {
@@ -1002,43 +1364,77 @@ function showStopServerFallback() {
     }
 }
 
-function updatePythonBackendStatus(containerId) {
+async function updatePythonBackendStatus(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    attachBackendActionHandlers(containerId);
+    ensureNoAiBackendUseAIListener();
+    const { pipelineExists, cloudExists } = await updateBackendSectionVisibilityByFiles(container);
+    updateNoAiFlaskStartVisibility();
 
-    Promise.all([
-        checkBackendAvailability('http://localhost:5001/'),
-        checkBackendAvailability('http://localhost:8100/')
-    ]).then(([pipelineRunning, cloudRunning]) => {
-        setBackendRowStatus(container, 'pipeline', pipelineRunning);
-        setBackendRowStatus(container, 'cloud', cloudRunning);
+    const checks = [];
+    if (pipelineExists) {
+        checks.push(
+            checkBackendAvailability('http://localhost:5001/')
+                .then((isRunning) => ({ backendKey: 'pipeline', isRunning }))
+        );
+    }
+    if (cloudExists) {
+        checks.push(
+            checkBackendAvailability('http://localhost:8100/')
+                .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
+        );
+    }
+
+    Promise.all(checks).then((results) => {
+        results.forEach((result) => {
+            setBackendRowStatus(container, result.backendKey, result.isRunning);
+        });
     });
 }
 
 function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
-    const toggleButton = document.getElementById(buttonId);
+    const buttonGroup = document.getElementById(buttonId);
     const commandsContainer = document.getElementById(commandsContainerId);
-    if (!toggleButton || !commandsContainer) return;
+    if (!buttonGroup || !commandsContainer) return;
 
-    const setButtonState = (isOpen) => {
-        toggleButton.dataset.open = isOpen ? 'true' : 'false';
-        toggleButton.textContent = isOpen ? 'Hide Commands' : 'View Commands';
+    const buttons = buttonGroup.querySelectorAll('.quickstart-commands-toggle-btn');
+    const setCommandsVisibility = (isOpen) => {
         commandsContainer.style.display = isOpen ? 'block' : 'none';
     };
 
-    setButtonState(false);
-
-    toggleButton.addEventListener('click', () => {
-        const isOpen = toggleButton.dataset.open === 'true';
-        if (!isOpen && typeof renderFn === 'function') {
-            if (!commandsContainer.dataset.loaded) {
-                renderFn(commandsContainerId);
-                commandsContainer.dataset.loaded = 'true';
-            }
+    const ensureLoaded = () => {
+        if (commandsContainer.dataset.loaded || typeof renderFn !== 'function') {
+            return;
         }
-        setButtonState(!isOpen);
+        renderFn(commandsContainerId);
+        commandsContainer.dataset.loaded = 'true';
+    };
+
+    const initialState = getBackendCommandState();
+    setGlobalCommandToggleAppearance(initialState);
+    const hasAnyModeOnLoad = hasEnabledBackendCommandMode(initialState);
+    const showCommandsOnLoad = shouldShowFullCommandsContainer(initialState);
+    if (hasAnyModeOnLoad) {
+        ensureLoaded();
+    }
+    setCommandsVisibility(showCommandsOnLoad);
+    updateQuickstartCliVisibility();
+
+    buttons.forEach((button) => {
+        if (button.dataset.bound === 'true') return;
+        button.dataset.bound = 'true';
+        button.addEventListener('click', () => {
+            const mode = button.dataset.mode === 'with-ai' ? 'with-ai' : 'without-ai';
+            const currentState = getBackendCommandState();
+            const modeEnabled = mode === 'with-ai' ? currentState.withAi : currentState.withoutAi;
+            const nextState = setBackendCommandMode(mode, !modeEnabled);
+            if (hasEnabledBackendCommandMode(nextState)) {
+                ensureLoaded();
+            }
+            setCommandsVisibility(shouldShowFullCommandsContainer(nextState));
+            updateQuickstartCliVisibility();
+        });
     });
 }
 
@@ -1050,24 +1446,16 @@ async function setupWebServerStatusPanel(options) {
 
     const {
         isRunning,
-        detectedUrl,
         detectedLabel,
         currentOriginUrl,
         isLocalOrigin,
         localhost8887Url,
-        localhost8887ApiStatusUrl,
         localhost8887Running,
         localhost8887ApiRunning,
-        currentOriginRunning,
-        serverSidePythonAvailable
+        currentOriginRunning
     } = await getWebServerStatusState();
-    const activeUrl = detectedUrl || window.location.href;
-    const displayUrl = activeUrl
-        .replace(/^https?:\/\//, '')
-        .replace(/\/$/, '');
     const currentOriginDisplay = currentOriginUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const localhost8887Display = localhost8887Url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const localhost8887ApiStatusDisplay = localhost8887ApiStatusUrl.replace(/^https?:\/\//, '');
     const withBtnWidth = (className) => className && className.includes('btn-width')
         ? className
         : `${className} btn-width`;
@@ -1081,45 +1469,36 @@ async function setupWebServerStatusPanel(options) {
         titleEl.textContent = `Web Server Running (${detectedLabel})`;
         contentEl.innerHTML = `
             <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
-                <div class="status-text" style="display:flex; align-items:flex-start; gap:8px; flex: 1 1 360px;">
-                    <span class="status-indicator-holder" style="display:flex; align-items:center;"></span>
-                    <p style="color: var(--text-secondary); margin: 0;">
-                        Your local http server is running at <a href="${activeUrl}">${displayUrl}</a><br>
-                        ${serverSidePythonAvailable ? 'Server-side Python API detected' : 'Server-side Python API not detected'} at ${localhost8887ApiStatusDisplay}<br>
-                        <!--
-                        <span style="font-size: 13px;">
-                            Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhost8887Display}</code> (${localhost8887Running ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port 8887 (${localhost8887ApiRunning ? 'reachable' : 'not reachable'}).
-                        </span>
-                        -->
-                    </p>
-                </div>
+                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 360px; display:flex; align-items:center; align-self:center;">
+                    Your local http server is running at&nbsp;<a href="http://localhost:8887">localhost:8887</a>
+                </p>
                 <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <button class="${connectedClass}" id="${buttonId}" style="margin-left:auto;">
-                        View Commands
-                    </button>
+                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                        <button class="${connectedClass} quickstart-commands-toggle-btn" data-mode="with-ai">AI Commands</button>
+                        <button class="${connectedClass} quickstart-commands-toggle-btn" data-mode="without-ai">Full Commands</button>
+                    </div>
                 </div>
             </div>
+            <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         `;
-        const statusHolder = contentEl.querySelector('.status-indicator-holder');
-        if (statusHolder) {
-            statusHolder.appendChild(statusIndicator);
-        }
     } else {
-        statusIndicator.className = 'status-indicator loading';
+        statusIndicator.className = 'status-indicator error';
         titleEl.textContent = 'Local Web Server';
         contentEl.innerHTML = `
             <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
-                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 300px;">
+                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 300px; display:flex; align-items:center;">
                     To contribute code, view at <a href="https://localhost:8887/team/admin/server">localhost:8887/team/admin/server</a>.
                     If your localhost server is not started, click to copy commands:
                 </p>
                 <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <button class="${defaultClass}" id="${buttonId}" style="margin-left:auto;">
-                        View Commands
-                    </button>
+                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                        <button class="${defaultClass} quickstart-commands-toggle-btn" data-mode="with-ai">AI Commands</button>
+                        <button class="${defaultClass} quickstart-commands-toggle-btn" data-mode="without-ai">Full Commands</button>
+                    </div>
                 </div>
             </div>
+            <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
             <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
                 ${!isLocalOrigin ? `This page is loaded from hosted origin <code>${currentOriginDisplay}</code>; hosted page reachability does not mean local server-side Python is running on your machine.<br>` : ''}
                 Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhost8887Display}</code> (${localhost8887Running ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port 8887 (${localhost8887ApiRunning ? 'reachable' : 'not reachable'}).
@@ -1132,6 +1511,10 @@ async function setupWebServerStatusPanel(options) {
     const statusRow = contentEl.querySelector('.web-server-status-row');
     if (commandsContainer && statusRow) {
         statusRow.insertAdjacentElement('afterend', commandsContainer);
+    }
+    const aiPromptHost = document.getElementById(`${commandsContainerId}-ai-prompt-host`);
+    if (aiPromptHost && commandsContainer) {
+        commandsContainer.insertAdjacentElement('beforebegin', aiPromptHost);
     }
 
     setupCommandsToggle(buttonId, commandsContainerId, renderQuickstartCommands);

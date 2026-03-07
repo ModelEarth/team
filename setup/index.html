@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Setup</title>
+<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+<link type="text/css" rel="stylesheet" href="../css/common.css" />
+<script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=true"></script>
+<script type="text/javascript" src="../js/common.js"></script>
+<script type="text/javascript" src="../js/setup.js"></script>
+
+<script>
+// Create OS detection panel using shared function
+autoCreateOSDetectionPanel('#commonSetupDiv');
+
+waitForElm('#textInPage').then(() => {
+    let currentPath = window.location.href;
+    let myRepo = "PartnerTools";
+
+    const githubPagesMatch = currentPath.match(/\/\/([^.]+)\.github\.io/);
+    if (githubPagesMatch && githubPagesMatch[1]) {
+        myRepo = githubPagesMatch[1];
+    } else if (currentPath.includes("localhost") || currentPath.includes("model.earth")) {
+        myRepo = "modelearth";
+    }
+
+    let linkString = "<a href='https://github.com/" + myRepo + "/webroot/' target='github_fork'>github.com/" + myRepo + "/webroot</a>";
+
+    setTimeout(() => {
+        const textInPage = document.getElementById('textInPage');
+        if (textInPage) {
+            const gitAccountField = document.getElementById("gitAccount");
+            const myWebrootForkNameField = document.getElementById("myWebrootForkName");
+            const gitAccountValue = gitAccountField ? gitAccountField.value : '';
+            const myWebrootForkNameValue = myWebrootForkNameField ? myWebrootForkNameField.value : '';
+
+            textInPage.innerHTML = textInPage.innerHTML.replace(/the webroot repo/g, linkString);
+
+            const newGitAccountField = document.getElementById("gitAccount");
+            const newMyWebrootForkNameField = document.getElementById("myWebrootForkName");
+            if (newGitAccountField && gitAccountValue) {
+                newGitAccountField.value = gitAccountValue;
+            }
+            if (newMyWebrootForkNameField && myWebrootForkNameValue) {
+                newMyWebrootForkNameField.value = myWebrootForkNameValue;
+            }
+        }
+    }, 100);
+
+    setTimeout(() => {
+        setupWebrootSetup('webrootSetup');
+        setupGitAccountFields('textInPage');
+        setupQuickstartInstructions('quickstartDiv');
+        createRustApiStatusPanel('combined-rust-api-container', false);
+        setupTradeFlowRepos('extraRepos');
+        setupGeminiResources();
+        loadMarkdown("../admin/github/deploy-cli.md", "deployCliDiv", "_parent", 1);
+        loadMarkdown("../admin/github/deploy-git.md", "deployGitDiv", "_parent", 1);
+        setTimeout(() => { updateForkReposCommands(); }, 100);
+    }, 200);
+
+});
+
+waitForElm('#showDeployGit').then(() => { // Toggle display of additional git.sh commands
+    const showDeployGitBtn = document.getElementById('showDeployGit');
+    const deployGitPanel = document.getElementById('deployGit');
+    if (!showDeployGitBtn || !deployGitPanel) return;
+
+    showDeployGitBtn.addEventListener('click', () => {
+        const isHidden = getComputedStyle(deployGitPanel).display === 'none';
+        deployGitPanel.style.display = isHidden ? 'block' : 'none';
+        showDeployGitBtn.textContent = isHidden ? 'Hide Deploy Options' : 'More Deploy Options';
+    });
+});
+</script>
+<style>
+#textInPage { container-type: inline-size; }
+@container (max-width: 450px) {
+    #githubAccountFields { float: none; }
+}
+</style>
+</head>
+
+<body>
+<div class="content contentpadding">
+    <div class="card" id="textInPage">
+      <div id="webrootSetup"></div>
+    </div>
+    <div id="commonSetupDiv"></div>
+    <div id="quickstartDiv" class="card"></div>
+    <div id="combined-rust-api-container"></div>
+    <div class="card" id="extraRepos"></div>
+    <div class="card" id="deployCliDiv"></div>
+    <button id="showDeployGit" class="btn btn-success">More Deploy Options</button>
+    <div id="deployGit" style="display:none">
+        <div class="card" id="deployGitDiv"></div>
+    </div>
+</div>
+</body>
+</html>

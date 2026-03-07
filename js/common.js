@@ -98,7 +98,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 cliOnlyDiv.className = 'cli-only';
 
                 const noteText = document.createElement('div');
-                noteText.textContent = 'IMPORTANT: Run to inform your Code CLI where to find guidance.';
+                noteText.textContent = 'Inform your AI Coding Agent where to find guidance:';
                 noteText.style.marginTop = '12px';
                 noteText.style.marginBottom = '8px';
                 cliOnlyDiv.appendChild(noteText);
@@ -406,26 +406,39 @@ function createOSDetectionPanel(containerId) {
             </span>
         </div>
         <div style="margin-bottom: 4px;"></div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div id="useAI-wrapper" style="display: none; margin-bottom: 8px;">
+            <select id="useAI" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 260px;">
+                <option value="">With or without AI</option>
+                <option value="with">With AI Coding Agent(s)</option>
+                <option value="without">Without AI Coding Agents</option>
+            </select>
+        </div>
+        <div id="agent-checkboxes" style="display: none; flex-wrap: nowrap; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="claude-code-cli" style="margin: 0;">
-                <span>Claude Code CLI (recommended)</span>
+                <span>Claude</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="codex-cli" style="margin: 0;">
-                <span>OpenAI Codex (recommended, first month free)</span>
+                <span>OpenAI</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="gemini-cli" style="margin: 0;">
-                <span>Gemini CLI (not currently recommended)</span>
+                <span>Gemini</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <input type="checkbox" id="grok-cli" style="margin: 0;">
+                <span>Grok</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="vscode-claude" style="margin: 0;">
-                <span>VS Code with Claude</span>
+                <span>VS Code</span>
             </label>
+        </div>
+        <div id="no-cli-row" style="margin-top: 6px; display: none; padding-left: 3px; box-sizing: border-box;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="no-cli" style="margin: 0;">
-                <span>No CLI Coding Agent</span>
+                <span>Without AI Coding Agents</span>
             </label>
         </div>
     </div>
@@ -512,19 +525,17 @@ gemini</code></pre></div>
             <pre><code>git submodule update --init --recursive</code></pre>
         </div>
 
-        <div class="card" style="margin-bottom: 16px;">
+        <div class="card" id="githubCLICard" style="margin-bottom: 16px;">
 
             <h1 class="card-title">Github CLI for sending a Pull Request (PR)</h1>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
                 <span>Do you have Github CLI installed?</span>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                    <input type="radio" name="github-cli-status" value="yes" style="margin: 0;">
-                    <span>Yes</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                    <input type="radio" name="github-cli-status" value="no" style="margin: 0;" checked>
-                    <span>No</span>
-                </label>
+                <select id="github-cli-status" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 220px;">
+                    <option value="choose">Choose</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="not-using">Not using Github Automation</option>
+                </select>
             </div>
             
 
@@ -588,6 +599,9 @@ choco install gh -y</code></pre>
 
     </div>
 </div>
+<div id="github-cli-auto-status" style="display: none; margin-top: 12px; font-size: 14px;">
+    Github CLI is installed. <a href="#" id="github-cli-show-commands-link">Show commands</a>
+</div>
 
     `;
     
@@ -606,8 +620,13 @@ function initializeOSDetectionPanel() {
     const codexCli = document.getElementById('codex-cli');
     const claudeCodeCli = document.getElementById('claude-code-cli');
     const geminiCli = document.getElementById('gemini-cli');
+    const grokCli = document.getElementById('grok-cli');
     const vscodeClaude = document.getElementById('vscode-claude');
     const noCli = document.getElementById('no-cli');
+    const noCliRow = document.getElementById('no-cli-row');
+    const useAISelect = document.getElementById('useAI');
+    const useAIWrapper = document.getElementById('useAI-wrapper');
+    const agentCheckboxes = document.getElementById('agent-checkboxes');
     const cliCommands = document.getElementById('cli-commands');
     const cliCodeCommands = document.getElementById('cli-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
@@ -646,23 +665,26 @@ function initializeOSDetectionPanel() {
     const savedCodex = localStorage.getItem('codex-cli-installed');
     const savedClaudeCode = localStorage.getItem('claude-code-cli-installed');
     const savedGemini = localStorage.getItem('gemini-cli-installed');
+    const savedGrok = localStorage.getItem('grok-cli-installed');
     const savedVscode = localStorage.getItem('vscode-claude-installed');
     const savedInstallStatus = localStorage.getItem('claude-install-status');
+    const savedUseAIMode = localStorage.getItem('use-ai-mode');
 
     // Check saved preferences
     if (codexCli && savedCodex === 'true') {
         codexCli.checked = true;
     }
-    // Check Claude by default if no saved preference exists
+    // Check Claude only when explicitly saved as selected
     if (claudeCodeCli) {
-        if (savedClaudeCode === null) {
-            claudeCodeCli.checked = true;
-        } else if (savedClaudeCode === 'true') {
+        if (savedClaudeCode === 'true') {
             claudeCodeCli.checked = true;
         }
     }
     if (geminiCli && savedGemini === 'true') {
         geminiCli.checked = true;
+    }
+    if (grokCli && savedGrok === 'true') {
+        grokCli.checked = true;
     }
     if (vscodeClaude && savedVscode === 'true') {
         vscodeClaude.checked = true;
@@ -670,6 +692,9 @@ function initializeOSDetectionPanel() {
     const savedNoCli = localStorage.getItem('no-cli-selected');
     if (noCli && savedNoCli === 'true') {
         noCli.checked = true;
+    }
+    if (useAISelect && (savedUseAIMode === 'with' || savedUseAIMode === 'without')) {
+        useAISelect.value = savedUseAIMode;
     }
     
     // Radio button initialization will be done in the setTimeout below
@@ -700,8 +725,26 @@ function initializeOSDetectionPanel() {
         const codexChecked = codexCli ? codexCli.checked : false;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
         const geminiChecked = geminiCli ? geminiCli.checked : false;
+        const grokChecked = grokCli ? grokCli.checked : false;
         const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
         const noCliChecked = noCli ? noCli.checked : false;
+        const useAIValue = useAISelect ? useAISelect.value : '';
+        const anyNonNoCliChecked = codexChecked || claudeCodeChecked || geminiChecked || grokChecked || vscodeChecked;
+        const anyAgentChecked = anyNonNoCliChecked || noCliChecked;
+        const onlyNoCliChecked = noCliChecked && !anyNonNoCliChecked;
+        const noneChecked = !anyAgentChecked;
+
+        if (useAIWrapper) {
+            useAIWrapper.style.display = (noneChecked || onlyNoCliChecked) ? 'block' : 'none';
+        }
+        if (agentCheckboxes) {
+            // Hide checkboxes until "with" is chosen; also keep hidden for "without".
+            const showCheckboxes = useAIValue === 'with' || anyNonNoCliChecked;
+            agentCheckboxes.style.display = showCheckboxes ? 'flex' : 'none';
+            if (noCliRow) {
+                noCliRow.style.display = showCheckboxes ? 'block' : 'none';
+            }
+        }
 
         // Update OS-specific installation instructions
         updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked);
@@ -709,7 +752,7 @@ function initializeOSDetectionPanel() {
         // Update title based on number of checked tools
         const cliToolsTitle = document.getElementById('cli-tools-title');
         if (cliToolsTitle) {
-            cliToolsTitle.textContent = 'Start your Code CLI (Command Line Interface)';
+            cliToolsTitle.textContent = 'Start your Command Line Interface (CLI)';
         }
 
         // Update CLI installation title and text based on selections
@@ -822,10 +865,14 @@ function initializeOSDetectionPanel() {
             }
         }
 
-        // Hide cli-only elements when No CLI is the only selection
-        const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeCodeChecked && !geminiChecked && !vscodeChecked;
+        // Keep all .cli-only sections hidden until user selects "with" or checks a non-"no-cli" agent.
+        const allowCliOnlySections = useAIValue === 'with' || anyNonNoCliChecked;
         document.querySelectorAll('.cli-only').forEach(el => {
-            if (el.id === 'cli-commands') return; // Already managed by existing logic above
+            if (!allowCliOnlySections) {
+                el.style.display = 'none';
+                return;
+            }
+            if (el.id === 'cli-commands') return; // Managed by existing codex/claude logic above
             el.style.display = onlyNoCliChecked ? 'none' : '';
         });
         // Sync rust tab labels and active tab
@@ -991,6 +1038,13 @@ npm install -g openai-codex-cli</code></pre>`;
         });
     }
 
+    if (grokCli) {
+        grokCli.addEventListener('change', function() {
+            localStorage.setItem('grok-cli-installed', this.checked);
+            updateCliCommands();
+        });
+    }
+
     if (vscodeClaude) {
         vscodeClaude.addEventListener('change', function() {
             localStorage.setItem('vscode-claude-installed', this.checked);
@@ -1001,6 +1055,43 @@ npm install -g openai-codex-cli</code></pre>`;
     if (noCli) {
         noCli.addEventListener('change', function() {
             localStorage.setItem('no-cli-selected', this.checked);
+            updateCliCommands();
+        });
+    }
+
+    if (useAISelect) {
+        useAISelect.addEventListener('change', function() {
+            localStorage.setItem('use-ai-mode', this.value);
+
+            if (this.value === 'without') {
+                if (noCli) {
+                    noCli.checked = true;
+                    localStorage.setItem('no-cli-selected', 'true');
+                }
+                if (codexCli) {
+                    codexCli.checked = false;
+                    localStorage.setItem('codex-cli-installed', 'false');
+                }
+                if (claudeCodeCli) {
+                    claudeCodeCli.checked = false;
+                    localStorage.setItem('claude-code-cli-installed', 'false');
+                }
+                if (geminiCli) {
+                    geminiCli.checked = false;
+                    localStorage.setItem('gemini-cli-installed', 'false');
+                }
+                if (grokCli) {
+                    grokCli.checked = false;
+                    localStorage.setItem('grok-cli-installed', 'false');
+                }
+                if (vscodeClaude) {
+                    vscodeClaude.checked = false;
+                    localStorage.setItem('vscode-claude-installed', 'false');
+                }
+            } else if (this.value === 'with' && noCli) {
+                noCli.checked = false;
+                localStorage.setItem('no-cli-selected', 'false');
+            }
             updateCliCommands();
         });
     }
@@ -1048,20 +1139,27 @@ npm install -g openai-codex-cli</code></pre>`;
         updateCliCommands();
     }, 200);
     
-    // Add event listeners for GitHub CLI status radio buttons and userComputer text box
+    // Add event listeners for GitHub CLI status dropdown and userComputer text box
     setTimeout(() => {
-        const githubCliRadios = document.querySelectorAll('input[name="github-cli-status"]');
+        const githubCliStatusSelect = document.getElementById('github-cli-status');
         const githubInstallDiv = document.getElementById('githubCLIinstall');
         const userComputerInput = document.getElementById('userComputer');
+        const osDetectionPanel = document.getElementById('os-detection-panel');
+        const githubCliCard = document.getElementById('githubCLICard');
+        const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
+        const githubCliShowCommandsLink = document.getElementById('github-cli-show-commands-link');
         const savedGithubCliStatus = localStorage.getItem('github-cli-status');
         const savedUserComputer = localStorage.getItem('user-computer-name');
+        let ghCommandsExpanded = false;
+
+        if (osDetectionPanel && githubCliAutoStatus) {
+            osDetectionPanel.appendChild(githubCliAutoStatus);
+        }
         
-        // Set radio button based on saved preference, default to "no"
-        if (savedGithubCliStatus === 'yes') {
-            const yesRadio = document.querySelector('input[name="github-cli-status"][value="yes"]');
-            const noRadio = document.querySelector('input[name="github-cli-status"][value="no"]');
-            if (yesRadio) yesRadio.checked = true;
-            if (noRadio) noRadio.checked = false;
+        // Set dropdown based on saved preference, default to "choose"
+        if (githubCliStatusSelect && savedGithubCliStatus) {
+            const validValues = ['choose', 'yes', 'no', 'not-using'];
+            githubCliStatusSelect.value = validValues.includes(savedGithubCliStatus) ? savedGithubCliStatus : 'choose';
         }
         
         // Set userComputer input from saved value
@@ -1109,36 +1207,74 @@ npm install -g openai-codex-cli</code></pre>`;
         
         // Function to update GitHub CLI install div and userComputer text box visibility
         function updateGithubCliVisibility() {
-            const yesSelected = document.querySelector('input[name="github-cli-status"][value="yes"]:checked');
+            const selectedValue = githubCliStatusSelect ? githubCliStatusSelect.value : 'choose';
+            const showInstall = selectedValue === 'no';
             if (githubInstallDiv) {
-                if (yesSelected) {
-                    githubInstallDiv.style.display = 'none';
-                } else {
-                    githubInstallDiv.style.display = 'block';
-                }
+                githubInstallDiv.style.display = showInstall ? 'block' : 'none';
             }
             
-            // Hide/show userComputer text box based on radio selection
+            // Hide/show userComputer text box based on dropdown selection
             if (userComputerInput) {
-                if (yesSelected) {
-                    userComputerInput.style.display = 'none';
-                } else {
-                    userComputerInput.style.display = 'block';
+                userComputerInput.style.display = showInstall ? 'block' : 'none';
+            }
+        }
+
+        function updateGithubCliCardVisibilityFromRust(installed) {
+            if (!githubCliCard || !githubCliAutoStatus) return;
+            if (installed) {
+                githubCliAutoStatus.style.display = 'block';
+                githubCliCard.style.display = ghCommandsExpanded ? 'block' : 'none';
+                if (githubCliShowCommandsLink) {
+                    githubCliShowCommandsLink.textContent = ghCommandsExpanded ? 'Hide commands' : 'Show commands';
+                }
+            } else {
+                githubCliAutoStatus.style.display = 'none';
+                githubCliCard.style.display = 'block';
+                if (githubCliShowCommandsLink) {
+                    githubCliShowCommandsLink.textContent = 'Show commands';
                 }
             }
         }
+
+        async function detectGithubCliFromRust() {
+            try {
+                const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
+                if (!response.ok) {
+                    updateGithubCliCardVisibilityFromRust(false);
+                    return;
+                }
+                const data = await response.json();
+                const installed = !!data.installed;
+                if (installed && githubCliStatusSelect) {
+                    githubCliStatusSelect.value = 'yes';
+                    localStorage.setItem('github-cli-status', 'yes');
+                    updateGithubCliVisibility();
+                }
+                updateGithubCliCardVisibilityFromRust(installed);
+            } catch (error) {
+                updateGithubCliCardVisibilityFromRust(false);
+            }
+        }
         
-        // Add event listeners for radio buttons
-        githubCliRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                console.log('GitHub CLI radio button changed to:', this.value);
-                // Save the selected radio button value to localStorage
+        // Add event listener for dropdown
+        if (githubCliStatusSelect) {
+            githubCliStatusSelect.addEventListener('change', function() {
+                console.log('GitHub CLI dropdown changed to:', this.value);
+                // Save the selected value to localStorage
                 localStorage.setItem('github-cli-status', this.value);
                 
                 // Update div visibility
                 updateGithubCliVisibility();
             });
-        });
+        }
+
+        if (githubCliShowCommandsLink) {
+            githubCliShowCommandsLink.addEventListener('click', function(event) {
+                event.preventDefault();
+                ghCommandsExpanded = !ghCommandsExpanded;
+                updateGithubCliCardVisibilityFromRust(true);
+            });
+        }
         
         // Add event listener for userComputer text box
         if (userComputerInput) {
@@ -1154,6 +1290,7 @@ npm install -g openai-codex-cli</code></pre>`;
         // Initial updates
         updateGithubCliVisibility();
         updateUserAcctPlaceholders();
+        detectGithubCliFromRust();
     }, 200);
     
     // Initial update
@@ -1808,51 +1945,50 @@ function ensureRustApiStatusPanelStyles() {
         .rust-api-status-layout {
             container-type: inline-size;
         }
-        .rust-api-action-row {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 12px;
-        }
-        .rust-api-action-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: flex-end;
-        }
-        .rust-api-action-buttons .btn {
-            margin: 0;
-            width: auto;
-            min-width: 0;
-        }
-        .rust-api-status-content-wrap {
-            position: relative;
-        }
-        .rust-api-status-content-wrap #reload-status-btn {
+        .rust-api-status-actions {
             position: absolute;
             top: 0;
             right: 0;
             z-index: 1;
-            width: auto;
-            min-width: 0;
+            text-align: right;
+        }
+        .rust-api-status-button {
             margin: 0;
+            width: 150px;
+            min-width: 150px;
+        }
+        #stop-rust-btn.rust-api-status-button {
+            margin-bottom: 10px;
+        }
+        .rust-api-status-actions br {
+            line-height: 0;
+        }
+        .rust-api-status-content-wrap {
+            position: relative;
         }
         .rust-api-status-content-wrap #rust-api-status-content {
             padding-right: 160px;
         }
+        .rust-api-admin-link-wrap {
+            margin-top: 12px;
+        }
+        .rust-api-admin-link {
+            color: var(--accent-blue);
+            text-decoration: underline;
+            font-weight: 500;
+        }
+        .rust-api-admin-link:hover {
+            color: var(--accent-blue-hover, var(--accent-blue));
+        }
         @container (max-width: 560px) {
-            .rust-api-action-row {
-                justify-content: flex-start;
-            }
-            .rust-api-action-buttons {
-                align-items: flex-start;
+            .rust-api-status-actions {
+                right: auto;
+                left: 0;
+                text-align: left;
             }
             .rust-api-status-content-wrap #rust-api-status-content {
                 padding-right: 0;
                 padding-top: 44px;
-            }
-            .rust-api-status-content-wrap #reload-status-btn {
-                right: auto;
-                left: 0;
             }
         }
     `;
@@ -1895,18 +2031,16 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                 <span id="rust-api-status-title">Backend Rust API and Database Status</span>
             </h2>
             <div class="rust-api-status-layout">
-                <div class="rust-api-action-row">
-                    <div class="rust-api-action-buttons">
-                        <button class="btn btn-danger btn-width" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
+                <div class="rust-api-status-content-wrap">
+                    <div class="rust-api-status-actions">
+                        <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
                             Stop Rust
                         </button>
+                        <br id="rust-status-button-break" style="display: none;">
+                        <button class="btn btn-secondary btn-width rust-api-status-button" onclick="updateRustApiStatusPanel()" style="display: none;" id="reload-status-btn">
+                            Reload Status
+                        </button>
                     </div>
-                </div>
-
-                <div class="rust-api-status-content-wrap">
-                    <button class="btn btn-secondary btn-width" onclick="updateRustApiStatusPanel()" style="display: none;" id="reload-status-btn">
-                        Reload Status
-                    </button>
 
                     <!-- Status Indicators -->
                     <div id="backend-status-indicators" style="display: none;">
@@ -1919,16 +2053,16 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
                         <!-- Database Status Items -->
                         <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-box" id="commons-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
+                            <span class="status-indicator error" id="commons-db-indicator"></span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">MemberCommons database inactive</span>
                         </div>
                         <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-box" id="exiobase-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
+                            <span class="status-indicator error" id="exiobase-db-indicator"></span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth Industry Database inactive</span>
                         </div>
                         <!-- Locations Database - hidden by default, shown only when active -->
                         <div class="status-indicator-item" id="location-db-container" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-box" id="location-db-indicator" style="width: 20px; height: 20px; border-radius: 3px; background: transparent; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">🔴</span>
+                            <span class="status-indicator error" id="location-db-indicator"></span>
                             <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                         </div>
                     </div>
@@ -1939,15 +2073,19 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
             <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                 Loading configuration...
             </div>
-            <div style="margin-top: 12px;">
-                <a href="http://localhost:8887/team/admin/sql/panel/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: #3B82F6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
-                    Database Connections
-                </a>
-            </div>
         </div>
     `;
 
     container.innerHTML = panelHtml;
+    const nextSibling = container.nextElementSibling;
+    if (nextSibling && nextSibling.classList.contains('rust-api-admin-link-wrap')) {
+        nextSibling.remove();
+    }
+    container.insertAdjacentHTML('afterend', `
+        <div class="rust-api-admin-link-wrap">
+            <a href="http://localhost:8887/team/admin/sql/panel/" class="rust-api-admin-link">Database Admin</a>
+        </div>
+    `);
 
     // Initialize the status check
     updateRustApiStatusPanel(showConfigureLink, adminPath);
@@ -1961,6 +2099,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const dbIndicators = document.getElementById('backend-status-indicators');
     const reloadBtn = document.getElementById('reload-status-btn');
     const stopBtn = document.getElementById('stop-rust-btn');
+    const buttonBreak = document.getElementById('rust-status-button-break');
     
     if (!indicator || !title || !content) return;
 
@@ -2003,7 +2142,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
 
             content.innerHTML = `
                 <div style="color: var(--accent-green); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <span style="width: 20px; display: flex; align-items: center; justify-content: center;">✅</span>
+                    <span class="status-indicator connected"></span>
                     <span>Backend Rust API is accessible</span>
                 </div>
                 ${fallbackToggleHtml}
@@ -2015,6 +2154,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             }
             if (stopBtn) {
                 stopBtn.style.display = 'block';
+            }
+            if (buttonBreak) {
+                buttonBreak.style.display = 'inline';
             }
             
             // Show and check backend status indicators
@@ -2041,7 +2183,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 <span><strong>Start Rust Locally</strong></span>
             </div>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                <span style="color: #dc3545; margin-right: 8px;">🔴</span>The Rust backend server needs to be started to access full configuration and testing capabilities.
+                <span class="status-indicator error" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></span>The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
             <!-- Tab Navigation -->
             <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">
@@ -2078,6 +2220,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         // Hide stop button when API is inactive, but keep reload button visible
         if (stopBtn) {
             stopBtn.style.display = 'none';
+        }
+        if (buttonBreak) {
+            buttonBreak.style.display = 'none';
         }
         // Keep reload button visible so user can refresh status
         if (reloadBtn) {
@@ -2128,17 +2273,19 @@ function updateRustTabState() {
     const codexChecked   = document.getElementById('codex-cli')       ? document.getElementById('codex-cli').checked       : false;
     const claudeChecked  = document.getElementById('claude-code-cli') ? document.getElementById('claude-code-cli').checked : false;
     const geminiChecked  = document.getElementById('gemini-cli')      ? document.getElementById('gemini-cli').checked      : false;
+    const grokChecked    = document.getElementById('grok-cli')        ? document.getElementById('grok-cli').checked        : false;
     const vscodeChecked  = document.getElementById('vscode-claude')   ? document.getElementById('vscode-claude').checked   : false;
 
-    const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeChecked && !geminiChecked && !vscodeChecked;
+    const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeChecked && !geminiChecked && !grokChecked && !vscodeChecked;
 
     // Determine label when exactly one CLI is selected
-    const cliCount = [codexChecked, claudeChecked, geminiChecked, vscodeChecked].filter(Boolean).length;
+    const cliCount = [codexChecked, claudeChecked, geminiChecked, grokChecked, vscodeChecked].filter(Boolean).length;
     let cliName = 'CLI';
     if (cliCount === 1) {
         if (codexChecked)  cliName = 'OpenAI Codex';
         else if (claudeChecked) cliName = 'Claude Code';
         else if (geminiChecked) cliName = 'Gemini CLI';
+        else if (grokChecked) cliName = 'Grok';
         else if (vscodeChecked) cliName = 'VS Code';
     }
 
@@ -2197,31 +2344,11 @@ function updateStatusIndicator(indicatorId, textId, isActive, activeText, inacti
     if (!indicator || !text) return;
     
     if (isActive) {
-        indicator.style.background = 'transparent';
-        indicator.style.width = '20px';
-        indicator.style.height = '20px';
-        indicator.style.borderRadius = '3px';
-        indicator.style.display = 'flex';
-        indicator.style.alignItems = 'center';
-        indicator.style.justifyContent = 'center';
-        indicator.style.fontSize = '14px';
-        indicator.style.fontWeight = 'bold';
-        indicator.innerHTML = '✅';
-        indicator.style.color = '#10b981';
+        indicator.className = 'status-indicator connected';
         text.textContent = activeText;
         text.style.color = 'var(--accent-green)';
     } else {
-        indicator.style.background = 'transparent';
-        indicator.style.width = '20px';
-        indicator.style.height = '20px';
-        indicator.style.borderRadius = '3px';
-        indicator.style.display = 'flex';
-        indicator.style.alignItems = 'center';
-        indicator.style.justifyContent = 'center';
-        indicator.style.fontSize = '14px';
-        indicator.style.fontWeight = 'bold';
-        indicator.innerHTML = '🔴';
-        indicator.style.color = '#dc2626';
+        indicator.className = 'status-indicator error';
         text.textContent = inactiveText;
         text.style.color = 'var(--text-secondary)';
     }

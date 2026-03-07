@@ -1414,9 +1414,26 @@ async function loadUnifiedData(url, options = {}) {
         console.log('forceCSV:', forceCSV);
         console.log('API_BASE:', API_BASE);
 
+        // Determine if this URL needs Excel parsing
+        const isExcelData = config?.datatype === 'excel' || url.endsWith('.xlsx') || url.endsWith('.xls');
+
+        if (isExcelData) {
+            await new Promise((resolve, reject) => {
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', resolve);
+            });
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to load Excel: ${response.status} ${response.statusText}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) throw new Error('No sheets found in Excel file');
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(worksheet);
+            return { data, format: 'excel', total_records: data.length, source: 'excel' };
+        }
+
         // Determine if this URL needs CSV parsing (Google Sheets or CSV files)
         const isCSVData = forceCSV || url.includes('output=csv') || url.endsWith('.csv') || url.includes('docs.google.com/spreadsheets');
-        
+
         if (isCSVData) {
             // Handle CSV data (Google Sheets, CSV files)
             let csvText;

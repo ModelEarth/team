@@ -9,8 +9,8 @@ document.addEventListener('hashChangeEvent', function (elem) {
 }, false);
 function listwidgetChange() {
     let hash = getHash();
-    // Use show parameter if map is not present
-    let currentMap = hash.map || hash.show;
+    // Use show parameter if map is not present; fall back to embed.js tag param when hash is cleared
+    let currentMap = hash.map || hash.show || window.param.map || window.param.show;
     let priorMap = priorHash.map || priorHash.show;
 
     console.log("currentMap:", currentMap, "priorMap:", priorMap);
@@ -762,7 +762,10 @@ class ListingsDisplay {
         }
         // For slow APIs (dataset_api_slow), we don't auto-load, only use local dataset
         // The "Refresh Local" button will fetch from slow API and save to local file
-        else if (config.googleCSV) {
+        else if (config.datatype === 'excel' && config.dataset) {
+            const datasetUrl = this.resolveDatasetUrl(config.dataset);
+            return await this.loadExcelData(datasetUrl, config);
+        } else if (config.googleCSV) {
             //return await this.loadGoogleCSV(config.googleCSV);
             return await this.loadCSVData(config.googleCSV, config);
         } else if (config.dataset.endsWith('.json') ) {
@@ -1373,6 +1376,43 @@ Do not include any explanation or additional text.`;
         }
 
         return [];
+    }
+
+    async loadExcelData(url, config = null) {
+        if (!window.XLSX) {
+            throw new Error('XLSX library not loaded');
+        }
+
+        let data;
+
+        if (config?.cors) {
+            // Route through Rust proxy to avoid CORS (same mechanism as lists.csv CORS=TRUE)
+            const proxyResponse = await fetch('http://localhost:8081/api/proxy/csv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const proxyResult = await proxyResponse.json();
+            if (!proxyResult.success) {
+                throw new Error(`Rust proxy failed: ${proxyResult.error}`);
+            }
+            data = proxyResult.data;
+        } else {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to load Excel: ${response.status} ${response.statusText}`);
+            }
+            data = await response.arrayBuffer();
+        }
+
+        const workbook = XLSX.read(data, { type: config?.cors ? 'binary' : 'array' });
+
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('No sheets found in Excel file');
+        }
+
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        return XLSX.utils.sheet_to_json(worksheet);
     }
 
     async loadAPIData(apiPath, config) {
@@ -3080,7 +3120,12 @@ Do not include any explanation or additional text.`;
         const showSelect = document.getElementById('mapDataSelect');
         if (showSelect) {
             showSelect.addEventListener('change', (e) => {
-                goHash({ show: e.target.value, id: '' });
+                const defaultShow = window.param.map || window.param.show;
+                if (e.target.value === defaultShow) {
+                    goHash({ id: '' }, 'show'); // Default - remove show from hash
+                } else {
+                    goHash({ show: e.target.value, id: '' });
+                }
             });
         }
 
@@ -6247,7 +6292,12 @@ Do not include any explanation or additional text.`;
             this.attachSearchInputListener();
             if (showSelect) {
                 showSelect.addEventListener('change', (e) => {
-                    goHash({'show':e.target.value, 'summarize':''});
+                    const defaultShow = window.param.map || window.param.show;
+                    if (e.target.value === defaultShow) {
+                        goHash({'summarize': ''}, 'show'); // Default - remove show from hash
+                    } else {
+                        goHash({'show': e.target.value, 'summarize': ''});
+                    }
                 });
             }
             
