@@ -1440,6 +1440,9 @@ function handleApiConnectionError(error, containerId) {
     // Determine the relative path to admin/server/ from current page
     let adminPath = 'admin/server/';
     const currentPath = window.location.pathname;
+    const localWebPort = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function' && Cookies.get('modelsite') === 'model.georgia')
+        ? '8888'
+        : '8887';
     
     // Calculate the correct path based on current location
     if (currentPath.includes('/admin/')) {
@@ -2007,6 +2010,9 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     // Determine the relative path to admin/server/ from current page
     let adminPath = 'admin/server/';
     const currentPath = window.location.pathname;
+    const localWebPort = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function' && Cookies.get('modelsite') === 'model.georgia')
+        ? '8888'
+        : '8887';
     
     // Calculate the correct path based on current location
     if (currentPath.includes('/admin/server/')) {
@@ -2083,7 +2089,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     }
     container.insertAdjacentHTML('afterend', `
         <div class="rust-api-admin-link-wrap">
-            <a href="http://localhost:8887/team/admin/sql/panel/" class="rust-api-admin-link">Database Admin</a>
+            <a href="http://localhost:${localWebPort}/team/admin/sql/panel/" class="rust-api-admin-link">Database Admin</a>
         </div>
     `);
 
