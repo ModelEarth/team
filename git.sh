@@ -651,11 +651,12 @@ check_user_change() {
         fi
     fi
     
-    # For contributors who don't have direct push access to the parent repo, this
-    # automatically updates the remote to point to their personal fork so pushes
-    # go there instead, and then a PR can be created to the parent.
-    # Skip this remapping if the repo is owned by a different organization —
-    # in that case the existing remote is correct and should be left as-is.
+    # For contributors who don't have direct push access to the parent repo.
+    # Updates origin to the current user's fork only when the current origin owner
+    # already matches the authenticated GitHub user.
+    # If origin is owned by a different account/org (for example, an org repo the
+    # user can push to directly), keep origin as-is; permission handling happens later
+    # in the push flow, with fork fallback on permission errors.
     if [[ "$current_origin" != "$expected_origin" ]]; then
         local current_owner="${current_origin#https://github.com/}"
         current_owner="${current_owner%%/*}"
