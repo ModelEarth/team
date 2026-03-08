@@ -659,7 +659,7 @@ check_user_change() {
     if [[ "$current_origin" != "$expected_origin" ]]; then
         local current_owner="${current_origin#https://github.com/}"
         current_owner="${current_owner%%/*}"
-        if [[ "${current_owner,,}" != "${current_user,,}" ]]; then
+        if [[ "$(echo "$current_owner" | tr '[:upper:]' '[:lower:]')" != "$(echo "$current_user" | tr '[:upper:]' '[:lower:]')" ]]; then
             return 0
         fi
         echo "🔄 GitHub user changed to $current_user - updating origin remote..."
