@@ -59,17 +59,6 @@ body {
 
 .map-select {
     width: 100%;
-    min-height: 34px;
-    font-size: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.map-select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .search-wrapper {

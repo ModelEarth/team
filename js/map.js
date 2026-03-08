@@ -6156,7 +6156,7 @@ Do not include any explanation or additional text.`;
                             <div class="search-container">
                                 ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
                                 <div class="map-selector">
-                                    <select id="mapDataSelect" class="map-select">
+                                    <select id="mapDataSelect" class="map-select ls-select">
                                         <option value="">Selected map...</option>
                                         ${Object.keys(this.showConfigs).map(key => 
                                             `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
