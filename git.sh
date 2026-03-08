@@ -651,8 +651,17 @@ check_user_change() {
         fi
     fi
     
-    # If origin doesn't match current user, update it
+    # For contributors who don't have direct push access to the parent repo, this
+    # automatically updates the remote to point to their personal fork so pushes
+    # go there instead, and then a PR can be created to the parent.
+    # Skip this remapping if the repo is owned by a different organization —
+    # in that case the existing remote is correct and should be left as-is.
     if [[ "$current_origin" != "$expected_origin" ]]; then
+        local current_owner="${current_origin#https://github.com/}"
+        current_owner="${current_owner%%/*}"
+        if [[ "${current_owner,,}" != "${current_user,,}" ]]; then
+            return 0
+        fi
         echo "🔄 GitHub user changed to $current_user - updating origin remote..."
         git remote set-url origin "$expected_origin" 2>/dev/null || {
             echo "⚠️ Failed to update origin remote for $current_user"
