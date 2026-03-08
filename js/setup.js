@@ -579,28 +579,29 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function getQuickstartCommandsHtml() {
+    const localWebPort = getConfiguredLocalWebPort();
     const isLocalhost = window.location.hostname === 'localhost';
     const basicCommandPreClass = isLocalhost
-        ? 'quickstart-8887-pre quickstart-8887-pre-with-stop'
-        : 'quickstart-8887-pre';
+        ? 'quickstart-port-pre quickstart-port-pre-with-stop'
+        : 'quickstart-port-pre';
     const stopServerButton = isLocalhost
         ? `
-            <button class="btn btn-secondary quickstart-stop-8887-btn" onclick="stopLocalWebServer()">
-                Stop 8887 Server
+            <button class="btn btn-secondary quickstart-stop-port-btn" onclick="stopLocalWebServer()">
+                Stop ${localWebPort} Server
             </button>
         `
         : '';
     return `
         <p style="color: var(--text-primary);"><strong>Full command</strong> - Does not include server-side Python execution</p>
-        <div class="quickstart-8887-wrap" style="position:relative; container-type:inline-size;">
-            <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server 8887</code></pre>
+        <div class="quickstart-port-wrap" style="position:relative; container-type:inline-size;">
+            <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localWebPort}</code></pre>
             ${stopServerButton}
         </div>
         <div id="quickstart-cli-prompt-wrap" style="display:none; margin-top: 12px;">
             <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-                <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port 8887:</span>
+                <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port ${localWebPort}:</span>
             </div>
-            <div id="stop-8887-fallback"></div>
+            <div id="stop-port-fallback"></div>
             <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         </div>
         <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">
@@ -625,7 +626,7 @@ env\\Scripts\\activate
                 <li>Activates the virtual environment</li>
                 <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
                 <li>Installs the <code>anthropic</code> package if API key is present</li>
-                <li>Starts the Python HTTP server with server-side execution access via server.py on port 8887</li>
+                <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localWebPort}</li>
             </ul>
         </div>
     `;
@@ -638,16 +639,16 @@ function ensureQuickstartLayoutStyles() {
     const style = document.createElement('style');
     style.id = 'quickstart-layout-styles';
     style.textContent = `
-        .quickstart-8887-pre {
+        .quickstart-port-pre {
             margin: 0;
         }
-        .quickstart-8887-pre-with-stop {
+        .quickstart-port-pre-with-stop {
             padding-right: 0;
         }
-        .quickstart-8887-pre > code {
+        .quickstart-port-pre > code {
             width: 100%;
         }
-        .quickstart-stop-8887-btn {
+        .quickstart-stop-port-btn {
             position: absolute;
             top: 8px;
             right: 8px;
@@ -657,10 +658,10 @@ function ensureQuickstartLayoutStyles() {
             z-index: 1;
         }
         @container (max-width: 520px) {
-            .quickstart-8887-pre-with-stop {
+            .quickstart-port-pre-with-stop {
                 padding-right: 0;
             }
-            .quickstart-stop-8887-btn {
+            .quickstart-stop-port-btn {
                 width: auto !important;
             }
         }
@@ -748,9 +749,10 @@ function setQuickstartDesktopInstallerExpanded(isExpanded) {
 }
 
 async function isExecutablePythonRunning() {
+    const localWebPort = getConfiguredLocalWebPort();
     const localhostHosts = ['localhost', '127.0.0.1', '::1'];
-    const onLocalhost8887 = localhostHosts.includes(window.location.hostname) && window.location.port === '8887';
-    const statusUrl = onLocalhost8887 ? '/api/status' : 'http://localhost:8887/api/status';
+    const onLocalhostPort = localhostHosts.includes(window.location.hostname) && window.location.port === localWebPort;
+    const statusUrl = onLocalhostPort ? '/api/status' : `http://localhost:${localWebPort}/api/status`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2500);
 
@@ -831,7 +833,7 @@ async function getWebServerStatusState() {
     const currentUrl = window.location.href;
     const currentOriginUrl = `${window.location.protocol}//${window.location.host}/`;
     const isLocalOrigin = ['localhost', '127.0.0.1', '::1'].includes(currentHost);
-    const localhostPort = isGeorgiaModelsiteSelected() ? '8888' : '8887';
+    const localhostPort = getConfiguredLocalWebPort();
     const localhostWebUrl = `http://localhost:${localhostPort}/`;
     const localhostApiStatusUrl = `http://localhost:${localhostPort}/api/status`;
 
@@ -1209,14 +1211,19 @@ function getSelectedModelsite() {
     if (modelsiteSelect && modelsiteSelect.value) {
         return modelsiteSelect.value;
     }
-    if (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function') {
-        return Cookies.get('modelsite') || '';
+    const host = window.location.hostname.toLowerCase();
+    if (host.includes('model.georgia') || host.includes('georgia.org')) {
+        return 'model.georgia';
     }
     return '';
 }
 
 function isGeorgiaModelsiteSelected() {
     return getSelectedModelsite() === 'model.georgia';
+}
+
+function getConfiguredLocalWebPort() {
+    return isGeorgiaModelsiteSelected() ? '8888' : '8887';
 }
 
 async function updateBackendSectionVisibilityByFiles(container) {
@@ -1286,13 +1293,14 @@ function notifyStopResult(message, type = 'info') {
 }
 
 async function stopLocalWebServer() {
-    const pythonAvailable = await checkBackendAvailabilityCached('http://localhost:8887/api/status', 'pythonServer');
+    const localWebPort = getConfiguredLocalWebPort();
+    const pythonAvailable = await checkBackendAvailabilityCached(`http://localhost:${localWebPort}/api/status`, `pythonServer${localWebPort}`);
     const rustAvailable = pythonAvailable
         ? false
         : await checkBackendAvailabilityCached('http://localhost:8081/api/health', 'rustApi');
 
     if (!pythonAvailable && !rustAvailable) {
-        showStopServerFallback();
+        showStopServerFallback(localWebPort);
         return;
     }
 
@@ -1303,7 +1311,7 @@ async function stopLocalWebServer() {
 
     if (pythonAvailable) {
         try {
-            const response = await fetch('http://localhost:8887/api/execute', {
+            const response = await fetch(`http://localhost:${localWebPort}/api/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ command: 'stop_server' })
@@ -1332,38 +1340,38 @@ async function stopLocalWebServer() {
         }
     }
 
-    showStopServerFallback();
+    showStopServerFallback(localWebPort);
 }
 
 window.stopLocalWebServer = stopLocalWebServer;
 
-function showStopServerFallback() {
-    const command = 'lsof -ti:8887 | xargs kill -9';
+function showStopServerFallback(localWebPort = getConfiguredLocalWebPort()) {
+    const command = `lsof -ti:${localWebPort} | xargs kill -9`;
     const safeCommand = command.replace(/'/g, "\\'");
-    const existingDialog = document.getElementById('stop-8887-dialog');
+    const existingDialog = document.getElementById('stop-port-dialog');
     if (existingDialog) {
         existingDialog.remove();
     }
 
     const dialog = document.createElement('div');
-    dialog.id = 'stop-8887-dialog';
+    dialog.id = 'stop-port-dialog';
     dialog.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index: 9999;';
     dialog.innerHTML = `
         <div style="background: white; border-radius: 10px; padding: 16px; max-width: 460px; width: calc(100% - 40px); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
             <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 8px;">Stop Local Server</div>
-            <div style="color: var(--text-secondary); margin-bottom: 10px;">Backend stop is unavailable. Use this command to stop port 8887:</div>
+            <div style="color: var(--text-secondary); margin-bottom: 10px;">Backend stop is unavailable. Use this command to stop port ${localWebPort}:</div>
             <code style="display:block; background: var(--bg-tertiary); padding: 8px 10px; border-radius: 6px; font-size: 13px;">${command}</code>
             <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 12px;">
-                <button class="btn btn-secondary btn-width" id="stop-8887-copy">Copy</button>
-                <button class="btn btn-secondary btn-width" id="stop-8887-cancel">Cancel</button>
+                <button class="btn btn-secondary btn-width" id="stop-port-copy">Copy</button>
+                <button class="btn btn-secondary btn-width" id="stop-port-cancel">Cancel</button>
             </div>
         </div>
     `;
 
     document.body.appendChild(dialog);
 
-    const copyBtn = dialog.querySelector('#stop-8887-copy');
-    const cancelBtn = dialog.querySelector('#stop-8887-cancel');
+    const copyBtn = dialog.querySelector('#stop-port-copy');
+    const cancelBtn = dialog.querySelector('#stop-port-cancel');
     const closeDialog = () => dialog.remove();
 
     if (copyBtn) {
