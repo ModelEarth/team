@@ -385,7 +385,14 @@ function createOSDetectionPanel(containerId) {
     const panelHTML = `
 <div class="card" id="os-detection-panel">
     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px;">
-        <h1 class="card-title" id="cli-tools-title" style="margin: 0;">My Command Line Tool</h1>
+        <div id="cli-tools-heading-wrap" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <h1 class="card-title" id="cli-tools-title" style="margin: 0;">My Command Line Tool</h1>
+            <button type="button" id="no-ai-hide-btn" class="btn btn-secondary" style="display:none;">No AI</button>
+        </div>
+        <div id="no-ai-setup-heading-wrap" style="display: none; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <h1 class="card-title" id="no-ai-setup-title" style="margin: 0;">Local Setup without AI Agents</h1>
+            <button type="button" id="use-ai-reveal-btn" class="btn btn-secondary">Use AI</button>
+        </div>
         <div>
             <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
                 <option value="">Select OS...</option>
@@ -399,8 +406,8 @@ function createOSDetectionPanel(containerId) {
     </div>
     <div>
 
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
-            <span style="font-weight: 500;">I'll be coding with...</span>
+        <div id="coding-with-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
+            <span id="coding-with-label" style="font-weight: 500;">I'll be coding with...</span>
             <span class="mac-instructions" style="font-size: 12px; white-space: nowrap;">
                 <a href="https://iterm2.com/" target="_blank">iTerm2</a> is a great terminal app
             </span>
@@ -626,6 +633,8 @@ function initializeOSDetectionPanel() {
     const noCliRow = document.getElementById('no-cli-row');
     const useAISelect = document.getElementById('useAI');
     const useAIWrapper = document.getElementById('useAI-wrapper');
+    const noAiHideBtn = document.getElementById('no-ai-hide-btn');
+    const useAiRevealBtn = document.getElementById('use-ai-reveal-btn');
     const agentCheckboxes = document.getElementById('agent-checkboxes');
     const cliCommands = document.getElementById('cli-commands');
     const cliCodeCommands = document.getElementById('cli-code-commands');
@@ -633,6 +642,7 @@ function initializeOSDetectionPanel() {
     const vscodeCommands = document.getElementById('vscode-cmds');
     const claudeInstallText = document.getElementById('claude-install-text');
     const repoNameSpan = document.getElementById('repo-name');
+    const githubCliCard = document.getElementById('githubCLICard');
 
     if (!osSelect || !osInfo) return;
     
@@ -733,9 +743,49 @@ function initializeOSDetectionPanel() {
         const anyAgentChecked = anyNonNoCliChecked || noCliChecked;
         const onlyNoCliChecked = noCliChecked && !anyNonNoCliChecked;
         const noneChecked = !anyAgentChecked;
+        const withoutAiMode = useAIValue === 'without';
+        const cliToolsHeadingWrap = document.getElementById('cli-tools-heading-wrap');
+        const cliToolsTitle = document.getElementById('cli-tools-title');
+        const noAiSetupHeadingWrap = document.getElementById('no-ai-setup-heading-wrap');
+        const codingWithRow = document.getElementById('coding-with-row');
+        const codingWithLabel = document.getElementById('coding-with-label');
 
         if (useAIWrapper) {
-            useAIWrapper.style.display = (noneChecked || onlyNoCliChecked) ? 'block' : 'none';
+            useAIWrapper.style.display = (!withoutAiMode && (noneChecked || onlyNoCliChecked)) ? 'block' : 'none';
+        }
+        if (useAISelect) {
+            useAISelect.style.display = withoutAiMode ? 'none' : '';
+        }
+        if (cliToolsHeadingWrap) {
+            cliToolsHeadingWrap.style.display = withoutAiMode ? 'none' : 'flex';
+        } else if (cliToolsTitle) {
+            cliToolsTitle.style.display = withoutAiMode ? 'none' : '';
+        }
+        if (noAiHideBtn) {
+            noAiHideBtn.style.display = withoutAiMode ? 'none' : 'inline-flex';
+        }
+        if (noAiSetupHeadingWrap) {
+            noAiSetupHeadingWrap.style.display = withoutAiMode ? 'flex' : 'none';
+        }
+        if (codingWithRow) {
+            codingWithRow.style.display = 'flex';
+        }
+        if (codingWithLabel) {
+            codingWithLabel.style.display = withoutAiMode ? 'none' : '';
+        }
+        if (githubCliCard) {
+            if (withoutAiMode) {
+                if (githubCliCard.dataset.noAiHidden !== 'true') {
+                    githubCliCard.dataset.noAiPrevDisplay = githubCliCard.style.display || '';
+                }
+                githubCliCard.dataset.noAiHidden = 'true';
+                githubCliCard.style.display = 'none';
+            } else if (githubCliCard.dataset.noAiHidden === 'true') {
+                const prevDisplay = githubCliCard.dataset.noAiPrevDisplay || '';
+                githubCliCard.style.display = prevDisplay;
+                delete githubCliCard.dataset.noAiHidden;
+                delete githubCliCard.dataset.noAiPrevDisplay;
+            }
         }
         if (agentCheckboxes) {
             // Hide checkboxes until "with" is chosen; also keep hidden for "without".
@@ -750,7 +800,6 @@ function initializeOSDetectionPanel() {
         updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked);
 
         // Update title based on number of checked tools
-        const cliToolsTitle = document.getElementById('cli-tools-title');
         if (cliToolsTitle) {
             cliToolsTitle.textContent = 'Start your Command Line Interface (CLI)';
         }
@@ -1092,7 +1141,34 @@ npm install -g openai-codex-cli</code></pre>`;
                 noCli.checked = false;
                 localStorage.setItem('no-cli-selected', 'false');
             }
+            if (typeof setExclusiveBackendCommandMode === 'function') {
+                if (this.value === 'with') {
+                    setExclusiveBackendCommandMode('with-ai');
+                } else if (this.value === 'without') {
+                    setExclusiveBackendCommandMode('without-ai');
+                }
+            }
             updateCliCommands();
+        });
+    }
+
+    if (useAiRevealBtn && useAISelect) {
+        useAiRevealBtn.addEventListener('click', function() {
+            useAISelect.value = 'with';
+            if (typeof setExclusiveBackendCommandMode === 'function') {
+                setExclusiveBackendCommandMode('with-ai');
+            }
+            useAISelect.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
+    if (noAiHideBtn && useAISelect) {
+        noAiHideBtn.addEventListener('click', function() {
+            useAISelect.value = 'without';
+            if (typeof setExclusiveBackendCommandMode === 'function') {
+                setExclusiveBackendCommandMode('without-ai');
+            }
+            useAISelect.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
 
@@ -1233,6 +1309,9 @@ npm install -g openai-codex-cli</code></pre>`;
                 if (githubCliShowCommandsLink) {
                     githubCliShowCommandsLink.textContent = 'Show commands';
                 }
+            }
+            if (useAISelect && useAISelect.value === 'without') {
+                githubCliCard.style.display = 'none';
             }
         }
 
@@ -2092,6 +2171,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
             <a href="http://localhost:${localWebPort}/team/admin/sql/panel/" class="rust-api-admin-link">Database Admin</a>
         </div>
     `);
+    const rustAdminLinkWrap = container.nextElementSibling;
+    const githubCliCard = document.getElementById('githubCLICard');
+    if (rustAdminLinkWrap && rustAdminLinkWrap.classList.contains('rust-api-admin-link-wrap') && githubCliCard) {
+        rustAdminLinkWrap.insertAdjacentElement('afterend', githubCliCard);
+    }
 
     // Initialize the status check
     updateRustApiStatusPanel(showConfigureLink, adminPath);

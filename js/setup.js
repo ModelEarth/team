@@ -26,11 +26,7 @@ function createGitAccountFieldsHTML() {
 function createWebrootSetupHTML() {
     // Set parent repo based on selected modelsite (with URL fallback)
     const currentUrl = window.location.href.toLowerCase();
-    const modelsiteSelect = document.getElementById('modelsite');
-    const host = window.location.hostname.toLowerCase();
-    const selectedModelsite = (modelsiteSelect && modelsiteSelect.value)
-        ? modelsiteSelect.value
-        : ((host.includes('model.georgia') || host.includes('georgia.org')) ? 'model.georgia' : '');
+    const selectedModelsite = getSelectedModelsite();
     const parentRepoPath = selectedModelsite === 'model.georgia'
         ? 'GeorgiaData/iteam'
         : ((currentUrl.includes('locations') || currentUrl.includes('geo'))
@@ -40,6 +36,7 @@ function createWebrootSetupHTML() {
     
     return `
       <a href="/team/admin/">Partner Tools</a><h1 class="card-title">Webroot Manager</h1>
+      <div id="webroot-manager-github-fields-anchor"></div>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper&nbsp;right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
@@ -188,9 +185,20 @@ function initializeGitFields() {
 function setupGitAccountFields(containerId) {
     const container = document.getElementById(containerId);
     if (container) {
+        const existingFields = document.getElementById('githubAccountFields');
+        if (existingFields) {
+            initializeGitFields();
+            return;
+        }
+
         // Insert the HTML at the beginning of the container
         const fieldsHTML = createGitAccountFieldsHTML();
-        container.insertAdjacentHTML('afterbegin', fieldsHTML);
+        const anchor = container.querySelector('#webroot-manager-github-fields-anchor');
+        if (anchor) {
+            anchor.insertAdjacentHTML('afterend', fieldsHTML);
+        } else {
+            container.insertAdjacentHTML('afterbegin', fieldsHTML);
+        }
         
         // Initialize the fields
         setTimeout(() => {
@@ -204,8 +212,20 @@ function setupWebrootSetup(containerId) {
     const container = document.getElementById(containerId);
     if (container) {
         const renderWebrootSetup = () => {
+            const existingGitFields = document.getElementById('githubAccountFields');
+            if (existingGitFields) {
+                existingGitFields.remove();
+            }
             const setupHTML = createWebrootSetupHTML();
             container.innerHTML = setupHTML;
+            if (existingGitFields) {
+                const anchor = container.querySelector('#webroot-manager-github-fields-anchor');
+                if (anchor) {
+                    anchor.insertAdjacentElement('afterend', existingGitFields);
+                } else {
+                    container.insertAdjacentElement('afterbegin', existingGitFields);
+                }
+            }
             updateWebrootForkLink();
         };
 
@@ -1121,6 +1141,65 @@ function setBackendCommandMode(mode, enabled) {
     return nextState;
 }
 
+function getPrimaryBackendCommandsContainerId() {
+    if (
+        window.primaryBackendCommandsContainerId
+        && document.getElementById(window.primaryBackendCommandsContainerId)
+    ) {
+        return window.primaryBackendCommandsContainerId;
+    }
+
+    const aiPromptHost = document.querySelector('.quickstart-ai-prompt-host[data-commands-container-id]');
+    if (aiPromptHost && aiPromptHost.dataset.commandsContainerId) {
+        return aiPromptHost.dataset.commandsContainerId;
+    }
+
+    const toggleGroup = document.querySelector('.quickstart-commands-toggle-group');
+    if (toggleGroup && toggleGroup.id) {
+        const inferredId = toggleGroup.id.replace(/-toggle$/, '-commands');
+        if (document.getElementById(inferredId)) {
+            return inferredId;
+        }
+    }
+
+    const fallbackContainer = document.querySelector('.readme-content[id$="-commands"]');
+    return fallbackContainer ? fallbackContainer.id : null;
+}
+
+function applyBackendCommandsContainerVisibility(state) {
+    const commandsContainerId = getPrimaryBackendCommandsContainerId();
+    if (!commandsContainerId) return;
+
+    const commandsContainer = document.getElementById(commandsContainerId);
+    if (!commandsContainer) return;
+
+    const showCommands = shouldShowFullCommandsContainer(state);
+    if (showCommands && !commandsContainer.dataset.loaded) {
+        renderQuickstartCommands(commandsContainerId);
+        commandsContainer.dataset.loaded = 'true';
+    }
+    commandsContainer.style.display = showCommands ? 'block' : 'none';
+    updateQuickstartCliVisibility();
+}
+
+function setExclusiveBackendCommandMode(mode) {
+    const normalizedMode = mode === 'with-ai' ? 'with-ai' : 'without-ai';
+    const nextState = {
+        withAi: normalizedMode === 'with-ai',
+        withoutAi: normalizedMode === 'without-ai'
+    };
+    window.quickstartBackendCommandModes = nextState;
+    setGlobalCommandToggleAppearance(nextState);
+    document.querySelectorAll('[data-backend]').forEach((row) => {
+        const indicator = row.querySelector('.status-indicator');
+        const isRunning = indicator ? indicator.classList.contains('connected') : false;
+        updateBackendCommandForRow(row, isRunning);
+    });
+    applyBackendCommandsContainerVisibility(nextState);
+    updateNoAiFlaskStartVisibility();
+    return nextState;
+}
+
 function setBackendRowStatus(container, backendKey, isRunning) {
     const row = container ? container.querySelector(`[data-backend="${backendKey}"]`) : null;
     if (!row) return;
@@ -1207,6 +1286,13 @@ function checkWebrootFileExists(path, cacheKey, ttlMs = 15000) {
 }
 
 function getSelectedModelsite() {
+    if (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function') {
+        const cookieModelsite = Cookies.get('modelsite');
+        if (cookieModelsite) {
+            return cookieModelsite;
+        }
+    }
+
     const modelsiteSelect = document.getElementById('modelsite');
     if (modelsiteSelect && modelsiteSelect.value) {
         return modelsiteSelect.value;
@@ -1421,6 +1507,7 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     if (!buttonGroup || !commandsContainer) return;
 
     const buttons = buttonGroup.querySelectorAll('.quickstart-commands-toggle-btn');
+    window.primaryBackendCommandsContainerId = commandsContainerId;
     const setCommandsVisibility = (isOpen) => {
         commandsContainer.style.display = isOpen ? 'block' : 'none';
     };
