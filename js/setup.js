@@ -888,7 +888,7 @@ function updateQuickstartCliVisibility() {
         command.style.display = showAiPrompt ? 'block' : 'none';
     }
     if (placeholder) {
-        placeholder.style.display = modeState.withAi ? 'none' : 'block';
+        placeholder.style.display = 'block';
     }
     updateQuickstartOsVisibility();
 }
