@@ -73,14 +73,11 @@ To recover previously committed work that was overwritten locally:
 - **Submodules**: Automatically detected from .gitmodules file
 - **Extra Repos**: Automatically detected from .siterepos file
 
-## Using with Github Desktop
+## With Github Desktop
 
 Use Github Desktop to choose a repo in the webroot using "File > Add Local Repository". 
 
 Then submit a PR through the Github.com website.  
 
-Or prompt "push" with your CLI to have a description of your changes included.  
-
-Note: Sometimes CLIs gets confused and treat the team folder as the webroot.
 
 IMPORTANT: If you're using Github Desktop to push, you'll still need to send the PR from within Github.com.

@@ -54,6 +54,11 @@ waitForElm('#textInPage').then(() => {
         setupWebrootSetup('webrootSetup');
         setupGitAccountFields('textInPage');
         setupQuickstartInstructions('quickstartDiv');
+        const quickstartDiv = document.getElementById('quickstartDiv');
+        const rustApiContainer = document.getElementById('combined-rust-api-container');
+        if (quickstartDiv && rustApiContainer && rustApiContainer.parentElement !== quickstartDiv) {
+            quickstartDiv.appendChild(rustApiContainer);
+        }
         createRustApiStatusPanel('combined-rust-api-container', false);
         setupTradeFlowRepos('extraRepos');
         setupGeminiResources();
@@ -64,16 +69,74 @@ waitForElm('#textInPage').then(() => {
 
 });
 
-waitForElm('#showDeployGit').then(() => { // Toggle display of additional git.sh commands
+function setupDeployGitLayout() {
     const showDeployGitBtn = document.getElementById('showDeployGit');
-    const deployGitPanel = document.getElementById('deployGit');
-    if (!showDeployGitBtn || !deployGitPanel) return;
+    const deployGitDiv = document.getElementById('deployGitDiv');
+    if (!showDeployGitBtn || !deployGitDiv) return;
 
-    showDeployGitBtn.addEventListener('click', () => {
-        const isHidden = getComputedStyle(deployGitPanel).display === 'none';
-        deployGitPanel.style.display = isHidden ? 'block' : 'none';
-        showDeployGitBtn.textContent = isHidden ? 'Hide Deploy Options' : 'More Deploy Options';
-    });
+    let titleEl = deployGitDiv.querySelector('#manualsubmodulerefresh') || deployGitDiv.querySelector('h1, h2');
+    if (!titleEl) return;
+
+    if (titleEl.tagName !== 'H1') {
+        const newTitle = document.createElement('h1');
+        newTitle.innerHTML = titleEl.innerHTML;
+        titleEl.replaceWith(newTitle);
+        titleEl = newTitle;
+    }
+    titleEl.id = 'manualsubmodulerefresh';
+    titleEl.className = 'card-title';
+    titleEl.style.margin = '0';
+    titleEl.textContent = 'Deployment Commands without AI';
+
+    let headerRow = document.getElementById('deploy-git-header-row');
+    if (!headerRow) {
+        headerRow = document.createElement('div');
+        headerRow.id = 'deploy-git-header-row';
+        headerRow.style.display = 'flex';
+        headerRow.style.alignItems = 'center';
+        headerRow.style.gap = '10px';
+        headerRow.style.marginBottom = '10px';
+        deployGitDiv.insertBefore(headerRow, deployGitDiv.firstChild);
+    }
+
+    if (titleEl.parentElement !== headerRow) {
+        headerRow.appendChild(titleEl);
+    }
+    if (showDeployGitBtn.parentElement !== headerRow) {
+        headerRow.appendChild(showDeployGitBtn);
+    }
+    showDeployGitBtn.style.marginLeft = 'auto';
+
+    let toggleArea = document.getElementById('deploy-git-toggle-content');
+    if (!toggleArea) {
+        toggleArea = document.createElement('div');
+        toggleArea.id = 'deploy-git-toggle-content';
+        toggleArea.style.display = 'none';
+        const nodesToMove = [];
+        let node = headerRow.nextSibling;
+        while (node) {
+            nodesToMove.push(node);
+            node = node.nextSibling;
+        }
+        nodesToMove.forEach((item) => toggleArea.appendChild(item));
+        deployGitDiv.appendChild(toggleArea);
+    }
+    showDeployGitBtn.textContent = getComputedStyle(toggleArea).display === 'none'
+        ? 'Show Commands'
+        : 'Hide Commands';
+
+    if (showDeployGitBtn.dataset.deployGitBound !== 'true') {
+        showDeployGitBtn.dataset.deployGitBound = 'true';
+        showDeployGitBtn.addEventListener('click', () => {
+            const isHidden = getComputedStyle(toggleArea).display === 'none';
+            toggleArea.style.display = isHidden ? 'block' : 'none';
+            showDeployGitBtn.textContent = isHidden ? 'Hide Commands' : 'Show Commands';
+        });
+    }
+}
+
+waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
+    setupDeployGitLayout();
 });
 </script>
 <style>
@@ -94,8 +157,8 @@ waitForElm('#showDeployGit').then(() => { // Toggle display of additional git.sh
     <div id="combined-rust-api-container"></div>
     <div class="card" id="extraRepos"></div>
     <div class="card" id="deployCliDiv"></div>
-    <button id="showDeployGit" class="btn btn-success">More Deploy Options</button>
-    <div id="deployGit" style="display:none">
+    <button id="showDeployGit" class="btn btn-success">Show Commands</button>
+    <div id="deployGit">
         <div class="card" id="deployGitDiv"></div>
     </div>
 </div>

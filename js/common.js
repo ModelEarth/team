@@ -731,6 +731,7 @@ function initializeOSDetectionPanel() {
     
     // Function to update CLI commands display
     function updateCliCommands() {
+        const deployCliDiv = document.getElementById('deployCliDiv');
         const selectedOS = osSelect.value;
         const codexChecked = codexCli ? codexCli.checked : false;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
@@ -786,6 +787,9 @@ function initializeOSDetectionPanel() {
                 delete githubCliCard.dataset.noAiHidden;
                 delete githubCliCard.dataset.noAiPrevDisplay;
             }
+        }
+        if (deployCliDiv) {
+            deployCliDiv.style.display = withoutAiMode ? 'none' : '';
         }
         if (agentCheckboxes) {
             // Hide checkboxes until "with" is chosen; also keep hidden for "without".
@@ -1374,6 +1378,12 @@ npm install -g openai-codex-cli</code></pre>`;
     
     // Initial update
     updateCliCommands();
+
+    if (typeof waitForElm === 'function') {
+        waitForElm('#deployCliDiv').then(() => {
+            updateCliCommands();
+        });
+    }
     
     // Make sections collapsible after initialization
     setTimeout(() => {
@@ -2052,15 +2062,16 @@ function ensureRustApiStatusPanelStyles() {
             padding-right: 160px;
         }
         .rust-api-admin-link-wrap {
-            margin-top: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 8px;
         }
-        .rust-api-admin-link {
-            color: var(--accent-blue);
-            text-decoration: underline;
-            font-weight: 500;
-        }
-        .rust-api-admin-link:hover {
-            color: var(--accent-blue-hover, var(--accent-blue));
+        .rust-api-recheck-message {
+            flex-basis: 100%;
+            display: block;
+            margin-bottom: 12px;
         }
         @container (max-width: 560px) {
             .rust-api-status-actions {
@@ -2110,54 +2121,48 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
     // Create the combined panel HTML
     const panelHtml = `
-        <div class="card" id="rust-api-status-panel">
-            <h2 class="card-title">
-                <span class="status-indicator" id="rust-api-status-indicator"></span>
-                <span id="rust-api-status-title">Backend Rust API and Database Status</span>
-            </h2>
-            <div class="rust-api-status-layout">
-                <div class="rust-api-status-content-wrap">
-                    <div class="rust-api-status-actions">
-                        <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
-                            Stop Rust
-                        </button>
-                        <br id="rust-status-button-break" style="display: none;">
-                        <button class="btn btn-secondary btn-width rust-api-status-button" onclick="updateRustApiStatusPanel()" style="display: none;" id="reload-status-btn">
-                            Reload Status
-                        </button>
+        <h3>
+            <span class="status-indicator" id="rust-api-status-indicator"></span>
+            <span id="rust-api-status-title">Rust API and SQL Databases</span>
+        </h3>
+        <div class="rust-api-status-layout">
+            <div class="rust-api-status-content-wrap">
+                <div class="rust-api-status-actions">
+                    <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
+                        Stop Rust
+                    </button>
+                </div>
+
+                <!-- Status Indicators -->
+                <div id="backend-status-indicators" style="display: none;">
+                    <!-- Rust API Status Section -->
+                    <div id="rust-api-status-content" style="margin-bottom: 16px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                            Checking backend API status...
+                        </p>
                     </div>
 
-                    <!-- Status Indicators -->
-                    <div id="backend-status-indicators" style="display: none;">
-                        <!-- Rust API Status Section -->
-                        <div id="rust-api-status-content" style="margin-bottom: 16px;">
-                            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                                Checking backend API status...
-                            </p>
-                        </div>
-
-                        <!-- Database Status Items -->
-                        <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-indicator error" id="commons-db-indicator"></span>
-                            <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">MemberCommons database inactive</span>
-                        </div>
-                        <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-indicator error" id="exiobase-db-indicator"></span>
-                            <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">ModelEarth Industry Database inactive</span>
-                        </div>
-                        <!-- Locations Database - hidden by default, shown only when active -->
-                        <div class="status-indicator-item" id="location-db-container" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
-                            <span class="status-indicator error" id="location-db-indicator"></span>
-                            <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
-                        </div>
+                    <!-- Database Status Items -->
+                    <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <span class="status-indicator error" id="commons-db-indicator"></span>
+                        <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">Member database inactive</span>
+                    </div>
+                    <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <span class="status-indicator error" id="exiobase-db-indicator"></span>
+                        <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">Industry database inactive</span>
+                    </div>
+                    <!-- Locations Database - hidden by default, shown only when active -->
+                    <div class="status-indicator-item" id="location-db-container" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <span class="status-indicator error" id="location-db-indicator"></span>
+                        <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                     </div>
                 </div>
             </div>
-            
-            <!-- Admin Detail Content (hidden by default, shown when admin detail button clicked) -->
-            <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                Loading configuration...
-            </div>
+        </div>
+        
+        <!-- Admin Detail Content (hidden by default, shown when admin detail button clicked) -->
+        <div class="config-info" id="config-display" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            Loading configuration...
         </div>
     `;
 
@@ -2168,17 +2173,47 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     }
     container.insertAdjacentHTML('afterend', `
         <div class="rust-api-admin-link-wrap">
-            <a href="http://localhost:${localWebPort}/team/admin/sql/panel/" class="rust-api-admin-link">Database Admin</a>
+            <button class="btn btn-secondary" onclick="recheckRustStatus()" style="display: none;" id="reload-status-btn">
+                Recheck Status
+            </button>
+            <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
+                Database Admin
+            </button>
+            <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite">
+                Click Recheck Status to refresh Rust API and database checks.
+            </div>
         </div>
     `);
     const rustAdminLinkWrap = container.nextElementSibling;
     const githubCliCard = document.getElementById('githubCLICard');
-    if (rustAdminLinkWrap && rustAdminLinkWrap.classList.contains('rust-api-admin-link-wrap') && githubCliCard) {
+    const quickstartPanel = document.getElementById('quickstartDiv');
+    if (quickstartPanel && githubCliCard) {
+        quickstartPanel.insertAdjacentElement('afterend', githubCliCard);
+    } else if (rustAdminLinkWrap && rustAdminLinkWrap.classList.contains('rust-api-admin-link-wrap') && githubCliCard) {
         rustAdminLinkWrap.insertAdjacentElement('afterend', githubCliCard);
+    }
+    if (typeof moveDesktopInstallerControlsToRustActions === 'function') {
+        moveDesktopInstallerControlsToRustActions();
     }
 
     // Initialize the status check
     updateRustApiStatusPanel(showConfigureLink, adminPath);
+}
+
+function recheckRustStatus() {
+    if (typeof setQuickstartDesktopInstallerExpanded === 'function') {
+        setQuickstartDesktopInstallerExpanded(false);
+    } else {
+        const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
+        const desktopInstallerToggle = document.getElementById('quickstart-desktop-installer-toggle');
+        if (desktopInstallerDetails) {
+            desktopInstallerDetails.style.display = 'none';
+        }
+        if (desktopInstallerToggle) {
+            desktopInstallerToggle.setAttribute('aria-expanded', 'false');
+        }
+    }
+    updateRustApiStatusPanel();
 }
 
 // Function to update the Rust API status panel
@@ -2189,7 +2224,8 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const dbIndicators = document.getElementById('backend-status-indicators');
     const reloadBtn = document.getElementById('reload-status-btn');
     const stopBtn = document.getElementById('stop-rust-btn');
-    const buttonBreak = document.getElementById('rust-status-button-break');
+    const recheckMessage = document.getElementById('rust-recheck-message');
+    const recheckTime = new Date().toLocaleTimeString();
     
     if (!indicator || !title || !content) return;
 
@@ -2203,7 +2239,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         if (healthResponse.ok) {
             // Backend is active
             indicator.className = 'status-indicator connected';
-            title.textContent = 'Backend API and Database Status';
+            title.textContent = 'Rust API and SQL Databases';
 
             // Check if we're using localhost fallback on an external domain
             const isExternalDomain = !(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -2245,9 +2281,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             if (stopBtn) {
                 stopBtn.style.display = 'block';
             }
-            if (buttonBreak) {
-                buttonBreak.style.display = 'inline';
-            }
             
             // Show and check backend status indicators
             if (dbIndicators) {
@@ -2257,6 +2290,13 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
 
             window.backendStatusCache = window.backendStatusCache || {};
             window.backendStatusCache.rustApi = { value: true, timestamp: Date.now() };
+            if (recheckMessage) {
+                recheckMessage.style.display = 'block';
+                recheckMessage.textContent = `Last recheck: ${recheckTime}. Rust API is reachable.`;
+            }
+            if (typeof updateRustRecheckMessageVisibilityForDesktopInstaller === 'function') {
+                updateRustRecheckMessageVisibilityForDesktopInstaller();
+            }
             
             
         } else {
@@ -2265,36 +2305,19 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     } catch (error) {
         // Backend is inactive - show demo mode
         indicator.className = 'status-indicator error';
-        title.textContent = 'Backend Rust API and Database Status';
+        title.textContent = 'Rust API and SQL Databases';
         
         content.innerHTML = `
-            <div style="color: #856404; background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;">
-                <i data-feather="info" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
-                <span><strong>Start Rust Locally</strong></span>
-            </div>
             <p style="color: var(--text-secondary); margin-bottom: 16px;">
                 <span class="status-indicator error" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></span>The Rust backend server needs to be started to access full configuration and testing capabilities.
             </p>
-            <!-- Tab Navigation -->
-            <div style="border-bottom: 3px solid var(--accent-blue); margin: 16px 0;">
-                <div style="display: flex; gap: 0;">
-                    <button class="rust-tab-btn active" data-tab="with-cli" onclick="switchRustTab('with-cli')" style="padding: 12px 20px; border: none; background: var(--accent-blue); color: white; border-bottom: 2px solid var(--accent-blue); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
-                        🤖 With CLI
-                    </button>
-                    <button class="rust-tab-btn" data-tab="without-cli" onclick="switchRustTab('without-cli')" style="padding: 12px 20px; border: 1px solid var(--border-medium); background: white; color: var(--text-primary); border-bottom: 2px solid transparent; font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0;">
-                        ⚙️ Without CLI
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Tab Content -->
-            <div id="rust-tab-content">
-                <!-- Default to With CLI content -->
-                <div id="with-cli-content" class="rust-tab-content active">
+            <div id="rust-start-mode-content">
+                <div id="with-cli-content" style="display: none;">
+                    <p id="with-cli-label" style="display:none; color: var(--text-secondary); margin: 0 0 8px 0;"><strong>AI Command</strong></p>
                     <pre><code>Using guidance in team/AGENTS.md start rust</code></pre>
                 </div>
-                
-                <div id="without-cli-content" class="rust-tab-content" style="display: none;">
+                <div id="without-cli-content" style="display: none;">
+                    <p id="without-cli-label" style="display:none; color: var(--text-secondary); margin: 0 0 8px 0;"><strong>Full Command</strong></p>
                     <p style="color: var(--text-secondary); margin-bottom: 16px;">
                         ⚙️ To start Rust directly, run in your webroot/team folder:
                     </p>
@@ -2303,16 +2326,13 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             </div>
         `;
         
-        // Sync tab labels, active tab, and without-cli command with current state
+        // Sync mode content and without-cli command with current state
         updateRustTabState();
         updateWithoutCliCommand();
 
         // Hide stop button when API is inactive, but keep reload button visible
         if (stopBtn) {
             stopBtn.style.display = 'none';
-        }
-        if (buttonBreak) {
-            buttonBreak.style.display = 'none';
         }
         // Keep reload button visible so user can refresh status
         if (reloadBtn) {
@@ -2328,6 +2348,13 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
 
         window.backendStatusCache = window.backendStatusCache || {};
         window.backendStatusCache.rustApi = { value: false, timestamp: Date.now() };
+        if (recheckMessage) {
+            recheckMessage.style.display = 'block';
+            recheckMessage.textContent = `Last recheck: ${recheckTime}. Rust API is not reachable.`;
+        }
+        if (typeof updateRustRecheckMessageVisibilityForDesktopInstaller === 'function') {
+            updateRustRecheckMessageVisibilityForDesktopInstaller();
+        }
         
         
         // Initialize feather icons for the info icon
@@ -2357,73 +2384,38 @@ function updateWithoutCliCommand() {
     }
 }
 
-// Read checkbox state and update rust tab labels + active tab
-function updateRustTabState() {
-    const noCliChecked   = document.getElementById('no-cli')          ? document.getElementById('no-cli').checked          : false;
-    const codexChecked   = document.getElementById('codex-cli')       ? document.getElementById('codex-cli').checked       : false;
-    const claudeChecked  = document.getElementById('claude-code-cli') ? document.getElementById('claude-code-cli').checked : false;
-    const geminiChecked  = document.getElementById('gemini-cli')      ? document.getElementById('gemini-cli').checked      : false;
-    const grokChecked    = document.getElementById('grok-cli')        ? document.getElementById('grok-cli').checked        : false;
-    const vscodeChecked  = document.getElementById('vscode-claude')   ? document.getElementById('vscode-claude').checked   : false;
+// Sync Rust start instructions with current backend command mode state.
+function updateRustTabState(modeState = null) {
+    const resolvedModeState = modeState || (
+        typeof getBackendCommandState === 'function'
+            ? getBackendCommandState()
+            : { withAi: true, withoutAi: false }
+    );
+    const withCliContent = document.getElementById('with-cli-content');
+    const withoutCliContent = document.getElementById('without-cli-content');
+    const withCliLabel = document.getElementById('with-cli-label');
+    const withoutCliLabel = document.getElementById('without-cli-label');
+    const showWithCli = !!resolvedModeState.withAi;
+    const showWithoutCli = !!resolvedModeState.withoutAi;
+    const showBothLabels = showWithCli && showWithoutCli;
 
-    const onlyNoCliChecked = noCliChecked && !codexChecked && !claudeChecked && !geminiChecked && !grokChecked && !vscodeChecked;
-
-    // Determine label when exactly one CLI is selected
-    const cliCount = [codexChecked, claudeChecked, geminiChecked, grokChecked, vscodeChecked].filter(Boolean).length;
-    let cliName = 'CLI';
-    if (cliCount === 1) {
-        if (codexChecked)  cliName = 'OpenAI Codex';
-        else if (claudeChecked) cliName = 'Claude Code';
-        else if (geminiChecked) cliName = 'Gemini CLI';
-        else if (grokChecked) cliName = 'Grok';
-        else if (vscodeChecked) cliName = 'VS Code';
+    if (withCliContent) {
+        withCliContent.style.display = showWithCli ? 'block' : 'none';
     }
-
-    // Update tab button labels
-    document.querySelectorAll('.rust-tab-btn').forEach(btn => {
-        if (btn.dataset.tab === 'with-cli')    btn.textContent = `🤖 With ${cliName}`;
-        if (btn.dataset.tab === 'without-cli') btn.textContent = `⚙️ Without ${cliName}`;
-    });
-
-    switchRustTab(onlyNoCliChecked ? 'without-cli' : 'with-cli');
+    if (withoutCliContent) {
+        withoutCliContent.style.display = showWithoutCli ? 'block' : 'none';
+    }
+    if (withCliLabel) {
+        withCliLabel.style.display = showBothLabels ? 'block' : 'none';
+    }
+    if (withoutCliLabel) {
+        withoutCliLabel.style.display = showBothLabels ? 'block' : 'none';
+    }
 }
 
-// Helper functions for the combined panel
-function switchRustTab(tabName) {
-    // Update tab buttons
-    const tabs = document.querySelectorAll('.rust-tab-btn');
-    tabs.forEach(tab => {
-        const isActive = tab.dataset.tab === tabName;
-        if (isActive) {
-            // Active tab: colored background with white text
-            tab.classList.add('active');
-            tab.style.background = 'var(--accent-blue)';
-            tab.style.color = 'white';
-            tab.style.border = 'none';
-            tab.style.borderBottom = '3px solid var(--accent-blue)';
-            tab.style.opacity = '1';
-        } else {
-            // Inactive tab: white background with normal text
-            tab.classList.remove('active');
-            tab.style.background = 'white';
-            tab.style.color = 'var(--text-primary)';
-            tab.style.border = '1px solid var(--border-medium)';
-            tab.style.borderBottomColor = 'transparent';
-            tab.style.opacity = '1';
-        }
-    });
-    
-    // Update tab content
-    const contents = document.querySelectorAll('.rust-tab-content');
-    contents.forEach(content => {
-        if (content.id === `${tabName}-content`) {
-            content.style.display = 'block';
-            content.classList.add('active');
-        } else {
-            content.style.display = 'none';
-            content.classList.remove('active');
-        }
-    });
+// Backward-compatibility: tabs were removed, keep function as no-op mode sync.
+function switchRustTab() {
+    updateRustTabState();
 }
 
 // Helper function to update a single status indicator
@@ -2465,15 +2457,15 @@ async function checkBackendStatus() {
             'test-commons-connection',
             'commons-db-indicator',
             'commons-db-text',
-            'MemberCommons database active',
-            'MemberCommons database inactive'
+            'Member database active',
+            'Member database inactive'
         ),
         checkDatabaseConnection(
             'test-exiobase-connection',
             'exiobase-db-indicator',
             'exiobase-db-text',
             'Industry database active',
-            'ModelEarth Industry Database inactive'
+            'Industry database inactive'
         ),
         // Locations Database - only show when active
         (async () => {

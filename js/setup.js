@@ -27,11 +27,14 @@ function createWebrootSetupHTML() {
     // Set parent repo based on selected modelsite (with URL fallback)
     const currentUrl = window.location.href.toLowerCase();
     const selectedModelsite = getSelectedModelsite();
-    const parentRepoPath = selectedModelsite === 'model.georgia'
-        ? 'GeorgiaData/iteam'
-        : ((currentUrl.includes('locations') || currentUrl.includes('geo'))
-            ? 'PartnerTools/webroot'
-            : 'ModelEarth/webroot');
+    const isLocationsDomain = currentUrl.includes('locations');
+    const parentRepoPath = (selectedModelsite === 'model.georgia' && isLocationsDomain)
+        ? 'partnertools/webroot'
+        : (selectedModelsite === 'model.georgia'
+            ? 'GeorgiaData/iteam'
+            : ((currentUrl.includes('locations') || currentUrl.includes('geo'))
+                ? 'PartnerTools/webroot'
+                : 'ModelEarth/webroot'));
     const webrootGit = `https://github.com/${parentRepoPath}/`;
     
     return `
@@ -250,6 +253,7 @@ function setupTradeFlowRepos(containerId) {
         // Insert the trade flow repos HTML
         const tradeFlowHTML = createTradeFlowReposHTML();
         container.innerHTML = tradeFlowHTML;
+        updateGeorgiaModelsitePanelVisibility();
         
         // Update the fork repos commands after inserting the content
         setTimeout(() => {
@@ -600,6 +604,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function getQuickstartCommandsHtml() {
     const localWebPort = getConfiguredLocalWebPort();
+    const currentPort = window.location.port;
+    const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
+        ? currentPort
+        : '8887';
     const isLocalhost = window.location.hostname === 'localhost';
     const basicCommandPreClass = isLocalhost
         ? 'quickstart-port-pre quickstart-port-pre-with-stop'
@@ -629,16 +637,16 @@ function getQuickstartCommandsHtml() {
         </div>
         <div id="quickstart-desktop-installer-details" style="display: none;">
             <div id="quickstart-mac-linux-section">
-                <p style="color: var(--text-primary);">Or run a python backend for the <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a>:</p>
+                <p style="color: var(--text-primary);"><span id="quickstart-desktop-installer-lead-prefix">Or run a python backend for the</span> <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a></p>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
 source env/bin/activate
-./desktop/install/quickstart.sh</code></pre>
+./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
             </div>
             <div id="quickstart-windows-section">
                 <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
 env\\Scripts\\activate
-./desktop/install/quickstart.sh</code></pre>
+./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
             </div>
             <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
             <ul style="color: var(--text-secondary); margin-left: 20px;">
@@ -693,12 +701,23 @@ function renderQuickstartCommands(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
     ensureQuickstartLayoutStyles();
+
+    const existingDesktopPlaceholder = document.getElementById('quickstart-cli-placeholder');
+    if (existingDesktopPlaceholder && !container.contains(existingDesktopPlaceholder)) {
+        existingDesktopPlaceholder.remove();
+    }
+    const existingDesktopDetails = document.getElementById('quickstart-desktop-installer-details');
+    if (existingDesktopDetails && !container.contains(existingDesktopDetails)) {
+        existingDesktopDetails.remove();
+    }
+
     container.innerHTML = getQuickstartCommandsHtml();
     const aiPromptHost = document.getElementById(`${containerId}-ai-prompt-host`);
     const aiPromptWrap = document.getElementById('quickstart-cli-prompt-wrap');
     if (aiPromptHost && aiPromptWrap && aiPromptWrap.parentElement !== aiPromptHost) {
         aiPromptHost.appendChild(aiPromptWrap);
     }
+    moveDesktopInstallerControlsToRustActions();
     attachQuickstartCliListeners();
     updateQuickstartCliVisibility();
     updateQuickstartDesktopInstallerStatus();
@@ -766,6 +785,49 @@ function setQuickstartDesktopInstallerExpanded(isExpanded) {
     if (desktopInstallerArrow) {
         desktopInstallerArrow.textContent = isExpanded ? '▾' : '▸';
     }
+    updateRustRecheckMessageVisibilityForDesktopInstaller();
+}
+
+function updateRustRecheckMessageVisibilityForDesktopInstaller() {
+    const recheckMessage = document.getElementById('rust-recheck-message');
+    if (!recheckMessage) return;
+
+    const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
+    const detailsVisible = !!(
+        desktopInstallerDetails
+        && getComputedStyle(desktopInstallerDetails).display !== 'none'
+    );
+    recheckMessage.style.display = detailsVisible ? 'none' : 'block';
+}
+
+function moveDesktopInstallerControlsToRustActions() {
+    const rustActionsWrap = document.querySelector('.rust-api-admin-link-wrap');
+    const databaseAdminBtn = document.getElementById('database-admin-btn');
+    const desktopInstallerPlaceholder = document.getElementById('quickstart-cli-placeholder');
+    if (!rustActionsWrap || !databaseAdminBtn || !desktopInstallerPlaceholder) {
+        return;
+    }
+
+    if (
+        desktopInstallerPlaceholder.parentElement !== rustActionsWrap
+        || desktopInstallerPlaceholder.previousElementSibling !== databaseAdminBtn
+    ) {
+        databaseAdminBtn.insertAdjacentElement('afterend', desktopInstallerPlaceholder);
+    }
+
+    desktopInstallerPlaceholder.style.marginTop = '0';
+    const trailingBreak = desktopInstallerPlaceholder.querySelector('br');
+    if (trailingBreak) {
+        trailingBreak.style.display = 'none';
+    }
+
+    const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
+    if (desktopInstallerDetails && desktopInstallerDetails.previousElementSibling !== rustActionsWrap) {
+        rustActionsWrap.insertAdjacentElement('afterend', desktopInstallerDetails);
+        desktopInstallerDetails.style.marginTop = '8px';
+    }
+
+    updateRustRecheckMessageVisibilityForDesktopInstaller();
 }
 
 async function isExecutablePythonRunning() {
@@ -790,10 +852,17 @@ async function isExecutablePythonRunning() {
 
 async function updateQuickstartDesktopInstallerStatus() {
     const statusEl = document.getElementById('quickstart-desktop-installer-status');
-    if (!statusEl) return;
+    const leadPrefix = document.getElementById('quickstart-desktop-installer-lead-prefix');
 
     const pythonAvailable = await isExecutablePythonRunning();
-    statusEl.textContent = pythonAvailable ? '' : ' Executable python not running';
+    if (statusEl) {
+        statusEl.textContent = '';
+    }
+    if (leadPrefix) {
+        leadPrefix.textContent = pythonAvailable
+            ? 'Or run a python backend for the'
+            : 'Run executable python backend for the';
+    }
 }
 
 function updateQuickstartCliVisibility() {
@@ -1093,7 +1162,10 @@ function refreshAllPythonBackendStatusPanels() {
 
 function attachNoAiBackendModelsiteListener(modelsiteSelect) {
     if (!modelsiteSelect || noAiBackendModelsiteListenerAttached) return;
-    modelsiteSelect.addEventListener('change', refreshAllPythonBackendStatusPanels);
+    modelsiteSelect.addEventListener('change', () => {
+        updateGeorgiaModelsitePanelVisibility();
+        refreshAllPythonBackendStatusPanels();
+    });
     noAiBackendModelsiteListenerAttached = true;
 }
 
@@ -1138,6 +1210,9 @@ function setBackendCommandMode(mode, enabled) {
         const isRunning = indicator ? indicator.classList.contains('connected') : false;
         updateBackendCommandForRow(row, isRunning);
     });
+    if (typeof updateRustTabState === 'function') {
+        updateRustTabState(nextState);
+    }
     return nextState;
 }
 
@@ -1195,6 +1270,9 @@ function setExclusiveBackendCommandMode(mode) {
         const isRunning = indicator ? indicator.classList.contains('connected') : false;
         updateBackendCommandForRow(row, isRunning);
     });
+    if (typeof updateRustTabState === 'function') {
+        updateRustTabState(nextState);
+    }
     applyBackendCommandsContainerVisibility(nextState);
     updateNoAiFlaskStartVisibility();
     return nextState;
@@ -1310,6 +1388,12 @@ function isGeorgiaModelsiteSelected() {
 
 function getConfiguredLocalWebPort() {
     return isGeorgiaModelsiteSelected() ? '8888' : '8887';
+}
+
+function updateGeorgiaModelsitePanelVisibility() {
+    const extraReposPanel = document.getElementById('extraRepos');
+    if (!extraReposPanel) return;
+    extraReposPanel.style.display = isGeorgiaModelsiteSelected() ? 'none' : '';
 }
 
 async function updateBackendSectionVisibilityByFiles(container) {
@@ -1522,6 +1606,9 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
 
     const initialState = getBackendCommandState();
     setGlobalCommandToggleAppearance(initialState);
+    if (typeof updateRustTabState === 'function') {
+        updateRustTabState(initialState);
+    }
     const hasAnyModeOnLoad = hasEnabledBackendCommandMode(initialState);
     const showCommandsOnLoad = shouldShowFullCommandsContainer(initialState);
     if (hasAnyModeOnLoad) {
