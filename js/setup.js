@@ -812,6 +812,15 @@ function updateRustRecheckMessageVisibilityForDesktopInstaller() {
         && getComputedStyle(desktopInstallerDetails).display !== 'none'
     );
     recheckMessage.style.display = detailsVisible ? 'none' : 'block';
+
+    const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
+    if (githubCliAutoStatus && githubCliAutoStatus.previousElementSibling !== recheckMessage) {
+        recheckMessage.insertAdjacentElement('afterend', githubCliAutoStatus);
+    }
+    if (githubCliAutoStatus) {
+        const shouldShow = githubCliAutoStatus.dataset.shouldShow === 'true';
+        githubCliAutoStatus.style.display = shouldShow && !detailsVisible ? 'block' : 'none';
+    }
 }
 
 function moveDesktopInstallerControlsToRustActions() {

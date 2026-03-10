@@ -606,7 +606,7 @@ choco install gh -y</code></pre>
 
     </div>
 </div>
-<div id="github-cli-auto-status" style="display: none; margin-top: 12px; font-size: 14px;">
+<div id="github-cli-auto-status" style="display: none; margin-top: 0; font-size: 14px;">
     Github CLI is installed. <a href="#" id="github-cli-show-commands-link">Show commands</a>
 </div>
 
@@ -1237,9 +1237,28 @@ npm install -g openai-codex-cli</code></pre>`;
         const savedUserComputer = localStorage.getItem('user-computer-name');
         let ghCommandsExpanded = false;
 
-        if (osDetectionPanel && githubCliAutoStatus) {
-            osDetectionPanel.appendChild(githubCliAutoStatus);
+        function placeGithubCliAutoStatus() {
+            if (!githubCliAutoStatus) return;
+            const rustRecheckMessage = document.getElementById('rust-recheck-message');
+            if (rustRecheckMessage) {
+                if (githubCliAutoStatus.previousElementSibling !== rustRecheckMessage) {
+                    rustRecheckMessage.insertAdjacentElement('afterend', githubCliAutoStatus);
+                }
+                return;
+            }
+            if (osDetectionPanel && githubCliAutoStatus.parentElement !== osDetectionPanel) {
+                osDetectionPanel.appendChild(githubCliAutoStatus);
+            }
         }
+
+        function syncGithubCliAutoStatusVisibility() {
+            if (!githubCliAutoStatus) return;
+            const rustRecheckMessage = document.getElementById('rust-recheck-message');
+            const recheckVisible = !rustRecheckMessage || getComputedStyle(rustRecheckMessage).display !== 'none';
+            const shouldShow = githubCliAutoStatus.dataset.shouldShow === 'true';
+            githubCliAutoStatus.style.display = shouldShow && recheckVisible ? 'block' : 'none';
+        }
+        placeGithubCliAutoStatus();
         
         // Set dropdown based on saved preference, default to "choose"
         if (githubCliStatusSelect && savedGithubCliStatus) {
@@ -1306,16 +1325,17 @@ npm install -g openai-codex-cli</code></pre>`;
 
         function updateGithubCliCardVisibilityFromRust(installed) {
             if (!githubCliCard || !githubCliAutoStatus) return;
+            githubCliAutoStatus.dataset.shouldShow = installed ? 'true' : 'false';
+            placeGithubCliAutoStatus();
+            syncGithubCliAutoStatusVisibility();
             githubCliCard.dataset.forceCommands = ghCommandsExpanded ? 'true' : 'false';
             const withoutAiMode = !!(useAISelect && useAISelect.value === 'without');
             if (installed) {
-                githubCliAutoStatus.style.display = 'block';
                 githubCliCard.style.display = ghCommandsExpanded ? 'block' : 'none';
                 if (githubCliShowCommandsLink) {
                     githubCliShowCommandsLink.textContent = ghCommandsExpanded ? 'Hide commands' : 'Show commands';
                 }
             } else {
-                githubCliAutoStatus.style.display = 'none';
                 githubCliCard.style.display = 'block';
                 if (githubCliShowCommandsLink) {
                     githubCliShowCommandsLink.textContent = 'Show commands';
