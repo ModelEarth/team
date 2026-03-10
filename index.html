@@ -139,13 +139,6 @@
             color: var(--text-primary);
         }
 
-        .content-area {
-            flex: 1;
-            padding: 32px 17px;
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-        }
         .tabs {
             display: flex;
             gap: 2px;
@@ -352,10 +345,6 @@
 
         /* Responsive Design */
         @media (max-width: 500px) {
-            .content-area {
-                padding: 16px;
-            }
-            
             .feature-grid {
                 grid-template-columns: 1fr;
             }
@@ -413,7 +402,7 @@
                     <div class="tabs">
                         <button class="tab active" data-tab="welcome">Welcome</button>
                         <button class="tab" data-tab="documentation">Getting Started</button>
-                        <button class="tab" data-tab="dashboard">Dashboard</button>
+                        <button class="tab" data-tab="dashboard" id="dashboardTabButton" style="display:none;">Dashboard</button>
                     </div>
 
                     <div class="feature-grid">
@@ -495,8 +484,23 @@
                     </div>
                 </div>
 
+                <div id="projectButtons" style="margin-top: 24px;">
+                    <button id="projectsWidgetButton" class="btn btn-secondary" type="button" onclick="openProjectsDashboard(event)">
+                        <i data-feather="briefcase"></i>
+                        Team Projects
+                    </button>
+                    <a href="https://github.com/modelearth/projects/issues/" class="btn btn-info" style="text-decoration: none;" target="_blank">
+                        <i data-feather="folder"></i>
+                        Github ToDos
+                    </a>
+                    <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
+                        <i data-feather="settings"></i>
+                        Partner Tools
+                    </a>
+                </div>
+
                 <!-- Dashboard Tab -->
-                <div class="tab-content" id="dashboard-tab">
+                <div class="tab-content" id="dashboard-tab" style="display:none;">
                     <div class="card">
                         <h2 class="card-title">Dashboard</h2>
                         <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
@@ -507,18 +511,9 @@
                                  data-github-owner="modelearth"
                                  data-detect-current-folder="true"
                                  data-multi-repo-roots="webroot,modelearth"
-                                 data-show-project="true"></div>
-                        </div>
-                        
-                        <div id="projectButtons" style="margin-top: 24px;">
-                            <a href="https://github.com/modelearth/projects/issues/" class="btn btn-info" style="text-decoration: none;" target="_blank">
-                                <i data-feather="folder"></i>
-                                View Projects
-                            </a>
-                            <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
-                                <i data-feather="settings"></i>
-                                Partner Tools
-                            </a>
+                                 data-show-project="true">
+                                <p style="margin: 0; color: var(--text-secondary);">Click <strong>Team Projects</strong> above to load the project widget.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1445,7 +1440,15 @@
         </div>
     </main>
 
-
+    <div class="content-area" style="padding-top:0px">
+        <div class="card">
+            <div id="readmeDiv">
+                <p style="color: var(--text-secondary); font-style: italic;">
+                    Loading README.md...
+                </p>
+            </div>
+        </div>
+    </div>
 
     <!-- Load Shared Auth Modal -->
     <script src="js/auth-modal.js"></script>
@@ -1881,6 +1884,119 @@
             }
         }
 
+        let issuesWidgetLoadState = 'idle';
+        let dashboardWidgetVisible = false;
+
+        function setDashboardWidgetVisibility(visible) {
+            const dashboardTab = document.getElementById('dashboard-tab');
+            const dashboardTabButton = document.getElementById('dashboardTabButton');
+            const projectsButton = document.getElementById('projectsWidgetButton');
+
+            if (dashboardTab) {
+                dashboardTab.style.display = visible ? '' : 'none';
+            }
+            if (dashboardTabButton) {
+                dashboardTabButton.style.display = visible ? '' : 'none';
+            }
+            if (projectsButton) {
+                projectsButton.classList.toggle('active', visible);
+                projectsButton.setAttribute('aria-expanded', visible ? 'true' : 'false');
+            }
+
+            dashboardWidgetVisible = visible;
+        }
+        function loadIssuesWidgetOnce() {
+            const issuesWidget = document.getElementById('issuesWidget');
+            const projectsButton = document.getElementById('projectsWidgetButton');
+            if (!issuesWidget || issuesWidgetLoadState === 'loaded' || issuesWidgetLoadState === 'loading') {
+                return;
+            }
+
+            const showLoadError = function (message) {
+                issuesWidgetLoadState = 'idle';
+                issuesWidget.innerHTML = `<p style="margin: 0; color: var(--accent-orange);">${message}</p>`;
+                if (projectsButton) {
+                    projectsButton.disabled = false;
+                }
+            };
+
+            if (typeof initIssuesManager === 'function') {
+                try {
+                    const manager = initIssuesManager(issuesWidget);
+                    if (manager) {
+                        issuesWidgetLoadState = 'loaded';
+                        if (projectsButton) {
+                            projectsButton.disabled = false;
+                        }
+                    } else {
+                        showLoadError('Unable to initialize project widget. Click Projects to retry.');
+                    }
+                } catch (error) {
+                    console.error('Projects widget initialization failed:', error);
+                    showLoadError('Project widget failed to initialize. Check console for details.');
+                }
+                return;
+            }
+
+            issuesWidgetLoadState = 'loading';
+            if (projectsButton) {
+                projectsButton.disabled = true;
+            }
+            issuesWidget.innerHTML = '<p style="margin: 0; color: var(--text-secondary);">Loading project widget...</p>';
+
+            loadScript('../projects/js/issues.js', function () {
+                if (typeof initIssuesManager === 'function') {
+                    try {
+                        const manager = initIssuesManager(issuesWidget);
+                        if (manager) {
+                            issuesWidgetLoadState = 'loaded';
+                            if (projectsButton) {
+                                projectsButton.disabled = false;
+                            }
+                        } else {
+                            showLoadError('Project widget did not initialize. Click Projects to retry.');
+                        }
+                    } catch (error) {
+                        console.error('Projects widget initialization failed after script load:', error);
+                        showLoadError('Project widget failed after loading script. Check console for details.');
+                    }
+                } else {
+                    showLoadError('Project widget script loaded, but init function was unavailable.');
+                }
+            });
+        }
+
+        function openProjectsDashboard(event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            const shouldShowDashboard = !dashboardWidgetVisible;
+            setDashboardWidgetVisibility(shouldShowDashboard);
+
+            if (shouldShowDashboard) {
+                if (window.router) {
+                    window.router.navigate('home', 'dashboard');
+                } else {
+                    window.location.hash = '#home/dashboard';
+                }
+                loadIssuesWidgetOnce();
+            } else if (AppState.currentSection === 'home' && AppState.currentTab === 'dashboard') {
+                AppState.currentSection = 'home';
+                AppState.currentTab = 'welcome';
+
+                if (window.history && typeof window.history.replaceState === 'function') {
+                    window.history.replaceState(null, '', '#home/welcome');
+                } else {
+                    window.location.hash = '#home/welcome';
+                }
+
+                if (window.router && typeof window.router.updateNavigationState === 'function') {
+                    window.router.updateNavigationState('home', 'welcome');
+                }
+            }
+        }
+
         // Initialize HashRouter
         const router = new HashRouter();
 
@@ -1917,6 +2033,13 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
+            setDashboardWidgetVisibility(false);
+
+            const readmeDiv = document.getElementById('readmeDiv');
+            if (readmeDiv) {
+                readmeDiv.innerHTML = '';
+            }
+            loadMarkdown('README.md', 'readmeDiv', '_parent');
             
             // Setup tab click handlers
             setupTabHandlers();
@@ -2190,8 +2313,6 @@
             font-weight: inherit;
         }
     </style>
-
-    <script src="../projects/js/issues.js"></script>
 
 </body>
 </html>

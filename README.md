@@ -2,20 +2,20 @@
 
 ### Team Project Collaboration Platform
 
-PartnerTools is a JAM Stack toolset for teams implementing Rust REST API backends with AI-powered insights. PartnerTools connects site users with developers, designers, and innovators to collaborate on coding projects focused on skill training, job creation and environmental improvement.
+The `team` repo is a submodule inside each site's `webroot` and provides a JAM Stack toolset for sites implementing Rust REST API backends with AI-powered insights. Our goal is to connect site users with developers, designers, and innovators to collaborate on coding projects focused on skill training, job creation and environmental improvement.
 
-## 🌟 Key Features
+## 🌟 Key Features/Goals
 
 ### Project Management
-- **Post Activities**: Create detailed project postings, job openings, and collaboration requests
+- **Post Activities**: Integrate project postings and collaboration requests
 - **Smart Discovery**: AI-powered project search with natural language queries
-- **Task Tracking**: Manage assigned tasks with progress monitoring and deadlines
+- **Task Tracking**: Manage to-dos with Github PLAN.md integration and PRs
 - **Timeline Views**: Visual project timelines and milestone tracking
 
 ### Team Collaboration
 - **People Directory**: Connect with developers, designers, and project leaders
 - **Team Formation**: Create and join focused development teams
-- **Organization Network**: Connect with verified organizations and funding sources
+- **Organization Network**: Connect with verified organizations and content partners
 - **Skills Matching**: AI-powered matching based on technical skills and interests
 
 ### AI-Powered Insights
@@ -41,7 +41,7 @@ PartnerTools is a JAM Stack toolset for teams implementing Rust REST API backend
 ### Backend (Rust)
 - **Actix-web**: High-performance web framework
 - **SQLx**: Async PostgreSQL database toolkit
-- **Gemini AI**: Google's AI for smart search and insights
+- **Insight AI Endpoints**: Multiple LLMs for smart search and insights
 - **JWT Authentication**: Secure token-based authentication
 
 ### Database
@@ -61,8 +61,8 @@ team/
 ├── js/                        # JavaScript modules
 │   ├── projects.js            # Project management functionality
 │   └── survey.js              # Survey & skills management
-├── config/                    # Configuration files
-│   └── settings.example.js    # Example configuration
+├── config/                    # Legacy frontend config (being retired)
+│   └── settings.example.js    # Deprecated - see PLAN.md
 ├── src/                       # Rust backend source
 │   └── main.rs                # Main server application
 ├── sql/                       # Database schema
@@ -90,35 +90,40 @@ team/
 ### Prerequisites
 - Rust 1.70+ with Cargo
 - PostgreSQL 12+
-- Modern web browser
-- (Optional) Google Gemini AI API key
+- (Optional/Free) Google Gemini AI API key
 
 ### Backend Setup
 
-1. **Clone the repository**
+1. **Use the site webroot that contains `team/` as a submodule**
    ```bash
-   git clone <repository-url>
-   cd PartnerTools
+   cd <site-webroot>
+   git submodule update --init --recursive team
+   cd team
    ```
 
-2. **Configure environment**
+2. **Configure shared environment in webroot**
    ```bash
-   cp config/settings.example.js config/settings.js
-   # Edit config/settings.js with your API keys and database settings
+   cd ..
+   cp docker/.env.example docker/.env
+   # Edit docker/.env with database and OAuth values
+   cd team
    ```
 
 3. **Set up database**
+
+The SQL schema is based on [SuiteCRM SQL (/profile/crm)](/profile/crm)
+
    ```bash
    # Create PostgreSQL database
-   createdb ModelEarthDB
+   createdb IndustryDB
    
    # Run schema setup
-   psql partnertools < sql/suitecrm-postgres.sql
+   psql IndustryDB < sql/suitecrm-postgres.sql
    ```
 
 4. **Configure environment variables**
 
-COMMONS_HOST in .env file
+Set `COMMONS_HOST` and related values in `../docker/.env`.
 
 5. **Initialize database schema**
    ```bash
@@ -138,7 +143,7 @@ COMMONS_HOST in .env file
 
 ### Frontend Setup
 
-We recommend skipping 1 and open a server in your webroot instead.
+We recommend skipping 1 and open a server in your [webroot](../) instead.
 
 1. **Serve the frontend**
    ```bash
@@ -154,7 +159,7 @@ We recommend skipping 1 and open a server in your webroot instead.
 
 2. **Open in browser**
    ```
-   http://localhost:3000
+   http://localhost:8888
    ```
 
 &nbsp; &nbsp; Or (recommended) open your webroot folder after running in your webroot (parent of the "team" folder):
@@ -179,11 +184,11 @@ const API_BASE = 'http://localhost:8081/api';
 The application supports Azure and Google Cloud PostgreSQL:
 ```rust
 // In Cargo.toml or environment variables
-DATABASE_URL=postgresql://sqladmin@model-earth-server.database.windows.net/ModelEarthDB
+DATABASE_URL=postgresql://sqladmin@model-earth-server.database.windows.net/IndustryDB
 ```
 
 ### Authentication Providers
-Configure OAuth providers in `config/settings.js`:
+Configure OAuth providers in `docker/.env`:
 - Google OAuth 2.0
 - GitHub OAuth
 - LinkedIn OAuth
@@ -221,8 +226,8 @@ Configure OAuth providers in `config/settings.js`:
 
 ## 🔮 AI Integration
 
-### Gemini AI Features
-- **Natural Language Search**: "Find React developers in Atlanta working on AI projects"
+### AI Features
+- **Natural Language Search**: "Find JAM Stack developers in Atlanta working on AI projects"
 - **Smart Recommendations**: Personalized project and team suggestions
 - **Insight Generation**: Analysis of team dynamics and project progress
 - **Content Enhancement**: AI-assisted project descriptions and requirements

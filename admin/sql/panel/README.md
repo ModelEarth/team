@@ -160,7 +160,7 @@ The Connection Troubleshooting panel on the interface provides real-time status 
 Test your Azure PostgreSQL connection manually:
 
 ```bash
-psql "host=model-earth-server.database.windows.net port=5432 dbname=ModelEarthDB user=sqladmin password=your-password sslmode=require"
+psql "host=model-earth-server.database.windows.net port=5432 dbname=IndustryDB user=sqladmin password=your-password sslmode=require"
 ```
 
 ## Development

@@ -566,8 +566,8 @@ async fn get_env_config() -> Result<HttpResponse> {
             };
             
             let display_name = match prefix {
-                "COMMONS" => "MemberCommons Database (Default)".to_string(),
-                "EXIOBASE" => "ModelEarth Industry Database".to_string(),
+                "COMMONS" => "Member Database (Default)".to_string(),
+                "EXIOBASE" => "Industry Database".to_string(),
                 "LOCATIONS" => "Locations Database".to_string(),
                 _ => format!("{} Database", prefix.replace('_', " ")),
             };
@@ -622,8 +622,8 @@ async fn get_env_config() -> Result<HttpResponse> {
                 
                 // Add to connections list with display name
                 let display_name = match key.as_str() {
-                    "DATABASE_URL" => "MemberCommons Database (Default)".to_string(),
-                    "EXIOBASE_URL" => "ModelEarth Industry Database".to_string(),
+                    "DATABASE_URL" => "Member Database (Default)".to_string(),
+                    "EXIOBASE_URL" => "Industry Database".to_string(),
                     _ => {
                         let name = key.replace("_URL", "").replace("_", " ");
                         format!("{} Database", name.split_whitespace()

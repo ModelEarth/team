@@ -3120,7 +3120,7 @@
             </div>
         </div>
 
-        <div class="card" id="participants-table-card" style="display: none;">
+        <div class="card side-padding" id="participants-table-card" style="display: none;">
 
             <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
                 <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
@@ -3432,6 +3432,7 @@
             let _participantsHeatLayer = null;
             let _participantsStateLayer = null;
             let _cityDetailLayer = null;
+            let _participantsDataFitApplied = false;
             let heatmapVisible = localStorage.getItem('heatmapHidden') !== '1';
 
             function initParticipantsHeatmap() {
@@ -3444,45 +3445,30 @@
                 }
                 // Disable the built-in zoom controls (remove + / - buttons)
                 // and disable other interactive zoom gestures (wheel/double-click/touch).
-                // Initialize the map and later fit bounds to the continental USA so
-                // the map reliably shows the states on first render.
-                _participantsMap = L.map(mapEl, {
-                    zoomControl: false,
-                    attributionControl: false,
-                    scrollWheelZoom: false,
-                    doubleClickZoom: false,
-                    boxZoom: false,
-                    touchZoom: false,
-                    // Allow deeper zoom so city-level views can be reached programmatically
-                    minZoom: 4,
-                    maxZoom: 15
-                });
+                // Initialize the map with a deterministic US-centered starting view.
+                    _participantsMap = L.map(mapEl, {
+                        zoomControl: false,
+                        attributionControl: false,
+                        scrollWheelZoom: false,
+                        doubleClickZoom: false,
+                        boxZoom: false,
+                        touchZoom: false,
+                        // Start focused on the continental US instead of the Leaflet world default.
+                        center: [39.8283, -98.5795],
+                        zoom: 4,
+                        // Allow zooming farther out and farther in from the custom controls.
+                        minZoom: 2,
+                        maxZoom: 15
+                    });
                 const tile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 18,
                 }).addTo(_participantsMap);
-                // Fit the map to the contiguous United States bounds so the states are visible
-                // on initial load. These bounds roughly cover the continental US (lat, lng).
+                // Keep a deterministic US-centered starting view.
                 try {
-                    // Raise the southern bound further (28.0) to avoid showing Mexican states
-                    // on the initial view while still covering the continental US.
-                    const usaSouthWest = [28.0, -124.848974]; // SW corner (approx, raised lat)
-                    const usaNorthEast = [49.384358, -66.885444];  // NE corner (approx)
-                    const usaBounds = L.latLngBounds(usaSouthWest, usaNorthEast);
-                    // Fit bounds with a tighter padding after tiles load to zoom in more on the continental USA.
-                    // Only fit bounds on the initial tile load. Using `once` prevents
-                    // subsequent tile loads (triggered by programmatic zooms) from
-                    // resetting the view back to the country overview.
-                    tile.once('load', function() {
-                        try {
-                            // Use a slightly larger pad to keep the view comfortably within the US
-                            _participantsMap.fitBounds(usaBounds.pad(0.04));
-                        } catch (e) {
-                            // fallback to setView if fitBounds fails
-                            _participantsMap.setView([39.8283, -98.5795], 5);
-                        }
-                    });
-                    // Also set max bounds so panning stays roughly within the US region
-                    try { _participantsMap.setMaxBounds(usaBounds.pad(0.35)); } catch (e) {}
+                    // Keep a deterministic initial view and avoid tile-load callbacks
+                    // that can override participant-data bounds as the map is loading.
+                    try { _participantsMap.setView([39.8283, -98.5795], 4, { animate: false }); } catch (e) {}
+                    // Do not hard-clamp max bounds; clamping can prevent full zoom-out on wide viewports.
                 } catch (e) {
                     // If anything goes wrong, fall back to centered view
                     try { _participantsMap.setView([39.8283, -98.5795], 4); } catch (err) {}
@@ -3957,6 +3943,20 @@
                 const lngKey = keys.includes('longitude') ? originalKeys.find(k => k.toLowerCase()==='longitude') : (keys.includes('lng') ? originalKeys.find(k => k.toLowerCase()==='lng') : (keys.includes('lon') ? originalKeys.find(k => k.toLowerCase()==='lon') : (keys.includes('long') ? originalKeys.find(k => k.toLowerCase()==='long') : null)));
                 const locationKey = keys.includes('location') ? originalKeys.find(k => k.toLowerCase()==='location') : null;
 
+                // Normalize coordinate pairs and drop malformed values that can blow out bounds.
+                function normalizeLatLng(lat, lng) {
+                    let la = Number(lat);
+                    let lo = Number(lng);
+                    if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+                    if (Math.abs(la) > 90 && Math.abs(lo) <= 90) {
+                        const tmp = la;
+                        la = lo;
+                        lo = tmp;
+                    }
+                    if (Math.abs(la) > 90 || Math.abs(lo) > 180) return null;
+                    return [la, lo];
+                }
+
                 // Helper: try to parse two numeric coords from a location string
                 function parseLatLngFromLocation(val) {
                     if (val === null || val === undefined) return null;
@@ -3996,10 +3996,9 @@
                         if (latKey && lngKey) {
                             let lat = parseFloat(r[latKey]);
                             let lng = parseFloat(r[lngKey]);
-                            if (!isNaN(lat) && !isNaN(lng)) {
-                                // Correct swapped lat/lng when necessary
-                                if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) { const tmp = lat; lat = lng; lng = tmp; }
-                                points.push([lat, lng, 0.8]);
+                            const normalized = normalizeLatLng(lat, lng);
+                            if (normalized) {
+                                points.push([normalized[0], normalized[1], 0.8]);
                                 return;
                             }
                         }
@@ -4007,7 +4006,8 @@
                         if (locationKey) {
                             const parsed = parseLatLngFromLocation(r[locationKey]);
                             if (parsed && parsed.length === 2) {
-                                points.push([parsed[0], parsed[1], 0.8]);
+                                const normalized = normalizeLatLng(parsed[0], parsed[1]);
+                                if (normalized) points.push([normalized[0], normalized[1], 0.8]);
                                 return;
                             }
                         }
@@ -4060,7 +4060,7 @@
                 // After making the container visible, invalidate size so Leaflet can render correctly,
                 // then fit bounds to the points. Use a short timeout to allow the DOM to layout.
                 // attempt invalidateSize + fitBounds with retries to handle late layout/styling changes
-                (function tryInvalidate(retriesLeft, delay){
+                (function tryInvalidate(retriesLeft, delay, boundsApplied){
                     setTimeout(() => {
                         try {
                             if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') {
@@ -4083,16 +4083,22 @@
                                 latLngs = points.map(p => [p[0], p[1]]);
                             }
 
-                            if (latLngs && latLngs.length) {
+                            if (!boundsApplied && latLngs && latLngs.length) {
                                 const bounds = L.latLngBounds(latLngs);
-                                _participantsMap.fitBounds(bounds.pad(0.25));
+                                _participantsMap.fitBounds(bounds.pad(0.18), { animate: false });
+                                // Keep the initial loaded view from becoming excessively wide.
+                                if (_participantsMap.getZoom && _participantsMap.getZoom() < 3) {
+                                    _participantsMap.setZoom(3, { animate: false });
+                                }
+                                _participantsDataFitApplied = true;
+                                boundsApplied = true;
                             }
                         } catch (e) {
                             // ignore
                         }
-                        if (retriesLeft > 0) tryInvalidate(retriesLeft - 1, Math.min(600, delay * 2));
+                        if (retriesLeft > 0 && !boundsApplied) tryInvalidate(retriesLeft - 1, Math.min(600, delay * 2), boundsApplied);
                     }, delay || 120);
-                })(4, 100);
+                })(4, 100, _participantsDataFitApplied);
             }
 
             // Toggle control
