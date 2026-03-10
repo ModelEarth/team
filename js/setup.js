@@ -10,7 +10,7 @@ const teamPathSetup = currentPath.includes('/team/')
 // HTML content for the Git account fields
 function createGitAccountFieldsHTML() {
     return `
-      <div id="githubAccountFields" style="float: right; margin-bottom: 15px;">
+      <div id="githubAccountFields" style="margin-bottom: 15px;">
         <div style="margin-bottom: 8px;">
           <label for="gitAccount" style="font-size: 14px;">Your GitHub Account</label><br>
           <input type="text" id="gitAccount" class="textInput" style="width:150px; font-size: 14px;" onfocus="this.select()" oninput="updateGitAccountFields()">
