@@ -775,12 +775,17 @@ function initializeOSDetectionPanel() {
             codingWithLabel.style.display = withoutAiMode ? 'none' : '';
         }
         if (githubCliCard) {
-            if (withoutAiMode) {
+            const forceGithubCliCommands = githubCliCard.dataset.forceCommands === 'true';
+            if (withoutAiMode && !forceGithubCliCommands) {
                 if (githubCliCard.dataset.noAiHidden !== 'true') {
                     githubCliCard.dataset.noAiPrevDisplay = githubCliCard.style.display || '';
                 }
                 githubCliCard.dataset.noAiHidden = 'true';
                 githubCliCard.style.display = 'none';
+            } else if (withoutAiMode && forceGithubCliCommands) {
+                githubCliCard.style.display = 'block';
+                delete githubCliCard.dataset.noAiHidden;
+                delete githubCliCard.dataset.noAiPrevDisplay;
             } else if (githubCliCard.dataset.noAiHidden === 'true') {
                 const prevDisplay = githubCliCard.dataset.noAiPrevDisplay || '';
                 githubCliCard.style.display = prevDisplay;
@@ -1301,6 +1306,8 @@ npm install -g openai-codex-cli</code></pre>`;
 
         function updateGithubCliCardVisibilityFromRust(installed) {
             if (!githubCliCard || !githubCliAutoStatus) return;
+            githubCliCard.dataset.forceCommands = ghCommandsExpanded ? 'true' : 'false';
+            const withoutAiMode = !!(useAISelect && useAISelect.value === 'without');
             if (installed) {
                 githubCliAutoStatus.style.display = 'block';
                 githubCliCard.style.display = ghCommandsExpanded ? 'block' : 'none';
@@ -1314,8 +1321,10 @@ npm install -g openai-codex-cli</code></pre>`;
                     githubCliShowCommandsLink.textContent = 'Show commands';
                 }
             }
-            if (useAISelect && useAISelect.value === 'without') {
+            if (withoutAiMode && !ghCommandsExpanded) {
                 githubCliCard.style.display = 'none';
+            } else if (ghCommandsExpanded) {
+                githubCliCard.style.display = 'block';
             }
         }
 
@@ -2037,12 +2046,24 @@ function ensureRustApiStatusPanelStyles() {
         .rust-api-status-layout {
             container-type: inline-size;
         }
+        .rust-api-status-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .rust-api-status-heading {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .rust-api-status-actions {
-            position: absolute;
-            top: 0;
-            right: 0;
-            z-index: 1;
-            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
         }
         .rust-api-status-button {
             margin: 0;
@@ -2050,16 +2071,10 @@ function ensureRustApiStatusPanelStyles() {
             min-width: 150px;
         }
         #stop-rust-btn.rust-api-status-button {
-            margin-bottom: 10px;
-        }
-        .rust-api-status-actions br {
-            line-height: 0;
+            margin-bottom: 0;
         }
         .rust-api-status-content-wrap {
             position: relative;
-        }
-        .rust-api-status-content-wrap #rust-api-status-content {
-            padding-right: 160px;
         }
         .rust-api-admin-link-wrap {
             margin-bottom: 12px;
@@ -2075,13 +2090,7 @@ function ensureRustApiStatusPanelStyles() {
         }
         @container (max-width: 560px) {
             .rust-api-status-actions {
-                right: auto;
-                left: 0;
-                text-align: left;
-            }
-            .rust-api-status-content-wrap #rust-api-status-content {
-                padding-right: 0;
-                padding-top: 44px;
+                margin-left: 0;
             }
         }
     `;
@@ -2121,20 +2130,24 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
     // Create the combined panel HTML
     const panelHtml = `
-        <h3>
-            <span class="status-indicator" id="rust-api-status-indicator"></span>
-            <span id="rust-api-status-title">Rust API and SQL Databases</span>
-        </h3>
         <div class="rust-api-status-layout">
             <div class="rust-api-status-content-wrap">
-                <div class="rust-api-status-actions">
-                    <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
-                        Stop Rust
-                    </button>
-                </div>
-
                 <!-- Status Indicators -->
-                <div id="backend-status-indicators" style="display: none;">
+                <div id="backend-status-indicators">
+                    <div class="rust-api-status-header">
+                        <h3 class="rust-api-status-heading">
+                            <span class="status-indicator" id="rust-api-status-indicator"></span>
+                            <span id="rust-api-status-title">Rust API and SQL Databases</span>
+                        </h3>
+                        <div class="rust-api-status-actions">
+                            <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" style="display: none;" id="reload-status-btn">
+                                Recheck Status
+                            </button>
+                            <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
+                                Stop Rust
+                            </button>
+                        </div>
+                    </div>
                     <!-- Rust API Status Section -->
                     <div id="rust-api-status-content" style="margin-bottom: 16px;">
                         <p style="color: var(--text-secondary); margin-bottom: 16px;">
@@ -2172,10 +2185,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
         nextSibling.remove();
     }
     container.insertAdjacentHTML('afterend', `
-        <div class="rust-api-admin-link-wrap">
-            <button class="btn btn-secondary" onclick="recheckRustStatus()" style="display: none;" id="reload-status-btn">
-                Recheck Status
-            </button>
+        <div class="rust-api-admin-link-wrap geo-x">
             <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
                 Database Admin
             </button>

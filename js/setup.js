@@ -254,6 +254,20 @@ function setupTradeFlowRepos(containerId) {
         const tradeFlowHTML = createTradeFlowReposHTML();
         container.innerHTML = tradeFlowHTML;
         updateGeorgiaModelsitePanelVisibility();
+
+        if (!window.teamSetupModelsiteChangedBound) {
+            document.addEventListener('modelsiteChanged', () => {
+                updateGeorgiaModelsitePanelVisibility();
+            });
+            window.teamSetupModelsiteChangedBound = true;
+        }
+
+        // Re-check after navigation.js has had a chance to establish modelsite.
+        if (typeof loadScript === 'function' && typeof local_app !== 'undefined' && typeof local_app.localsite_root === 'function') {
+            loadScript(local_app.localsite_root() + 'js/navigation.js', () => {
+                updateGeorgiaModelsitePanelVisibility();
+            });
+        }
         
         // Update the fork repos commands after inserting the content
         setTimeout(() => {
@@ -668,7 +682,7 @@ function ensureQuickstartLayoutStyles() {
     style.id = 'quickstart-layout-styles';
     style.textContent = `
         .quickstart-port-pre {
-            margin: 0;
+            margin-top: 0;
         }
         .quickstart-port-pre-with-stop {
             padding-right: 0;
@@ -1010,7 +1024,7 @@ else
 fi</code></pre>
                 </div>
             </div>
-            <div data-backend="cloud" style="margin-top: 6px;">
+            <div data-backend="cloud" style="margin-top: 15px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
@@ -1093,6 +1107,41 @@ function shouldShowFullCommandsContainer(state) {
     return !!(state && state.withoutAi);
 }
 
+function setQuickstartToggleButtonState(button, isActive) {
+    if (!button) return;
+    const buttonGroup = button.closest('.quickstart-commands-toggle-group');
+    const isQuickstartDivToggle = !!(buttonGroup && buttonGroup.id === 'quickstartDiv-toggle');
+
+    const existingLabel = button.querySelector('.quickstart-toggle-label');
+    const labelText = (button.dataset.label || (existingLabel ? existingLabel.textContent : button.textContent) || '')
+        .replace(/^[+\-]\s*/, '')
+        .trim();
+    button.dataset.label = labelText;
+
+    let iconSpan = button.querySelector('.quickstart-toggle-icon');
+    let labelSpan = existingLabel;
+    if (!iconSpan || !labelSpan) {
+        button.innerHTML = `
+            <span class="quickstart-toggle-icon material-icons" aria-hidden="true"></span>
+            <span class="quickstart-toggle-label"></span>
+        `;
+        iconSpan = button.querySelector('.quickstart-toggle-icon');
+        labelSpan = button.querySelector('.quickstart-toggle-label');
+    }
+
+    iconSpan.classList.add('material-icons');
+    iconSpan.textContent = isActive ? 'radio_button_checked' : 'radio_button_unchecked';
+    iconSpan.style.fontSize = isQuickstartDivToggle ? '18px' : '';
+    iconSpan.style.lineHeight = isQuickstartDivToggle ? '1' : '';
+    labelSpan.textContent = labelText;
+
+    button.style.display = 'inline-flex';
+    button.style.alignItems = 'center';
+    button.style.gap = '6px';
+    button.style.paddingLeft = isQuickstartDivToggle ? '9px' : '';
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+}
+
 function setGlobalCommandToggleAppearance(state) {
     const buttonGroup = document.querySelector('.quickstart-commands-toggle-group');
     const buttons = buttonGroup ? buttonGroup.querySelectorAll('.quickstart-commands-toggle-btn') : [];
@@ -1109,6 +1158,7 @@ function setGlobalCommandToggleAppearance(state) {
             ? (button.dataset.mode === 'with-ai' ? '#2563eb' : '#b45309')
             : '';
         button.dataset.active = isActive ? 'true' : 'false';
+        setQuickstartToggleButtonState(button, isActive);
     });
 }
 
@@ -1371,12 +1421,16 @@ function getSelectedModelsite() {
         }
     }
 
+    if (typeof window !== 'undefined' && typeof window.modelsiteUniversal === 'string' && window.modelsiteUniversal) {
+        return window.modelsiteUniversal;
+    }
+
     const modelsiteSelect = document.getElementById('modelsite');
     if (modelsiteSelect && modelsiteSelect.value) {
         return modelsiteSelect.value;
     }
     const host = window.location.hostname.toLowerCase();
-    if (host.includes('model.georgia') || host.includes('georgia.org')) {
+    if (host.includes('model.georgia') || host.includes('georgia.org') || host.includes('locations.pages.dev')) {
         return 'model.georgia';
     }
     return '';
@@ -1391,9 +1445,14 @@ function getConfiguredLocalWebPort() {
 }
 
 function updateGeorgiaModelsitePanelVisibility() {
-    const extraReposPanel = document.getElementById('extraRepos');
-    if (!extraReposPanel) return;
-    extraReposPanel.style.display = isGeorgiaModelsiteSelected() ? 'none' : '';
+    const isGeorgia = isGeorgiaModelsiteSelected();
+    const panels = [
+        document.getElementById('extraRepos'),
+        document.getElementById('trade-flow-repos-container')
+    ].filter(Boolean);
+    panels.forEach((panel) => {
+        panel.style.display = isGeorgia ? 'none' : '';
+    });
 }
 
 async function updateBackendSectionVisibilityByFiles(container) {
@@ -1730,6 +1789,7 @@ function setupQuickstartInstructions(containerId) {
     const toggleButtonId = `${containerId}-toggle`;
     const commandsContainerId = `${containerId}-commands`;
     const pythonStatusId = `${containerId}-python-status`;
+    const contentStyle = containerId === 'quickstartDiv' ? ' style="margin-bottom: 15px;"' : '';
 
     container.innerHTML = `
         <div style="margin-top: 12px;">
@@ -1737,7 +1797,7 @@ function setupQuickstartInstructions(containerId) {
                 <span class="status-indicator" id="${statusIndicatorId}"></span>
                 <span id="${titleId}">Local Web Server</span>
             </h1>
-            <div id="${contentId}"></div>
+            <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
         </div>
     `;

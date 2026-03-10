@@ -1959,7 +1959,7 @@ async fn db_test_location_connection(_data: web::Data<Arc<ApiState>>) -> Result<
     }
 }
 
-// Test ModelEarth Industry Database connection specifically
+// Test Industry Database connection specifically
 async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
     // Check if Exiobase environment variables are configured
     let exiobase_host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
@@ -1972,7 +1972,7 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
        exiobase_host.is_empty() || exiobase_name.is_empty() || exiobase_user.is_empty() || exiobase_password.is_empty() {
         return Ok(HttpResponse::Ok().json(json!({
             "success": false,
-            "message": "ModelEarth Industry Database not configured",
+            "message": "Industry Database not configured",
             "database": "model_earth_db",
             "active": false,
             "error": "Database credentials not configured (placeholder values detected)"
@@ -1988,14 +1988,14 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
             match test_db_connection(&pool).await {
                 Ok(info) => Ok(HttpResponse::Ok().json(json!({
                     "success": true,
-                    "message": "ModelEarth Industry Database connection successful",
+                    "message": "Industry Database connection successful",
                     "database": "model_earth_db",
                     "active": true,
                     "info": info
                 }))),
                 Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
                     "success": false,
-                    "message": "ModelEarth Industry Database connection failed",
+                    "message": "Industry Database connection failed",
                     "database": "model_earth_db",
                     "active": false,
                     "error": e.to_string()
@@ -2004,7 +2004,7 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
         }
         Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
             "success": false,
-            "message": "ModelEarth Industry Database connection failed",
+            "message": "Industry Database connection failed",
             "database": "model_earth_db",
             "active": false,
             "error": e.to_string()

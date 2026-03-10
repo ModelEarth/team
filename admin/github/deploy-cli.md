@@ -4,7 +4,7 @@ Update and make commits often. (At least hourly if you are editing code.)
 Append "nopr" if you are not yet ready to send a Pull Request.
 
 
-## Using your Code CLI to push and pull
+## Using your AI Coding Agent to push and pull
 
 For the first usage, include extra guidance. 
 Your push will also pull recent updates from others on Github.

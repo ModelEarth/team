@@ -16,6 +16,22 @@
 // Create OS detection panel using shared function
 autoCreateOSDetectionPanel('#commonSetupDiv');
 
+function syncDeployCliVisibility() {
+    const deployCliDiv = document.getElementById('deployCliDiv');
+    const useAISelect = document.getElementById('useAI');
+    if (!deployCliDiv) return;
+    const withoutAiMode = !!(useAISelect && useAISelect.value === 'without');
+    deployCliDiv.style.display = withoutAiMode ? 'none' : '';
+}
+
+waitForElm('#useAI').then((useAISelect) => {
+    if (useAISelect.dataset.deployCliVisibilityBound !== 'true') {
+        useAISelect.addEventListener('change', syncDeployCliVisibility);
+        useAISelect.dataset.deployCliVisibilityBound = 'true';
+    }
+    syncDeployCliVisibility();
+});
+
 waitForElm('#textInPage').then(() => {
     let currentPath = window.location.href;
     let myRepo = "PartnerTools";
@@ -62,7 +78,7 @@ waitForElm('#textInPage').then(() => {
         createRustApiStatusPanel('combined-rust-api-container', false);
         setupTradeFlowRepos('extraRepos');
         setupGeminiResources();
-        loadMarkdown("../admin/github/deploy-cli.md", "deployCliDiv", "_parent", 1);
+        loadMarkdown("../admin/github/deploy-cli.md", "deployCliDiv", "_parent", 1, syncDeployCliVisibility);
         loadMarkdown("../admin/github/deploy-git.md", "deployGitDiv", "_parent", 1);
         setTimeout(() => { updateForkReposCommands(); }, 100);
     }, 200);
@@ -121,9 +137,23 @@ function setupDeployGitLayout() {
         nodesToMove.forEach((item) => toggleArea.appendChild(item));
         deployGitDiv.appendChild(toggleArea);
     }
+
+    let summaryLine = document.getElementById('deploy-git-summary-line');
+    if (!summaryLine) {
+        summaryLine = document.createElement('div');
+        summaryLine.id = 'deploy-git-summary-line';
+        summaryLine.style.marginBottom = '10px';
+        summaryLine.style.color = 'var(--text-secondary)';
+        summaryLine.textContent = 'Commands to push/pull without AI shortcuts.';
+    }
+    if (summaryLine.parentElement !== deployGitDiv) {
+        deployGitDiv.insertBefore(summaryLine, toggleArea);
+    }
+
     showDeployGitBtn.textContent = getComputedStyle(toggleArea).display === 'none'
         ? 'Show Commands'
         : 'Hide Commands';
+    summaryLine.style.display = getComputedStyle(toggleArea).display === 'none' ? 'block' : 'none';
 
     if (showDeployGitBtn.dataset.deployGitBound !== 'true') {
         showDeployGitBtn.dataset.deployGitBound = 'true';
@@ -131,6 +161,7 @@ function setupDeployGitLayout() {
             const isHidden = getComputedStyle(toggleArea).display === 'none';
             toggleArea.style.display = isHidden ? 'block' : 'none';
             showDeployGitBtn.textContent = isHidden ? 'Hide Commands' : 'Show Commands';
+            summaryLine.style.display = isHidden ? 'none' : 'block';
         });
     }
 }
@@ -155,7 +186,7 @@ waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
     </div>
     <div id="commonSetupDiv"></div>
     <div id="quickstartDiv" class="card"></div>
-    <div id="combined-rust-api-container"></div>
+    <div id="combined-rust-api-container" class="geo-x"></div>
     <div class="card" id="extraRepos"></div>
     <div class="card" id="deployCliDiv"></div>
     <button id="showDeployGit" class="btn btn-success">Show Commands</button>
