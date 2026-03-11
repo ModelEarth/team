@@ -10,14 +10,13 @@ You can refresh all your local submodules by running:
 Rather than using the simple Code CLI commands above, the <code>git.sh</code> script can be callled directly to manage git operations across webroot, submodules, and site repos.</p>
 
 <h3>Basic Commands</h3>
-<pre style="background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto;">
-./git.sh pull            # Pull all repositories (webroot + submodules + site repos)
+<pre><code>./git.sh pull            # Pull all repositories (webroot + submodules + site repos)
 ./git.sh push            # Push all repositories with changes (auto-pulls first)
 ./git.sh push nopull     # Push without auto-pull (use after git filter-repo or when history diverges)
 ./git.sh push [repo]     # Push specific repository
 ./git.sh push nopr       # Push without creating PRs on failure
 ./git.sh push nopull nopr # Combine options: skip pull and skip PR creation
-</pre>
+</code></pre>
 
 <h3>Options</h3>
 <ul>

@@ -184,7 +184,7 @@ const API_BASE = 'http://localhost:8081/api';
 The application supports Azure and Google Cloud PostgreSQL:
 ```rust
 // In Cargo.toml or environment variables
-DATABASE_URL=postgresql://sqladmin@model-earth-server.database.windows.net/IndustryDB
+DATABASE_URL=postgresql://sqladmin@industry-server.database.windows.net/IndustryDB
 ```
 
 ### Authentication Providers

@@ -63,7 +63,21 @@ lsof -ti:8081 | xargs kill -9
 **IMPORTANT**: Always check if an HTTP server is already running before attempting to start it. Use `lsof -ti:8887` to check if the HTTP server is running, then only start if needed. This prevents errors and duplicate HTTP server processes. Note: Rust API servers may need to be restarted for code changes.
 
 ### Start HTTP Server
-When you type "start server", run:
+When you type "start server", use the appropriate command for your environment:
+
+#### Option 1: OpenAI Codex (and other agents without shell script support)
+
+```bash
+nohup python3 desktop/install/server.py --port 8887 > /dev/null 2>&1 &
+```
+
+> **Note for OpenAI Codex**: Use this direct Python command instead of `quickstart.sh`. Codex sandboxes do not support executing shell scripts via `nohup ... &` in the same way — `quickstart.sh` may hang or fail silently because it sets up a virtual environment and sources shell functions that are not available in the Codex execution environment.
+
+**What this command does:**
+- Starts the Python HTTP server with server-side execution access via server.py on port 8887
+- No virtual environment setup required — runs with the system Python 3
+
+#### Option 2: Claude Code CLI and terminal users (recommended when available)
 
 ```bash
 nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &

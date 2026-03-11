@@ -780,7 +780,7 @@ function initializeOSDetectionPanel() {
             deployCliDiv.style.display = hideDeployCli ? 'none' : '';
         }
         if (agentCheckboxes) {
-            const showCheckboxes = withAiMode || anyNonNoCliChecked;
+            const showCheckboxes = (withAiMode || anyNonNoCliChecked) && !withoutAiMode;
             agentCheckboxes.style.display = showCheckboxes ? 'flex' : 'none';
             if (agentCheckboxesHelper) {
                 const showHelper = showCheckboxes && !withoutAiMode && !anyNonNoCliChecked;
@@ -835,7 +835,7 @@ function initializeOSDetectionPanel() {
         }
 
         // Handle CLI section (for both Codex and Claude Code CLI)
-        if (codexChecked || claudeCodeChecked) {
+        if ((codexChecked || claudeCodeChecked) && !withoutAiMode) {
             // Show and expand the main CLI commands section
             expandSection('cli-commands');
 
@@ -904,7 +904,7 @@ function initializeOSDetectionPanel() {
         }
 
         // Keep all .cli-only sections hidden until user selects "with" or checks an AI agent.
-        const allowCliOnlySections = withAiMode || anyNonNoCliChecked;
+        const allowCliOnlySections = (withAiMode || anyNonNoCliChecked) && !withoutAiMode;
         document.querySelectorAll('.cli-only').forEach(el => {
             if (!allowCliOnlySections) {
                 el.style.display = 'none';
@@ -913,6 +913,19 @@ function initializeOSDetectionPanel() {
             if (el.id === 'cli-commands') return; // Managed by existing codex/claude logic above
             el.style.display = noAiOnlyMode ? 'none' : '';
         });
+        // Toggle with-ai / without-ai content blocks (used in markdown files)
+        document.querySelectorAll('.with-ai-content').forEach(el => {
+            el.style.display = withoutAiMode ? 'none' : 'block';
+        });
+        document.querySelectorAll('.without-ai-content').forEach(el => {
+            el.style.display = withoutAiMode ? 'block' : 'none';
+        });
+        const extraReposTitle = document.getElementById('extra-repos-title');
+        if (extraReposTitle) {
+            const isBoth = aiModeValue === 'both';
+            extraReposTitle.textContent = isBoth ? 'Extra Repos' : withoutAiMode ? 'Extra Repos without AI' : 'Extra Repos with AI';
+        }
+
         // Sync rust tab labels and active tab
         updateRustTabState();
         updateWithoutCliCommand();
@@ -1097,29 +1110,6 @@ npm install -g openai-codex-cli</code></pre>`;
     if (osSelect.dataset.aiModeListenerBound !== 'true') {
         osSelect.dataset.aiModeListenerBound = 'true';
         document.addEventListener('aiModeChanged', function(event) {
-            const aiMode = normalizeAiModeValue(event && event.detail ? event.detail.aiMode : '');
-            if (aiMode === 'no') {
-                if (codexCli) {
-                    codexCli.checked = false;
-                    localStorage.setItem('codex-cli-installed', 'false');
-                }
-                if (claudeCodeCli) {
-                    claudeCodeCli.checked = false;
-                    localStorage.setItem('claude-code-cli-installed', 'false');
-                }
-                if (geminiCli) {
-                    geminiCli.checked = false;
-                    localStorage.setItem('gemini-cli-installed', 'false');
-                }
-                if (grokCli) {
-                    grokCli.checked = false;
-                    localStorage.setItem('grok-cli-installed', 'false');
-                }
-                if (vscodeClaude) {
-                    vscodeClaude.checked = false;
-                    localStorage.setItem('vscode-claude-installed', 'false');
-                }
-            }
             updateCliCommands();
         });
     }
@@ -2030,8 +2020,6 @@ function ensureRustApiStatusPanelStyles() {
         }
         .rust-api-status-button {
             margin: 0;
-            width: 150px;
-            min-width: 150px;
         }
         #stop-rust-btn.rust-api-status-button {
             margin-bottom: 0;
@@ -2098,10 +2086,10 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                 <!-- Status Indicators -->
                 <div id="backend-status-indicators">
                     <div class="rust-api-status-header">
-                        <h3 class="rust-api-status-heading">
+                        <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator" id="rust-api-status-indicator"></span>
-                            <span id="rust-api-status-title">Rust API and SQL Databases</span>
-                        </h3>
+                            <span id="rust-api-status-title"><strong>Rust Backend API</strong> - start locally for access to CORS datasets and SQL databases</span>
+                        </div>
                         <div class="rust-api-status-actions">
                             <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" style="display: none;" id="reload-status-btn">
                                 Recheck Status
@@ -2154,8 +2142,8 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
         nextSibling.remove();
     }
     container.insertAdjacentHTML('afterend', `
-        <div class="rust-api-admin-link-outer geo-x">
-            <div class="rust-api-admin-link-wrap local">
+        <div class="rust-api-admin-link-outer dreamstudio-x">
+            <div class="rust-api-admin-link-wrap">
                 <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
                     Database Admin
                 </button>
@@ -2221,7 +2209,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         if (healthResponse.ok) {
             // Backend is active
             indicator.className = 'status-indicator connected';
-            title.textContent = 'Rust API and SQL Databases';
 
             // Check if we're using localhost fallback on an external domain
             const isExternalDomain = !(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -2283,20 +2270,18 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             if (typeof updateRustRecheckMessageVisibilityForDesktopInstaller === 'function') {
                 updateRustRecheckMessageVisibilityForDesktopInstaller();
             }
-            
-            
+            if (typeof updateBackendAggregateStatus === 'function') {
+                updateBackendAggregateStatus('quickstartDiv-python-status');
+            }
+
         } else {
             throw new Error('Backend not responding');
         }
     } catch (error) {
         // Backend is inactive - show demo mode
         indicator.className = 'status-indicator error';
-        title.textContent = 'Rust API and SQL Databases';
         
         content.innerHTML = `
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                <span class="status-indicator error" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></span>The Rust backend server needs to be started to access full configuration and testing capabilities.
-            </p>
             <div id="rust-start-mode-content">
                 <div id="with-cli-content" style="display: none;">
                     <p id="with-cli-label" style="display:none; color: var(--text-secondary); margin: 0 0 8px 0;"><strong>AI Command</strong></p>
@@ -2341,8 +2326,10 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         if (typeof updateRustRecheckMessageVisibilityForDesktopInstaller === 'function') {
             updateRustRecheckMessageVisibilityForDesktopInstaller();
         }
-        
-        
+        if (typeof updateBackendAggregateStatus === 'function') {
+            updateBackendAggregateStatus('quickstartDiv-python-status');
+        }
+
         // Initialize feather icons for the info icon
         if (window.feather) {
             setTimeout(() => feather.replace(), 100);
@@ -2443,8 +2430,8 @@ async function checkBackendStatus() {
             'test-commons-connection',
             'commons-db-indicator',
             'commons-db-text',
-            'Member database active',
-            'Member database inactive'
+            'Commons database active',
+            'Commons database inactive'
         ),
         checkDatabaseConnection(
             'test-exiobase-connection',

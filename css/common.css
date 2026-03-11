@@ -117,15 +117,13 @@ h2 {
     padding: 24px;
     padding-bottom: 4px;
     margin-bottom: 16px;
-    
-    /* Add these responsive properties */
     overflow-x: auto;
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
 }
 .dark .card {
-    background: #333;
+    background: #555;
 }
 
 .side-padding {
@@ -188,6 +186,52 @@ h1.card-title {
     min-width: 144px;
 }
 
+.with-ai-content { display: block; }
+.without-ai-content { display: none; }
+
+.quickstart-commands-toggle-group {
+    align-items: center;
+}
+
+.quickstart-commands-toggle-group .quickstart-commands-toggle-btn {
+    min-width: 0 !important;
+    width: auto !important;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.quickstart-toggle-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    overflow: hidden;
+    visibility: hidden;
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+}
+
+.material-icons-loaded .quickstart-toggle-icon.material-icons {
+    visibility: visible;
+}
+
+.quickstart-commands-toggle-group.compact-toggle-group {
+    gap: 2px !important;
+}
+
+.quickstart-commands-toggle-group.compact-toggle-group .quickstart-commands-toggle-btn {
+    padding-left: 9px;
+}
+
+.quickstart-commands-toggle-group.compact-toggle-group .quickstart-toggle-icon {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+}
+
 .actions {
     display: flex;
     gap: 12px;
@@ -208,6 +252,11 @@ h1.card-title {
     }
     #coding-with-right .mac-instructions {
         text-align: left;
+    }
+    .quickstart-commands-toggle-group.compact-toggle-group {
+        margin-left: 0 !important;
+        justify-content: flex-start !important;
+        width: 100%;
     }
 }
 /* ===== STATUS INDICATORS ===== */

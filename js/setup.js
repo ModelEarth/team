@@ -50,17 +50,20 @@ function createWebrootSetupHTML() {
 // HTML content for the trade flow repos section
 function createTradeFlowReposHTML() {
     return `
-        <h1 class="card-title">Extra Repos</h1>
+        <h1 class="card-title"><span id="extra-repos-title">Extra Repos</span></h1>
+        <div class="with-ai-content">
         <p>Optional: To contribute to our tradeflow visualizations, run the following to fork and clone:<br>
         trade-data, community, cv, nisar, evaporation-kits</p>
-        
+
         <pre><code id="forkReposCmds">using guidance in webroot/AGENTS.md
 fork extra repos to [your github account]
 clone extra repos from [your github account]
 </code></pre>
 
         <p>The above requires having GitHub CLI (gh) installed locally and authenticated with your GitHub account. (Steps above)</p>
-        
+        </div>
+        <div class="without-ai-content">Without AI, use Github Desktop to manage extra repos in your webroot.</div>
+
         <p><a href="https://model.earth/codechat/">Overview of repos (codechat)</a></p>
     `;
 }
@@ -253,6 +256,24 @@ function setupTradeFlowRepos(containerId) {
         // Insert the trade flow repos HTML
         const tradeFlowHTML = createTradeFlowReposHTML();
         container.innerHTML = tradeFlowHTML;
+
+        // Apply current AI mode immediately after inserting HTML
+        if (typeof getCurrentAiModeValue === 'function') {
+            const aiMode = getCurrentAiModeValue();
+            const isWithout = aiMode === 'no';
+            const isBoth = aiMode === 'both';
+            container.querySelectorAll('.with-ai-content').forEach(el => {
+                el.style.display = isWithout ? 'none' : 'block';
+            });
+            container.querySelectorAll('.without-ai-content').forEach(el => {
+                el.style.display = isWithout ? 'block' : 'none';
+            });
+            const titleEl = container.querySelector('#extra-repos-title');
+            if (titleEl) {
+                titleEl.textContent = isBoth ? 'Extra Repos' : isWithout ? 'Extra Repos without AI' : 'Extra Repos with AI';
+            }
+        }
+
         updateGeorgiaModelsitePanelVisibility();
 
         if (!window.teamSetupModelsiteChangedBound) {
@@ -715,11 +736,6 @@ function ensureQuickstartLayoutStyles() {
                 flex: 1 1 100%;
                 width: 100%;
             }
-            #quickstartDiv-toggle.quickstart-commands-toggle-group {
-                margin-left: 0 !important;
-                justify-content: flex-start !important;
-                width: 100%;
-            }
         }
     `;
     document.head.appendChild(style);
@@ -997,11 +1013,17 @@ async function getWebServerStatusState() {
 
 function getPythonBackendStatusMarkup(containerId) {
     return `
-        <div id="${containerId}" style="color: var(--text-secondary);">
+        <h1 class="card-title" style="display:flex; align-items:center; gap:10px; margin-top:26px;">
+            <span class="status-indicator error" id="${containerId}-aggregate-dot"></span>
+            <span>Backend Code and API</span>
+        </h1>
+        <p style="color:var(--text-secondary); margin:0 0 6px 0; font-size:13px;">You don't need to activate these to contribute - since our webroot uses JAM Stack (static pages with APIs)</p>
+        <div id="${containerId}">
             <div data-backend="pipeline" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
+                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start pipeline</code></pre>
@@ -1038,10 +1060,11 @@ else
 fi</code></pre>
                 </div>
             </div>
-            <div data-backend="cloud" style="margin-top: 15px;">
+            <div data-backend="cloud" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
+                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start cloud</code></pre>
@@ -1244,8 +1267,8 @@ function shouldShowFullCommandsContainer(state) {
 function setQuickstartToggleButtonState(button, isActive) {
     if (!button) return;
     const buttonGroup = button.closest('.quickstart-commands-toggle-group');
-    const isQuickstartDivToggle = !!(buttonGroup && buttonGroup.id === 'quickstartDiv-toggle');
-    if (isQuickstartDivToggle && buttonGroup) {
+    const isCompactToggle = !!(buttonGroup && (buttonGroup.id === 'quickstartDiv-toggle' || buttonGroup.id === 'webserver-commands-toggle'));
+    if (isCompactToggle && buttonGroup) {
         buttonGroup.style.gap = '2px';
     }
 
@@ -1268,15 +1291,24 @@ function setQuickstartToggleButtonState(button, isActive) {
 
     iconSpan.classList.add('material-icons');
     iconSpan.textContent = isActive ? 'radio_button_checked' : 'radio_button_unchecked';
-    iconSpan.style.fontSize = isQuickstartDivToggle ? '18px' : '';
-    iconSpan.style.lineHeight = isQuickstartDivToggle ? '1' : '';
+    iconSpan.style.fontSize = isCompactToggle ? '18px' : '';
+    iconSpan.style.lineHeight = isCompactToggle ? '1' : '';
     labelSpan.textContent = labelText;
 
     button.style.display = 'inline-flex';
     button.style.alignItems = 'center';
     button.style.gap = '6px';
-    button.style.paddingLeft = isQuickstartDivToggle ? '9px' : '';
+    button.style.paddingLeft = isCompactToggle ? '9px' : '';
     button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+}
+
+function getQuickstartToggleButtonMarkup(mode, className, label) {
+    return `
+        <button id="ai-${mode}" class="${className} quickstart-commands-toggle-btn" data-mode="${mode}">
+            <span class="quickstart-toggle-icon material-icons" aria-hidden="true">radio_button_unchecked</span>
+            <span class="quickstart-toggle-label">${label}</span>
+        </button>
+    `;
 }
 
 function setGlobalCommandToggleAppearance(state) {
@@ -1316,12 +1348,28 @@ function updateBackendCommandForRow(row, isRunning) {
     const withAiBlock = row.querySelector('.with-ai-backend-cmd');
     const commandBlock = row.querySelector('.no-ai-backend-cmd');
     const fullCommandLabel = row.querySelector('.full-command-label');
+    const showCmdBtn = row.querySelector('.show-cmd-btn');
     const commandsVisible = !isRunning;
     const showFullCommandLabel = commandsVisible && modeState.withAi && modeState.withoutAi;
     if (withAiBlock) {
         withAiBlock.style.display = commandsVisible && modeState.withAi ? 'block' : 'none';
     }
-    if (commandBlock) {
+    if (showCmdBtn) {
+        const showBtn = commandsVisible && modeState.withoutAi;
+        showCmdBtn.style.display = showBtn ? 'inline-block' : 'none';
+        if (!showBtn && commandBlock) {
+            commandBlock.style.display = 'none';
+            showCmdBtn.textContent = 'Show Command';
+        }
+        if (showBtn && !showCmdBtn.dataset.listenerBound) {
+            showCmdBtn.dataset.listenerBound = 'true';
+            showCmdBtn.addEventListener('click', function() {
+                const expanded = commandBlock && commandBlock.style.display !== 'none';
+                if (commandBlock) commandBlock.style.display = expanded ? 'none' : 'block';
+                showCmdBtn.textContent = expanded ? 'Show Command' : 'Hide Command';
+            });
+        }
+    } else if (commandBlock) {
         commandBlock.style.display = commandsVisible && modeState.withoutAi ? 'block' : 'none';
     }
     if (fullCommandLabel) {
@@ -1476,6 +1524,25 @@ function setBackendRowStatus(container, backendKey, isRunning) {
         text.textContent = 'Not running';
         updateBackendCommandForRow(row, false);
     }
+    updateBackendAggregateStatus(container.id);
+}
+
+function updateBackendAggregateStatus(pythonStatusId) {
+    const aggregateDot = document.getElementById(`${pythonStatusId}-aggregate-dot`);
+    if (!aggregateDot) return;
+    const scopeIds = [pythonStatusId, 'backend-status-indicators'];
+    let allGreen = true;
+    let anyFound = false;
+    scopeIds.forEach((id) => {
+        const scope = document.getElementById(id);
+        if (!scope) return;
+        scope.querySelectorAll('.status-indicator').forEach((dot) => {
+            if (getComputedStyle(dot).display === 'none') return;
+            anyFound = true;
+            if (!dot.classList.contains('connected')) allGreen = false;
+        });
+    });
+    aggregateDot.className = `status-indicator ${anyFound && allGreen ? 'connected' : 'error'}`;
 }
 
 function copyCommandToClipboard(command, options = {}) {
@@ -1776,14 +1843,17 @@ async function updatePythonBackendStatus(containerId) {
     });
 }
 
-function moveQuickstartToggleBeforeUseAI() {
+function moveCommandsToggleBeforeUseAI(buttonId = 'quickstartDiv-toggle') {
     const agentCheckboxes = document.getElementById('agent-checkboxes');
     if (!agentCheckboxes || !agentCheckboxes.parentElement) {
+        if (typeof waitForElm === 'function') {
+            waitForElm('#quickstartDiv-toggle-host').then(() => moveCommandsToggleBeforeUseAI(buttonId));
+        }
         return;
     }
     const controlsHost = document.getElementById('coding-with-controls');
 
-    const toggleGroups = Array.from(document.querySelectorAll('#quickstartDiv-toggle'));
+    const toggleGroups = Array.from(document.querySelectorAll(`#${buttonId}`));
     if (!toggleGroups.length) {
         return;
     }
@@ -1818,6 +1888,7 @@ function moveQuickstartToggleBeforeUseAI() {
         host.appendChild(toggleGroup);
     }
 
+    toggleGroup.style.gap = '2px';
     toggleGroup.style.marginLeft = '0';
     toggleGroup.style.justifyContent = 'flex-start';
     toggleGroup.style.width = '100%';
@@ -1854,8 +1925,8 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     }
     setCommandsVisibility(showCommandsOnLoad);
     updateQuickstartCliVisibility();
-    if (buttonId === 'quickstartDiv-toggle') {
-        moveQuickstartToggleBeforeUseAI();
+    if (buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle') {
+        moveCommandsToggleBeforeUseAI(buttonId);
     }
 
     buttons.forEach((button) => {
@@ -1871,8 +1942,8 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
             }
             setCommandsVisibility(shouldShowFullCommandsContainer(nextState));
             updateQuickstartCliVisibility();
-            if (buttonId === 'quickstartDiv-toggle') {
-                moveQuickstartToggleBeforeUseAI();
+            if (buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle') {
+                moveCommandsToggleBeforeUseAI(buttonId);
             }
         });
     });
@@ -1901,7 +1972,9 @@ async function setupWebServerStatusPanel(options) {
     const defaultClass = options.buttonClassDefault || options.buttonClass || 'btn btn-secondary';
     const buttonId = options.toggleButtonId;
     const commandsContainerId = options.commandsContainerId;
-    const toggleGap = buttonId === 'quickstartDiv-toggle' ? '2px' : '8px';
+    const isCompactToggle = buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle';
+    const toggleGap = isCompactToggle ? '2px' : '8px';
+    const toggleGroupClass = `quickstart-commands-toggle-group${isCompactToggle ? ' compact-toggle-group' : ''}`;
 
     if (isRunning) {
         statusIndicator.className = 'status-indicator connected';
@@ -1911,11 +1984,11 @@ async function setupWebServerStatusPanel(options) {
                 <p style="color: var(--text-secondary); margin: 0; flex: 1 1 360px; display:flex; align-items:center; align-self:center;">
                     Your local http server is running at&nbsp;<a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
                 </p>
-                <div class="actions ${buttonId === 'quickstartDiv-toggle' ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
-                        <button id="ai-yes" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="with-ai">With AI</button>
-                        <button id="ai-no" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="without-ai">Without AI</button>
-                        <button id="ai-both" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="both">Both</button>
+                <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
+                        ${getQuickstartToggleButtonMarkup('with-ai', connectedClass, 'With AI')}
+                        ${getQuickstartToggleButtonMarkup('without-ai', connectedClass, 'Without AI')}
+                        ${getQuickstartToggleButtonMarkup('both', connectedClass, 'Both')}
                     </div>
                 </div>
             </div>
@@ -1931,11 +2004,11 @@ async function setupWebServerStatusPanel(options) {
                     To view webroots locally at:<br>
                     <a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
                 </p>
-                <div class="actions ${buttonId === 'quickstartDiv-toggle' ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
-                        <button id="ai-yes" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="with-ai">With AI</button>
-                        <button id="ai-no" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="without-ai">Without AI</button>
-                        <button id="ai-both" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="both">Both</button>
+                <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
+                        ${getQuickstartToggleButtonMarkup('with-ai', defaultClass, 'With AI')}
+                        ${getQuickstartToggleButtonMarkup('without-ai', defaultClass, 'Without AI')}
+                        ${getQuickstartToggleButtonMarkup('both', defaultClass, 'Both')}
                     </div>
                 </div>
             </div>
