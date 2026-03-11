@@ -667,31 +667,6 @@ function getQuickstartCommandsHtml() {
             <div id="stop-port-fallback"></div>
             <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         </div>
-        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
-            <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
-        </div>
-        <div id="quickstart-desktop-installer-details" style="display: none;">
-            <div id="quickstart-mac-linux-section">
-                <p style="color: var(--text-primary);"><span id="quickstart-desktop-installer-lead-prefix">Or run a python backend for the</span> <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a></p>
-                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
-source env/bin/activate
-./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
-            </div>
-            <div id="quickstart-windows-section">
-                <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
-                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
-env\\Scripts\\activate
-./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
-            </div>
-            <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
-            <ul style="color: var(--text-secondary); margin-left: 20px;">
-                <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
-                <li>Activates the virtual environment</li>
-                <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
-                <li>Installs the <code>anthropic</code> package if API key is present</li>
-                <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localWebPort}</li>
-            </ul>
-        </div>
     `;
 }
 
@@ -746,22 +721,12 @@ function renderQuickstartCommands(containerId) {
     if (!container) return;
     ensureQuickstartLayoutStyles();
 
-    const existingDesktopPlaceholder = document.getElementById('quickstart-cli-placeholder');
-    if (existingDesktopPlaceholder && !container.contains(existingDesktopPlaceholder)) {
-        existingDesktopPlaceholder.remove();
-    }
-    const existingDesktopDetails = document.getElementById('quickstart-desktop-installer-details');
-    if (existingDesktopDetails && !container.contains(existingDesktopDetails)) {
-        existingDesktopDetails.remove();
-    }
-
     container.innerHTML = getQuickstartCommandsHtml();
     const aiPromptHost = document.getElementById(`${containerId}-ai-prompt-host`);
     const aiPromptWrap = document.getElementById('quickstart-cli-prompt-wrap');
     if (aiPromptHost && aiPromptWrap && aiPromptWrap.parentElement !== aiPromptHost) {
         aiPromptHost.appendChild(aiPromptWrap);
     }
-    moveDesktopInstallerControlsToRustActions();
     attachQuickstartCliListeners();
     updateQuickstartCliVisibility();
     updateQuickstartDesktopInstallerStatus();
@@ -844,35 +809,6 @@ function updateRustRecheckMessageVisibilityForDesktopInstaller() {
     }
 }
 
-function moveDesktopInstallerControlsToRustActions() {
-    const rustActionsWrap = document.querySelector('.rust-api-admin-link-wrap');
-    const databaseAdminBtn = document.getElementById('database-admin-btn');
-    const desktopInstallerPlaceholder = document.getElementById('quickstart-cli-placeholder');
-    if (!rustActionsWrap || !databaseAdminBtn || !desktopInstallerPlaceholder) {
-        return;
-    }
-
-    if (
-        desktopInstallerPlaceholder.parentElement !== rustActionsWrap
-        || desktopInstallerPlaceholder.previousElementSibling !== databaseAdminBtn
-    ) {
-        databaseAdminBtn.insertAdjacentElement('afterend', desktopInstallerPlaceholder);
-    }
-
-    desktopInstallerPlaceholder.style.marginTop = '0';
-    const trailingBreak = desktopInstallerPlaceholder.querySelector('br');
-    if (trailingBreak) {
-        trailingBreak.style.display = 'none';
-    }
-
-    const desktopInstallerDetails = document.getElementById('quickstart-desktop-installer-details');
-    if (desktopInstallerDetails && desktopInstallerDetails.previousElementSibling !== rustActionsWrap) {
-        rustActionsWrap.insertAdjacentElement('afterend', desktopInstallerDetails);
-        desktopInstallerDetails.style.marginTop = '8px';
-    }
-
-    updateRustRecheckMessageVisibilityForDesktopInstaller();
-}
 
 async function isExecutablePythonRunning() {
     const localWebPort = getConfiguredLocalWebPort();
@@ -895,18 +831,6 @@ async function isExecutablePythonRunning() {
 }
 
 async function updateQuickstartDesktopInstallerStatus() {
-    const statusEl = document.getElementById('quickstart-desktop-installer-status');
-    const leadPrefix = document.getElementById('quickstart-desktop-installer-lead-prefix');
-
-    const pythonAvailable = await isExecutablePythonRunning();
-    if (statusEl) {
-        statusEl.textContent = '';
-    }
-    if (leadPrefix) {
-        leadPrefix.textContent = pythonAvailable
-            ? 'Or run a python backend for the'
-            : 'Run executable python backend for the';
-    }
 }
 
 function updateQuickstartCliVisibility() {
@@ -916,7 +840,6 @@ function updateQuickstartCliVisibility() {
     const promptWrap = document.getElementById('quickstart-cli-prompt-wrap');
     const line = document.getElementById('quickstart-cli-line');
     const command = document.getElementById('quickstart-cli-command');
-    const placeholder = document.getElementById('quickstart-cli-placeholder');
     if (!line) {
         return;
     }
@@ -930,9 +853,6 @@ function updateQuickstartCliVisibility() {
     line.style.display = showAiPrompt ? 'inline' : 'none';
     if (command) {
         command.style.display = showAiPrompt ? 'block' : 'none';
-    }
-    if (placeholder) {
-        placeholder.style.display = 'inline-flex';
     }
     updateQuickstartOsVisibility();
 }
@@ -2050,6 +1970,11 @@ function setupQuickstartInstructions(containerId) {
     const commandsContainerId = `${containerId}-commands`;
     const pythonStatusId = `${containerId}-python-status`;
     const contentStyle = containerId === 'quickstartDiv' ? ' style="margin-bottom: 15px;"' : '';
+    const localWebPort = getConfiguredLocalWebPort();
+    const currentPort = window.location.port;
+    const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
+        ? currentPort
+        : '8887';
 
     container.innerHTML = `
         <div style="margin-top: 12px;">
@@ -2059,8 +1984,35 @@ function setupQuickstartInstructions(containerId) {
             </h1>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
+            <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
+                <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
+            </div>
+            <div id="quickstart-desktop-installer-details" style="display: none;">
+                <div id="quickstart-mac-linux-section">
+                    <p style="color: var(--text-primary);">Optional: run an executable python backend for the <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a>${currentPort ? ` (stop existing ${currentPort} first.)` : ''}</p>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
+source env/bin/activate
+./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
+                </div>
+                <div id="quickstart-windows-section">
+                    <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
+env\\Scripts\\activate
+./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
+                </div>
+                <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
+                <ul style="color: var(--text-secondary); margin-left: 20px;">
+                    <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
+                    <li>Activates the virtual environment</li>
+                    <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+                    <li>Installs the <code>anthropic</code> package if API key is present</li>
+                    <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localWebPort}</li>
+                </ul>
+            </div>
         </div>
     `;
+    attachQuickstartCliListeners();
+    updateQuickstartDesktopInstallerStatus();
 
     setupWebServerStatusPanel({
         statusIndicatorId,

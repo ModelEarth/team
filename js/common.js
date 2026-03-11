@@ -2024,6 +2024,11 @@ function ensureRustApiStatusPanelStyles() {
         #stop-rust-btn.rust-api-status-button {
             margin-bottom: 0;
         }
+        .dark .rust-api-status-button {
+            background-color: var(--border-medium);
+            border-color: var(--border-medium);
+            color: var(--text-secondary);
+        }
         .rust-api-status-content-wrap {
             position: relative;
         }
@@ -2091,9 +2096,6 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                             <span id="rust-api-status-title"><strong>Rust Backend API</strong> - start locally for access to CORS datasets and SQL databases</span>
                         </div>
                         <div class="rust-api-status-actions">
-                            <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" style="display: none;" id="reload-status-btn">
-                                Recheck Status
-                            </button>
                             <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
                                 Stop Rust
                             </button>
@@ -2120,6 +2122,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <span class="status-indicator error" id="location-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                     </div>
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px;">
+                        <button class="btn btn-secondary rust-api-status-button" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">Database Admin</button>
+                        <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" id="reload-status-btn">Recheck Status</button>
+                        <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite" style="color: var(--text-secondary); font-size: 14px;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2131,41 +2138,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     `;
 
     container.innerHTML = panelHtml;
-    const nextSibling = container.nextElementSibling;
-    if (
-        nextSibling
-        && (
-            nextSibling.classList.contains('rust-api-admin-link-wrap')
-            || nextSibling.classList.contains('rust-api-admin-link-outer')
-        )
-    ) {
-        nextSibling.remove();
-    }
-    container.insertAdjacentHTML('afterend', `
-        <div class="rust-api-admin-link-outer dreamstudio-x">
-            <div class="rust-api-admin-link-wrap">
-                <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
-                    Database Admin
-                </button>
-                <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite">
-                    Click Recheck Status to refresh Rust API and database checks.
-                </div>
-            </div>
-        </div>
-    `);
-    const rustAdminOuter = container.nextElementSibling;
-    const rustAdminLinkWrap = rustAdminOuter ? rustAdminOuter.querySelector('.rust-api-admin-link-wrap') : null;
     const githubCliCard = document.getElementById('githubCLICard');
     const quickstartPanel = document.getElementById('quickstartDiv');
     if (quickstartPanel && githubCliCard) {
         quickstartPanel.insertAdjacentElement('afterend', githubCliCard);
-    } else if (rustAdminOuter && rustAdminLinkWrap && githubCliCard) {
-        rustAdminOuter.insertAdjacentElement('afterend', githubCliCard);
     }
-    if (typeof moveDesktopInstallerControlsToRustActions === 'function') {
-        moveDesktopInstallerControlsToRustActions();
-    }
-
     // Initialize the status check
     updateRustApiStatusPanel(showConfigureLink, adminPath);
 }
@@ -2192,7 +2169,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const title = document.getElementById('rust-api-status-title');
     const content = document.getElementById('rust-api-status-content');
     const dbIndicators = document.getElementById('backend-status-indicators');
-    const reloadBtn = document.getElementById('reload-status-btn');
     const stopBtn = document.getElementById('stop-rust-btn');
     const recheckMessage = document.getElementById('rust-recheck-message');
     const recheckTime = new Date().toLocaleTimeString();
@@ -2247,10 +2223,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
                 ${fallbackToggleHtml}
             `;
 
-            // Show reload and stop buttons
-            if (reloadBtn) {
-                reloadBtn.style.display = 'block';
-            }
+            // Show stop button
             if (stopBtn) {
                 stopBtn.style.display = 'block';
             }
@@ -2305,11 +2278,6 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         if (stopBtn) {
             stopBtn.style.display = 'none';
         }
-        // Keep reload button visible so user can refresh status
-        if (reloadBtn) {
-            reloadBtn.style.display = 'block';
-        }
-        
         // Show backend status indicators even when main API is inactive - they can still be checked
         if (dbIndicators) {
             dbIndicators.style.display = 'block';

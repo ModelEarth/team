@@ -83,11 +83,6 @@ waitForElm('#textInPage').then(() => {
         setupWebrootSetup('webrootSetup');
         setupGitAccountFields('textInPage');
         setupQuickstartInstructions('quickstartDiv');
-        const quickstartDiv = document.getElementById('quickstartDiv');
-        const rustApiContainer = document.getElementById('combined-rust-api-container');
-        if (quickstartDiv && rustApiContainer && rustApiContainer.parentElement !== quickstartDiv) {
-            quickstartDiv.appendChild(rustApiContainer);
-        }
         createRustApiStatusPanel('combined-rust-api-container', false);
         setupTradeFlowRepos('extraRepos');
         setupGeminiResources();
@@ -204,7 +199,7 @@ waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
     </div>
     <div id="commonSetupDiv"></div>
     <div id="quickstartDiv" class="card"></div>
-    <div id="combined-rust-api-container" class="geo-x"></div>
+    <div id="combined-rust-api-container" class="card geo-x"></div>
     <div class="card" id="extraRepos"></div>
     <div class="card" id="deployCliDiv"></div>
     <button id="showDeployGit" class="btn btn-success">Show Commands</button>

@@ -478,6 +478,11 @@ pre code {
     /* Caused hover to occur on active layout indicator on team/projects */
     /* color:#333 !important; */
 }
+.dark #quickstartDiv-toggle .quickstart-commands-toggle-btn[data-active="false"] {
+    background-color: var(--border-medium);
+    border-color: var(--border-medium);
+    color: var(--text-secondary);
+}
 .collapse-toggle-btn.btn-secondary:hover {
     background: var(--border-medium) !important;
     transform: translateY(-1px);
