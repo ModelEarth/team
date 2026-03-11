@@ -192,6 +192,24 @@ h1.card-title {
     display: flex;
     gap: 12px;
 }
+
+#coding-with-row {
+    container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+    #coding-with-right {
+        width: 100%;
+        margin-left: 0;
+        align-items: flex-start !important;
+    }
+    #coding-with-os-wrap {
+        align-items: flex-start !important;
+    }
+    #coding-with-right .mac-instructions {
+        text-align: left;
+    }
+}
 /* ===== STATUS INDICATORS ===== */
 .status-indicator {
     width: 12px;

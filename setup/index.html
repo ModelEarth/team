@@ -16,21 +16,34 @@
 // Create OS detection panel using shared function
 autoCreateOSDetectionPanel('#commonSetupDiv');
 
+function normalizeAiModeValue(value) {
+    const normalized = (value || '').toString().trim().toLowerCase();
+    if (normalized === 'yes' || normalized === 'with' || normalized === 'with-ai') return 'yes';
+    if (normalized === 'no' || normalized === 'without' || normalized === 'without-ai') return 'no';
+    if (normalized === 'both') return 'both';
+    return '';
+}
+
+function getCurrentAiModeValue() {
+    if (typeof getAiModePreference === 'function') {
+        const aiFromSetup = normalizeAiModeValue(getAiModePreference());
+        if (aiFromSetup) return aiFromSetup;
+    }
+    const storedAiMode = normalizeAiModeValue(localStorage.getItem('use-ai-mode'));
+    return storedAiMode || 'no';
+}
+
 function syncDeployCliVisibility() {
     const deployCliDiv = document.getElementById('deployCliDiv');
-    const useAISelect = document.getElementById('useAI');
     if (!deployCliDiv) return;
-    const withoutAiMode = !!(useAISelect && useAISelect.value === 'without');
+    const withoutAiMode = getCurrentAiModeValue() === 'no';
     deployCliDiv.style.display = withoutAiMode ? 'none' : '';
 }
 
-waitForElm('#useAI').then((useAISelect) => {
-    if (useAISelect.dataset.deployCliVisibilityBound !== 'true') {
-        useAISelect.addEventListener('change', syncDeployCliVisibility);
-        useAISelect.dataset.deployCliVisibilityBound = 'true';
-    }
-    syncDeployCliVisibility();
-});
+if (!window.setupDeployCliAiModeBound) {
+    document.addEventListener('aiModeChanged', syncDeployCliVisibility);
+    window.setupDeployCliAiModeBound = true;
+}
 
 waitForElm('#textInPage').then(() => {
     let currentPath = window.location.href;
@@ -163,6 +176,11 @@ function setupDeployGitLayout() {
             showDeployGitBtn.textContent = isHidden ? 'Hide Commands' : 'Show Commands';
             summaryLine.style.display = isHidden ? 'none' : 'block';
         });
+    }
+
+    const withoutAiMode = getCurrentAiModeValue() === 'no';
+    if (withoutAiMode && getComputedStyle(toggleArea).display === 'none') {
+        showDeployGitBtn.click();
     }
 }
 

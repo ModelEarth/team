@@ -107,7 +107,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 note.id = 'agents-guidance-note';
                 note.style.marginTop = '0';
                 const code = document.createElement('code');
-                code.textContent = 'For active guidance, follow the AGENTS.md files in the webroot, localsite, and team repos';
+                code.textContent = 'Follow AGENTS.md files in webroot, localsite, and team repos';
                 note.appendChild(code);
                 cliOnlyDiv.appendChild(note);
 
@@ -120,7 +120,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 const frontendNote = document.createElement('pre');
                 frontendNote.style.marginTop = '0';
                 const frontendCode = document.createElement('code');
-                frontendCode.textContent = 'For active guidance, follow localsite/AGENTS.md';
+                frontendCode.textContent = 'Follow localsite/AGENTS.md';
                 frontendNote.appendChild(frontendCode);
                 cliOnlyDiv.appendChild(frontendNote);
 
@@ -384,42 +384,31 @@ function createOSDetectionPanel(containerId) {
     
     const panelHTML = `
 <div class="card" id="os-detection-panel">
-    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px;">
-        <div id="cli-tools-heading-wrap" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <h1 class="card-title" id="cli-tools-title" style="margin: 0;">My Command Line Tool</h1>
-            <button type="button" id="no-ai-hide-btn" class="btn btn-secondary" style="display:none;">No AI</button>
-        </div>
-        <div id="no-ai-setup-heading-wrap" style="display: none; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <h1 class="card-title" id="no-ai-setup-title" style="margin: 0;">Local Setup without AI Agents</h1>
-            <button type="button" id="use-ai-reveal-btn" class="btn btn-secondary">Use AI</button>
-        </div>
-        <div>
-            <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
-                <option value="">Select OS...</option>
-                <option value="Mac">Mac</option>
-                <option value="PC">PC</option>
-                <option value="Linux">Linux</option>
-                <option value="Other">Other</option>
-            </select>
-            <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
-        </div>
-    </div>
     <div>
-
-        <div id="coding-with-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px;">
-            <span id="coding-with-label" style="font-weight: 500;">I'll be coding with...</span>
-            <span class="mac-instructions" style="font-size: 12px; white-space: nowrap;">
-                <a href="https://iterm2.com/" target="_blank">iTerm2</a> is a great terminal app
-            </span>
+        <div id="coding-with-row" style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-bottom: 0; container-type: inline-size;">
+            <div id="coding-with-left" style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; min-width: 220px;">
+                <span id="coding-with-label" style="font-weight: 500;">I'll run setup and deployments...</span>
+                <div id="coding-with-controls">
+                    <div id="quickstartDiv-toggle-host" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;"></div>
+                </div>
+            </div>
+            <div id="coding-with-right" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: auto; gap: 4px;">
+                <div id="coding-with-os-wrap" style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
+                        <option value="">Select OS...</option>
+                        <option value="Mac">Mac</option>
+                        <option value="PC">PC</option>
+                        <option value="Linux">Linux</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
+                </div>
+                <span class="mac-instructions" style="font-size: 12px;">
+                    Recommended terminal: <a href="https://iterm2.com/" target="_blank">iTerm2</a>
+                </span>
+            </div>
         </div>
         <div style="margin-bottom: 4px;"></div>
-        <div id="useAI-wrapper" style="display: none; margin-bottom: 8px;">
-            <select id="useAI" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 260px;">
-                <option value="">With or without AI</option>
-                <option value="with">With AI Coding Agent(s)</option>
-                <option value="without">Without AI Coding Agents</option>
-            </select>
-        </div>
         <div id="agent-checkboxes" style="display: none; flex-wrap: nowrap; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="claude-code-cli" style="margin: 0;">
@@ -442,11 +431,8 @@ function createOSDetectionPanel(containerId) {
                 <span>VS Code</span>
             </label>
         </div>
-        <div id="no-cli-row" style="margin-top: 6px; display: none; padding-left: 3px; box-sizing: border-box;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="no-cli" style="margin: 0;">
-                <span>Without AI Coding Agents</span>
-            </label>
+        <div id="agent-checkboxes-helper" style="display: none; margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
+            Select an AI Coding Agent above for install and session start commands
         </div>
     </div>
     <div id="cli-commands" class="cli-only" style="display: none;">
@@ -489,7 +475,7 @@ npx @anthropic-ai/claude-code</div>
                 <pre><code>codex -c model_reasoning_effort="medium" "fix this bug"</code></pre>
             </div>
             <div style="font-size: .8em;" id="cli-tips">
-                Since context grows is passed to Claude with each request, use a new terminal window when your context changes, or run /clear.<br>
+                Since context is passed with each request, use a new terminal window when your context changes, or run /clear.<br>
                 Also, use /compact with instructions on what to keep. (These approaches will keep responses fast and will use fewer tokens.)
             </div>
         </div>
@@ -629,13 +615,8 @@ function initializeOSDetectionPanel() {
     const geminiCli = document.getElementById('gemini-cli');
     const grokCli = document.getElementById('grok-cli');
     const vscodeClaude = document.getElementById('vscode-claude');
-    const noCli = document.getElementById('no-cli');
-    const noCliRow = document.getElementById('no-cli-row');
-    const useAISelect = document.getElementById('useAI');
-    const useAIWrapper = document.getElementById('useAI-wrapper');
-    const noAiHideBtn = document.getElementById('no-ai-hide-btn');
-    const useAiRevealBtn = document.getElementById('use-ai-reveal-btn');
     const agentCheckboxes = document.getElementById('agent-checkboxes');
+    const agentCheckboxesHelper = document.getElementById('agent-checkboxes-helper');
     const cliCommands = document.getElementById('cli-commands');
     const cliCodeCommands = document.getElementById('cli-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
@@ -680,6 +661,29 @@ function initializeOSDetectionPanel() {
     const savedInstallStatus = localStorage.getItem('claude-install-status');
     const savedUseAIMode = localStorage.getItem('use-ai-mode');
 
+    function normalizeAiModeValue(value) {
+        const normalized = (value || '').toString().trim().toLowerCase();
+        if (normalized === 'yes' || normalized === 'with' || normalized === 'with-ai') return 'yes';
+        if (normalized === 'no' || normalized === 'without' || normalized === 'without-ai') return 'no';
+        if (normalized === 'both') return 'both';
+        return '';
+    }
+
+    function getCurrentAiModeValue() {
+        if (typeof getAiModePreference === 'function') {
+            const aiModeFromSetup = normalizeAiModeValue(getAiModePreference());
+            if (aiModeFromSetup) return aiModeFromSetup;
+        }
+        if (typeof getBackendCommandMode === 'function') {
+            const backendMode = getBackendCommandMode();
+            if (backendMode === 'with-ai') return 'yes';
+            if (backendMode === 'both') return 'both';
+            if (backendMode === 'without-ai') return 'no';
+        }
+        const stored = normalizeAiModeValue(localStorage.getItem('use-ai-mode'));
+        return stored || 'no';
+    }
+
     // Check saved preferences
     if (codexCli && savedCodex === 'true') {
         codexCli.checked = true;
@@ -699,12 +703,9 @@ function initializeOSDetectionPanel() {
     if (vscodeClaude && savedVscode === 'true') {
         vscodeClaude.checked = true;
     }
-    const savedNoCli = localStorage.getItem('no-cli-selected');
-    if (noCli && savedNoCli === 'true') {
-        noCli.checked = true;
-    }
-    if (useAISelect && (savedUseAIMode === 'with' || savedUseAIMode === 'without')) {
-        useAISelect.value = savedUseAIMode;
+    const normalizedSavedAiMode = normalizeAiModeValue(savedUseAIMode);
+    if (normalizedSavedAiMode && normalizedSavedAiMode !== savedUseAIMode) {
+        localStorage.setItem('use-ai-mode', normalizedSavedAiMode);
     }
     
     // Radio button initialization will be done in the setTimeout below
@@ -738,41 +739,22 @@ function initializeOSDetectionPanel() {
         const geminiChecked = geminiCli ? geminiCli.checked : false;
         const grokChecked = grokCli ? grokCli.checked : false;
         const vscodeChecked = vscodeClaude ? vscodeClaude.checked : false;
-        const noCliChecked = noCli ? noCli.checked : false;
-        const useAIValue = useAISelect ? useAISelect.value : '';
+        const aiModeValue = getCurrentAiModeValue();
+        const withAiMode = aiModeValue === 'yes' || aiModeValue === 'both';
         const anyNonNoCliChecked = codexChecked || claudeCodeChecked || geminiChecked || grokChecked || vscodeChecked;
-        const anyAgentChecked = anyNonNoCliChecked || noCliChecked;
-        const onlyNoCliChecked = noCliChecked && !anyNonNoCliChecked;
-        const noneChecked = !anyAgentChecked;
-        const withoutAiMode = useAIValue === 'without';
-        const cliToolsHeadingWrap = document.getElementById('cli-tools-heading-wrap');
-        const cliToolsTitle = document.getElementById('cli-tools-title');
-        const noAiSetupHeadingWrap = document.getElementById('no-ai-setup-heading-wrap');
+        const backendCommandMode = (typeof getBackendCommandMode === 'function')
+            ? getBackendCommandMode()
+            : '';
+        const withoutAiMode = aiModeValue === 'no' || backendCommandMode === 'without-ai';
+        const noAiOnlyMode = withoutAiMode && !anyNonNoCliChecked;
         const codingWithRow = document.getElementById('coding-with-row');
         const codingWithLabel = document.getElementById('coding-with-label');
 
-        if (useAIWrapper) {
-            useAIWrapper.style.display = (!withoutAiMode && (noneChecked || onlyNoCliChecked)) ? 'block' : 'none';
-        }
-        if (useAISelect) {
-            useAISelect.style.display = withoutAiMode ? 'none' : '';
-        }
-        if (cliToolsHeadingWrap) {
-            cliToolsHeadingWrap.style.display = withoutAiMode ? 'none' : 'flex';
-        } else if (cliToolsTitle) {
-            cliToolsTitle.style.display = withoutAiMode ? 'none' : '';
-        }
-        if (noAiHideBtn) {
-            noAiHideBtn.style.display = withoutAiMode ? 'none' : 'inline-flex';
-        }
-        if (noAiSetupHeadingWrap) {
-            noAiSetupHeadingWrap.style.display = withoutAiMode ? 'flex' : 'none';
-        }
         if (codingWithRow) {
             codingWithRow.style.display = 'flex';
         }
         if (codingWithLabel) {
-            codingWithLabel.style.display = withoutAiMode ? 'none' : '';
+            codingWithLabel.style.display = '';
         }
         if (githubCliCard) {
             const forceGithubCliCommands = githubCliCard.dataset.forceCommands === 'true';
@@ -794,24 +776,22 @@ function initializeOSDetectionPanel() {
             }
         }
         if (deployCliDiv) {
-            deployCliDiv.style.display = withoutAiMode ? 'none' : '';
+            const hideDeployCli = withoutAiMode && backendCommandMode !== 'both';
+            deployCliDiv.style.display = hideDeployCli ? 'none' : '';
         }
         if (agentCheckboxes) {
-            // Hide checkboxes until "with" is chosen; also keep hidden for "without".
-            const showCheckboxes = useAIValue === 'with' || anyNonNoCliChecked;
+            const showCheckboxes = withAiMode || anyNonNoCliChecked;
             agentCheckboxes.style.display = showCheckboxes ? 'flex' : 'none';
-            if (noCliRow) {
-                noCliRow.style.display = showCheckboxes ? 'block' : 'none';
+            if (agentCheckboxesHelper) {
+                const showHelper = showCheckboxes && !withoutAiMode && !anyNonNoCliChecked;
+                agentCheckboxesHelper.style.display = showHelper ? 'block' : 'none';
             }
+        } else if (agentCheckboxesHelper) {
+            agentCheckboxesHelper.style.display = 'none';
         }
 
         // Update OS-specific installation instructions
         updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked);
-
-        // Update title based on number of checked tools
-        if (cliToolsTitle) {
-            cliToolsTitle.textContent = 'Start your Command Line Interface (CLI)';
-        }
 
         // Update CLI installation title and text based on selections
         const cliInstallationTitle = document.getElementById('cli-installation-title');
@@ -915,33 +895,37 @@ function initializeOSDetectionPanel() {
             }
         }
 
-        // Handle No CLI section — open View Commands in #quickstartDiv
-        if (noCliChecked) {
+        // Handle without-AI mode like the prior no-AI checkbox behavior.
+        if (withoutAiMode) {
             const toggleBtn = document.getElementById('quickstartDiv-toggle');
             if (toggleBtn && toggleBtn.dataset.open !== 'true') {
                 toggleBtn.click();
             }
         }
 
-        // Keep all .cli-only sections hidden until user selects "with" or checks a non-"no-cli" agent.
-        const allowCliOnlySections = useAIValue === 'with' || anyNonNoCliChecked;
+        // Keep all .cli-only sections hidden until user selects "with" or checks an AI agent.
+        const allowCliOnlySections = withAiMode || anyNonNoCliChecked;
         document.querySelectorAll('.cli-only').forEach(el => {
             if (!allowCliOnlySections) {
                 el.style.display = 'none';
                 return;
             }
             if (el.id === 'cli-commands') return; // Managed by existing codex/claude logic above
-            el.style.display = onlyNoCliChecked ? 'none' : '';
+            el.style.display = noAiOnlyMode ? 'none' : '';
         });
         // Sync rust tab labels and active tab
         updateRustTabState();
         updateWithoutCliCommand();
 
-        // Open "More Deploy Options" when No CLI is the only selection
-        if (onlyNoCliChecked) {
+        // Keep deploy-git commands expanded when "Without AI" is selected.
+        if (withoutAiMode) {
             const deployGitPanel = document.getElementById('deployGit');
             const showDeployGitBtn = document.getElementById('showDeployGit');
-            if (deployGitPanel && showDeployGitBtn && getComputedStyle(deployGitPanel).display === 'none') {
+            const deployGitToggleContent = document.getElementById('deploy-git-toggle-content');
+            const deployGitHidden = deployGitToggleContent
+                ? getComputedStyle(deployGitToggleContent).display === 'none'
+                : (deployGitPanel ? getComputedStyle(deployGitPanel).display === 'none' : true);
+            if (deployGitPanel && showDeployGitBtn && deployGitHidden) {
                 showDeployGitBtn.click();
             }
         }
@@ -1110,22 +1094,11 @@ npm install -g openai-codex-cli</code></pre>`;
         });
     }
 
-    if (noCli) {
-        noCli.addEventListener('change', function() {
-            localStorage.setItem('no-cli-selected', this.checked);
-            updateCliCommands();
-        });
-    }
-
-    if (useAISelect) {
-        useAISelect.addEventListener('change', function() {
-            localStorage.setItem('use-ai-mode', this.value);
-
-            if (this.value === 'without') {
-                if (noCli) {
-                    noCli.checked = true;
-                    localStorage.setItem('no-cli-selected', 'true');
-                }
+    if (osSelect.dataset.aiModeListenerBound !== 'true') {
+        osSelect.dataset.aiModeListenerBound = 'true';
+        document.addEventListener('aiModeChanged', function(event) {
+            const aiMode = normalizeAiModeValue(event && event.detail ? event.detail.aiMode : '');
+            if (aiMode === 'no') {
                 if (codexCli) {
                     codexCli.checked = false;
                     localStorage.setItem('codex-cli-installed', 'false');
@@ -1146,38 +1119,8 @@ npm install -g openai-codex-cli</code></pre>`;
                     vscodeClaude.checked = false;
                     localStorage.setItem('vscode-claude-installed', 'false');
                 }
-            } else if (this.value === 'with' && noCli) {
-                noCli.checked = false;
-                localStorage.setItem('no-cli-selected', 'false');
-            }
-            if (typeof setExclusiveBackendCommandMode === 'function') {
-                if (this.value === 'with') {
-                    setExclusiveBackendCommandMode('with-ai');
-                } else if (this.value === 'without') {
-                    setExclusiveBackendCommandMode('without-ai');
-                }
             }
             updateCliCommands();
-        });
-    }
-
-    if (useAiRevealBtn && useAISelect) {
-        useAiRevealBtn.addEventListener('click', function() {
-            useAISelect.value = 'with';
-            if (typeof setExclusiveBackendCommandMode === 'function') {
-                setExclusiveBackendCommandMode('with-ai');
-            }
-            useAISelect.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-
-    if (noAiHideBtn && useAISelect) {
-        noAiHideBtn.addEventListener('click', function() {
-            useAISelect.value = 'without';
-            if (typeof setExclusiveBackendCommandMode === 'function') {
-                setExclusiveBackendCommandMode('without-ai');
-            }
-            useAISelect.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
 
@@ -1329,7 +1272,7 @@ npm install -g openai-codex-cli</code></pre>`;
             placeGithubCliAutoStatus();
             syncGithubCliAutoStatusVisibility();
             githubCliCard.dataset.forceCommands = ghCommandsExpanded ? 'true' : 'false';
-            const withoutAiMode = !!(useAISelect && useAISelect.value === 'without');
+            const withoutAiMode = getCurrentAiModeValue() === 'no';
             if (installed) {
                 githubCliCard.style.display = ghCommandsExpanded ? 'block' : 'none';
                 if (githubCliShowCommandsLink) {
@@ -2098,7 +2041,7 @@ function ensureRustApiStatusPanelStyles() {
         }
         .rust-api-admin-link-wrap {
             margin-bottom: 12px;
-            display: flex;
+            display: none;
             flex-wrap: wrap;
             justify-content: flex-start;
             gap: 8px;
@@ -2201,26 +2144,35 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
     container.innerHTML = panelHtml;
     const nextSibling = container.nextElementSibling;
-    if (nextSibling && nextSibling.classList.contains('rust-api-admin-link-wrap')) {
+    if (
+        nextSibling
+        && (
+            nextSibling.classList.contains('rust-api-admin-link-wrap')
+            || nextSibling.classList.contains('rust-api-admin-link-outer')
+        )
+    ) {
         nextSibling.remove();
     }
     container.insertAdjacentHTML('afterend', `
-        <div class="rust-api-admin-link-wrap geo-x">
-            <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
-                Database Admin
-            </button>
-            <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite">
-                Click Recheck Status to refresh Rust API and database checks.
+        <div class="rust-api-admin-link-outer geo-x">
+            <div class="rust-api-admin-link-wrap local">
+                <button class="btn btn-secondary" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">
+                    Database Admin
+                </button>
+                <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite">
+                    Click Recheck Status to refresh Rust API and database checks.
+                </div>
             </div>
         </div>
     `);
-    const rustAdminLinkWrap = container.nextElementSibling;
+    const rustAdminOuter = container.nextElementSibling;
+    const rustAdminLinkWrap = rustAdminOuter ? rustAdminOuter.querySelector('.rust-api-admin-link-wrap') : null;
     const githubCliCard = document.getElementById('githubCLICard');
     const quickstartPanel = document.getElementById('quickstartDiv');
     if (quickstartPanel && githubCliCard) {
         quickstartPanel.insertAdjacentElement('afterend', githubCliCard);
-    } else if (rustAdminLinkWrap && rustAdminLinkWrap.classList.contains('rust-api-admin-link-wrap') && githubCliCard) {
-        rustAdminLinkWrap.insertAdjacentElement('afterend', githubCliCard);
+    } else if (rustAdminOuter && rustAdminLinkWrap && githubCliCard) {
+        rustAdminOuter.insertAdjacentElement('afterend', githubCliCard);
     }
     if (typeof moveDesktopInstallerControlsToRustActions === 'function') {
         moveDesktopInstallerControlsToRustActions();
@@ -2273,21 +2225,25 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
 
             // Check if we're using localhost fallback on an external domain
             const isExternalDomain = !(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-            const pullLocalRust = localStorage.getItem('pullLocalRust') !== 'false';
-            const showFallbackToggle = isExternalDomain && pullLocalRust;
+            const pullLocalRustEnabled = localStorage.getItem('pullLocalRust') !== 'false';
+            const showFallbackToggle = isExternalDomain;
+            const fallbackTitle = pullLocalRustEnabled ? 'Localhost Fallback Active' : 'Localhost Fallback Disabled';
+            const fallbackDescription = pullLocalRustEnabled
+                ? 'Using localhost:8081 API from your local machine'
+                : `Using ${window.location.hostname} API endpoints`;
 
             const fallbackToggleHtml = showFallbackToggle ? `
                 <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div>
-                            <strong style="color: var(--text-primary);">Localhost Fallback Active</strong>
+                            <strong style="color: var(--text-primary);">${fallbackTitle}</strong>
                             <p style="color: var(--text-secondary); font-size: 14px; margin: 4px 0 0 0;">
-                                Using localhost:8081 API from ${window.location.hostname}
+                                ${fallbackDescription}
                             </p>
                         </div>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
                             <input type="checkbox" id="localhost-fallback-toggle"
-                                   checked
+                                   ${pullLocalRustEnabled ? 'checked' : ''}
                                    onchange="toggleLocalhostFallback(this)"
                                    style="width: 18px; height: 18px; cursor: pointer;">
                             <span style="color: var(--text-primary); font-size: 14px;">Enable</span>

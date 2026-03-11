@@ -646,7 +646,7 @@ function getQuickstartCommandsHtml() {
             <div id="stop-port-fallback"></div>
             <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
         </div>
-        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px;">
+        <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
             <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
         </div>
         <div id="quickstart-desktop-installer-details" style="display: none;">
@@ -681,6 +681,9 @@ function ensureQuickstartLayoutStyles() {
     const style = document.createElement('style');
     style.id = 'quickstart-layout-styles';
     style.textContent = `
+        .web-server-status-row {
+            container-type: inline-size;
+        }
         .quickstart-port-pre {
             margin-top: 0;
         }
@@ -705,6 +708,17 @@ function ensureQuickstartLayoutStyles() {
             }
             .quickstart-stop-port-btn {
                 width: auto !important;
+            }
+            .quickstart-toggle-actions {
+                margin-left: 0 !important;
+                justify-content: flex-start !important;
+                flex: 1 1 100%;
+                width: 100%;
+            }
+            #quickstartDiv-toggle.quickstart-commands-toggle-group {
+                margin-left: 0 !important;
+                justify-content: flex-start !important;
+                width: 100%;
             }
         }
     `;
@@ -740,7 +754,6 @@ function renderQuickstartCommands(containerId) {
 
 let quickstartCliListenersAttached = false;
 let quickstartOsListenerAttached = false;
-let quickstartUseAIListenerAttached = false;
 
 function attachQuickstartCliListeners() {
     if (!quickstartCliListenersAttached) {
@@ -762,14 +775,6 @@ function attachQuickstartCliListeners() {
         if (osSelect) {
             osSelect.addEventListener('change', updateQuickstartOsVisibility);
             quickstartOsListenerAttached = true;
-        }
-    }
-
-    if (!quickstartUseAIListenerAttached) {
-        const useAISelect = document.getElementById('useAI');
-        if (useAISelect) {
-            useAISelect.addEventListener('change', updateNoAiFlaskStartVisibility);
-            quickstartUseAIListenerAttached = true;
         }
     }
 
@@ -911,7 +916,7 @@ function updateQuickstartCliVisibility() {
         command.style.display = showAiPrompt ? 'block' : 'none';
     }
     if (placeholder) {
-        placeholder.style.display = 'block';
+        placeholder.style.display = 'inline-flex';
     }
     updateQuickstartOsVisibility();
 }
@@ -1082,16 +1087,132 @@ fi</code></pre>
     `;
 }
 
+let initialAiModePreferenceResolved = false;
+let initialAiModePreference = 'no';
+
+function normalizeAiModePreference(value) {
+    const normalized = (value || '').toString().trim().toLowerCase();
+    if (normalized === 'yes' || normalized === 'with' || normalized === 'with-ai') return 'yes';
+    if (normalized === 'no' || normalized === 'without' || normalized === 'without-ai') return 'no';
+    if (normalized === 'both') return 'both';
+    return '';
+}
+
+function getAiModeFromBackendMode(mode) {
+    if (mode === 'with-ai') return 'yes';
+    if (mode === 'both') return 'both';
+    return 'no';
+}
+
+function getBackendModeFromAiMode(aiMode) {
+    const normalized = normalizeAiModePreference(aiMode);
+    if (normalized === 'yes') return 'with-ai';
+    if (normalized === 'both') return 'both';
+    return 'without-ai';
+}
+
+function resolveInitialAiModePreference() {
+    if (initialAiModePreferenceResolved) {
+        return initialAiModePreference;
+    }
+
+    let aiMode = '';
+    if (typeof getHash === 'function') {
+        const hash = getHash() || {};
+        aiMode = normalizeAiModePreference(hash.ai);
+    }
+    if (!aiMode) {
+        aiMode = normalizeAiModePreference(localStorage.getItem('use-ai-mode'));
+    }
+    if (!aiMode) {
+        aiMode = 'no';
+    }
+
+    initialAiModePreference = aiMode;
+    initialAiModePreferenceResolved = true;
+    localStorage.setItem('use-ai-mode', aiMode);
+    return initialAiModePreference;
+}
+
+function getAiModePreference() {
+    const backendMode = getBackendCommandMode();
+    if (backendMode) {
+        return getAiModeFromBackendMode(backendMode);
+    }
+    return resolveInitialAiModePreference();
+}
+
+function persistAiModeSelection(aiMode, options = {}) {
+    const normalized = normalizeAiModePreference(aiMode) || 'no';
+    const shouldUpdateHash = options.updateHash !== false;
+    const shouldUpdateCache = options.updateCache !== false;
+
+    if (shouldUpdateCache) {
+        localStorage.setItem('use-ai-mode', normalized);
+    }
+    if (shouldUpdateHash && typeof updateHash === 'function') {
+        updateHash({ ai: normalized }, true);
+    }
+}
+
+function applyAiModeSelection(mode, options = {}) {
+    const normalizedMode = mode === 'with-ai' || mode === 'both' ? mode : 'without-ai';
+    const nextState = setExclusiveBackendCommandMode(normalizedMode);
+    const aiMode = getAiModeFromBackendMode(normalizedMode);
+    persistAiModeSelection(aiMode, options);
+    document.dispatchEvent(new CustomEvent('aiModeChanged', {
+        detail: {
+            mode: normalizedMode,
+            aiMode,
+            state: nextState
+        }
+    }));
+    return nextState;
+}
+
 function getDefaultBackendCommandState() {
-    const useAISelect = document.getElementById('useAI');
-    const noCliCheckbox = document.getElementById('no-cli');
-    if (noCliCheckbox && noCliCheckbox.checked) {
-        return { withAi: false, withoutAi: true };
+    const preferredAiMode = resolveInitialAiModePreference();
+    return getBackendCommandStateFromMode(getBackendModeFromAiMode(preferredAiMode));
+}
+
+function getBackendCommandStateFromMode(mode) {
+    const normalizedMode = mode === 'with-ai' || mode === 'both' ? mode : 'without-ai';
+    return {
+        withAi: normalizedMode === 'with-ai' || normalizedMode === 'both',
+        withoutAi: normalizedMode === 'without-ai' || normalizedMode === 'both'
+    };
+}
+
+function normalizeBackendCommandState(state, fallbackState = null) {
+    const fallback = fallbackState || getDefaultBackendCommandState();
+    const normalizedFallback = {
+        withAi: !!(fallback && fallback.withAi),
+        withoutAi: !!(fallback && fallback.withoutAi)
+    };
+    if (!normalizedFallback.withAi && !normalizedFallback.withoutAi) {
+        normalizedFallback.withoutAi = true;
     }
-    if (useAISelect && useAISelect.value === 'with') {
-        return { withAi: true, withoutAi: false };
+
+    const normalized = {
+        withAi: !!(state && state.withAi),
+        withoutAi: !!(state && state.withoutAi)
+    };
+
+    if (!normalized.withAi && !normalized.withoutAi) {
+        return normalizedFallback;
     }
-    return { withAi: false, withoutAi: true };
+    return normalized;
+}
+
+function getBackendCommandMode(state = null) {
+    const safeState = normalizeBackendCommandState(state || getBackendCommandState());
+    if (safeState.withAi && safeState.withoutAi) {
+        return 'both';
+    }
+    if (safeState.withAi) {
+        return 'with-ai';
+    }
+    return 'without-ai';
 }
 
 function getBackendCommandState() {
@@ -1100,12 +1221,16 @@ function getBackendCommandState() {
         && typeof window.quickstartBackendCommandModes.withAi === 'boolean'
         && typeof window.quickstartBackendCommandModes.withoutAi === 'boolean'
     ) {
-        return {
+        const normalizedState = normalizeBackendCommandState({
             withAi: window.quickstartBackendCommandModes.withAi,
             withoutAi: window.quickstartBackendCommandModes.withoutAi
-        };
+        });
+        window.quickstartBackendCommandModes = normalizedState;
+        return normalizedState;
     }
-    return getDefaultBackendCommandState();
+    const defaultState = normalizeBackendCommandState(getDefaultBackendCommandState());
+    window.quickstartBackendCommandModes = defaultState;
+    return defaultState;
 }
 
 function hasEnabledBackendCommandMode(state) {
@@ -1120,6 +1245,9 @@ function setQuickstartToggleButtonState(button, isActive) {
     if (!button) return;
     const buttonGroup = button.closest('.quickstart-commands-toggle-group');
     const isQuickstartDivToggle = !!(buttonGroup && buttonGroup.id === 'quickstartDiv-toggle');
+    if (isQuickstartDivToggle && buttonGroup) {
+        buttonGroup.style.gap = '2px';
+    }
 
     const existingLabel = button.querySelector('.quickstart-toggle-label');
     const labelText = (button.dataset.label || (existingLabel ? existingLabel.textContent : button.textContent) || '')
@@ -1152,20 +1280,31 @@ function setQuickstartToggleButtonState(button, isActive) {
 }
 
 function setGlobalCommandToggleAppearance(state) {
-    const buttonGroup = document.querySelector('.quickstart-commands-toggle-group');
-    const buttons = buttonGroup ? buttonGroup.querySelectorAll('.quickstart-commands-toggle-btn') : [];
-    const safeState = state || getBackendCommandState();
+    const buttons = document.querySelectorAll('.quickstart-commands-toggle-btn');
+    const safeState = normalizeBackendCommandState(state || getBackendCommandState());
+    const activeMode = getBackendCommandMode(safeState);
+    const modeColors = {
+        'with-ai': '#2563eb',
+        'without-ai': '#b45309',
+        'both': '#0f766e'
+    };
     buttons.forEach((button) => {
-        const isActive = button.dataset.mode === 'with-ai'
-            ? safeState.withAi
-            : safeState.withoutAi;
+        const buttonMode = button.dataset.mode === 'with-ai' || button.dataset.mode === 'both'
+            ? button.dataset.mode
+            : 'without-ai';
+        const isActive = buttonMode === activeMode;
+        const activeColor = modeColors[buttonMode] || modeColors['without-ai'];
+        const currentGroup = button.closest('.quickstart-commands-toggle-group');
+        const isWebServerToggle = !!(currentGroup && currentGroup.id === 'webserver-commands-toggle');
         button.style.background = isActive
-            ? (button.dataset.mode === 'with-ai' ? '#2563eb' : '#b45309')
-            : '';
-        button.style.color = isActive ? '#ffffff' : '';
+            ? activeColor
+            : (isWebServerToggle ? 'transparent' : '');
+        button.style.color = isActive
+            ? '#ffffff'
+            : (isWebServerToggle ? 'var(--text-secondary)' : '');
         button.style.borderColor = isActive
-            ? (button.dataset.mode === 'with-ai' ? '#2563eb' : '#b45309')
-            : '';
+            ? activeColor
+            : (isWebServerToggle ? 'var(--border-light)' : '');
         button.dataset.active = isActive ? 'true' : 'false';
         setQuickstartToggleButtonState(button, isActive);
     });
@@ -1207,8 +1346,6 @@ function updateNoAiFlaskStartVisibility() {
     });
 }
 
-let noAiBackendUseAIListenerAttached = false;
-let noAiBackendNoCliListenerAttached = false;
 let noAiBackendModelsiteListenerAttached = false;
 let noAiBackendModelsiteWaitQueued = false;
 
@@ -1229,16 +1366,6 @@ function attachNoAiBackendModelsiteListener(modelsiteSelect) {
 }
 
 function ensureNoAiBackendUseAIListener() {
-    const useAISelect = document.getElementById('useAI');
-    if (useAISelect && !noAiBackendUseAIListenerAttached) {
-        useAISelect.addEventListener('change', updateNoAiFlaskStartVisibility);
-        noAiBackendUseAIListenerAttached = true;
-    }
-    const noCliCheckbox = document.getElementById('no-cli');
-    if (noCliCheckbox && !noAiBackendNoCliListenerAttached) {
-        noCliCheckbox.addEventListener('change', updateNoAiFlaskStartVisibility);
-        noAiBackendNoCliListenerAttached = true;
-    }
     if (!noAiBackendModelsiteListenerAttached) {
         const modelsiteSelect = document.getElementById('modelsite');
         if (modelsiteSelect) {
@@ -1255,24 +1382,23 @@ function ensureNoAiBackendUseAIListener() {
 }
 
 function setBackendCommandMode(mode, enabled) {
-    const normalizedMode = mode === 'with-ai' ? 'with-ai' : 'without-ai';
-    const nextState = getBackendCommandState();
+    const normalizedMode = mode === 'with-ai' || mode === 'both' ? mode : 'without-ai';
+    if (enabled) {
+        return setExclusiveBackendCommandMode(normalizedMode);
+    }
+
+    const currentMode = getBackendCommandMode();
+    if (currentMode !== normalizedMode) {
+        return getBackendCommandState();
+    }
+
     if (normalizedMode === 'with-ai') {
-        nextState.withAi = !!enabled;
-    } else {
-        nextState.withoutAi = !!enabled;
+        return setExclusiveBackendCommandMode('without-ai');
     }
-    window.quickstartBackendCommandModes = nextState;
-    setGlobalCommandToggleAppearance(nextState);
-    document.querySelectorAll('[data-backend]').forEach((row) => {
-        const indicator = row.querySelector('.status-indicator');
-        const isRunning = indicator ? indicator.classList.contains('connected') : false;
-        updateBackendCommandForRow(row, isRunning);
-    });
-    if (typeof updateRustTabState === 'function') {
-        updateRustTabState(nextState);
+    if (normalizedMode === 'without-ai') {
+        return setExclusiveBackendCommandMode('with-ai');
     }
-    return nextState;
+    return setExclusiveBackendCommandMode('without-ai');
 }
 
 function getPrimaryBackendCommandsContainerId() {
@@ -1317,11 +1443,8 @@ function applyBackendCommandsContainerVisibility(state) {
 }
 
 function setExclusiveBackendCommandMode(mode) {
-    const normalizedMode = mode === 'with-ai' ? 'with-ai' : 'without-ai';
-    const nextState = {
-        withAi: normalizedMode === 'with-ai',
-        withoutAi: normalizedMode === 'without-ai'
-    };
+    const normalizedMode = mode === 'with-ai' || mode === 'both' ? mode : 'without-ai';
+    const nextState = getBackendCommandStateFromMode(normalizedMode);
     window.quickstartBackendCommandModes = nextState;
     setGlobalCommandToggleAppearance(nextState);
     document.querySelectorAll('[data-backend]').forEach((row) => {
@@ -1653,6 +1776,53 @@ async function updatePythonBackendStatus(containerId) {
     });
 }
 
+function moveQuickstartToggleBeforeUseAI() {
+    const agentCheckboxes = document.getElementById('agent-checkboxes');
+    if (!agentCheckboxes || !agentCheckboxes.parentElement) {
+        return;
+    }
+    const controlsHost = document.getElementById('coding-with-controls');
+
+    const toggleGroups = Array.from(document.querySelectorAll('#quickstartDiv-toggle'));
+    if (!toggleGroups.length) {
+        return;
+    }
+
+    // Keep the latest rendered toggle and remove stale duplicates.
+    const toggleGroup = toggleGroups[toggleGroups.length - 1];
+    toggleGroups.forEach((group) => {
+        if (group !== toggleGroup) {
+            group.remove();
+        }
+    });
+
+    let host = document.getElementById('quickstartDiv-toggle-host');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'quickstartDiv-toggle-host';
+    }
+    host.style.display = 'flex';
+    host.style.flexWrap = 'wrap';
+    host.style.gap = '4px';
+    host.style.margin = '0';
+    host.style.alignItems = 'center';
+
+    if (controlsHost) {
+        if (host.parentElement !== controlsHost) {
+            controlsHost.appendChild(host);
+        }
+    } else if (host.parentElement !== agentCheckboxes.parentElement || host.nextElementSibling !== agentCheckboxes) {
+        agentCheckboxes.parentElement.insertBefore(host, agentCheckboxes);
+    }
+    if (toggleGroup.parentElement !== host) {
+        host.appendChild(toggleGroup);
+    }
+
+    toggleGroup.style.marginLeft = '0';
+    toggleGroup.style.justifyContent = 'flex-start';
+    toggleGroup.style.width = '100%';
+}
+
 function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     const buttonGroup = document.getElementById(buttonId);
     const commandsContainer = document.getElementById(commandsContainerId);
@@ -1684,20 +1854,26 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     }
     setCommandsVisibility(showCommandsOnLoad);
     updateQuickstartCliVisibility();
+    if (buttonId === 'quickstartDiv-toggle') {
+        moveQuickstartToggleBeforeUseAI();
+    }
 
     buttons.forEach((button) => {
         if (button.dataset.bound === 'true') return;
         button.dataset.bound = 'true';
         button.addEventListener('click', () => {
-            const mode = button.dataset.mode === 'with-ai' ? 'with-ai' : 'without-ai';
-            const currentState = getBackendCommandState();
-            const modeEnabled = mode === 'with-ai' ? currentState.withAi : currentState.withoutAi;
-            const nextState = setBackendCommandMode(mode, !modeEnabled);
+            const mode = button.dataset.mode === 'with-ai' || button.dataset.mode === 'both'
+                ? button.dataset.mode
+                : 'without-ai';
+            const nextState = applyAiModeSelection(mode, { updateHash: true, updateCache: true });
             if (hasEnabledBackendCommandMode(nextState)) {
                 ensureLoaded();
             }
             setCommandsVisibility(shouldShowFullCommandsContainer(nextState));
             updateQuickstartCliVisibility();
+            if (buttonId === 'quickstartDiv-toggle') {
+                moveQuickstartToggleBeforeUseAI();
+            }
         });
     });
 }
@@ -1721,13 +1897,11 @@ async function setupWebServerStatusPanel(options) {
     } = await getWebServerStatusState();
     const currentOriginDisplay = currentOriginUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const localhostDisplay = localhostWebUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const withBtnWidth = (className) => className && className.includes('btn-width')
-        ? className
-        : `${className} btn-width`;
-    const connectedClass = withBtnWidth(options.buttonClassConnected || options.buttonClass || 'btn btn-secondary');
-    const defaultClass = withBtnWidth(options.buttonClassDefault || options.buttonClass || 'btn btn-secondary');
+    const connectedClass = options.buttonClassConnected || options.buttonClass || 'btn btn-secondary';
+    const defaultClass = options.buttonClassDefault || options.buttonClass || 'btn btn-secondary';
     const buttonId = options.toggleButtonId;
     const commandsContainerId = options.commandsContainerId;
+    const toggleGap = buttonId === 'quickstartDiv-toggle' ? '2px' : '8px';
 
     if (isRunning) {
         statusIndicator.className = 'status-indicator connected';
@@ -1737,10 +1911,11 @@ async function setupWebServerStatusPanel(options) {
                 <p style="color: var(--text-secondary); margin: 0; flex: 1 1 360px; display:flex; align-items:center; align-self:center;">
                     Your local http server is running at&nbsp;<a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
                 </p>
-                <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                        <button class="${connectedClass} quickstart-commands-toggle-btn" data-mode="with-ai">AI Commands</button>
-                        <button class="${connectedClass} quickstart-commands-toggle-btn" data-mode="without-ai">Full Commands</button>
+                <div class="actions ${buttonId === 'quickstartDiv-toggle' ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
+                        <button id="ai-yes" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="with-ai">With AI</button>
+                        <button id="ai-no" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="without-ai">Without AI</button>
+                        <button id="ai-both" class="${connectedClass} quickstart-commands-toggle-btn" data-mode="both">Both</button>
                     </div>
                 </div>
             </div>
@@ -1756,16 +1931,19 @@ async function setupWebServerStatusPanel(options) {
                     To view webroots locally at:<br>
                     <a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
                 </p>
-                <div class="actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                        <button class="${defaultClass} quickstart-commands-toggle-btn" data-mode="with-ai">AI Commands</button>
-                        <button class="${defaultClass} quickstart-commands-toggle-btn" data-mode="without-ai">Full Commands</button>
+                <div class="actions ${buttonId === 'quickstartDiv-toggle' ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
+                    <div id="${buttonId}" class="quickstart-commands-toggle-group" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
+                        <button id="ai-yes" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="with-ai">With AI</button>
+                        <button id="ai-no" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="without-ai">Without AI</button>
+                        <button id="ai-both" class="${defaultClass} quickstart-commands-toggle-btn" data-mode="both">Both</button>
                     </div>
                 </div>
             </div>
             <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
+            <p id="hosted-origin-note" class="local" style="display:none; color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
+                ${!isLocalOrigin ? `This page is loaded from hosted origin <code>${currentOriginDisplay}</code>; hosted page reachability does not mean local server-side Python is running on your machine.` : ''}
+            </p>
             <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
-                ${!isLocalOrigin ? `This page is loaded from hosted origin <code>${currentOriginDisplay}</code>; hosted page reachability does not mean local server-side Python is running on your machine.<br>` : ''}
                 Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhostDisplay}</code> (${localhostWebRunning ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port ${localhostPort} (${localhostApiRunning ? 'reachable' : 'not reachable'}).
             </p>
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
