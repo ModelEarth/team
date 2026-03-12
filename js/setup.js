@@ -933,6 +933,7 @@ async function getWebServerStatusState() {
 
 function getPythonBackendStatusMarkup(containerId) {
     return `
+        <div class="geo-x">
         <h1 class="card-title" style="display:flex; align-items:center; gap:10px; margin-top:26px;">
             <span class="status-indicator error" id="${containerId}-aggregate-dot"></span>
             <span>Backend Code and API</span>
@@ -1026,6 +1027,7 @@ else
 fi</code></pre>
                 </div>
             </div>
+        </div>
         </div>
     `;
 }
@@ -1585,11 +1587,11 @@ async function updateBackendSectionVisibilityByFiles(container) {
     ]);
 
     if (pipelineRow) {
-        pipelineRow.classList.toggle('georgia-hide', hideForGeorgia);
+        pipelineRow.classList.toggle('geo-x', hideForGeorgia);
         pipelineRow.style.display = pipelineExists && !hideForGeorgia ? '' : 'none';
     }
     if (cloudRow) {
-        cloudRow.classList.toggle('georgia-hide', hideForGeorgia);
+        cloudRow.classList.toggle('geo-x', hideForGeorgia);
         cloudRow.style.display = cloudExists && !hideForGeorgia ? '' : 'none';
     }
 
@@ -1984,8 +1986,10 @@ function setupQuickstartInstructions(containerId) {
             </h1>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
-            <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
-                <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
+            <div class="geo-x">
+                <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
+                    <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
+                </div>
             </div>
             <div id="quickstart-desktop-installer-details" style="display: none;">
                 <div id="quickstart-mac-linux-section">
