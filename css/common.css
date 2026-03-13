@@ -119,7 +119,6 @@ div.breadcrumb .material-icons {
     border-radiusX: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     margin-bottom: 0px;
-    text-align: center;
 }
 
 .header h1 {
@@ -129,7 +128,6 @@ div.breadcrumb .material-icons {
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    /* justify-content: center; */
     gap: 12px;
 }
 
