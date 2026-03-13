@@ -37,7 +37,6 @@ h2 {
 }
 .container {
     max-width: 2200px;
-    margin: 0 auto;
 }
 
 .content-area {
@@ -70,14 +69,39 @@ h2 {
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */
 .breadcrumb {
-    margin-bottom: 0px;
+    margin-bottom: 8px;
     color: var(--text-secondary);
     font-size: 14px;
+    margin-top: -4px;
+    padding-top: 8px;
 }
 
 .breadcrumb a {
+    align-items: center;
+    border-radius: 999px;
     color: var(--accent-blue);
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px 8px;
     text-decoration: none;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.breadcrumb a:hover,
+.breadcrumb a:focus-visible {
+    background-color: rgba(156, 163, 175, 0.28);
+    text-decoration: none;
+    outline: none;
+}
+
+.dark .breadcrumb a:hover,
+.dark .breadcrumb a:focus-visible {
+    background-color: rgba(107, 114, 128, 0.3);
+}
+
+.breadcrumb .material-icons {
+    font-size: 18px;
+    line-height: 1;
 }
 
 /* ===== HEADERS ===== */
