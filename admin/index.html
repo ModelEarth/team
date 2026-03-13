@@ -82,8 +82,10 @@
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-sm);
             padding: 32px;
+            margin-bottom: .6px;
             transition: all 0.3s ease;
             border: 1px solid var(--border-light);
+            position: relative;
         }
 
         .admin-card:hover {
@@ -133,12 +135,22 @@
 
         .admin-card p {
             color: var(--text-secondary);
-            margin-bottom: 24px;
             line-height: 1.5;
         }
 
         .admin-card-features {
+            margin-top: 10px;
             margin-bottom: 0;
+            display: none;
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .admin-card.row-features-open .admin-card-features {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .admin-card-features ul {
@@ -159,6 +171,14 @@
             color: var(--accent-green);
             font-weight: bold;
             margin-right: 8px;
+        }
+
+        .usage-sections {
+            display: none;
+        }
+
+        .usage-sections.visible {
+            display: block;
         }
 
         .admin-link {
@@ -226,19 +246,90 @@
             color: var(--accent-green);
         }
 
+        .admin-card-row-toggle {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 999px;
+            transition: background 0.2s ease, transform 0.2s ease;
+            z-index: 2;
+        }
+
+        .admin-card-row-toggle::before {
+            content: "";
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 11px solid #C9CDD3;
+            transform: translateY(2px);
+            transition: border-color 0.2s ease;
+        }
+
+        .admin-card-row-toggle[data-direction="up"]::before {
+            border-top: 0;
+            border-bottom: 11px solid #C9CDD3;
+            transform: translateY(-1px);
+        }
+
+        .dark .admin-card-row-toggle::before {
+            border-top-color: #7C828B;
+        }
+
+        .dark .admin-card-row-toggle[data-direction="up"]::before {
+            border-bottom-color: #7C828B;
+        }
+
+        .admin-card-row-toggle:hover,
+        .admin-card-row-toggle:focus-visible {
+            background: rgba(156, 163, 175, 0.14);
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .dark .admin-card-row-toggle:hover,
+        .dark .admin-card-row-toggle:focus-visible {
+            background: rgba(107, 114, 128, 0.18);
+        }
+
         .breadcrumb {
             margin-bottom: 24px;
             color: var(--text-secondary);
             font-size: 14px;
+            margin-top: -4px;
+            padding-top: 8px;
         }
 
         .breadcrumb a {
+            align-items: center;
+            border-radius: 999px;
             color: var(--accent-blue);
+            display: inline-flex;
+            gap: 2px;
+            padding: 4px 8px;
             text-decoration: none;
+            transition: background 0.18s ease, color 0.18s ease;
         }
 
         .breadcrumb a:hover {
-            text-decoration: underline;
+            background: rgba(156, 163, 175, 0.16);
+        }
+
+        .dark .breadcrumb a:hover {
+            background: rgba(107, 114, 128, 0.22);
+        }
+
+        .breadcrumb .material-icons {
+            font-size: 18px;
+            line-height: 1;
         }
 
         .tab-header {
@@ -293,10 +384,10 @@
     <div class="container" style="max-width:1400px">
 
         <div id="teamAdminHeaderFlex">
-            <div class="breadcrumb"><a href="../">← Welcome</a>
+            <div class="breadcrumb"><a href="../"><span class="material-icons" aria-hidden="true">chevron_left</span>Team Tools</a>
             </div>
             <div class="header" style="padding-top:0px;flex:1;">
-                <h1 style="justify-content: center;">Collaborative Parter&nbsp;Tools</h1>
+                <h1 style="justify-content: center;">Team Collaboration</h1>
                 <p>Dashboard for managing projects, locations, data insights and partner directories.</p>
             </div>
         </div>
@@ -335,7 +426,7 @@
                             <i data-feather="zap"></i>
                         </div>
                         <div>
-                            <h3>Configure Your Server</h3>
+                            <h3>Configure Your Localhost</h3>
                             <span class="status-badge active">Active</span>
                         </div>
                     </div>
@@ -435,75 +526,76 @@
                     </div>
                 </div>
                 <p>Monitor your API usage across both terminal CLI and website integrations with real-time quota tracking.</p>
-                
-                <div class="tabs" style="margin-top: 16px;">
-                    <div class="tab-header">
-                        <button class="tab-link active" onclick="openTab(event, 'Claude')">Claude</button>
-                        <button class="tab-link" onclick="openTab(event, 'Gemini')">Gemini</button>
-                    </div>
+                <div class="admin-card-features">
+                    <div class="tabs">
+                        <div class="tab-header">
+                            <button class="tab-link active" onclick="openTab(event, 'Claude')">Claude</button>
+                            <button class="tab-link" onclick="openTab(event, 'Gemini')">Gemini</button>
+                        </div>
 
-                    <!-- Claude Tab Content -->
-                    <div id="Claude" class="tab-content" style="display: block;">
-                        <div class="usage-sections" style="margin-top: 16px;">
-                            <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                                <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
-                                    <i data-feather="terminal" style="width: 16px; height: 16px; margin-right: 8px;"></i>
-                                    Persistent Session Usage
-                                </h4>
-                                <div class="usage-stats" id="cli-usage-stats-claude">
+                        <!-- Claude Tab Content -->
+                        <div id="Claude" class="tab-content" style="display: block;">
+                            <div class="usage-sections" style="margin-top: 16px;">
+                                <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                                    <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
+                                        <i data-feather="terminal" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                                        Persistent Session Usage
+                                    </h4>
+                                    <div class="usage-stats" id="cli-usage-stats-claude">
+                                    </div>
+                                </div>
+                                <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                                    <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
+                                        <i data-feather="calendar" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                                        Daily Usage
+                                    </h4>
+                                    <div class="usage-stats" id="website-usage-stats-claude">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                                <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
-                                    <i data-feather="calendar" style="width: 16px; height: 16px; margin-right: 8px;"></i>
-                                    Daily Usage
-                                </h4>
-                                <div class="usage-stats" id="website-usage-stats-claude">
-                                </div>
+                            <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                                <button class="btn btn-primary" id="check-claude-usage-btn" onclick="checkUsage('claude')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
+                                    <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+                                    Check Usage
+                                </button>
+                                <a href="server/" class="btn btn-secondary" id="get-connected-claude-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
+                                    Get Connected
+                                </a>
                             </div>
+                            <div id="usage-status-claude" style="margin-top: 12px; padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; display: none;"></div>
                         </div>
-                        <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                            <button class="btn btn-primary" id="check-claude-usage-btn" onclick="checkUsage('claude')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
-                                <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
-                                Check Usage
-                            </button>
-                            <a href="server/" class="btn btn-secondary" id="get-connected-claude-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
-                                Get Connected
-                            </a>
-                        </div>
-                        <div id="usage-status-claude" style="margin-top: 12px; padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; display: none;"></div>
-                    </div>
 
-                    <!-- Gemini Tab Content -->
-                    <div id="Gemini" class="tab-content" style="display: none;">
-                        <div class="usage-sections" style="margin-top: 16px;">
-                            <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                                <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
-                                    <i data-feather="terminal" style="width: 16px; height: 16px; margin-right: 8px;"></i>
-                                    Terminal CLI Usage
-                                </h4>
-                                <div class="usage-stats" id="cli-usage-stats-gemini">
+                        <!-- Gemini Tab Content -->
+                        <div id="Gemini" class="tab-content" style="display: none;">
+                            <div class="usage-sections" style="margin-top: 16px;">
+                                <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                                    <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
+                                        <i data-feather="terminal" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                                        Terminal CLI Usage
+                                    </h4>
+                                    <div class="usage-stats" id="cli-usage-stats-gemini">
+                                    </div>
+                                </div>
+                                <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                                    <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
+                                        <i data-feather="globe" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                                        Website API Usage
+                                    </h4>
+                                    <div class="usage-stats" id="website-usage-stats-gemini">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="usage-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                                <h4 style="color: var(--text-primary); margin-bottom: 12px; font-size: 14px; font-weight: 600;">
-                                    <i data-feather="globe" style="width: 16px; height: 16px; margin-right: 8px;"></i>
-                                    Website API Usage
-                                </h4>
-                                <div class="usage-stats" id="website-usage-stats-gemini">
-                                </div>
+                            <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                                <button class="btn btn-primary" id="check-gemini-usage-btn" onclick="checkUsage('gemini')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
+                                    <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+                                    Check Usage
+                                </button>
+                                <a href="server/" class="btn btn-secondary" id="get-connected-gemini-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
+                                    Get Connected
+                                </a>
                             </div>
+                            <div id="usage-status-gemini" style="margin-top: 12px; padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; display: none;"></div>
                         </div>
-                        <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                            <button class="btn btn-primary" id="check-gemini-usage-btn" onclick="checkUsage('gemini')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
-                                <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
-                                Check Usage
-                            </button>
-                            <a href="server/" class="btn btn-secondary" id="get-connected-gemini-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
-                                Get Connected
-                            </a>
-                        </div>
-                        <div id="usage-status-gemini" style="margin-top: 12px; padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; display: none;"></div>
                     </div>
                 </div>
             </div>
@@ -558,6 +650,28 @@
             // Feather icons handled by nav.js
         }
 
+        function showUsageSections(apiType) {
+            const tab = document.getElementById(apiType.charAt(0).toUpperCase() + apiType.slice(1));
+            if (!tab) {
+                return;
+            }
+
+            const sections = tab.querySelector('.usage-sections');
+            if (sections) {
+                sections.classList.add('visible');
+            }
+        }
+
+        function hideUsageSections(card) {
+            if (!card) {
+                return;
+            }
+
+            card.querySelectorAll('.usage-sections.visible').forEach(section => {
+                section.classList.remove('visible');
+            });
+        }
+
         // Add some interactivity
         document.querySelectorAll('.admin-card').forEach(card => {
             card.addEventListener('mouseenter', function() {
@@ -568,6 +682,102 @@
                 this.style.borderColor = 'var(--border-light)';
             });
         });
+
+        function initAdminCardRowToggles() {
+            const featureCards = Array.from(document.querySelectorAll('.admin-card')).filter(card => {
+                const features = card.querySelector('.admin-card-features');
+                return !!features;
+            });
+
+            if (!featureCards.length) {
+                return;
+            }
+
+            function getVisibleFeatureCards() {
+                return featureCards.filter(card => card.offsetParent !== null);
+            }
+
+            function getRowCards(targetCard) {
+                const visibleCards = getVisibleFeatureCards();
+                const targetTop = targetCard.offsetTop;
+
+                return visibleCards.filter(card => {
+                    return Math.abs(card.offsetTop - targetTop) <= 1;
+                });
+            }
+
+            function setButtonState(card, isOpen) {
+                const toggle = card.querySelector('.admin-card-row-toggle');
+                if (!toggle) {
+                    return;
+                }
+
+                toggle.setAttribute('data-direction', isOpen ? 'up' : 'down');
+                toggle.setAttribute('aria-label', isOpen ? 'Collapse row details' : 'Expand row details');
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                toggle.title = isOpen ? 'Collapse this row' : 'Expand this row';
+            }
+
+            function closeAllRows() {
+                getVisibleFeatureCards().forEach(card => {
+                    card.classList.remove('row-features-open');
+                    hideUsageSections(card);
+                    setButtonState(card, false);
+                });
+            }
+
+            function openRowForCard(card) {
+                const rowCards = getRowCards(card);
+
+                if (!rowCards.length) {
+                    return;
+                }
+
+                if (card.classList.contains('row-features-open')) {
+                    closeAllRows();
+                    return;
+                }
+
+                closeAllRows();
+
+                rowCards.forEach(rowCard => {
+                    rowCard.classList.add('row-features-open');
+                    setButtonState(rowCard, true);
+                });
+            }
+
+            featureCards.forEach(card => {
+                const toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'admin-card-row-toggle';
+                toggle.setAttribute('data-direction', 'down');
+                toggle.setAttribute('aria-label', 'Expand row details');
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.title = 'Expand this row';
+                toggle.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openRowForCard(card);
+                });
+                card.appendChild(toggle);
+                setButtonState(card, false);
+            });
+
+            const apiUsageCard = document.getElementById('api-usage-card');
+            if (apiUsageCard) {
+                apiUsageCard.addEventListener('click', function(event) {
+                    if (event.target.closest('button, a, input, select, textarea, summary, .admin-card-row-toggle')) {
+                        return;
+                    }
+
+                    if (!apiUsageCard.classList.contains('row-features-open')) {
+                        openRowForCard(apiUsageCard);
+                    }
+                });
+            }
+
+            window.addEventListener('resize', closeAllRows);
+        }
 
         // Check system status
         async function checkSystemStatus() {
@@ -614,6 +824,8 @@
             const cliStats = document.getElementById(`cli-usage-stats-${apiType}`);
             const websiteStats = document.getElementById(`website-usage-stats-${apiType}`);
             let dataDisplayed = false;
+
+            showUsageSections(apiType);
 
             button.disabled = true;
             button.innerHTML = '<i data-feather="loader" style="width: 16px; height: 16px; margin-right: 4px; animation: spin 1s linear infinite;"></i>Checking...';
@@ -894,6 +1106,8 @@
             // No text selected and not a text selection attempt, proceed with navigation
             navigationFunction();
         }
+
+        initAdminCardRowToggles();
 
         // Check status on page load
         checkSystemStatus();

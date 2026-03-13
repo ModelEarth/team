@@ -70,7 +70,7 @@ h2 {
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */
 .breadcrumb {
-    margin-bottom: 8px;
+    margin-bottom: 0px;
     color: var(--text-secondary);
     font-size: 14px;
 }
@@ -78,10 +78,6 @@ h2 {
 .breadcrumb a {
     color: var(--accent-blue);
     text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
 }
 
 /* ===== HEADERS ===== */

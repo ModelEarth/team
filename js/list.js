@@ -807,9 +807,6 @@ function loadFileSelectionFromStorage(storageKey = 'PartnerTools_selected_file')
 
 // Load configuration for dynamic dropdown population from CSV or JSON based on site type
 async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
-    // Check if this is a geo site - use existing isGeoSite value if available
-    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
-    
     // Safely check for global isGeoSite variable
     let globalIsGeoSite = false;
     try {
@@ -819,10 +816,7 @@ async function loadGoogleSheetConfig(fileSelect, hashParam = 'feed') {
         globalIsGeoSite = false;
     }
     
-    const isGeoSiteDetected = globalIsGeoSite ||
-                             window.location.hostname.includes('geo') || 
-                             window.location.hostname.includes('location') ||
-                             (modelsite === 'model.georgia');
+    const isGeoSiteDetected = (typeof isGeoSite === 'function' && isGeoSite()) || globalIsGeoSite;
 
     if (isGeoSiteDetected) {
         console.log('Geo site detected - loading from show.json instead of CSV');
@@ -1041,10 +1035,9 @@ async function loadCsvConfig(fileSelect, hashParam = 'feed') {
         console.log(`Column indices from ${dataSource} - Title:`, titleIndex, 'URL:', urlIndex, 'Feed:', feedIndex, 'CORS:', corsIndex, 'TopFields:', topFieldsIndex, 'AllFields:', allFieldsIndex);
         
         // Check if this is a geo site for filtering
-        const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
-        const isGeoSite = window.location.hostname.includes('geo') || 
-                         window.location.hostname.includes('location') ||
-                         (modelsite === 'model.georgia');
+        const isGeoSiteCheck = typeof isGeoSite === 'function'
+            ? isGeoSite()
+            : (window.location.hostname.includes('geo') || window.location.hostname.includes('location'));
         const allowedGeoOptions = ['geo', 'film-scouting', 'nasa'];
         
         // Process data rows and add to dropdown
@@ -1063,7 +1056,7 @@ async function loadCsvConfig(fileSelect, hashParam = 'feed') {
             
             if (title && url && feed) {
                 // Filter options for geo sites
-                if (isGeoSite && !allowedGeoOptions.includes(feed)) {
+            if (isGeoSiteCheck && !allowedGeoOptions.includes(feed)) {
                     continue; // Skip this option for geo sites
                 }
                 

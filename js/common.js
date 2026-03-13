@@ -27,12 +27,76 @@ function updateLoadingProgress(message, containerSelector = '.loading-progress')
     if (progressEl) progressEl.textContent = message;
 }
 
+function isLocalDevelopmentHost(hostname = window.location.hostname) {
+    const host = String(hostname || '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+}
+
+function getCanonicalHostModelsite(hostname = window.location.hostname) {
+    const host = String(hostname || '').toLowerCase();
+
+    if (host.includes('model.georgia') || host.includes('georgia.org') || host.includes('locations.pages.dev')) {
+        return 'model.georgia';
+    }
+    if (host.includes('model.earth')) {
+        return 'model.earth';
+    }
+    if (host.includes('planet.live')) {
+        return 'planet.live';
+    }
+    if (host.includes('dreamstudio')) {
+        return 'dreamstudio';
+    }
+    if (host.includes('neighborhood.org')) {
+        return 'neighborhood.org';
+    }
+    if (host.includes('democracylab')) {
+        return 'democracylab';
+    }
+    if (host.includes('membercommons.org')) {
+        return 'membercommons';
+    }
+
+    return '';
+}
+
+function getEffectiveModelsite() {
+    const host = String(window.location.hostname || '').toLowerCase();
+    const canonicalHostModelsite = getCanonicalHostModelsite(host);
+    const paramModelsite = (typeof param !== 'undefined' && typeof param.modelsite === 'string' && param.modelsite)
+        ? param.modelsite
+        : '';
+    const modelsiteSelect = document.getElementById('modelsite');
+    const selectedModelsite = modelsiteSelect &&
+        Array.from(modelsiteSelect.options || []).some(option => option.value === modelsiteSelect.value)
+        ? modelsiteSelect.value
+        : '';
+    const universalModelsite = (typeof window !== 'undefined' && typeof window.modelsiteUniversal === 'string')
+        ? window.modelsiteUniversal
+        : '';
+    const cookieModelsite = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function')
+        ? (Cookies.get('modelsite') || '')
+        : '';
+
+    if (paramModelsite) {
+        return paramModelsite;
+    }
+    if (selectedModelsite) {
+        return selectedModelsite;
+    }
+    if (!isLocalDevelopmentHost(host) && canonicalHostModelsite) {
+        return canonicalHostModelsite;
+    }
+    return universalModelsite || cookieModelsite || canonicalHostModelsite || '';
+}
+
 // Function to detect if current site is a geo site
 function isGeoSite() {
-    const modelsite = typeof Cookies !== 'undefined' ? Cookies.get('modelsite') : null;
-    return window.location.hostname.includes('geo') ||
-           window.location.hostname.includes('location') ||
-           (modelsite === 'model.georgia');
+    const host = String(window.location.hostname || '').toLowerCase();
+    if (host.includes('geo') || host.includes('location') || host.includes('georgia.org') || host.includes('locations.pages.dev') || host.includes('model.georgia')) {
+        return true;
+    }
+    return getEffectiveModelsite() === 'model.georgia';
 }
 
 // Function to create OS detection panel directly in a container
@@ -2553,6 +2617,12 @@ window.teamLookup = window.teamLookup || {};
 
 // Function to get modelsite cookie value using Cookies.get (like localsite.js)
 function getModelsiteCookie() {
+    if (typeof getEffectiveModelsite === 'function') {
+        const effectiveModelsite = getEffectiveModelsite();
+        if (effectiveModelsite) {
+            return effectiveModelsite;
+        }
+    }
     if (typeof Cookies !== 'undefined') {
         const modelsite = Cookies.get('modelsite');
         if (modelsite) {

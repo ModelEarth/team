@@ -558,7 +558,10 @@ class ListingsDisplay {
 
         // If no source parameter, use default logic
         if (!listsJson) {
-            listsJson = "/team/projects/map/trade.json";if(Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) { listsJson = "/display/data/show.json" }
+            const isGeoSiteDetected = (typeof isGeoSite === 'function' && isGeoSite()) ||
+                location.host.indexOf("geo") >= 0 ||
+                location.host.indexOf("locations.pages.dev") >= 0;
+            listsJson = isGeoSiteDetected ? "/display/data/show.json" : "/team/projects/map/trade.json";
         }
         const configUrl = this.resolveConfigUrl(listsJson);
         console.log('map.js: local_app.web_root() =', local_app.web_root());
@@ -5747,7 +5750,10 @@ Do not include any explanation or additional text.`;
         }
         
         // Show config source
-        const listsJson = (Cookies.get('modelsite')?.indexOf("geo") >= 0 || location.host.indexOf("geo") >= 0 || location.host.indexOf("locations.pages.dev") >= 0) ? '/display/data/show.json' : 'trade.json';
+        const isGeoSiteDetected = (typeof isGeoSite === 'function' && isGeoSite()) ||
+            location.host.indexOf("geo") >= 0 ||
+            location.host.indexOf("locations.pages.dev") >= 0;
+        const listsJson = isGeoSiteDetected ? '/display/data/show.json' : 'trade.json';
         const configPath = this.resolveConfigUrl(listsJson);
         details += `• Config file: <code>${configPath}</code><br>`;
         
