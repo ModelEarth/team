@@ -693,9 +693,10 @@ function ensureQuickstartLayoutStyles() {
         }
         .quickstart-stop-port-btn {
             position: absolute;
-            top: 8px;
+            top: 0;
             right: 8px;
             margin: 0;
+            margin-top: 5px;
             width: auto !important;
             min-width: 0;
             z-index: 1;

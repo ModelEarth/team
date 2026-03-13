@@ -998,6 +998,19 @@
             display: inline-block;
             margin-left: 8px;
         }
+
+        .page-controls-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .page-controls-primary {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         
         .menu-button {
             width: 32px;
@@ -1498,6 +1511,10 @@
         .view-buttons {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            min-width: 0;
+            padding-right: 2px;
         }
         
         .view-btn {
@@ -1773,6 +1790,54 @@
         
         #list-title {
             border: none !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .list-title-icon {
+            font-size: 24px;
+            color: var(--text-secondary);
+        }
+
+        .list-loading-state {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            padding: 28px 24px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border: 1px solid var(--border-light);
+        }
+
+        .list-loading-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .list-loading-icon {
+            font-size: 34px;
+            color: var(--text-secondary);
+            animation: spin 1s linear infinite;
+        }
+
+        .list-loading-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .list-loading-title {
+            color: var(--text-primary);
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .list-loading-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
         }
         
         #aiInsights {
@@ -2986,7 +3051,7 @@
     </style>
 </head>
 <body>
-    <div class="container content-edges">
+    <div class="contentpadding container">
 
         <!-- Top Message Display Area -->
         <div id="top-message-area" style="display: none; margin-bottom: 20px;">
@@ -2995,14 +3060,14 @@
             </div>
         </div>
 
-            <div class="contentpadding" style="padding-bottom: 0px">
+            <div style="padding-bottom: 0px">
             <div class="breadcrumbs" style="display: block;">
                 <a class="breadcrumb" href="../">Team Tools</a>
                 <span> - </span>
                 <a class="breadcrumb" href="../admin/">Collaboration</a>
             </div>
             <div id="pageControls" class="input-button-group" style="display:flex; width: 100%; align-items: center;">
-                <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="page-controls-primary">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
                         <option value="custom">Choose File...</option>
                     </select>
@@ -3011,37 +3076,39 @@
                         Get List
                     </button>
                 </div>
-                <div class="menu-container" style="display: flex; align-items: flex-start; gap: 8px; margin-left: auto;">
+                <div class="page-controls-actions">
                     <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
                         <i data-feather="settings"></i>
                     </button>
-                    <button class="menu-button" id="menu-toggle">
-                        ⋯
-                    </button>
-                    <div class="menu-dropdown" id="menu-dropdown">
-                        <div class="menu-item" id="fullscreen-toggle">
-                            <span id="fullscreen-text">View Fullscreen</span>
-                        </div>
-                        <div class="menu-item" id="condensed-toggle">
-                            <span id="condensed-text">Condense Layout</span>
-                        </div>
-                        <div class="menu-item" id="raw-data-toggle">
-                            <span id="raw-data-text">View Raw Data</span>
-                        </div>
-                        <div class="menu-item" id="export-csv-menu">
-                            <span>Export CSV</span>
-                        </div>
-                        <div class="menu-item" id="full-url-toggle">
-                            <span>Full URL</span>
-                        </div>
-                        <div class="menu-item" id="list-feeds-toggle">
-                            <span>All Lists</span>
-                        </div>
-                        <div class="menu-item" id="refresh-csv-toggle" style="display: none;">
-                            <span>Refresh lists.csv</span>
-                        </div>
-                        <div class="menu-item" id="refresh-local-toggle" style="display: none;">
-                            <span>Refresh Locally</span>
+                    <div class="menu-container">
+                        <button class="menu-button" id="menu-toggle">
+                            ⋯
+                        </button>
+                        <div class="menu-dropdown" id="menu-dropdown">
+                            <div class="menu-item" id="fullscreen-toggle">
+                                <span id="fullscreen-text">View Fullscreen</span>
+                            </div>
+                            <div class="menu-item" id="condensed-toggle">
+                                <span id="condensed-text">Condense Layout</span>
+                            </div>
+                            <div class="menu-item" id="raw-data-toggle">
+                                <span id="raw-data-text">View Raw Data</span>
+                            </div>
+                            <div class="menu-item" id="export-csv-menu">
+                                <span>Export CSV</span>
+                            </div>
+                            <div class="menu-item" id="full-url-toggle">
+                                <span>Full URL</span>
+                            </div>
+                            <div class="menu-item" id="list-feeds-toggle">
+                                <span>All Lists</span>
+                            </div>
+                            <div class="menu-item" id="refresh-csv-toggle" style="display: none;">
+                                <span>Refresh lists.csv</span>
+                            </div>
+                            <div class="menu-item" id="refresh-local-toggle" style="display: none;">
+                                <span>Refresh Locally</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3125,13 +3192,23 @@
         <div class="card side-padding" id="participants-table-card" style="display: none;">
 
             <div id="list-title-holder" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
-                <h2 class="card-title" id="list-title" style="margin: 0;">📊 Participants List</h2>
+                <h2 class="card-title" id="list-title" style="margin: 0;"><i class="material-icons list-title-icon" aria-hidden="true">leaderboard</i><span>Participants List</span></h2>
                 <div style="display: flex; gap: 10px;">
                     <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Repos</button>
                     <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
                     <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
+                </div>
+            </div>
+
+            <div id="list-loading-state" class="list-loading-state">
+                <div class="list-loading-content">
+                    <i class="material-icons list-loading-icon" aria-hidden="true">autorenew</i>
+                    <div class="list-loading-copy">
+                        <div id="list-loading-title" class="list-loading-title">Loading list</div>
+                        <div id="list-loading-subtitle" class="list-loading-subtitle">Fetching and preparing records...</div>
+                    </div>
                 </div>
             </div>
 
@@ -6799,6 +6876,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         async function getSubsetUsingSnapshot() {
             // Clear any displayed insights from previous list
             clearInsightsDisplay();
+            showListLoadingState();
 
             // Check for admin=1 and list=modelteam in hash
             const hash = getHash();
@@ -6843,6 +6921,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             if (!meetupLink) {
                 meetupLink = getModelteamUrl();
                 if (!meetupLink) {
+                    hideListLoadingState();
                     appendStatusMessage('Please select a valid data source or wait for options to load.', 'error');
                     return;
                 }
@@ -6880,6 +6959,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     8000
                 );
                 
+                hideListLoadingState();
                 getParticipantsButton.disabled = false;
                 participantsSpinner.style.display = 'none';
                 return;
@@ -6901,6 +6981,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         8000
                     );
                     
+                    hideListLoadingState();
                     getParticipantsButton.disabled = false;
                     participantsSpinner.style.display = 'none';
                     return;
@@ -6958,6 +7039,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         'error',
                         8000
                     );
+                    hideListLoadingState();
                 }
                 
                 getParticipantsButton.disabled = false;
@@ -6974,7 +7056,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 const tableContainer = document.getElementById('participants-table-container');
                 
                 if (participantsTableCard) {
-                    participantsTableCard.style.display = 'none';
+                    participantsTableCard.style.display = 'block';
                 }
                 if (tableContainer) {
                     tableContainer.innerHTML = '<div class="loading-state">Loading data...</div>';
@@ -7086,6 +7168,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         uploadFallback.style.display = 'block';
                     }
                     
+                    hideListLoadingState();
                     return; // Exit the function instead of throwing
                 }
                 
@@ -7136,6 +7219,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         uploadFallback.style.display = 'block';
                     }
                     
+                    hideListLoadingState();
                     return; // Exit the function instead of throwing
                 }
                 
@@ -7394,6 +7478,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 
                 // Show the table card so the 3-dot menu remains accessible
                 document.getElementById('participants-table-card').style.display = 'block';
+                hideListLoadingState();
                 
                 // Log error for debugging
                 console.log('Showing upload fallback due to error:', error.message);
@@ -7641,6 +7726,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         let currentTeamFilter = getHash().team || localStorage.getItem(getListStorageKey('participantsTeamFilter')) || null;
         let currentLoadedList = null; // Track which list is currently loaded
         let initialTeamLegendGenerated = false;
+        let isListLoading = false;
         
         // Flag to prevent group parameter processing during status updates
         let isUpdatingStatus = false;
@@ -8148,7 +8234,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 return;
             }
             
-            const isMetaList = getHash().list === 'all';
+            const currentList = getHash().list || 'modelteam';
+            const isMetaList = currentList === 'all';
+            const isModelTeamList = currentList === 'modelteam';
             
             let imageCount = 0;
             data.forEach(participant => {
@@ -8182,7 +8270,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         setURLHashParam('list', participant.List);
                         updateParticipantListTitle(participant.Title || participant.List);
                     });
-                } else {
+                } else if (isModelTeamList) {
                     // Add clickable functionality for regular participant cards to open participant page
                     card.style.cursor = 'pointer';
                     card.title = `Click to view details for: ${name}`;
@@ -8191,9 +8279,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu')) {
                             return;
                         }
-                        // Navigate to participant.html with list and id parameters
-                        const currentList = getHash().list || 'modelteam';
-                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(name)}`;
+                        // Participant detail pages on team/projects always use the modelteam list.
+                        window.location.href = `participant.html#list=modelteam&id=${encodeURIComponent(name)}`;
                     });
                 }
                 
@@ -8466,7 +8553,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             
             // Create table body
             tableBody.innerHTML = '';
-            const isMetaList = getHash().list === 'all';
+            const currentList = getHash().list || 'modelteam';
+            const isMetaList = currentList === 'all';
+            const isModelTeamList = currentList === 'modelteam';
             
             data.forEach(row => {
                 if (!row) return; // Skip null/undefined rows
@@ -8527,10 +8616,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     }
 
                     // Navigate to participant page on click (for non-meta lists)
-                    if (!isMetaList) {
-                        const currentList = getHash().list || 'modelteam';
+                    if (isModelTeamList) {
                         const rowName = getParticipantName(row);
-                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(rowName)}`;
+                        window.location.href = `participant.html#list=modelteam&id=${encodeURIComponent(rowName)}`;
                         return;
                     }
                     
@@ -8554,6 +8642,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 if (isMetaList && row.List) {
                     tr.style.cursor = 'pointer';
                     tr.title = `Click to view data from: ${row.Title || row.List}`;
+                } else if (isModelTeamList) {
+                    tr.style.cursor = 'pointer';
+                    tr.title = `Click to view details for: ${getParticipantName(row)}`;
                 }
                 
                 // Add checkbox column first
@@ -9014,7 +9105,9 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 return;
             }
             
-            const isMetaList = getHash().list === 'all';
+            const currentList = getHash().list || 'modelteam';
+            const isMetaList = currentList === 'all';
+            const isModelTeamList = currentList === 'modelteam';
             
             let imageCount = 0;
             data.forEach(participant => {
@@ -9049,7 +9142,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         setURLHashParam('list', participant.List);
                         updateParticipantListTitle(participant.Title || participant.List);
                     });
-                } else {
+                } else if (isModelTeamList) {
                     // Add clickable functionality for regular participant cards to open participant page
                     card.style.cursor = 'pointer';
                     card.title = `Click to view details for: ${name}`;
@@ -9058,9 +9151,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu') || e.target.closest('.gallery-toggle-btn')) {
                             return;
                         }
-                        // Navigate to participant.html with list and id parameters
-                        const currentList = getHash().list || 'modelteam';
-                        window.location.href = `participant.html#list=${encodeURIComponent(currentList)}&id=${encodeURIComponent(name)}`;
+                        // Participant detail pages on team/projects always use the modelteam list.
+                        window.location.href = `participant.html#list=modelteam&id=${encodeURIComponent(name)}`;
                     });
                 }
                 
@@ -9558,6 +9650,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     console.error('❌ Gallery view call stack overflow - Stack depth:', stackDepth, 'frames.', memoryInfo);
                     appendStatusMessage(`<h4>Gallery View Error</h4><p>Maximum call stack size exceeded. Stack depth: ~${stackDepth} frames.${memoryInfo}</p>`, 'error');
                 }
+            }
+
+            if (isListLoading) {
+                hideListLoadingState();
             }
             
             // Reapply group highlighting
@@ -11213,6 +11309,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         
         // Hide UI elements when changing to a new list
         function hideListDisplayElements() {
+            hideListLoadingState();
+
             // Hide team legend panel
             const teamLegend = document.getElementById('team-legend');
             if (teamLegend) {
@@ -11255,6 +11353,70 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             filteredData = [];
             
             console.log('List display elements hidden and data cleared');
+        }
+
+        function setParticipantListTitleText(titleText) {
+            const participantListTitle = document.getElementById('list-title');
+            if (!participantListTitle) return;
+            participantListTitle.innerHTML = `<i class="material-icons list-title-icon" aria-hidden="true">leaderboard</i><span>${escapeHtml(titleText)}</span>`;
+        }
+
+        function getActiveListLabel() {
+            const listParam = getHash().list || fileSelect.value;
+            const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
+            if (matchingOption && matchingOption.textContent) {
+                return matchingOption.textContent;
+            }
+            if (listParam && listParam !== 'custom') {
+                return listParam;
+            }
+            return 'Participants List';
+        }
+
+        function showListLoadingState(subtitle = 'Fetching and preparing records...') {
+            const loadingState = document.getElementById('list-loading-state');
+            const loadingTitle = document.getElementById('list-loading-title');
+            const loadingSubtitle = document.getElementById('list-loading-subtitle');
+            const participantsTableCard = document.getElementById('participants-table-card');
+            const paginationControls = document.querySelector('.pagination-controls');
+            const resultsCount = document.getElementById('results-count');
+            const emailContainer = document.getElementById('emailListContainer');
+            const mapContainer = document.getElementById('participants-map-container');
+
+            isListLoading = true;
+
+            if (participantsTableCard) {
+                participantsTableCard.style.display = 'block';
+            }
+            if (loadingTitle) {
+                loadingTitle.textContent = `Loading ${getActiveListLabel()}`;
+            }
+            if (loadingSubtitle) {
+                loadingSubtitle.textContent = subtitle;
+            }
+            if (loadingState) {
+                loadingState.style.display = 'flex';
+            }
+            if (resultsCount) {
+                resultsCount.textContent = 'Loading...';
+            }
+            if (paginationControls) {
+                paginationControls.style.display = 'none';
+            }
+            if (emailContainer) {
+                emailContainer.style.display = 'none';
+            }
+            if (mapContainer) {
+                mapContainer.style.display = 'none';
+            }
+        }
+
+        function hideListLoadingState() {
+            const loadingState = document.getElementById('list-loading-state');
+            if (loadingState) {
+                loadingState.style.display = 'none';
+            }
+            isListLoading = false;
         }
         
         // Show UI elements when new list loads successfully
@@ -11387,13 +11549,11 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         }
         
         function updateParticipantListTitle(customTitle = null) {
-            const participantListTitle = document.getElementById('list-title');
             let titleText;
             
             if (customTitle) {
                 // Use custom title provided
                 titleText = customTitle;
-                participantListTitle.textContent = `📊 ${customTitle}`;
             } else {
                 // Check if there's a list parameter in the hash
                 const listParam = getHash().list;
@@ -11404,14 +11564,12 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     const matchingOption = Array.from(fileSelect.options).find(option => option.value === listParam);
                     if (matchingOption && matchingOption.textContent) {
                         titleText = matchingOption.textContent;
-                        participantListTitle.textContent = `📊 ${matchingOption.textContent}`;
                         // Update dropdown selection to match
                         fileSelect.value = listParam;
                     } else {
                         // List parameter not available in this site's fileSelect options
                         // Just use the parameter as title without changing dropdown
                         titleText = listParam;
-                        participantListTitle.textContent = `📊 ${listParam}`;
                         console.log('List param not found in fileSelect options:', listParam, 'keeping original selection');
                         
                         // Display user-visible message about unavailable list
@@ -11423,14 +11581,14 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     if (selectedOption && selectedOption.textContent && selectedOption.value !== 'custom') {
                         // Use the title from the selected option
                         titleText = selectedOption.textContent;
-                        participantListTitle.textContent = `📊 ${selectedOption.textContent}`;
                     } else {
                         // Default title
                         titleText = 'Participants List';
-                        participantListTitle.textContent = '📊 Participants List';
                     }
                 }
             }
+
+            setParticipantListTitleText(titleText);
             
             // Update browser title
             document.title = titleText;
@@ -11930,6 +12088,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         function showAllLists() {
             // Clear any displayed insights from previous list
             clearInsightsDisplay();
+            showListLoadingState('Loading the available list catalog...');
 
             // Show loading status for list of lists
             document.getElementById('loadStatus').innerHTML = '<div class="loading-message">Loading list of lists...</div>';
@@ -11953,7 +12112,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
 
                 // Hide the table card first to prevent flash
                 if (participantsTableCard) {
-                    participantsTableCard.style.display = 'none';
+                    participantsTableCard.style.display = 'block';
                 }
 
                 // Clear table content and show loading state
@@ -12010,6 +12169,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     })
                     .catch(error => {
                         console.error('Error loading show.json:', error);
+                        hideListLoadingState();
                         document.getElementById('loadStatus').innerHTML = `<div class="error-message">Error loading lists: ${error.message} - Path: ${showJsonPath}</div>`;
                         document.getElementById('loadStatus').style.display = 'block';
                     });
@@ -12026,7 +12186,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             
             // Hide the table card first to prevent flash
             if (participantsTableCard) {
-                participantsTableCard.style.display = 'none';
+                participantsTableCard.style.display = 'block';
             }
             
             // Clear table content and show loading state
@@ -12167,6 +12327,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 })
                 .catch(error => {
                     console.error('Error loading feeds list:', error);
+                    hideListLoadingState();
                     if (tableContainer) {
                         tableContainer.innerHTML = '<div class="error-state">Error loading feeds list. Please try again.<br><small>Error: ' + error.message + '</small></div>';
                     }
@@ -13091,6 +13252,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                             let imagePath = trimmed;
                             if (!imagePath.startsWith('http') && !imagePath.startsWith('/')) {
                                 imagePath = imagePath.startsWith('../') ? imagePath : '../' + imagePath;
+                            }
+                            // Omits SeeClickFix placeholders
+                            if (imagePath.toLowerCase().includes('no-avatar') || imagePath.toLowerCase().includes('default-farmersmarket')) {
+                                return;
                             }
                             imagePaths.push(imagePath);
                         }

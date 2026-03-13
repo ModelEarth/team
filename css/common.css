@@ -251,6 +251,14 @@ h1.card-title {
     padding-left: 9px;
 }
 
+#webserver-commands-toggle .quickstart-commands-toggle-btn:nth-child(-n + 2) {
+    margin-right: 6px;
+}
+
+#webserver-commands-toggle {
+    margin-bottom: 10px;
+}
+
 .quickstart-commands-toggle-group.compact-toggle-group .quickstart-toggle-icon {
     width: 18px;
     height: 18px;
@@ -478,6 +486,7 @@ pre code {
     position: absolute !important;
     top: 8px;
     right: 0px;
+    margin-right: 10px;
     padding: 6px 12px !important;
     font-size: 12px !important;
     z-index: 10 !important;
