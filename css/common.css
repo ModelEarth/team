@@ -68,7 +68,8 @@ h2 {
 */
 
 /* ===== NAVIGATION & BREADCRUMBS ===== */
-.breadcrumb {
+.breadcrumbs,
+div.breadcrumb {
     margin-bottom: 8px;
     color: var(--text-secondary);
     font-size: 14px;
@@ -76,30 +77,36 @@ h2 {
     padding-top: 8px;
 }
 
-.breadcrumb a {
+.breadcrumbs a,
+div.breadcrumb a {
     align-items: center;
     border-radius: 999px;
     color: var(--accent-blue);
     display: inline-flex;
     gap: 2px;
-    padding: 4px 8px;
+    padding: 4px 6px;
     text-decoration: none;
     transition: background 0.18s ease, color 0.18s ease;
 }
 
-.breadcrumb a:hover,
-.breadcrumb a:focus-visible {
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible,
+div.breadcrumb a:hover,
+div.breadcrumb a:focus-visible {
     background-color: rgba(156, 163, 175, 0.28);
     text-decoration: none;
     outline: none;
 }
 
-.dark .breadcrumb a:hover,
-.dark .breadcrumb a:focus-visible {
+.dark .breadcrumbs a:hover,
+.dark .breadcrumbs a:focus-visible,
+.dark div.breadcrumb a:hover,
+.dark div.breadcrumb a:focus-visible {
     background-color: rgba(107, 114, 128, 0.3);
 }
 
-.breadcrumb .material-icons {
+.breadcrumbs .material-icons,
+div.breadcrumb .material-icons {
     font-size: 18px;
     line-height: 1;
 }

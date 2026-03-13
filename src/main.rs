@@ -589,7 +589,7 @@ async fn get_env_config() -> Result<HttpResponse> {
     };
     
     // Check for component-based configurations first
-    let component_prefixes = ["COMMONS", "EXIOBASE", "LOCATIONS", "DB"];
+    let component_prefixes = ["EXIOBASE", "COMMONS", "LOCATIONS", "DB"];
     for prefix in component_prefixes.iter() {
         if let Some((display_name, config)) = build_config_from_components(prefix) {
             // Set COMMONS as the default database config

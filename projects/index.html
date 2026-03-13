@@ -1084,7 +1084,7 @@
             overflow-x: hidden !important;
         }
         
-        .fullscreen-mode .breadcrumb {
+        .fullscreen-mode .breadcrumbs {
             display: none !important;
         }
         
@@ -2996,7 +2996,7 @@
         </div>
 
             <div class="contentpadding" style="padding-bottom: 0px">
-            <div class="breadcrumb">
+            <div class="breadcrumbs" style="display: block;">
                 <a class="breadcrumb" href="../">Team Tools</a>
                 <span> - </span>
                 <a class="breadcrumb" href="../admin/">Collaboration</a>
@@ -11639,7 +11639,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         function updateListSelectVisibility() {
             const listParam = getHash().list;
             const pageControls = document.getElementById('pageControls');
-            const breadcrumb = document.querySelector('.breadcrumb');
+            const breadcrumb = document.querySelector('.breadcrumbs');
             const addVisitBtn = document.getElementById('add-visit-btn');
             const mapBtn = document.getElementById('map-btn');
             const insightsBtn = document.getElementById('insights-btn');

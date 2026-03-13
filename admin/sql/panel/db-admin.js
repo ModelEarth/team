@@ -7,7 +7,7 @@ class DatabaseAdmin {
             : 'http://localhost:8081/api';
         this.log = [];
         this.envConfig = null;
-        this.selectedConnection = 'COMMONS'; // Default to COMMONS
+        this.selectedConnection = 'EXIOBASE'; // Default to Industry Database
         this.databaseConnectionStatus = {}; // Track individual database connection status
         this.init();
     }
@@ -62,8 +62,8 @@ class DatabaseAdmin {
             option.value = connection.name;
             option.textContent = connection.display_name;
             
-            // Select COMMONS as default
-            if (connection.name === 'COMMONS') {
+            // Select EXIOBASE as default
+            if (connection.name === 'EXIOBASE') {
                 option.selected = true;
                 this.selectedConnection = connection.name;
             }
@@ -576,14 +576,36 @@ class DatabaseAdmin {
             ajaxRequestFunc: (url, config, params) => {
                 const sortField = params.sort?.[0]?.field ?? null;
                 const sortDir = params.sort?.[0]?.dir ?? null;
+                const total = this._tableDataTotal;
+                const size = params.size;
+                const page = params.page;
+
+                // Calculate expected record count for this page (only known after first load)
+                let countSuffix = '';
+                if (total > 0) {
+                    const lastPage = Math.ceil(total / size);
+                    const remainder = total % size;
+                    const expectedCount = (page === lastPage && remainder !== 0) ? remainder : size;
+                    countSuffix = ` ${expectedCount} records`;
+                }
+                const loadingInfo = document.getElementById('table-loading-info');
+                if (loadingInfo) loadingInfo.textContent = `Loading${countSuffix}…`;
+                requestAnimationFrame(() => {
+                    const loaderMsg = container.querySelector('.tabulator-loader-msg')
+                        || document.querySelector('.tabulator-loader-msg');
+                    const allLoaders = [...document.querySelectorAll('[class*="load"]')].map(el => el.className).join(' | ');
+                    alert('loaderMsg: ' + (loaderMsg ? 'FOUND: ' + loaderMsg.textContent : 'NOT FOUND') + '\nAll loader classes: ' + (allLoaders || 'none'));
+                    if (loaderMsg) loaderMsg.textContent = `Loading${countSuffix}…`;
+                });
+
                 return fetch(`${apiBase}/db/table-rows`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         table: tableName,
                         connection,
-                        page: params.page,
-                        size: params.size,
+                        page,
+                        size,
                         sort_field: sortField,
                         sort_dir: sortDir,
                     })
@@ -591,9 +613,11 @@ class DatabaseAdmin {
                     if (resp.error) {
                         this.addLog(`❌ ${resp.error}`);
                         container.innerHTML = `<div class="error-message">${resp.error}</div>`;
+                        if (loadingInfo) loadingInfo.textContent = '';
                         return { last_page: 1, data: [] };
                     }
                     this._tableDataTotal = resp.total;
+                    if (loadingInfo) loadingInfo.textContent = `Loaded ${resp.data.length} of ${resp.total} records`;
                     const rowsLabel = container.querySelector('.table-rows-label');
                     if (rowsLabel) rowsLabel.textContent = `rows of ${resp.total} records`;
                     this.addLog(`✅ Page ${resp.page}/${resp.last_page} (${resp.total} total rows)`);

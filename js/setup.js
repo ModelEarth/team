@@ -349,12 +349,13 @@ function updateGeminiKeyUI(keyIsAvailable) {
 
         // Use teamPathSetup to get correct relative path to projects
         const projectsPath = teamPathSetup + 'projects/#list=all';
+        const exploreDataPath = teamPathSetup + 'projects/#list=all';
 
         contentElement.innerHTML = `
             You can ask questions about datasets on the <a href="${projectsPath}">AI Data Insights</a> page.<br>
             <a href="https://ai.google.dev/gemini-api/docs/quickstart" title="Gemini key" target="_blank">Gemini key</a> is active on the server - <a href="#" onclick="testGeminiFromPanel(); return false;">Test Gemini API</a>
             <div id="gemini-test-result" style="margin-top: 8px;"></div>
-            <div style="margin-top: 8px;">
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
@@ -364,6 +365,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
                     </svg>
                     Change Key
                 </button>
+                <a href="${exploreDataPath}" class="btn btn-secondary">Explore Data</a>
             </div>
             <div id="browser-key-input" style="display: none; margin-top: 12px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
                 <div style="display: flex; gap: 8px; align-items: center;">
@@ -393,9 +395,6 @@ function updateGeminiKeyUI(keyIsAvailable) {
                 ${storageText} - <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" style="color: var(--accent-blue);">${linkText}</a>
             </div>
             <div style="margin-top: 8px;">
-                ${envText}
-            </div>
-            <div style="margin-top: 8px;">
                 <button onclick="toggleGeminiKeyInput()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: none; cursor: pointer;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
@@ -412,6 +411,9 @@ function updateGeminiKeyUI(keyIsAvailable) {
                     <button onclick="saveGeminiKey()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">Save</button>
                     <button onclick="cancelGeminiKey()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Cancel</button>
                 </div>
+            </div>
+            <div class="local" style="display:none; margin-top: 8px;">
+                ${envText}
             </div>
         `;
     }
