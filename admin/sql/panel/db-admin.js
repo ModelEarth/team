@@ -362,7 +362,7 @@ class DatabaseAdmin {
         }
         
         tablesList.innerHTML = tables.map(table => `
-            <div class="table-item">
+            <div class="table-item" style="cursor: pointer;" data-table="${table.name}" title="Click to view 50 rows">
                 <div class="table-name">${table.name}</div>
                 <div class="table-info">
                     ${table.row_count !== undefined ? `Rows: ${table.row_count}` : (table.rows ? `Rows: ${table.rows}` : 'Rows: Unknown')}
@@ -370,6 +370,10 @@ class DatabaseAdmin {
                 </div>
             </div>
         `).join('');
+
+        tablesList.querySelectorAll('.table-item').forEach(item => {
+            item.addEventListener('click', () => this.loadTableData(item.dataset.table));
+        });
 
         const actualTotal = totalCount || tables.length;
         const displayedCount = tables.length;
@@ -544,6 +548,153 @@ class DatabaseAdmin {
             logOutput.textContent = this.log.join('\n');
             logOutput.scrollTop = logOutput.scrollHeight;
         }
+    }
+
+    loadTableData(tableName) {
+        this.addLog(`📋 Loading table: ${tableName}`);
+
+        const card = document.getElementById('table-data-card');
+        const title = document.getElementById('table-data-title');
+        const container = document.getElementById('tabulator-tabledata');
+
+        card.style.display = '';
+        title.textContent = `Table: ${tableName}`;
+        container.innerHTML = '';
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        if (this._tableDataTabulator) {
+            this._tableDataTabulator.destroy();
+            this._tableDataTabulator = null;
+        }
+        this._tableDataTotal = 0;
+
+        const apiBase = this.apiBaseUrl;
+        const connection = this.selectedConnection;
+
+        this._tableDataTabulator = new Tabulator(container, {
+            ajaxURL: `${apiBase}/db/table-rows`,
+            ajaxRequestFunc: (url, config, params) => {
+                const sortField = params.sort?.[0]?.field ?? null;
+                const sortDir = params.sort?.[0]?.dir ?? null;
+                return fetch(`${apiBase}/db/table-rows`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        table: tableName,
+                        connection,
+                        page: params.page,
+                        size: params.size,
+                        sort_field: sortField,
+                        sort_dir: sortDir,
+                    })
+                }).then(r => r.json()).then(resp => {
+                    if (resp.error) {
+                        this.addLog(`❌ ${resp.error}`);
+                        container.innerHTML = `<div class="error-message">${resp.error}</div>`;
+                        return { last_page: 1, data: [] };
+                    }
+                    this._tableDataTotal = resp.total;
+                    const rowsLabel = container.querySelector('.table-rows-label');
+                    if (rowsLabel) rowsLabel.textContent = `rows of ${resp.total} records`;
+                    this.addLog(`✅ Page ${resp.page}/${resp.last_page} (${resp.total} total rows)`);
+                    return resp;
+                });
+            },
+            pagination: true,
+            paginationMode: 'remote',
+            paginationSize: 200,
+            paginationButtonCount: 0,
+            sortMode: 'remote',
+            layout: 'fitColumns',
+            responsiveLayout: 'hide',
+            tooltips: true,
+            movableColumns: true,
+            maxHeight: '480px',
+            autoColumns: true,
+            autoColumnsDefinitions: (definitions) => {
+                definitions.forEach(def => {
+                    def.headerSortStartingDir = 'desc';
+                    def.tooltip = true;
+                    const orig = def.formatter;
+                    def.formatter = (cell) => {
+                        const val = cell.getValue();
+                        if (val === null || val === undefined) {
+                            return '<span style="color:var(--text-muted)">null</span>';
+                        }
+                        return orig ? orig(cell) : String(val);
+                    };
+                });
+                return definitions;
+            },
+        });
+
+        this._tableDataTabulator.on('tableBuilt', () => {
+            this._setupTableFooter(container);
+        });
+    }
+
+    _setupTableFooter(container) {
+        const footer = container.querySelector('.tabulator-footer');
+        if (!footer) return;
+
+        // Page jump input between prev and next arrows
+        const paginator = footer.querySelector('.tabulator-paginator');
+        if (paginator) {
+            const pageInput = document.createElement('input');
+            pageInput.type = 'text';
+            pageInput.value = '1';
+            pageInput.style.cssText = 'width:3ch; text-align:center; border:1px solid #aaa; border-radius:3px;';
+            pageInput.addEventListener('input', function() {
+                this.style.width = (this.value.length + 2) + 'ch';
+            });
+            pageInput.addEventListener('change', () => {
+                let page = parseInt(pageInput.value) || 1;
+                const max = this._tableDataTabulator.getPageMax();
+                if (page > max) { page = max; pageInput.value = max; }
+                if (page < 1) { page = 1; pageInput.value = 1; }
+                pageInput.style.width = (pageInput.value.toString().length + 2) + 'ch';
+                this._tableDataTabulator.setPage(page);
+            });
+            this._tableDataTabulator.on('pageLoaded', (pageno) => {
+                pageInput.value = pageno;
+                pageInput.style.width = (pageno.toString().length + 2) + 'ch';
+                ['first', 'prev', 'next', 'last'].forEach(name => {
+                    const btn = container.querySelector(`.tabulator-page[data-page='${name}']`);
+                    if (btn) btn.style.display = btn.disabled ? 'none' : '';
+                });
+            });
+            const nextBtn = paginator.querySelector(".tabulator-page[data-page='next']");
+            paginator.insertBefore(pageInput, nextBtn || null);
+        }
+
+        // "Showing X rows of Y records" on the left
+        const rowsWrap = document.createElement('div');
+        rowsWrap.style.cssText = 'float:left; display:flex; align-items:center; gap:4px; padding:4px 8px;';
+        const showingLabel = document.createElement('span');
+        showingLabel.textContent = 'Showing';
+        const rowsInput = document.createElement('input');
+        rowsInput.type = 'text';
+        rowsInput.value = '200';
+        rowsInput.style.cssText = 'width:5ch; text-align:center; border:1px solid #aaa; border-radius:3px;';
+        rowsInput.addEventListener('input', function() {
+            this.style.width = (this.value.length + 2) + 'ch';
+        });
+        rowsInput.addEventListener('change', () => {
+            let size = parseInt(rowsInput.value) || 200;
+            rowsInput.style.width = (rowsInput.value.toString().length + 2) + 'ch';
+            this._tableDataTabulator.setPageSize(size);
+        });
+        const rowsLabel = document.createElement('span');
+        rowsLabel.className = 'table-rows-label';
+        rowsLabel.textContent = `rows of ${this._tableDataTotal} records`;
+        rowsWrap.append(showingLabel, rowsInput, rowsLabel);
+        footer.insertBefore(rowsWrap, footer.firstChild);
+
+        // Hide disabled nav arrows initially
+        ['first', 'prev', 'next', 'last'].forEach(name => {
+            const btn = container.querySelector(`.tabulator-page[data-page='${name}']`);
+            if (btn) btn.style.display = btn.disabled ? 'none' : '';
+        });
     }
 
     clearLog() {

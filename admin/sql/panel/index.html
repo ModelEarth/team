@@ -13,6 +13,8 @@
 
     
     <link rel="stylesheet" href="../../../css/common.css">
+    <link rel="stylesheet" href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables/dist/js/tabulator.min.js"></script>
     <style>
         #database-admin-btn {
             display: none;
@@ -494,6 +496,11 @@
             
             <div id="tables-result"></div>
             <div id="tables-list" class="table-list"></div>
+        </div>
+
+        <div class="card" id="table-data-card" style="display: none;">
+            <h2 class="card-title" id="table-data-title">Table Data</h2>
+            <div id="tabulator-tabledata"></div>
         </div>
 
         <div class="card">

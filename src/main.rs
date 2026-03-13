@@ -2,11 +2,11 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware, HttpRequest};
 use anyhow::Context;
-use chrono::{Utc, NaiveDate};
+use chrono::{Utc, NaiveDate, NaiveDateTime};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, Row, Column, ValueRef};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres, Row, Column, ValueRef, TypeInfo};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::process::{Child, Command};
@@ -367,6 +367,16 @@ struct ConnectionInfo {
 #[derive(Deserialize)]
 struct QueryRequest {
     query: String,
+}
+
+#[derive(Deserialize)]
+struct TableRowsRequest {
+    table: String,
+    connection: Option<String>,
+    page: Option<i64>,
+    size: Option<i64>,
+    sort_field: Option<String>,
+    sort_dir: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -2223,6 +2233,106 @@ async fn db_execute_query(
     }
 }
 
+// Get paginated, sortable rows from a table
+async fn db_get_table_rows(
+    data: web::Data<Arc<ApiState>>,
+    req: web::Json<TableRowsRequest>,
+) -> Result<HttpResponse> {
+    // Validate table name
+    if req.table.is_empty() || !req.table.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return Ok(HttpResponse::BadRequest().json(json!({
+            "error": "Invalid table name: only alphanumeric characters and underscores are allowed"
+        })));
+    }
+    // Validate sort field
+    if let Some(field) = &req.sort_field {
+        if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Ok(HttpResponse::BadRequest().json(json!({
+                "error": "Invalid sort field: only alphanumeric characters and underscores are allowed"
+            })));
+        }
+    }
+
+    let page = req.page.unwrap_or(1).max(1);
+    let size = req.size.unwrap_or(200).clamp(1, 1000);
+    let offset = (page - 1) * size;
+
+    let sort_clause = match (&req.sort_field, &req.sort_dir) {
+        (Some(field), Some(dir)) => {
+            let direction = if dir.to_lowercase() == "desc" { "DESC" } else { "ASC" };
+            format!("ORDER BY \"{field}\" {direction}")
+        }
+        (Some(field), None) => format!("ORDER BY \"{field}\" ASC"),
+        _ => String::new(),
+    };
+
+    let pool = if let Some(connection_name) = &req.connection {
+        let database_url = if let Ok(url) = std::env::var(connection_name) {
+            url
+        } else {
+            let host_key = format!("{connection_name}_HOST");
+            let port_key = format!("{connection_name}_PORT");
+            let name_key = format!("{connection_name}_NAME");
+            let user_key = format!("{connection_name}_USER");
+            let password_key = format!("{connection_name}_PASSWORD");
+            let ssl_key = format!("{connection_name}_SSL_MODE");
+            if let (Ok(host), Ok(port), Ok(name), Ok(user), Ok(password)) = (
+                std::env::var(&host_key),
+                std::env::var(&port_key),
+                std::env::var(&name_key),
+                std::env::var(&user_key),
+                std::env::var(&password_key),
+            ) {
+                let ssl_mode = std::env::var(&ssl_key).unwrap_or_else(|_| "require".to_string());
+                format!("postgres://{user}:{password}@{host}:{port}/{name}?sslmode={ssl_mode}")
+            } else {
+                return Ok(HttpResponse::BadRequest().json(json!({
+                    "error": format!("Connection '{connection_name}' not found in environment variables")
+                })));
+            }
+        };
+        match sqlx::postgres::PgPool::connect(&database_url).await {
+            Ok(pool) => pool,
+            Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({
+                "error": format!("Failed to connect to {connection_name}: {e}")
+            }))),
+        }
+    } else {
+        match &data.db {
+            Some(db) => db.clone(),
+            None => return Ok(HttpResponse::ServiceUnavailable().json(json!({
+                "error": "Database not available"
+            }))),
+        }
+    };
+
+    let count_sql = format!("SELECT COUNT(*) FROM \"{}\"", req.table);
+    let total: i64 = match sqlx::query(&count_sql).fetch_one(&pool).await {
+        Ok(row) => row.get(0),
+        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to count rows in {}: {e}", req.table)
+        }))),
+    };
+
+    let data_sql = format!("SELECT * FROM \"{}\" {} LIMIT {size} OFFSET {offset}", req.table, sort_clause);
+    let rows = match execute_safe_query(&pool, &data_sql).await {
+        Ok(rows) => rows,
+        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to fetch rows from {}: {e}", req.table)
+        }))),
+    };
+
+    let last_page = ((total as f64) / (size as f64)).ceil() as i64;
+
+    Ok(HttpResponse::Ok().json(json!({
+        "last_page": last_page.max(1),
+        "data": rows,
+        "total": total,
+        "page": page,
+        "size": size,
+    })))
+}
+
 // Create a new project
 // Get all projects from database
 async fn get_projects(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
@@ -2900,32 +3010,58 @@ async fn get_table_details(pool: &Pool<Postgres>, table_name: &str) -> Result<Ha
 
 async fn execute_safe_query(pool: &Pool<Postgres>, query: &str) -> Result<serde_json::Value, sqlx::Error> {
     let rows = sqlx::query(query).fetch_all(pool).await?;
-    
+
     let mut results = Vec::new();
     for row in rows {
         let mut row_map = serde_json::Map::new();
-        
-        // This is a simplified approach - in production you'd want to handle types properly
+
         for (i, column) in row.columns().iter().enumerate() {
+            let type_name = column.type_info().name().to_lowercase();
+
             let value = match row.try_get_raw(i) {
-                Ok(raw_value) => {
-                    // Try to convert to string for simplicity
-                    if raw_value.is_null() {
-                        serde_json::Value::Null
+                Ok(raw) if raw.is_null() => serde_json::Value::Null,
+                Ok(_) => {
+                    if type_name.contains("int") || type_name == "serial" || type_name == "bigserial" {
+                        if let Ok(v) = row.try_get::<i64, _>(i) { json!(v) }
+                        else if let Ok(v) = row.try_get::<i32, _>(i) { json!(v) }
+                        else if let Ok(v) = row.try_get::<i16, _>(i) { json!(v) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "float4" || type_name == "real" {
+                        if let Ok(v) = row.try_get::<f32, _>(i) { json!(v) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "float8" || type_name == "double precision"
+                           || type_name == "numeric" || type_name == "decimal" {
+                        if let Ok(v) = row.try_get::<f64, _>(i) { json!(v) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "bool" || type_name == "boolean" {
+                        if let Ok(v) = row.try_get::<bool, _>(i) { json!(v) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "uuid" {
+                        if let Ok(v) = row.try_get::<Uuid, _>(i) { json!(v.to_string()) }
+                        else { serde_json::Value::Null }
+                    } else if type_name.starts_with("timestamp") {
+                        if let Ok(v) = row.try_get::<chrono::DateTime<Utc>, _>(i) { json!(v.to_rfc3339()) }
+                        else if let Ok(v) = row.try_get::<NaiveDateTime, _>(i) { json!(v.to_string()) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "date" {
+                        if let Ok(v) = row.try_get::<NaiveDate, _>(i) { json!(v.to_string()) }
+                        else { serde_json::Value::Null }
+                    } else if type_name == "json" || type_name == "jsonb" {
+                        if let Ok(v) = row.try_get::<serde_json::Value, _>(i) { v }
+                        else { serde_json::Value::Null }
                     } else {
-                        // For demo purposes, try to get as string or show type info
                         match row.try_get::<String, _>(i) {
-                            Ok(s) => serde_json::Value::String(s),
-                            Err(_) => serde_json::Value::String("Non-string value".to_string()),
+                            Ok(s) => json!(s),
+                            Err(_) => serde_json::Value::Null,
                         }
                     }
                 }
-                Err(_) => serde_json::Value::String("Error reading value".to_string()),
+                Err(_) => serde_json::Value::Null,
             };
-            
+
             row_map.insert(column.name().to_string(), value);
         }
-        
+
         results.push(serde_json::Value::Object(row_map));
     }
 
@@ -3042,6 +3178,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/test-locations-connection", web::get().to(db_test_location_connection))
                             .route("/tables", web::get().to(db_list_tables))
                             .route("/table/{table_name}", web::get().to(db_get_table_info))
+                            .route("/table-rows", web::post().to(db_get_table_rows))
                             .route("/query", web::post().to(db_execute_query))
                     )
                     .service(
