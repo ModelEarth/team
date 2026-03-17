@@ -7431,7 +7431,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 // Add file path info when on localhost for debugging
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 if (isLocalhost && meetupLink) {
-                    additionalInfo += `<br><strong>File path attempted:</strong> <code>${meetupLink}</code>`;
+                    additionalInfo += `<br><strong>File path attempted:</strong> ${meetupLink}`;
                 }
                 
                 if (error.message && error.message.includes('Maximum call stack size exceeded')) {
