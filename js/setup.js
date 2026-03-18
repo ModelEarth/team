@@ -38,7 +38,6 @@ function createWebrootSetupHTML() {
     const webrootGit = `https://github.com/${parentRepoPath}/`;
     
     return `
-      <a href="/team/admin/">Partner Tools</a><h1 class="card-title">Webroot Manager</h1>
       <div id="webroot-manager-github-fields-anchor"></div>
       1. Install <a href="https://github.com/apps/desktop" target="github_desktop">Github Desktop</a><br>
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper&nbsp;right.<br>

@@ -218,7 +218,6 @@
         .clickable-card:hover {
             transform: translateY(-4px);
             box-shadow: var(--shadow-lg);
-            border-color: var(--accent-blue);
         }
 
         .clickable-card:hover .admin-card-icon {
@@ -342,6 +341,10 @@
                 padding: 24px;
             }
         }
+        .welcome-hero-geo {
+            border-radius: 20px;
+            margin-top: 20px;
+        }
     </style>
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
@@ -349,9 +352,9 @@
 <body>
     <div class="container" style="max-width:1400px">
 
+        <img src="../img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
+
         <div id="teamAdminHeaderFlex">
-            <div class="breadcrumb"><a href="../"><span class="material-icons" aria-hidden="true">chevron_left</span>Team Tools</a>
-            </div>
             <div class="header" style="padding-top:0px;flex:1;">
                 <h1 style="justify-content: center;">Team Collaboration</h1>
                 <p>Dashboard for managing projects, locations, data insights and partner directories.</p>
