@@ -138,16 +138,22 @@ div.breadcrumb .material-icons {
 
 .header-center {
     backgroundX: var(--bg-secondary);
-    padding: 24px;
-    padding-bottom: 0px;
     border-radiusX: var(--radius-lg);
     margin-bottom: 0px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    z-index: 1;
+    text-align: center;
+    color: white;
 }
 
 .header-center h1 {
     font-size: 28px;
     font-weight: 700;
-    color: var(--text-primary);
+    color: white;
     margin-bottom: 8px;
     display: flex;
     align-items: center;
@@ -155,8 +161,22 @@ div.breadcrumb .material-icons {
 }
 
 .header-center p {
-    color: var(--text-secondary);
+    color: white;
     font-size: 16px;
+}
+
+@media (max-width: 600px) {
+    .header-center {
+        position: static;
+        transform: none;
+        background: var(--bg-footer);
+        border-radius: 0;
+        padding: 16px;
+        color: var(--text-primary);
+    }
+    .header-center h1, .header-center p {
+        color: var(--text-primary);
+    }
 }
 .card {
     background: var(--bg-secondary);

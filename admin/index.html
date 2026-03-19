@@ -344,13 +344,12 @@
         .welcome-hero-geo-wrap {
             border-radius: 20px;
             margin-top: 20px;
-            overflow: hidden;
-            height: 200px;
+            width: 100%;
             background: var(--bg-footer);
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            aspect-ratio: 1400 / 290;
+            min-height: 120px;
+            overflow: hidden;
         }
         .welcome-hero-geo {
             position: absolute;
@@ -361,14 +360,20 @@
             object-position: center;
             display: block;
         }
-        .header-center {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            color: white;
-        }
-        .header-center h1, .header-center p {
-            color: white;
+        @media (max-width: 600px) {
+            .welcome-hero-geo-wrap {
+                aspect-ratio: unset;
+                overflow: hidden;
+            }
+            .welcome-hero-geo {
+                position: static;
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1400 / 290;
+                min-height: 120px;
+                border-radius: 0;
+                vertical-align: top;
+            }
         }
     </style>
     <!-- Load Shared Auth Modal -->
@@ -379,7 +384,7 @@
 
         <div class="welcome-hero-geo-wrap">
             <img src="../img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
-            <div class="header-center geo-x" style="padding-top:0px;flex:1;">
+            <div class="header-center geo-x">
                 <div class="large-list"><h1 style="justify-content: center; font-size: 32px !important; font-weight: 400 !important;">Partner Tools / Team Collaboration</h1></div>
                 <p>Tech management, location details, AI insights and partner directories.</p>
             </div>
