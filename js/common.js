@@ -1565,10 +1565,10 @@ function handleApiConnectionError(error, containerId) {
         adminPath = 'server/';
     } else if (currentPath.includes('/projects/') || currentPath.includes('/preferences/')) {
         // In subdirectories, go up one level then to admin/server
-        adminPath = '../admin/server/';
+        adminPath = '../setup/';
     } else {
         // From root team directory, path to admin/server
-        adminPath = 'admin/server/';
+        adminPath = 'setup/';
     }
 
     const errorMessage = `
@@ -1576,7 +1576,7 @@ function handleApiConnectionError(error, containerId) {
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span style="color: #EF4444; font-weight: 500;">API Connection Failed - Unable to connect to server.</span>
                 <a href="${adminPath}">
-                    Configure Your Local Server
+                    Webroot Manager
                 </a>
                 <span style="cursor: pointer; color: var(--text-secondary); font-size: 14px;" onclick="
                     const container = this.parentElement.parentElement;

@@ -147,13 +147,11 @@ div.breadcrumb .material-icons {
     width: 100%;
     z-index: 1;
     text-align: center;
-    color: white;
 }
 
 .header-center h1 {
     font-size: 28px;
     font-weight: 700;
-    color: white;
     margin-bottom: 8px;
     display: flex;
     align-items: center;
@@ -161,7 +159,6 @@ div.breadcrumb .material-icons {
 }
 
 .header-center p {
-    color: white;
     font-size: 16px;
 }
 
@@ -180,7 +177,7 @@ div.breadcrumb .material-icons {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: 24px;
-    padding-bottom: 4px;
+    padding-bottom: 14px;
     margin-bottom: 16px;
     overflow-x: auto;
     min-width: 0;

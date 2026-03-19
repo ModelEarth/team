@@ -390,13 +390,15 @@
 <body>
     <div class="container" style="max-width:1400px">
 
-        <div class="welcome-hero-geo-wrap">
+        <a href="#system-status" style="display:block;color:inherit;text-decoration:none;">
+        <div class="welcome-hero-geo-wrap admin-card">
             <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
             <div class="header-center geo-x">
                 <div class="large-list"><h1 style="justify-content: center; font-weight: 400 !important;">AI Team Partner Tools</h1></div>
                 <p class="hideMobile">Tech management, location details, AI insights and partner directories.</p>
             </div>
         </div>
+        </a>
 
         <div class="admin-grid">
 
@@ -474,7 +476,7 @@
             </div>
 
             <!-- Database Admin -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='sql/panel/'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/sql/panel/'; })">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon database">
@@ -498,7 +500,7 @@
             </div>
 
             <!-- Data Import Tool -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='import-data.html'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/import-data.html'; })">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon excel">
@@ -522,7 +524,7 @@
             </div>
 
             <!-- Log Output Monitor -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='log-output/'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/log-output/'; })">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon logs">
@@ -634,9 +636,9 @@
         </div>
         <br><br>
 
-        <div style="margin-top: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
+        <div id="system-status" style="margin-top: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
             <h3 style="margin-bottom: 16px; color: var(--text-primary);">🛡️ Admin Access Information</h3>
-            <p id="system-status" style="color: var(--text-secondary); font-size: 14px;">
+            <p style="color: var(--text-secondary); font-size: 14px;">
                 <strong>Database:</strong> <span id="db-status">Checking...</span> • 
                 <strong>API Server:</strong> <span id="api-status">Checking...</span>
             </p>
