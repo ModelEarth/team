@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="img/logo/neighborhood/favicon.png" type="image/png">
+    <title>Project Collaboration Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/projects.css">
+    <link rel="stylesheet" href="css/people-teams.css">
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="../projects/css/issues.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css">
+
+    <link type="text/css" rel="stylesheet" href="../localsite/css/base.css" id="/localsite/css/base.css" />
+    <script src="../localsite/js/localsite.js?showheader=true"></script>
+
+    <script src="../localsite/js/jquery.min.js" id="/localsite/js/jquery.min.js"></script>
+
+    <script>
+    // Sign In button testing under localhost or harimayooram.github.io
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentHost = window.location.hostname;
+        const currentPath = window.location.href;
+        const allowSignIn = currentHost.includes('localhost') || 
+                           currentHost === '127.0.0.1' || 
+                           currentPath.includes('harimayooram.github.io') ||
+                           currentHost.includes('geo') ||
+                           currentHost.includes('location');
+        if (allowSignIn) {
+            //document.getElementById('signInTeam').style.display = 'inline-block';
+        }
+    });
+    </script>
+    <style>
+        #sideIcons, #main-footer {
+            displayX:none !important;
+        }
+        .top-bar {
+            displayX:none !important;
+        }
+
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F3F4F6;
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --accent-green: #10B981;
+            --accent-blue: #3B82F6;
+            --accent-orange: #F59E0B;
+            --border-light: #E5E7EB;
+            --border-medium: #D1D5DB;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --sidebar-width-expanded: 280px;
+            --sidebar-collapsed: 64px;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dark {
+            --bg-secondary: #555;
+            --bg-tertiary: #333;
+            --text-secondary: #aaa;
+        }
+        .app-container {
+            display: flex;
+        }
+
+        .top-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .auth-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        /*
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+        }
+        */
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 32px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: var(--radius-lg);
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border-radius: var(--radius-md);
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-size: 14px;
+        }
+
+        .tab.active {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text-primary);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            margin-bottom: 24px;
+        }
+        .dark .card {
+            background: #222;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .welcome-hero {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            color: white;
+            text-align: center;
+            padding: 48px 32px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 32px;
+        }
+        .welcome-hero-geo {
+            border-radius: var(--radius-lg);
+            margin-bottom: 10px;
+        }
+
+        .hero-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+            margin-bottom: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            transition: var(--transition-smooth);
+        }
+        .dark .feature-card {
+            background: #555;
+        }
+        .feature-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .clickable-card {
+            cursor: pointer;
+        }
+
+        .clickable-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+
+        .clickable-card:hover .feature-icon {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        .feature-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: white;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .feature-desc {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .dark .feature-desc {
+            color: #aaa;
+        }
+
+        .demo-notice {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .demo-notice i {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            transition: var(--transition-smooth);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 500px) {
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Hide Search Projects button on narrow screens */
+            .auth-container .btn[onclick="goProjects()"],
+            .auth-container .btn:last-child {
+                display: none;
+            }
+        }
+
+
+    </style>
+</head>
+<body>
+
+    <!-- Main Content Area -->
+    <main>
+
+        <!-- GitHub Auth Section (Minimal) -->
+        <div id="github-auth-minimal" style="max-width: 1200px; margin: 0 auto; padding: 0 16px;"></div>
+
+        <div class="content-area">
+            <!-- Home Section -->
+            <div class="section active" id="home-section">
+
+                <!-- Welcome Tab -->
+                <div class="tab-content" id="welcome-tab">
+
+                    <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
+
+                    <div style="float:right; margin-right:20px">
+                        <!--<b><a href="admin">Admin Dashboard</a></b><br>-->
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab active" data-tab="welcome">Team Tools</button>
+                        <button class="tab" data-tab="documentation">Getting Started</button>
+                        <button class="tab" data-tab="dashboard" id="dashboardTabButton" style="display:none;">Dashboard</button>
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href='./projects/#list=all')">
+                            <div class="feature-icon">
+                                <i data-feather="zap"></i>
+                            </div>
+                            <h3 class="feature-title">Data Insights</h3>
+                            <p class="feature-desc">Get smart recommendations and natural language search with customizations using AI to accelerate your project workflows.</p>
+                        </div>
+
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './admin/')">
+                            <div class="feature-icon">
+                                <i data-feather="users"></i>
+                            </div>
+                            <h3 class="feature-title">Team Collaboration</h3>
+                            <p class="feature-desc">Automate projects and collaborate on AI implementations for workforce development and realtime job creation.</p>
+                        </div>
+
+                        <div style="display:none" class="earth">
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = '/projects/hub/')">
+                            <div class="feature-icon">
+                                <i data-feather="trending-up"></i>
+                            </div>
+                            <h3 class="feature-title">Project Tracking</h3>
+                            <p class="feature-desc">Manage opportunities, track progress, assign tasks, and monitor timelines with intuitive interfaces and data visualizatons.</p>
+                        </div>
+                        </div>
+
+                        <div style="display:none" class="earth">
+                        <div class="feature-card clickable-card" onclick="smartClick(event, () => window.location.href = './projects/#list=modelteam')">
+                            <div class="feature-icon">
+                                <i data-feather="target"></i>
+                            </div>
+
+                            <h3 class="feature-title">Meetup Integration</h3>
+                            <p class="feature-desc">Filters participants from a Google Sheet to share member details during meetups.</p>
+
+                            <!--
+                            <h3 class="feature-title">Local Impact</h3>
+                            <p class="feature-desc">Find and contribute to neighborhood projects that streamline local processes and provide real-time mentoring.</p>
+                            -->
+                        </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation Tab -->
+                <div class="tab-content" id="documentation-tab">
+                    <div class="card">
+                        
+                        <!--
+                        <h3 style="margin-top: 24px; margin-bottom: 12px;">Quick Start Guide</h3>
+                        <ol style="margin-left: 20px; line-height: 1.8;">
+                            <li><strong>Sign In:</strong> Use Google, GitHub, LinkedIn, or email authentication</li>
+                            <li><strong>Complete Your Profile:</strong> Set preferences and interests to match with relevant projects</li>
+                            <li><strong>Join Teams:</strong> Connect with local organizations and development teams</li>
+                            <li><strong>Find Projects:</strong> Browse opportunities or use AI search to find perfect matches</li>
+                            <li><strong>Collaborate:</strong> Join activities, track progress, and contribute to local innovation</li>
+                        </ol>
+                        -->
+
+                        <h2 class="card-title">Getting Started</h2>
+                        <p style="margin-bottom: 12px;"><a href="admin/">Team Collaboration</a></p>
+                        <ul style="margin-left: 20px; line-height: 1.8;">
+                            <li><strong>Smart Search:</strong> Use natural language to find profiles, projects, and opportunities.</li>
+                            <li><strong>Project Management:</strong> Post team activities and track tasks using the Projects Hub.</li>
+                            <li><strong>Team Building:</strong> Create and manage teams and organizations using API integrations.</li>
+                            <li><strong>AI Insights:</strong> Analyze datasets using multiple LLM agents (Claude, OpenAI, xAI, Gemini, etc)</li>
+                            <li><strong>Arts Engine:</strong> Generate images and video with your production crew and share on Github</li>
+                            <li class="local" style="display:none"><strong>Preference Matching:</strong> AI-powered recommendations based on member interests.</li>
+                        </ul>
+
+                        <!-- Gemini Status Info -->
+                        <div id="gemini-status-container" style="margin-top: 24px;">
+                            <!-- Gemini status will be loaded here -->
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="projectButtons" style="margin-top: 24px;" class="geo-x">
+                    <button id="projectsWidgetButton" class="btn btn-secondary" type="button" onclick="openProjectsDashboard(event)">
+                        <i data-feather="briefcase"></i>
+                        Team Projects
+                    </button>
+                    <a href="https://github.com/modelearth/projects/issues/" class="btn btn-info" style="text-decoration: none;" target="_blank">
+                        <i data-feather="folder"></i>
+                        Github ToDos
+                    </a>
+                    <a href="admin/" class="btn btn-primary" style="text-decoration: none;">
+                        <i data-feather="settings"></i>
+                        Partner Tools
+                    </a>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div class="tab-content geo-x" id="dashboard-tab" style="display:none;">
+                    <div class="card">
+                        <h2 class="card-title">Dashboard</h2>
+                        <p style="color: var(--text-secondary);margin-top:10px; margin-bottom: 24px;">Your personalized overview of projects, tasks, and team activity.</p>
+                        
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <div id="issuesWidget"
+                                 data-container-id="issuesWidget"
+                                 data-github-owner="modelearth"
+                                 data-detect-current-folder="true"
+                                 data-multi-repo-roots="webroot,modelearth"
+                                 data-show-project="true">
+                                <p style="margin: 0; color: var(--text-secondary);">Click <strong>Team Projects</strong> above to load the project widget.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Section -->
+            <div class="section" id="projects-section">
+                
+                <!-- Opportunities Tab -->
+                <div class="tab-content active" id="opportunities-tab">
+                    <div id="opportunities-content">
+                        <!-- Content will be dynamically loaded by projects.js -->
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="opportunities" title="Opportunities">Opportunities</button>
+                    <button class="tab" data-tab="assigned-tasks" title="Assigned Tasks">Assigned Tasks</button>
+                    <button class="tab" data-tab="timelines" title="Timelines">Timelines</button>
+                </div>
+
+                <!-- Assigned Tasks Tab -->
+                <div class="tab-content" id="assigned-tasks-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">My Assigned Tasks</h2>
+                            <button class="btn btn-secondary">
+                                <i data-feather="filter"></i>
+                                Filter
+                            </button>
+                        </div>
+                        
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div>
+                                    <h4 style="margin: 0 0 4px 0;">Database Schema install script for Azure</h4>
+                                    <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">AI-Powered Economic Development Dashboard using <a href="/profile/crm/">Standards Based SQL</a></p>
+                                </div>
+                                <span class="status-badge status-in_progress">In Progress</span>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Design PostgreSQL schema for flexible data management with proper relationships and indexing.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; gap: 8px;">
+                                    <span class="skill-tag small">PostgreSQL</span>
+                                    <span class="skill-tag small">Database Design</span>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted);">Due: Feb 28, 2025</span>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); padding: 20px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div>
+                                    <h4 style="margin: 0 0 4px 0;">AI Insight updates to Team Project Interface for Review</h4>
+                                    <p style="color: var(--text-secondary); margin: 0; font-size: 14px;">Community Resource Mapping Platform</p>
+                                </div>
+                                <span class="status-badge status-open">Pending</span>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Review and provide feedback on the mobile interface designs.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; gap: 8px;">
+                                    <span class="skill-tag small">UX Review</span>
+                                    <span class="skill-tag small">Mobile Design</span>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted);">Due: Mar 5, 2025</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timelines Tab -->
+                <div class="tab-content" id="timelines-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Project Timelines</h2>
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn btn-secondary">
+                                    <i data-feather="calendar"></i>
+                                    Month View
+                                </button>
+                                <button class="btn btn-secondary">
+                                    <i data-feather="list"></i>
+                                    List View
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-tertiary); padding: 24px; border-radius: var(--radius-md); text-align: center;">
+                            <div style="margin-bottom: 16px;">
+                                <i data-feather="calendar" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
+                            </div>
+                            <h3 style="margin: 0 0 8px 0;">Timeline View Coming Soon</h3>
+                            <p style="color: var(--text-secondary); margin: 0;">Interactive project timelines with Gantt charts and milestone tracking</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- People & Teams Section -->
+            <div class="section" id="people-section">
+
+                <div class="hero-section">
+                    <div class="hero-content">
+                        <h1 class="hero-title">Partner Tool Suite</h1>
+                        <p class="hero-subtitle">Team Collaboration for Project Tracking with AI Insights</p>
+                        <div class="hero-actions">
+                            <button class="btn btn-primary" onclick="router.navigate('projects', 'opportunities')">
+                                <i data-feather="target"></i>
+                                Explore Projects
+                            </button>
+                            <button class="btn btn-secondary" onclick="router.navigate('people', 'teams'); setTimeout(() => scrollToSection('teams'), 100)">
+                                <i data-feather="users"></i>
+                                Join Teams
+                            </button>
+                        </div>
+                    </div>
+                </div>
+    
+                <div class="tabs">
+                    <button class="tab active" data-tab="people">People</button>
+                    <button class="tab" data-tab="teams">Teams</button>
+                    <button class="tab" data-tab="organizations">Organizations</button>
+                </div>
+                
+                <!-- People Tab -->
+                <div class="tab-content" id="people-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">People Directory</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="user-plus"></i>
+                                Invite People
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with fellow developers and project collaborators in your area.<br>
+                            Mock up. View <a href="../team/projects/#list=modelteam">modelteam filters</a></p>
+                        
+                        <div class="people-search-section">
+                            <div class="search-bar-advanced">
+                                <input type="text" class="search-input" placeholder="Search people using natural language... e.g., 'React developers in Atlanta working on AI projects'">
+                                <button class="btn btn-secondary">
+                                    <i data-feather="zap"></i>
+                                    AI Search
+                                </button>
+                            </div>
+                            
+                            <div class="people-filters">
+                                <select class="filter-select">
+                                    <option value="">All Locations</option>
+                                    <option value="atlanta">Atlanta, GA</option>
+                                    <option value="portland">Portland, OR</option>
+                                    <option value="detroit">Detroit, MI</option>
+                                    <option value="remote">Remote</option>
+                                </select>
+                                
+                                <select class="filter-select">
+                                    <option value="">All Skills</option>
+                                    <option value="react">React</option>
+                                    <option value="python">Python</option>
+                                    <option value="ai-ml">AI/ML</option>
+                                    <option value="nodejs">Node.js</option>
+                                    <option value="postgresql">PostgreSQL</option>
+                                </select>
+                                
+                                <select class="filter-select">
+                                    <option value="">All Experience Levels</option>
+                                    <option value="junior">Junior (0-2 years)</option>
+                                    <option value="mid">Mid-level (3-5 years)</option>
+                                    <option value="senior">Senior (6+ years)</option>
+                                    <option value="lead">Tech Lead</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="people-grid">
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">SJ</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Sarah Johnson</h4>
+                                        <p class="person-title">Senior Full-stack Developer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="person-status">
+                                        <span class="availability-badge available">Available</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="person-skills">
+                                    <span class="skill-tag">React</span>
+                                    <span class="skill-tag">Python</span>
+                                    <span class="skill-tag">AI/ML</span>
+                                    <span class="skill-tag">PostgreSQL</span>
+                                </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">AI-Powered Government Dashboard</p>
+                                    <p class="project-name">Community Resource Mapping</p>
+                                </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            5 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            4.9 rating
+                                        </span>
+                                    </div>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">MC</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Marcus Chen</h4>
+                                        <p class="person-title">DevOps Engineer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Portland, OR
+                                        </p>
+                                    </div>
+                                    <div class="person-status">
+                                        <span class="availability-badge busy">Busy</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="person-skills">
+                                    <span class="skill-tag">Kubernetes</span>
+                                    <span class="skill-tag">Docker</span>
+                                    <span class="skill-tag">AWS</span>
+                                    <span class="skill-tag">Terraform</span>
+                                </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">Digital Literacy Platform</p>
+                                </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            3 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            4.8 rating
+                                        </span>
+                                    </div>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="person-card">
+                                <div class="person-header">
+                                    <div class="person-avatar">AR</div>
+                                    <div class="person-info">
+                                        <h4 class="person-name">Alex Rivera</h4>
+                                        <p class="person-title">UX Designer</p>
+                                        <p class="person-location">
+                                            <i data-feather="map-pin"></i>
+                                            Detroit, MI
+                                        </p>
+                                    </div>
+                                    <div class="person-status">
+                                        <span class="availability-badge available">Available</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="person-skills">
+                                    <span class="skill-tag">Figma</span>
+                                    <span class="skill-tag">User Research</span>
+                                    <span class="skill-tag">Prototyping</span>
+                                    <span class="skill-tag">Accessibility</span>
+                                </div>
+                                
+                                <div class="person-projects">
+                                    <p class="projects-label">Current Projects:</p>
+                                    <p class="project-name">Digital Literacy Training</p>
+                                </div>
+                                
+                                <div class="person-footer">
+                                    <div class="person-stats">
+                                        <span class="stat">
+                                            <i data-feather="briefcase"></i>
+                                            8 projects
+                                        </span>
+                                        <span class="stat">
+                                            <i data-feather="star"></i>
+                                            5.0 rating
+                                        </span>
+                                    </div>
+                                    <div class="person-actions">
+                                        <button class="btn btn-secondary small">View Profile</button>
+                                        <button class="btn btn-primary small">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teams Tab -->
+                <div class="tab-content" id="teams-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Teams</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="plus"></i>
+                                Create Team
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Collaborate with small, focused development teams working on open innovation projects.</p>
+                        
+                        <div class="teams-grid">
+                            <div class="team-card">
+                                <div class="team-header">
+                                    <div class="team-avatar">IC</div>
+                                    <div class="team-info">
+                                        <h4 class="team-name">Innovation Catalysts</h4>
+                                        <p class="team-description">Specializing in AI-powered government modernization solutions</p>
+                                        <p class="team-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="team-status">
+                                        <span class="team-badge recruiting">Recruiting</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-members">
+                                    <div class="members-avatars">
+                                        <div class="member-avatar">SJ</div>
+                                        <div class="member-avatar">MC</div>
+                                        <div class="member-avatar">AR</div>
+                                        <div class="member-count">+3</div>
+                                    </div>
+                                    <p class="members-text">6 members</p>
+                                </div>
+                                
+                                <div class="team-skills">
+                                    <span class="skill-tag">React</span>
+                                    <span class="skill-tag">Node.js</span>
+                                    <span class="skill-tag">AI/ML</span>
+                                    <span class="skill-tag">DevOps</span>
+                                </div>
+                                
+                                <div class="team-projects">
+                                    <p class="projects-label">Active Projects:</p>
+                                    <div class="project-list">
+                                        <div class="project-item">
+                                            <span class="project-name">AI Government Dashboard</span>
+                                            <span class="project-status active">Active</span>
+                                        </div>
+                                        <div class="project-item">
+                                            <span class="project-name">Smart City Analytics</span>
+                                            <span class="project-status planning">Planning</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-footer">
+                                    <button class="btn btn-secondary">View Team</button>
+                                    <button class="btn btn-primary">Join Team</button>
+                                </div>
+                            </div>
+
+                            <div class="team-card">
+                                <div class="team-header">
+                                    <div class="team-avatar">CB</div>
+                                    <div class="team-info">
+                                        <h4 class="team-name">Community Builders</h4>
+                                        <p class="team-description">Building tools to strengthen local communities and neighborhoods</p>
+                                        <p class="team-location">
+                                            <i data-feather="map-pin"></i>
+                                            Portland, OR
+                                        </p>
+                                    </div>
+                                    <div class="team-status">
+                                        <span class="team-badge active">Active</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-members">
+                                    <div class="members-avatars">
+                                        <div class="member-avatar">TK</div>
+                                        <div class="member-avatar">LM</div>
+                                        <div class="member-avatar">JD</div>
+                                        <div class="member-count">+2</div>
+                                    </div>
+                                    <p class="members-text">5 members</p>
+                                </div>
+                                
+                                <div class="team-skills">
+                                    <span class="skill-tag">Vue.js</span>
+                                    <span class="skill-tag">Python</span>
+                                    <span class="skill-tag">GIS</span>
+                                    <span class="skill-tag">Mobile</span>
+                                </div>
+                                
+                                <div class="team-projects">
+                                    <p class="projects-label">Active Projects:</p>
+                                    <div class="project-list">
+                                        <div class="project-item">
+                                            <span class="project-name">Resource Mapping Platform</span>
+                                            <span class="project-status active">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="team-footer">
+                                    <button class="btn btn-secondary">View Team</button>
+                                    <button class="btn btn-primary">Join Team</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organizations Tab -->
+                <div class="tab-content" id="organizations-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Organizations</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="home"></i>
+                                Register Organization
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Connect with organizations funding and supporting local innovation projects.</p>
+                        
+                        <div class="organizations-grid">
+                            <div class="org-card">
+                                <div class="org-header">
+                                    <div class="org-logo">CIO</div>
+                                    <div class="org-info">
+                                        <h4 class="org-name">City Innovation Office</h4>
+                                        <p class="org-type">Government Agency</p>
+                                        <p class="org-location">
+                                            <i data-feather="map-pin"></i>
+                                            Atlanta, GA
+                                        </p>
+                                    </div>
+                                    <div class="org-verification">
+                                        <span class="verification-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-description">
+                                    <p>Leading digital transformation initiatives to modernize local and state services and improve citizen engagement through technology innovation.</p>
+                                </div>
+                                
+                                <div class="org-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-number">12</span>
+                                        <span class="stat-label">Active Projects</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">45</span>
+                                        <span class="stat-label">Collaborators</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">$2.5M</span>
+                                        <span class="stat-label">Innovation Fund</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-focus-areas">
+                                    <span class="focus-tag">Digital Government</span>
+                                    <span class="focus-tag">Smart City</span>
+                                    <span class="focus-tag">AI/ML</span>
+                                    <span class="focus-tag">Open Data</span>
+                                </div>
+                                
+                                <div class="org-footer">
+                                    <button class="btn btn-secondary">View Profile</button>
+                                    <button class="btn btn-primary">Follow</button>
+                                </div>
+                            </div>
+
+                            <div class="org-card">
+                                <div class="org-header">
+                                    <div class="org-logo">DIC</div>
+                                    <div class="org-info">
+                                        <h4 class="org-name">Digital Inclusion Coalition</h4>
+                                        <p class="org-type">Non-Profit</p>
+                                        <p class="org-location">
+                                            <i data-feather="map-pin"></i>
+                                            Detroit, MI
+                                        </p>
+                                    </div>
+                                    <div class="org-verification">
+                                        <span class="verification-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-description">
+                                    <p>Bridging the digital divide by providing technology access, training, and support to underserved communities across Michigan.</p>
+                                </div>
+                                
+                                <div class="org-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-number">8</span>
+                                        <span class="stat-label">Active Projects</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">28</span>
+                                        <span class="stat-label">Volunteers</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">500+</span>
+                                        <span class="stat-label">People Trained</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="org-focus-areas">
+                                    <span class="focus-tag">Digital Literacy</span>
+                                    <span class="focus-tag">Education</span>
+                                    <span class="focus-tag">Community Tech</span>
+                                    <span class="focus-tag">Accessibility</span>
+                                </div>
+                                
+                                <div class="org-footer">
+                                    <button class="btn btn-secondary">View Profile</button>
+                                    <button class="btn btn-primary">Follow</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Account Section -->
+            <div class="section" id="account-section">
+                <div class="tabs">
+                    <button class="tab active" data-tab="preferences">Preferences</button>
+                    <button class="tab" data-tab="skills">Skills</button>
+                    <button class="tab" data-tab="interests">Interests</button>
+                </div>
+                
+                <!-- Preferences Tab -->
+                <div class="tab-content" id="preferences-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">My Policy Preferences</h2>
+                            <div class="survey-progress">
+                                <span class="progress-text">0 of 20 completed</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your agreement with these policy positions to help us match you with aligned projects and collaborators.</p>
+                        
+                        <div class="survey-container" id="survey-container">
+                            <!-- All survey questions will be loaded here with 5-star ratings -->
+                        </div>
+
+                        <div class="survey-navigation">
+                            <button class="btn btn-primary" id="save-survey">Save Progress</button>
+                            <button class="btn btn-primary" id="finish-survey">Complete Survey</button>
+                        </div>
+
+                        <div class="survey-results" style="display: none;">
+                            <h3>Your Policy Profile</h3>
+                            <div class="sankey-chart-container">
+                                <canvas id="sankey-chart" width="600" height="300"></canvas>
+                            </div>
+                            <div class="profile-summary">
+                                <div class="profile-category">
+                                    <h4>Technology & Innovation</h4>
+                                    <div class="category-score">Strong Support (4.2/5)</div>
+                                    <div class="category-description">You strongly support government investment in technology and innovation initiatives.</div>
+                                </div>
+                                <div class="profile-category">
+                                    <h4>Environmental Policy</h4>
+                                    <div class="category-score">Strong Support (4.8/5)</div>
+                                    <div class="category-description">You are highly aligned with environmental protection and renewable energy policies.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skills Tab -->
+                <div class="tab-content" id="skills-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Technical Skills & Expertise</h2>
+                            <button class="btn btn-primary">
+                                <i data-feather="plus"></i>
+                                Add Skill
+                            </button>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Showcase your technical skills to attract relevant project opportunities and collaborators.</p>
+                        
+                        <div class="skills-section">
+                            <div class="skill-category">
+                                <h3 class="category-title">Programming Languages</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">JavaScript</span>
+                                            <span class="skill-level expert">Expert</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 90%"></div>
+                                        </div>
+                                        <div class="skill-experience">5+ years • React, Node.js, TypeScript</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Python</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 80%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Django, FastAPI, Data Science</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Rust</span>
+                                            <span class="skill-level intermediate">Intermediate</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 60%"></div>
+                                        </div>
+                                        <div class="skill-experience">1+ year • Actix-web, SQLx</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Frameworks & Libraries</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">React</span>
+                                            <span class="skill-level expert">Expert</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 95%"></div>
+                                        </div>
+                                        <div class="skill-experience">4+ years • Hooks, Context, Redux</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Node.js</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 85%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Express, NestJS, APIs</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Cloud & DevOps</h3>
+                                <div class="skills-grid">
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">AWS</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 75%"></div>
+                                        </div>
+                                        <div class="skill-experience">2+ years • EC2, Lambda, RDS, S3</div>
+                                    </div>
+
+                                    <div class="skill-item">
+                                        <div class="skill-header">
+                                            <span class="skill-name">Docker</span>
+                                            <span class="skill-level advanced">Advanced</span>
+                                        </div>
+                                        <div class="skill-bar">
+                                            <div class="skill-progress" style="width: 80%"></div>
+                                        </div>
+                                        <div class="skill-experience">3+ years • Containerization, Compose</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="skill-category">
+                                <h3 class="category-title">Certifications & Achievements</h3>
+                                <div class="certifications-grid">
+                                    <div class="certification-item">
+                                        <div class="cert-icon">
+                                            <i data-feather="award"></i>
+                                        </div>
+                                        <div class="cert-info">
+                                            <h4 class="cert-name">AWS Certified Developer</h4>
+                                            <p class="cert-issuer">Amazon Web Services</p>
+                                            <p class="cert-date">Issued: Jan 2025</p>
+                                        </div>
+                                        <div class="cert-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </div>
+                                    </div>
+
+                                    <div class="certification-item">
+                                        <div class="cert-icon">
+                                            <i data-feather="award"></i>
+                                        </div>
+                                        <div class="cert-info">
+                                            <h4 class="cert-name">Google AI/ML Certificate</h4>
+                                            <p class="cert-issuer">Google Cloud</p>
+                                            <p class="cert-date">Issued: Nov 2023</p>
+                                        </div>
+                                        <div class="cert-badge verified">
+                                            <i data-feather="check-circle"></i>
+                                            Verified
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interests Tab -->
+                <div class="tab-content" id="interests-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Interest Areas</h2>
+                            <div class="interests-summary">
+                                <span class="summary-text">8 of 20 interests rated</span>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">Rate your interest level in different project focus areas to receive personalized project recommendations.</p>
+                        
+                        <div class="interests-grid">
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="droplet"></i>
+                                    </div>
+                                    <h3 class="interest-name">Water and Desalination</h3>
+                                </div>
+                                <div class="star-rating" data-interest="water">
+                                    <button class="star-btn" data-rating="1">★</button>
+                                    <button class="star-btn" data-rating="2">★</button>
+                                    <button class="star-btn" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Infrastructure and Ground Water</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="users"></i>
+                                    </div>
+                                    <h3 class="interest-name">Realtime Enjoyable Work</h3>
+                                </div>
+                                <div class="star-rating" data-interest="social">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Automated Guidance and Compensation</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="dollar-sign"></i>
+                                    </div>
+                                    <h3 class="interest-name">Balanced Budgets and Jobs</h3>
+                                </div>
+                                <div class="star-rating" data-interest="budget">
+                                    <button class="star-btn" data-rating="1">★</button>
+                                    <button class="star-btn" data-rating="2">★</button>
+                                    <button class="star-btn" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">AI for Revenue Surplus Generation</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="cpu"></i>
+                                    </div>
+                                    <h3 class="interest-name">Technology Innovation</h3>
+                                </div>
+                                <div class="star-rating" data-interest="technology">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Machine Learning, AI Agent Training</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="globe"></i>
+                                    </div>
+                                    <h3 class="interest-name">Environmental Sustainability</h3>
+                                </div>
+                                <div class="star-rating" data-interest="environment">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Renewable Energy, Green Tech</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="book"></i>
+                                    </div>
+                                    <h3 class="interest-name">Accelerated Education</h3>
+                                </div>
+                                <div class="star-rating" data-interest="education">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">JIT Learning, Skill-Based Assignments</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="heart"></i>
+                                    </div>
+                                    <h3 class="interest-name">Healthcare Access</h3>
+                                </div>
+                                <div class="star-rating" data-interest="healthcare">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn active" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Streamlining and Improving Public Health</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="trending-up"></i>
+                                    </div>
+                                    <h3 class="interest-name">Economic Growth</h3>
+                                </div>
+                                <div class="star-rating" data-interest="economic">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Entrepreneurship and Innovation Bonds</p>
+                            </div>
+
+                            <div class="interest-card">
+                                <div class="interest-header">
+                                    <div class="interest-icon">
+                                        <i data-feather="shield"></i>
+                                    </div>
+                                    <h3 class="interest-name">Governance Transparency</h3>
+                                </div>
+                                <div class="star-rating" data-interest="governance">
+                                    <button class="star-btn active" data-rating="1">★</button>
+                                    <button class="star-btn active" data-rating="2">★</button>
+                                    <button class="star-btn active" data-rating="3">★</button>
+                                    <button class="star-btn active" data-rating="4">★</button>
+                                    <button class="star-btn" data-rating="5">★</button>
+                                </div>
+                                <p class="interest-description">Open Government, Personalized Tech</p>
+                            </div>
+                        </div>
+
+                        <div class="interests-actions">
+                            <button class="btn btn-secondary">Load More Interests</button>
+                            <button class="btn btn-primary">Save Preferences</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="content-area geo-x" style="padding-top:0px">
+        <div class="card">
+            <div id="readmeDiv">
+                <p style="color: var(--text-secondary); font-style: italic;">
+                    Loading README.md...
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Shared Auth Modal -->
+    <script src="js/auth-modal.js"></script>
+    
+    
+    <!-- Load Projects Module -->
+    <script src="js/common.js"></script>
+    <script src="js/setup.js"></script>
+    <script src="js/projects.js"></script>
+    
+    <!-- Load Survey Module -->
+    <script src="js/survey.js"></script>
+    
+    <script>
+        // Initialize managers (using window to avoid redeclaration errors)
+        window.projectsManager = window.projectsManager || new ProjectsManager();
+        window.surveyManager = window.surveyManager || new SurveyManager();
+        window.skillsManager = window.skillsManager || new SkillsManager();
+        
+        // Initialize router (only if HashRouter class is available)
+        if (typeof HashRouter !== 'undefined') {
+            window.router = window.router || new HashRouter();
+        }
+    </script>
+    
+    <script>
+        // API Configuration loaded from common.js
+        
+        // Application State
+        const AppState = {
+            currentUser: null,
+            currentSection: 'home',
+            currentTab: 'welcome',
+            isAuthenticated: false,
+            sidebarCollapsed: localStorage.getItem('sideNavCollapseStatus') === 'true',
+            urlParams: new URLSearchParams()
+        };
+
+        // HashRouter Implementation
+        class HashRouter {
+            constructor() {
+                this.routes = {
+                    'home': { section: 'home', tabs: ['welcome', 'documentation', 'dashboard'] },
+                    'projects': { section: 'projects', tabs: ['opportunities', 'assigned-tasks', 'timelines'] },
+                    'people': { section: 'people', tabs: ['people', 'teams', 'organizations'] },
+                    'account': { section: 'account', tabs: ['preferences', 'skills', 'interests'] }
+                };
+                
+                this.isInitialLoad = true;
+                this.init();
+            }
+
+            init() {
+                window.addEventListener('hashchange', () => this.handleHashChange());
+                window.addEventListener('load', () => this.handleHashChange());
+            }
+
+            // Parse hash and return route information
+            parseHash() {
+                const hash = window.location.hash.slice(1); // Remove #
+                if (!hash) return { section: 'home', tab: 'welcome', params: new URLSearchParams() };
+
+                let [path, queryString] = hash.split('?');
+                const params = new URLSearchParams(queryString || '');
+                
+                let [section, tab] = path.split('/');
+                
+                // Validate section
+                if (!this.routes[section]) {
+                    section = 'home';
+                }
+                
+                // Validate tab for section
+                const validTabs = this.routes[section].tabs;
+                if (!tab || !validTabs.includes(tab)) {
+                    tab = validTabs[0];
+                }
+
+                return { section, tab, params };
+            }
+
+            // Handle hash changes
+            handleHashChange() {
+                const route = this.parseHash();
+                
+                // Check if this is a simple section change (no slash in hash)
+                const hash = window.location.hash.slice(1);
+                const isSimpleSectionChange = hash && !hash.includes('/') && !hash.includes('?');
+                
+                // Skip automatic navigation on initial load when there's no hash
+                if (this.isInitialLoad && !hash) {
+                    this.isInitialLoad = false;
+                    return;
+                }
+                
+                // Update application state
+                AppState.currentSection = route.section;
+                AppState.currentTab = route.tab;
+                AppState.urlParams = route.params;
+                
+                // Update UI
+                this.updateUI(route);
+                
+                // Scroll to top for simple section changes (hashes without slashes)
+                if (isSimpleSectionChange) {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                }
+                
+                // Handle special parameters
+                this.handleSpecialParams(route.params);
+                
+                // Mark initial load as complete
+                this.isInitialLoad = false;
+            }
+
+            // Update UI based on route
+            updateUI(route) {
+                // Switch section
+                switchSection(route.section);
+                
+                // Switch tab
+                switchTab(route.tab);
+                
+                // Update navigation active states
+                this.updateNavigationState(route.section, route.tab);
+            }
+
+            // Update navigation active states
+            updateNavigationState(section, tab) {
+                // Update main navigation - always highlight current section
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.section === section) {
+                        link.classList.add('active');
+                        // Expand subnav for active section
+                        const subnav = link.nextElementSibling;
+                        const arrow = link.querySelector('.nav-arrow');
+                        if (subnav && subnav.classList.contains('subnav')) {
+                            subnav.classList.add('expanded');
+                            arrow?.classList.add('expanded');
+                        }
+                    } else {
+                        // Update arrow direction for non-active sections based on subnav state
+                        const subnav = link.nextElementSibling;
+                        const arrow = link.querySelector('.nav-arrow');
+                        if (subnav && subnav.classList.contains('subnav')) {
+                            if (subnav.classList.contains('expanded')) {
+                                arrow?.classList.add('expanded');
+                            } else {
+                                arrow?.classList.remove('expanded');
+                            }
+                        }
+                    }
+                });
+
+                // Update subnav
+                document.querySelectorAll('.subnav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.tab === tab) {
+                        link.classList.add('active');
+                    }
+                });
+
+                // Update tabs
+                const currentSection = document.querySelector('.section.active');
+                if (currentSection) {
+                    currentSection.querySelectorAll('.tab').forEach(tabEl => {
+                        tabEl.classList.remove('active');
+                        if (tabEl.dataset.tab === tab) {
+                            tabEl.classList.add('active');
+                        }
+                    });
+                }
+            }
+
+            // Handle special URL parameters
+            handleSpecialParams(params) {
+                // Handle city parameter
+                const city = params.get('city');
+                if (city) {
+                    this.applyCityFilter(city);
+                }
+
+                // Handle search parameter
+                const search = params.get('search');
+                if (search) {
+                    this.applySearchFilter(search);
+                }
+
+                // Handle project filter
+                const projectFilter = params.get('filter');
+                if (projectFilter) {
+                    this.applyProjectFilter(projectFilter);
+                }
+            }
+
+            // Apply city filter
+            applyCityFilter(city) {
+                const cityFilters = document.querySelectorAll('select option[value*="' + city.toLowerCase() + '"]');
+                cityFilters.forEach(option => {
+                    option.selected = true;
+                    option.parentElement.dispatchEvent(new Event('change'));
+                });
+            }
+
+            // Apply search filter
+            applySearchFilter(search) {
+                const searchInputs = document.querySelectorAll('input[type="text"][placeholder*="search" i]');
+                searchInputs.forEach(input => {
+                    input.value = search;
+                    input.dispatchEvent(new Event('input'));
+                });
+            }
+
+            // Apply project filter
+            applyProjectFilter(filter) {
+                const filterSelects = document.querySelectorAll('select[name="project-filter"]');
+                filterSelects.forEach(select => {
+                    const option = select.querySelector(`option[value="${filter}"]`);
+                    if (option) {
+                        option.selected = true;
+                        select.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            // Navigate to a specific route
+            navigate(section, tab = null, params = {}) {
+                if (!this.routes[section]) return;
+                
+                const validTabs = this.routes[section].tabs;
+                if (!tab || !validTabs.includes(tab)) {
+                    tab = validTabs[0];
+                }
+
+                // Preserve existing params and merge with new ones
+                const currentParams = new URLSearchParams(AppState.urlParams);
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value) {
+                        currentParams.set(key, value);
+                    } else {
+                        currentParams.delete(key);
+                    }
+                });
+
+                const queryString = currentParams.toString();
+                const hash = `#${section}/${tab}${queryString ? '?' + queryString : ''}`;
+                
+                window.location.hash = hash;
+            }
+
+            // Get current URL parameters
+            getParams() {
+                return Object.fromEntries(AppState.urlParams.entries());
+            }
+
+            // Set URL parameter
+            setParam(key, value) {
+                const params = this.getParams();
+                params[key] = value;
+                this.navigate(AppState.currentSection, AppState.currentTab, params);
+            }
+
+            // Remove URL parameter
+            removeParam(key) {
+                const params = this.getParams();
+                delete params[key];
+                this.navigate(AppState.currentSection, AppState.currentTab, params);
+            }
+        }
+
+        // Scroll to section utility function
+        function scrollToSection(sectionId) {
+            // List of possible section selectors to try
+            const selectors = [
+                `#${sectionId}-tab`,           // Tab content (e.g., skills-tab)
+                `#${sectionId}-section`,       // Section content (e.g., assigned-tasks-section)
+                `#${sectionId}`,              // Direct ID match
+                `.${sectionId}-section`,       // Class-based section
+                `[data-section="${sectionId}"]` // Data attribute match
+            ];
+            
+            // Try each selector until we find a matching element
+            for (const selector of selectors) {
+                const targetElement = document.querySelector(selector);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    return; // Exit once we've found and scrolled to an element
+                }
+            }
+            
+            // If no direct match, try to find any element containing the section name
+            const fallbackElement = document.querySelector(`[id*="${sectionId}"], [class*="${sectionId}"]`);
+            if (fallbackElement) {
+                fallbackElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
+
+        // Function to update sidebar toggle icon based on overlap state
+        function updateSidebarToggleIcon() {
+
+            // DEACTIVATED
+            return;
+
+            //alert("updateSidebarToggleIcon() called in index.html");
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebarToggle || !sidebar) {
+                alert("sidebar-toggle or sidebar not found in index.html");
+                return;
+            }
+            
+            let icon = sidebarToggle.querySelector('i');
+            if (!icon) {
+                console.log("icon not found in index.html - sidebar toggle button exists but has no icon element");
+                return;
+            }
+            
+            // Check app container width
+            const appContainer = document.querySelector('.app-container');
+            const containerWidth = appContainer ? appContainer.offsetWidth : window.innerWidth;
+            
+            // Check if sidebar is overlapping entire container
+            const isFullOverlap = containerWidth <= 500;
+            const isHoverExpanded = sidebar.classList.contains('hovered');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            const isPartialOverlap = isCollapsed && isHoverExpanded && containerWidth > 500;
+            
+            if (isFullOverlap) {
+                icon.setAttribute('data-feather', 'x');
+            } else if (isPartialOverlap) {
+                icon.setAttribute('data-feather', 'chevrons-right');
+            } else if (isCollapsed) {
+                icon.setAttribute('data-feather', 'chevrons-right');
+            } else {
+                icon.setAttribute('data-feather', 'chevrons-left');
+            }
+        }
+
+        // Navigation Functions
+
+
+        function switchSection(sectionName) {
+            AppState.currentSection = sectionName;
+            
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show target section
+            const targetSection = document.getElementById(sectionName + '-section');
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+            
+            // Update page title
+            const titles = {
+                'home': 'Welcome',
+                'projects': 'Projects',
+                'people': 'People & Teams',
+                'account': 'My Account'
+            };
+            
+            const pageTitle = document.getElementById('page-title');
+            if (pageTitle) {
+                pageTitle.textContent = titles[sectionName] || 'PartnerTools';
+            }
+            
+            // Scroll to top when switching main sections
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function switchTab(tabName) {
+            AppState.currentTab = tabName;
+            
+            // Update tab button active states
+            const currentSection = document.querySelector('.section.active');
+            if (currentSection) {
+                currentSection.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    if (tab.getAttribute('data-tab') === tabName) {
+                        tab.classList.add('active');
+                    }
+                });
+                
+                // Scroll to the target section
+                const targetContent = currentSection.querySelector(`#${tabName}-tab`);
+                if (targetContent) {
+                    targetContent.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                }
+            }
+        }
+
+     // Authentication Functions
+
+        // Navigation Functions
+        function goWelcome() {
+            if (window.router) {
+                window.router.navigate('home', 'welcome');
+            } else {
+                window.location.hash = '#home/welcome';
+            }
+        }
+        function goPreferences() {
+            if (window.router) {
+                window.router.navigate('account', 'preferences');
+            } else {
+                window.location.hash = '#account/preferences';
+            }
+        }
+        function goProjects() {
+            if (window.router) {
+                window.router.navigate('projects', 'opportunities');
+            } else {
+                window.location.hash = '#projects/opportunities';
+            }
+        }
+
+        let issuesWidgetLoadState = 'idle';
+        let dashboardWidgetVisible = false;
+
+        function setDashboardWidgetVisibility(visible) {
+            const dashboardTab = document.getElementById('dashboard-tab');
+            const dashboardTabButton = document.getElementById('dashboardTabButton');
+            const projectsButton = document.getElementById('projectsWidgetButton');
+
+            if (dashboardTab) {
+                dashboardTab.style.display = visible ? '' : 'none';
+            }
+            if (dashboardTabButton) {
+                dashboardTabButton.style.display = visible ? '' : 'none';
+            }
+            if (projectsButton) {
+                projectsButton.classList.toggle('active', visible);
+                projectsButton.setAttribute('aria-expanded', visible ? 'true' : 'false');
+            }
+
+            dashboardWidgetVisible = visible;
+        }
+        function loadIssuesWidgetOnce() {
+            const issuesWidget = document.getElementById('issuesWidget');
+            const projectsButton = document.getElementById('projectsWidgetButton');
+            if (!issuesWidget || issuesWidgetLoadState === 'loaded' || issuesWidgetLoadState === 'loading') {
+                return;
+            }
+
+            const showLoadError = function (message) {
+                issuesWidgetLoadState = 'idle';
+                issuesWidget.innerHTML = `<p style="margin: 0; color: var(--accent-orange);">${message}</p>`;
+                if (projectsButton) {
+                    projectsButton.disabled = false;
+                }
+            };
+
+            if (typeof initIssuesManager === 'function') {
+                try {
+                    const manager = initIssuesManager(issuesWidget);
+                    if (manager) {
+                        issuesWidgetLoadState = 'loaded';
+                        if (projectsButton) {
+                            projectsButton.disabled = false;
+                        }
+                    } else {
+                        showLoadError('Unable to initialize project widget. Click Projects to retry.');
+                    }
+                } catch (error) {
+                    console.error('Projects widget initialization failed:', error);
+                    showLoadError('Project widget failed to initialize. Check console for details.');
+                }
+                return;
+            }
+
+            issuesWidgetLoadState = 'loading';
+            if (projectsButton) {
+                projectsButton.disabled = true;
+            }
+            issuesWidget.innerHTML = '<p style="margin: 0; color: var(--text-secondary);">Loading project widget...</p>';
+
+            loadScript('../projects/js/issues.js', function () {
+                if (typeof initIssuesManager === 'function') {
+                    try {
+                        const manager = initIssuesManager(issuesWidget);
+                        if (manager) {
+                            issuesWidgetLoadState = 'loaded';
+                            if (projectsButton) {
+                                projectsButton.disabled = false;
+                            }
+                        } else {
+                            showLoadError('Project widget did not initialize. Click Projects to retry.');
+                        }
+                    } catch (error) {
+                        console.error('Projects widget initialization failed after script load:', error);
+                        showLoadError('Project widget failed after loading script. Check console for details.');
+                    }
+                } else {
+                    showLoadError('Project widget script loaded, but init function was unavailable.');
+                }
+            });
+        }
+
+        function openProjectsDashboard(event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            const shouldShowDashboard = !dashboardWidgetVisible;
+            setDashboardWidgetVisibility(shouldShowDashboard);
+
+            if (shouldShowDashboard) {
+                if (window.router) {
+                    window.router.navigate('home', 'dashboard');
+                } else {
+                    window.location.hash = '#home/dashboard';
+                }
+                loadIssuesWidgetOnce();
+            } else if (AppState.currentSection === 'home' && AppState.currentTab === 'dashboard') {
+                AppState.currentSection = 'home';
+                AppState.currentTab = 'welcome';
+
+                if (window.history && typeof window.history.replaceState === 'function') {
+                    window.history.replaceState(null, '', '#home/welcome');
+                } else {
+                    window.location.hash = '#home/welcome';
+                }
+
+                if (window.router && typeof window.router.updateNavigationState === 'function') {
+                    window.router.updateNavigationState('home', 'welcome');
+                }
+            }
+        }
+
+        // Initialize HashRouter
+        const router = new HashRouter();
+
+        // Setup tab click handlers for all sections
+        function setupTabHandlers() {
+            // Handle tab clicks for both People and Account sections
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('.tab[data-tab]')) {
+                    e.preventDefault();
+                    
+                    const tabName = e.target.dataset.tab;
+                    const section = e.target.closest('.section');
+                    
+                    if (section) {
+                        let sectionName = '';
+                        if (section.id === 'people-section') {
+                            sectionName = 'people';
+                        } else if (section.id === 'account-section') {
+                            sectionName = 'account';
+                        } else if (section.id === 'home-section') {
+                            sectionName = 'home';
+                        } else if (section.id === 'projects-section') {
+                            sectionName = 'projects';
+                        }
+                        
+                        if (sectionName && tabName) {
+                            // Navigate using the router
+                            router.navigate(sectionName, tabName);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            setDashboardWidgetVisibility(false);
+
+            const readmeDiv = document.getElementById('readmeDiv');
+            if (readmeDiv) {
+                readmeDiv.innerHTML = '';
+            }
+            loadMarkdown('README.md', 'readmeDiv', '_parent');
+            
+            // Setup tab click handlers
+            setupTabHandlers();
+            
+            // Initialize Gemini status in documentation tab
+            initializeGeminiStatus();
+            
+            // Initialize projects manager
+            if (window.projectsManager) {
+                window.projectsManager.init();
+            }
+            
+            // Initialize survey and skills managers
+            if (window.surveyManager) {
+                window.surveyManager.init();
+                window.surveyManager.loadSavedResponses();
+            }
+            
+            if (window.skillsManager) {
+                window.skillsManager.init();
+            }
+            
+            // Setup filter change handlers to update URL
+            setupFilterHandlers();
+            
+            // Close modal when clicking outside
+            document.getElementById('auth-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideAuthModal();
+                }
+            });
+        });
+
+        // Setup handlers for filters to update URL parameters
+        function setupFilterHandlers() {
+            // Project filters
+            document.addEventListener('change', function(e) {
+                if (e.target.matches('select[name="project-filter"]')) {
+                    const filterValue = e.target.value;
+                    if (filterValue) {
+                        router.setParam('filter', filterValue);
+                    } else {
+                        router.removeParam('filter');
+                    }
+                }
+            });
+
+            // Location filters
+            document.addEventListener('change', function(e) {
+                if (e.target.matches('select') && e.target.querySelector('option[value*="atlanta"], option[value*="portland"], option[value*="detroit"]')) {
+                    const cityValue = e.target.value;
+                    if (cityValue) {
+                        router.setParam('city', cityValue);
+                    } else {
+                        router.removeParam('city');
+                    }
+                }
+            });
+
+            // Search inputs
+            let searchTimeout;
+            document.addEventListener('input', function(e) {
+                if (e.target.matches('input[type="text"][placeholder*="search" i]')) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        const searchValue = e.target.value.trim();
+                        if (searchValue) {
+                            router.setParam('search', searchValue);
+                        } else {
+                            router.removeParam('search');
+                        }
+                    }, 500); // Debounce search updates
+                }
+            });
+        }
+
+        // Function to handle smart clicking - prevents navigation when text is selected
+        function smartClick(event, navigationFunction) {
+            // Check if user has selected text
+            const selection = window.getSelection();
+            if (selection && selection.toString().length > 0) {
+                // User has selected text, don't navigate
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+            
+            // Check if user is currently in the process of selecting text
+            if (event.detail > 1) {
+                // This is a multi-click (double/triple click), might be text selection
+                const target = event.target;
+                if (target && (target.tagName === 'P' || target.tagName === 'H3' || target.tagName === 'LI' || target.tagName === 'SPAN')) {
+                    // Clicked on text element, allow potential text selection
+                    event.preventDefault();
+                    return false;
+                }
+            }
+            
+            // No text selected and not a text selection attempt, proceed with navigation
+            navigationFunction();
+        }
+
+        // Function to initialize Gemini status in documentation tab using common.js
+        function initializeGeminiStatus() {
+            const container = document.getElementById('gemini-status-container');
+            if (!container) return;
+            
+            // Create a gemini-resources section that matches common.js structure exactly
+            container.innerHTML = `
+                <div class="cardsection" id="gemini-resources" style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 8px 0;" id="gemini-key-title"></h4>
+                    <div id="gemini-key-content">
+                        <a href="https://ai.google.dev/gemini-api/docs/quickstart" id="gemini-key-link"></a>
+                    </div>
+                </div>
+            `;
+            
+            // Use the existing checkGeminiKeyStatus function from common.js
+            if (window.checkGeminiKeyStatus) {
+                window.checkGeminiKeyStatus();
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Setup tab click handlers
+            setupTabHandlers();
+            
+            // Initialize Gemini status in documentation tab
+            initializeGeminiStatus();
+            
+            // Initialize projects manager
+            if (window.projectsManager) {
+                window.projectsManager.init();
+            }
+            
+            // Initialize survey and skills managers
+            if (window.surveyManager) {
+                window.surveyManager.init();
+                window.surveyManager.loadSavedResponses();
+            }
+            
+            if (window.skillsManager) {
+                window.skillsManager.init();
+            }
+            
+            // Setup filter change handlers to update URL
+            setupFilterHandlers();
+            
+            // Close modal when clicking outside
+            document.getElementById('auth-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideAuthModal();
+                }
+            });
+        });
+
+        // Handle window resize for responsive design
+        window.addEventListener('resize', function() {
+            console.log('RESIZE EVENT TRIGGERED - Width:', window.innerWidth);
+            
+            // Check both possible sidebar elements
+            const sidebar = document.getElementById('sidebar');
+            const sideNav = document.getElementById('side-nav');
+            
+            console.log('sidebar element found:', !!sidebar);
+            console.log('side-nav element found:', !!sideNav);
+            
+            if (sidebar) {
+                console.log('SIDEBAR classes:', sidebar.className);
+            }
+            if (sideNav) {
+                console.log('SIDE-NAV classes:', sideNav.className);
+            }
+            
+            if (!sidebar && !sideNav) {
+                console.log('RESIZE: ERROR - no sidebar elements found!');
+                return;
+            }
+            
+            const targetSidebar = sidebar || sideNav;
+            console.log('RESIZE: Using targetSidebar classes:', targetSidebar.className);
+            
+            // Store if sidebar was explicitly collapsed by user (not just auto-collapsed)
+            const wasUserCollapsed = localStorage.getItem('sideNavCollapseStatus') === 'true';
+            console.log('RESIZE: Was user collapsed:', wasUserCollapsed);
+            
+            if (window.innerWidth <= 768) {
+                console.log('RESIZE: Auto-collapsing for narrow screen (768px threshold)');
+                // Auto-collapse on narrow screens
+                targetSidebar.classList.add('collapsed');
+                targetSidebar.classList.remove('expanded');
+                targetSidebar.classList.add('auto-collapsed-narrow');
+            } else if (window.innerWidth > 1000) {
+                console.log('RESIZE: Wide screen detected, checking auto-expand conditions');
+                // Auto-expand on wide screens if it was auto-collapsed (not user-collapsed)
+                if (targetSidebar.classList.contains('auto-collapsed-narrow') && !wasUserCollapsed) {
+                    console.log('RESIZE: Auto-expanding sidebar for wide screen');
+                    targetSidebar.classList.remove('collapsed');
+                    targetSidebar.classList.add('expanded');
+                    targetSidebar.classList.remove('auto-collapsed-narrow');
+                    if (typeof AppState !== 'undefined') {
+                        AppState.sidebarCollapsed = false;
+                    }
+                } else {
+                    console.log('RESIZE: Not auto-expanding - auto-collapsed:', targetSidebar.classList.contains('auto-collapsed-narrow'), 'user-collapsed:', wasUserCollapsed);
+                }
+            }
+            
+            console.log('RESIZE: Final targetSidebar classes:', targetSidebar.className);
+        });
+    </script>
+
+    <!-- Initialize GitHub Auth Widget (Minimal Mode) -->
+    <script>
+
+    </script>
+
+    <!-- CSS to hide everything except auth section -->
+    <style>
+        /* Hide all widget elements except the header auth section */
+        #github-auth-minimal .loading-overlay,
+        #github-auth-minimal .filters-row,
+        #github-auth-minimal #issuesContainer,
+        #github-auth-minimal .stats-grid,
+        #github-auth-minimal .cache-status,
+        #github-auth-minimal .error-message,
+        #github-auth-minimal .modal,
+        #github-auth-minimal .rate-limit-info,
+        #github-auth-minimal .pagination,
+        #github-auth-minimal .header-fullscreen-btn {
+            display: none !important;
+        }
+
+        /* Keep header and auth section visible */
+        #github-auth-minimal .issues-header {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 16px 0;
+        }
+
+        #github-auth-minimal .header-content h1 {
+            display: none;
+        }
+
+        #github-auth-minimal .subtitle {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        #github-auth-minimal .auth-section {
+            max-width: 600px;
+            margin: 8px 0;
+        }
+
+        /* Compact styling for minimal mode */
+        #github-auth-minimal {
+            background: var(--bg-secondary, #fff);
+            padding: 8px 16px;
+        }
+
+        /* Restore base.css .btn styles overridden by team's .btn rule */
+        #github-auth-minimal .btn {
+            display: inline-block;
+            padding: 0.375rem 1rem;
+            border-radius: 2rem;
+            border: 1px solid var(--border-light);
+            font-size: inherit;
+            font-weight: inherit;
+        }
+    </style>
+
+</body>
+</html>
