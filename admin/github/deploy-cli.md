@@ -6,15 +6,16 @@ Append "nopr" if you are not yet ready to send a Pull Request.
 
 ## Using your AI Coding Agent to push and pull
 
-The push will pull first. For the first usage, include extra guidance.
-
-"push" also sends a Pull Request (PR) unless you include "nopr"
+IMPORTANT: The firt time you use in a session, include extra guidance.
 
 <pre><code>push using webroot/AGENTS.md guidance with git.sh</code></pre>
 
-Then you just "push" going forward to deploy changes.
+Afterwards, you just "push" to deploy changes.
 
 	push
+
+The push will pull first. 
+"push" also sends a Pull Request (PR) unless you include "nopr"
 
 If you find "push" is asking for multiple approvals, your CLI isn't following the AGENTS.md instructions.
 "push" updates the webroot, submodules and forks. Additional repos can be updated using Github Desktop.
