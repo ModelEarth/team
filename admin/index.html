@@ -72,7 +72,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 24px;
-            margin-top: 40px;
+            margin-top: 25px;
         }
 
         .admin-card {
@@ -341,9 +341,34 @@
                 padding: 24px;
             }
         }
-        .welcome-hero-geo {
+        .welcome-hero-geo-wrap {
             border-radius: 20px;
             margin-top: 20px;
+            overflow: hidden;
+            height: 200px;
+            background: var(--bg-footer);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .welcome-hero-geo {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+        .header-center {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: white;
+        }
+        .header-center h1, .header-center p {
+            color: white;
         }
     </style>
     <!-- Load Shared Auth Modal -->
@@ -352,10 +377,9 @@
 <body>
     <div class="container" style="max-width:1400px">
 
-        <img src="../img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
-
-        <div id="teamAdminHeaderFlex">
-            <div class="header" style="padding-top:0px;flex:1;">
+        <div class="welcome-hero-geo-wrap">
+            <img src="../img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
+            <div class="header-center geo-x" style="padding-top:0px;flex:1;">
                 <div class="large-list"><h1 style="justify-content: center; font-size: 32px !important; font-weight: 400 !important;">Partner Tools / Team Collaboration</h1></div>
                 <p>Tech management, location details, AI insights and partner directories.</p>
             </div>

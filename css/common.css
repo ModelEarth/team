@@ -135,6 +135,29 @@ div.breadcrumb .material-icons {
     color: var(--text-secondary);
     font-size: 16px;
 }
+
+.header-center {
+    backgroundX: var(--bg-secondary);
+    padding: 24px;
+    padding-bottom: 0px;
+    border-radiusX: var(--radius-lg);
+    margin-bottom: 0px;
+}
+
+.header-center h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-center p {
+    color: var(--text-secondary);
+    font-size: 16px;
+}
 .card {
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
