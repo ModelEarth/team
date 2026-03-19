@@ -169,12 +169,9 @@ div.breadcrumb .material-icons {
     .header-center {
         position: static;
         transform: none;
-        background: var(--bg-footer);
+        background: var(--bg-header);
         border-radius: 0;
         padding: 16px;
-        color: var(--text-primary);
-    }
-    .header-center h1, .header-center p {
         color: var(--text-primary);
     }
 }

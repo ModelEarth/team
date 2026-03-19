@@ -345,7 +345,8 @@
             border-radius: 20px;
             margin-top: 20px;
             width: 100%;
-            background: var(--bg-footer);
+            background: var(--bg-header);
+            color: var(--bg-header-text);
             position: relative;
             aspect-ratio: 1400 / 290;
             min-height: 120px;
@@ -375,6 +376,11 @@
                 vertical-align: top;
             }
         }
+        @media (min-width: 601px) {
+            .header-center h1 {
+                font-size: 38px !important; 
+            }
+        }
     </style>
     <!-- Load Shared Auth Modal -->
     <script src="../js/auth-modal.js"></script>
@@ -385,7 +391,7 @@
         <div class="welcome-hero-geo-wrap">
             <img src="../img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
             <div class="header-center geo-x">
-                <div class="large-list"><h1 style="justify-content: center; font-size: 32px !important; font-weight: 400 !important;">Partner Tools / Team Collaboration</h1></div>
+                <div class="large-list"><h1 style="justify-content: center; font-weight: 400 !important;">Partner Tools / Team Collaboration</h1></div>
                 <p>Tech management, location details, AI insights and partner directories.</p>
             </div>
         </div>
