@@ -1981,7 +1981,7 @@ function setupQuickstartInstructions(containerId) {
         : '8887';
 
     container.innerHTML = `
-        <div style="margin-top: 12px;">
+        <div>
             <h1 class="card-title" style="display:flex; align-items:center; gap:10px;">
                 <span class="status-indicator" id="${statusIndicatorId}"></span>
                 <span id="${titleId}">Local Web Server</span>

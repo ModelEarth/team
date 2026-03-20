@@ -176,7 +176,7 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 cliOnlyDiv.appendChild(note);
 
                 const frontendText = document.createElement('div');
-                frontendText.textContent = 'Or if you are vibing frontend code only, without Python or Rust updates, then just run:';
+                frontendText.textContent = 'Or if you are vibe coding frontend code only (without Python or Rust updates), then just run:';
                 frontendText.style.marginTop = '12px';
                 frontendText.style.marginBottom = '8px';
                 cliOnlyDiv.appendChild(frontendText);
@@ -473,7 +473,7 @@ function createOSDetectionPanel(containerId) {
             </div>
         </div>
         <div style="margin-bottom: 4px;"></div>
-        <div id="agent-checkboxes" style="display: none; flex-wrap: nowrap; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
+        <div id="agent-checkboxes" style="display: none; flex-wrap: nowrap; margin-top:20px; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                 <input type="checkbox" id="claude-code-cli" style="margin: 0;">
                 <span>Claude</span>
