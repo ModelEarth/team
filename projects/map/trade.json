@@ -40,7 +40,7 @@
     "menuTitle": "Underground Energy",
     "listTitle": "Deep-Containment Architecture",
     "datatype": "csv",
-    "dataset": "https://raw.githubusercontent.com/ModelEarth/community/refs/heads/main/projects/nuclear/locations.csv",
+    "dataset": "https://raw.githubusercontent.com/ModelEarth/grid/refs/heads/main/nuclear/locations.csv",
     "dataset_offline": "/grid/nuclear/locations.csv",
     "markerType": "google",
     "nameColumn": "Location",

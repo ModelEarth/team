@@ -69,7 +69,7 @@
                 let hash = getHash();
                 if (!hash.show) {
                     // Use isGeoSite() from common.js to determine default
-                    const defaultShow = (typeof isGeoSite === 'function' && isGeoSite()) ? 'cities' : 'dca';
+                    const defaultShow = (typeof isGeoSite === 'function' && isGeoSite()) ? 'cities' : 'airports';
                     goHash({'show': defaultShow});
                 }
             }
