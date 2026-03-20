@@ -43,7 +43,8 @@ function createWebrootSetupHTML() {
       2. Go to <!--Fork the webroot repo--><a href="${webrootGit}" target="github_webroot">${webrootGit}</a> and click the "Fork" button in the upper&nbsp;right.<br>
       3. Click the Green Button on <span id="webrootFork">your webroot fork</span> and choose "Open with Github Desktop" to clone the repo.<br>
       4. Choose "To contribute to the parent project" (${parentRepoPath}) as you clone via Github Desktop.<br>
-      5. Start your Command Line Interface (CLI) using the following commands:<br>`;
+      5. Start your Command Line Interface (CLI) using the following commands:<br>
+        Also see our steps for <a href="/localsite/start/cmds/">installing Python and NodeJS</a>`;
 }
 
 // HTML content for the trade flow repos section

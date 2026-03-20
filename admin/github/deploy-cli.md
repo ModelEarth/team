@@ -8,7 +8,7 @@ Append "nopr" if you are not yet ready to send a Pull Request.
 
 IMPORTANT: The firt time you use in a session, include extra guidance.
 
-<pre><code>push using webroot/AGENTS.md guidance with git.sh</code></pre>
+<pre><code>push using AGENTS.md guidance with git.sh</code></pre>
 
 Afterwards, you just "push" to deploy changes.
 
