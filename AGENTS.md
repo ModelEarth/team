@@ -1,7 +1,7 @@
 # Guidance for Webroot, Python Servers and Rust API
 
 This file provides guidance to Claude Code (claude.ai/code) and other AI CLI processes.
-It applies to both this "team" submodule and its parent iteam and iteam's other child repos and submodules.
+It applies to both this "team" submodule and its parent root folder and the root folder's other child repos and submodules.
 
 ## Development Commands
 
@@ -184,7 +184,7 @@ When you type "start rust", run the start script (checks if already running, the
 bash team/start-rust.sh
 ```
 
-Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (iteam/docker/.env) and is created from .env.example only if it doesn't already exist.
+Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (docker/.env relative to root) and is created from .env.example only if it doesn't already exist.
 
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:
@@ -215,7 +215,7 @@ When push or pull requests are received, ask the user:
 
 The ./git.sh commands are `./git.sh push` and `./git.sh pull`
 
-**IMPORTANT**: Always navigate to iteam (the root repository) before running git.sh (see Repository Root Navigation section)
+**IMPORTANT**: Always navigate to the root folder before running git.sh (see Repository Root Navigation section)
 
 ### Push Reporting Guidelines
 
@@ -256,7 +256,7 @@ When Claude Code invokes git.sh push operations:
 1. **Analyze changes** in each repository before invoking git.sh
 2. **Create specific commit messages** for each repository based on its actual changes
 3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format
-4. **ONLY include valid repositories**: iteam, submodules, and site repos
+4. **ONLY include valid repositories**: root folder, submodules, and site repos
 
 **YAML format example:**
 ```bash
@@ -272,7 +272,7 @@ the-repo-name:
 ./git.sh push
 ./git.sh push all
 ./git.sh push team
-./git.sh push iteam
+./git.sh push $(basename $(git rev-parse --show-toplevel))
 ./git.sh push localsite
 ```
 
@@ -289,12 +289,12 @@ When git.sh is invoked without Claude, default commit messages follow this forma
 - **Many files**: "Updated file1.ext, file2.ext, file3.ext..." (shows "..." for 4+ files)
 
 ### Quick Commands for Repositories
-- **"push [name] [nopr]"**: Intelligent push with PR fallback - tries submodule → standalone repo → iteam fallback
-- **"pull [name]"**: Pull changes for specific repository (iteam, submodule, or extra repo)
+- **"push [name] [nopr]"**: Intelligent push with PR fallback - tries submodule → standalone repo → root folder fallback
+- **"pull [name]"**: Pull changes for specific repository (root folder, submodule, or extra repo)
 - **"PR [submodule name]"**: Create pull request workflow
 - **"push submodules [nopr]"**: Push all submodules with PR fallback when push fails
 - **"push forks [nopr]"**: Push all extra repo forks and create PRs to parent repos
-- **"push [nopr]"** or **"push all [nopr]"**: Complete push workflow with PR fallback - pushes iteam, all submodules, and all forks
+- **"push [nopr]"** or **"push all [nopr]"**: Complete push workflow with PR fallback - pushes root folder, all submodules, and all forks
 
 **PR Fallback Behavior**: All push commands automatically create pull requests when direct push fails due to permission restrictions. Add 'nopr' or 'No PR' (case insensitive) at the end of any push command to skip PR creation.
 
@@ -341,20 +341,20 @@ This repository contains git submodules configured in `.gitmodules` including:
 ### Upstream Repository Policy
 **CRITICAL**: The maximum upstream level for all repositories is `modelearth`
 
-- **iteam and Submodules**: Upstream should point to `modelearth` or `ModelEarth` repositories only
+- **Root folder and Submodules**: Upstream should point to `modelearth` or `ModelEarth` repositories only
 - **Industry Repositories**: Upstream should point to `modelearth` repositories only  
 - **Repository Hierarchy**: `user-fork` → `modelearth` (STOP - do not go higher)
 
 ### Repository Root Navigation
-**CRITICAL**: Always ensure you're in the iteam repository before executing any commands. The CLI session is pointed to the iteam directory, and all operations must start from there:
+**CRITICAL**: Always ensure you're in the root folder before executing any commands. The CLI session is pointed to the root folder directory, and all operations must start from there:
 
 ```bash
-# ALWAYS navigate to iteam repository root first (required for all operations)
+# ALWAYS navigate to root folder first (required for all operations)
 cd $(git rev-parse --show-toplevel)
 
-# Verify you're in the correct iteam repository
+# Verify you're in the correct root repository
 git remote -v
-# Should show: origin https://github.com/GeorgiaData/iteam.git
+# Should show: origin pointing to the root repo (folder name matches repo name)
 ```
 
 **IMPORTANT FILE PATH POLICY**: 
@@ -363,16 +363,16 @@ git remote -v
 - Always use relative paths, environment variables, or git commands to determine paths dynamically
 
 ### Supported Repository Names
-- **Root repo**: iteam
+- **Root repo**: current folder name (e.g. `$(basename $(git rev-parse --show-toplevel))`)
 - **Submodules**: Defined in `.gitmodules` file
 - **Site Repos**: Defined in `.siterepos` file
 
 ## Site Repositories
 
 ### Site Repo List
-Site repositories are used for specialized functionality and are cloned to the iteam root directory (not submodules). These repositories are defined in the `.siterepos` file in the iteam directory using the same format as `.gitmodules`.
+Site repositories are used for specialized functionality and are cloned to the root folder directory (not submodules). These repositories are defined in the `.siterepos` file in the root folder using the same format as `.gitmodules`.
 
-**IMPORTANT**: These site repos are cloned to the iteam root directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of iteam.
+**IMPORTANT**: These site repos are cloned to the root folder directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of the root folder.
 
 **Submodule note**: `data-pipeline` is a submodule (defined in `.gitmodules`) and should not be included in `.siterepos`.
 
@@ -384,9 +384,9 @@ Transition away from the term "participants" to use "list" and other generic ter
 The term "stream" will be used for a wide variety of parameter objects, including the variables from parameters.yaml which define feature datasets and a target dataset.
 
 ### Navigation Guidelines
-- **Directory Restrictions**: If the user requests `cd ../`, first check if you are already in iteam. If so, ignore the request so errors do not appear.
-- **Root Detection**: Use `git rev-parse --show-toplevel` or check current working directory against iteam patterns
-- **Security Boundaries**: Claude Code sessions are restricted to working within iteam and its subdirectories
+- **Directory Restrictions**: If the user requests `cd ../`, first check if you are already in the root folder. If so, ignore the request so errors do not appear.
+- **Root Detection**: Use `git rev-parse --show-toplevel` to determine the root folder
+- **Security Boundaries**: Claude Code sessions are restricted to working within the root folder and its subdirectories
 
 ## Quick Commands
 
@@ -477,12 +477,12 @@ The frontend can be served in two different configurations:
    - URLs: `http://localhost:8888/admin/import-data.html`
    - File paths: `preferences/projects/DFC-ActiveProjects.xlsx`
 
-2. **iteam Container**: Repository is placed inside the iteam folder
+2. **Root Folder Container**: Repository is placed inside the root folder
    - URLs: `http://localhost:8887/team/admin/import-data.html`
    - File paths: `team/preferences/projects/DFC-ActiveProjects.xlsx`
    - Browser relative paths: `../preferences/projects/DFC-ActiveProjects.xlsx`
 
-iteam Container (port 8887) is preferred since other repos can then reside in the same iteam root.
+Root Folder Container (port 8887) is preferred since other repos can then reside in the same root folder.
 
 ### Key Dependencies
 - **actix-web**: Web framework
