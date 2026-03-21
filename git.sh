@@ -251,6 +251,29 @@ cd_webroot() {
     fi
 }
 
+# Check if .gitmodules has a token-embedded URL for a submodule and apply it to the remote.
+# This allows pushing to private repos when the current GitHub CLI account lacks access.
+# Usage: apply_gitmodules_token "submodule_name"
+# Returns 0 if a token URL was found and applied, 1 otherwise.
+apply_gitmodules_token() {
+    local name="$1"
+    local gitmodules="$WEBROOT_DIR/.gitmodules"
+    if [ ! -f "$gitmodules" ]; then
+        return 1
+    fi
+    # Extract the URL for this submodule from .gitmodules
+    local token_url=$(awk "/\\[submodule \"$name\"\\]/{found=1} found && /url =/{print \$3; exit}" "$gitmodules")
+    if [[ "$token_url" == *"@github.com"* ]]; then
+        local current_url=$(git remote get-url origin 2>/dev/null || echo "")
+        if [[ "$current_url" != "$token_url" ]]; then
+            echo "🔑 Applying token URL from .gitmodules for $name"
+            git remote set-url origin "$token_url"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # Safe directory management for submodule operations
 # Usage: safe_submodule_operation "submodule_name" "operation_function"
 safe_submodule_operation() {
@@ -1136,6 +1159,15 @@ commit_push() {
             fi
         else
             echo "🔒 User does not own $name repository - trying fork workflow"
+            # Check if .gitmodules has a token URL that can authorize the push directly
+            if apply_gitmodules_token "$name"; then
+                if git push origin HEAD:$target_branch 2>/dev/null; then
+                    echo "✅ Successfully pushed $name using token from .gitmodules"
+                    ensure_push_completion "$name"
+                    cd "$original_dir"
+                    return 0
+                fi
+            fi
             # Try to push directly first in case we have access
             if git push origin HEAD:$target_branch 2>/dev/null; then
                 echo "✅ Successfully pushed $name to $target_branch branch"

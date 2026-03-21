@@ -233,6 +233,28 @@ When you type "pull" or "pull all" and choose workflow #1 (direct), run this com
 ./git.sh pull
 ```
 
+### Private Repo Push Failures
+
+When a submodule push fails due to authentication (e.g. `git.sh` reports PR creation failed or fetch failed for a private repo), check whether the submodule's own remote URL is missing a token that exists in `.gitmodules`:
+
+```bash
+# Check .gitmodules for a token-embedded URL
+grep -A2 'submodule "NAME"' .gitmodules
+
+# Check the submodule's current remote
+cd NAME && git remote -v
+```
+
+If `.gitmodules` has `https://ghp_TOKEN@github.com/ORG/REPO` but the submodule remote shows `https://github.com/ORG/REPO` (no token), fix it:
+
+```bash
+cd NAME
+git remote set-url origin https://ghp_TOKEN@github.com/ORG/REPO
+git push
+```
+
+This wires the token from `.gitmodules` into the submodule's own remote so future pushes authenticate correctly without needing to switch GitHub CLI accounts.
+
 ### Push Commands
 When a user says "push [name]" and chooses option 1 (git.sh script):
 
