@@ -1,21 +1,37 @@
 //  1. Stores the int_required filtered data in DOM storage only once on initial load
 //  2. Apply search filters to the stored data rather than updating the stored data
-//  3. Only update DOM storage when the list= parameter changes (new dataset)
-document.addEventListener('hashChangeEvent', function (elem) {
-    console.log("team/js/map.js detects URL hashChangeEvent");
-    waitForElm('#listwidget').then((elm) => {
+//  3. Only update DOM storage when the underlying dataset changes
+function getRequestedListDataset(hashState) {
+    const requestedState = hashState || {};
+    return requestedState.map || requestedState.show || window.param?.map || window.param?.show || window.listingsApp?.currentShow || '';
+}
+
+document.addEventListener('hashChangeEvent', function () {
+    const hash = getHash();
+    const previousHash = window.priorHash || {};
+    const datasetChanged = getRequestedListDataset(hash) !== getRequestedListDataset(previousHash);
+    const summarizeChanged = hash.summarize !== previousHash.summarize;
+
+    if (!datasetChanged && !summarizeChanged) {
+        console.log('team/js/map.js skipping listwidgetChange for layer-only hash change');
+        return;
+    }
+
+    console.log('team/js/map.js detects relevant URL hashChangeEvent');
+    waitForElm('#listwidget').then(() => {
         listwidgetChange();
     });
 }, false);
 function listwidgetChange() {
     let hash = getHash();
-    // Use show parameter if map is not present; fall back to embed.js tag param when hash is cleared
-    let currentMap = hash.map || hash.show || window.param.map || window.param.show;
-    let priorMap = priorHash.map || priorHash.show;
+    let currentMap = getRequestedListDataset(hash);
+    let priorMap = getRequestedListDataset(window.priorHash || {});
+    let activeMap = window.listingsApp?.currentShow;
 
-    console.log("currentMap:", currentMap, "priorMap:", priorMap);
+    console.log("currentMap:", currentMap, "priorMap:", priorMap, "activeMap:", activeMap);
 
-    if (currentMap != priorMap || !priorMap) {
+    if (currentMap !== priorMap &&
+        (!window.listingsApp || !window.listingsApp.dataLoaded || activeMap !== currentMap)) {
         if (!currentMap) {
             // Hide #listwidget here. First rename #widgetwidget to something distinct
         } else {
@@ -199,6 +215,9 @@ class ListingsDisplay {
         this.pathConfig = {
             basePath: options.basePath || this.detectBasePath()
         };
+
+        window.startImageDetailPlay = this.startDetailImagePlay.bind(this);
+        window.stopImageDetailPlay = this.stopDetailImagePlay.bind(this);
         
         this.init();
         this.setupGlobalEventListeners();
@@ -3028,6 +3047,10 @@ Do not include any explanation or additional text.`;
     }
 
     async changeShow(showKey, updateCache = true) {
+        if (showKey && this.dataLoaded && this.currentShow === showKey) {
+            console.log(`Skipping changeShow for unchanged dataset: ${showKey}`);
+            return;
+        }
         this.currentShow = showKey;
         this.searchPopupOpen = false;
 
@@ -3365,6 +3388,64 @@ Do not include any explanation or additional text.`;
         return this.getCurrentPageListings();
     }
 
+    getTourListingIds(options = {}) {
+        const requireImages = !!options.requireImages;
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        return this.getCurrentPageListings()
+            .map((listing, pageIndex) => {
+                const listingIndex = startIndex + pageIndex;
+                const galleryImages = this.getListingImages(listing);
+                if (requireImages && !galleryImages.length) {
+                    return null;
+                }
+                return this.getListingHashId(listing, listingIndex);
+            })
+            .filter(id => id);
+    }
+
+    startDetailImagePlay() {
+        const listingIds = this.getTourListingIds({ requireImages: true });
+        if (!listingIds.length) {
+            return false;
+        }
+
+        if (typeof window.tourState !== 'undefined') {
+            window.tourState.listingIds = listingIds;
+        }
+
+        if (typeof goHash === 'function' && typeof getHash === 'function') {
+            const currentHash = getHash();
+            goHash({
+                id: listingIds[0],
+                detailplay: 'true',
+                view: currentHash.view || ''
+            });
+            return true;
+        }
+
+        const firstIndex = this.findListingIndexByHashId(listingIds[0]);
+        if (firstIndex !== null) {
+            this.showListingDetailsByIndex(firstIndex);
+            return true;
+        }
+
+        return false;
+    }
+
+    stopDetailImagePlay() {
+        if (typeof stopTour === 'function') {
+            stopTour('locationDetails');
+            return true;
+        }
+
+        if (typeof goHash === 'function') {
+            goHash({ detailplay: '' });
+            return true;
+        }
+
+        return false;
+    }
+
     isSummaryView() {
         // Check if we're showing summary data by looking for originalListings
         return this.originalListings !== null && this.originalListings !== undefined;
@@ -3423,6 +3504,7 @@ Do not include any explanation or additional text.`;
             const uniqueId = `details-${Math.random().toString(36).substr(2, 9)}`;
             const listingIndex = (this.currentPage - 1) * this.itemsPerPage + index;
             const listingHashId = this.getListingHashId(listing, listingIndex);
+            const galleryImages = this.getListingImages(listing);
             
             // Helper function to check if key is in featured columns
             const isInFeaturedColumns = (key) => {
@@ -3464,6 +3546,8 @@ Do not include any explanation or additional text.`;
                             metaRows,
                             showMetaButtons: true,
                             showViewDetailsButton: true,
+                            showImageCountButton: galleryImages.length > 0,
+                            galleryImageCount: galleryImages.length,
                             maxFeaturedRows: listMaxFeaturedRows,
                             listingIndex,
                             listingHashId,
@@ -3762,23 +3846,33 @@ Do not include any explanation or additional text.`;
             return;
         }
 
+        const currentHash = this.getCurrentHash();
+        if (currentHash && (currentHash.id || currentHash.detail)) {
+            this.updatePageHeroFromListingImages(this.getListingImages(this.filteredListings[index]));
+        }
+
         this.selectedListingIndex = index;
         this.updateMapGallerySection(this.filteredListings[index]);
 
-        // Scroll to listwidget with margin above (only if header exists)
-        const header = document.querySelector('header') || document.getElementById('headerbar');
-        if (header) {
-            const listwidget = document.getElementById('listwidget');
-            if (listwidget) {
-                const headerHeight = header.offsetHeight;
-                const marginTop = 10;
-                const listwidgetTop = listwidget.getBoundingClientRect().top + window.pageYOffset - headerHeight - marginTop;
-                window.scrollTo({ top: listwidgetTop, behavior: 'smooth' });
-            }
-        }
-
         // Clear arrow navigation flag
         this.arrowNavigation = false;
+    }
+
+    updatePageHeroFromListingImages(images) {
+        if (!Array.isArray(images) || !images.length || !images[0] || !images[0].url) {
+            return;
+        }
+
+        const heroContainer = document.querySelector('.heroImageScroll');
+        const heroImage = document.querySelector('.heroImage');
+        if (!heroContainer || !heroImage) {
+            return;
+        }
+
+        if (heroImage.getAttribute('src') !== images[0].url) {
+            heroImage.setAttribute('src', images[0].url);
+        }
+        heroImage.style.display = '';
     }
 
     updateMapGallerySection(listing) {
@@ -3818,6 +3912,10 @@ Do not include any explanation or additional text.`;
         const galleryImages = this.getListingImages(listing);
         const displayData = this.getDisplayData(listing);
         const recognized = this.getRecognizedFields(listing);
+
+        if (isTourPlaying) {
+            this.updatePageHeroFromListingImages(galleryImages);
+        }
 
         // Trigger fade transition during tour
         if (isTourPlaying && section) {
@@ -3920,14 +4018,8 @@ Do not include any explanation or additional text.`;
 
         // Populate listing IDs for arrow navigation (reuse tour logic)
         if (typeof window.tourState !== 'undefined') {
-            const listingCards = document.querySelectorAll('.listing-card[data-listing-id]');
-            const listingIds = Array.from(listingCards)
-                .map(card => card.getAttribute('data-listing-id'))
-                .filter(id => id);
-
-            if (listingIds.length > 0) {
-                window.tourState.listingIds = listingIds;
-            }
+            const listingIds = this.getTourListingIds({ requireImages: isTourPlaying });
+            window.tourState.listingIds = listingIds;
         }
 
         // Setup back arrow and add alert based on tour state
@@ -4285,6 +4377,10 @@ Do not include any explanation or additional text.`;
         const viewDetailsButton = options.showViewDetailsButton
             ? `<button class="view-details-btn location-btn" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">View Details</button>`
             : '';
+        const imageCount = Number(options.galleryImageCount || 0);
+        const imageCountButton = options.showImageCountButton && imageCount > 0
+            ? `<button class="view-details-btn listing-images-btn location-btn" type="button" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">${imageCount} image${imageCount === 1 ? '' : 's'}</button>`
+            : '';
 
         const splitContactList = (value) => {
             if (!value) {
@@ -4413,6 +4509,7 @@ Do not include any explanation or additional text.`;
                             ${hasAirportDistance ? `<button class="location-more-toggle location-btn" type="button" data-group="${metaGroup}" data-target="${airportsId}" data-label="Airports" data-toggle-type="independent">Airports</button>` : ''}
                             ${moreCount ? `<button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${metaId}" data-label="More${isDevMode ? ' (' + moreCount + ')' : ''}" data-toggle-type="meta">More${isDevMode ? ' (' + moreCount + ')' : ''}</button>` : ''}
                             <button class="location-more-toggle location-btn meta-less-btn" type="button" data-group="${metaGroup}" data-toggle-type="meta-less" style="display:none; background:#94a3b8;">Less</button>
+                            ${imageCountButton}
                         </div>
                         ${options.showCroppedButton ? '<button class="image-crop-toggle location-btn" type="button" data-crop-state="cropped">Cropped</button>' : ''}
                     </div>
@@ -4821,6 +4918,11 @@ Do not include any explanation or additional text.`;
     async openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
         if (!imageUrl) {
             return;
+        }
+
+        const hash = (typeof getHash === 'function') ? getHash() : {};
+        if (hash && hash.detailplay === 'true' && typeof window.stopImageDetailPlay === 'function') {
+            window.stopImageDetailPlay();
         }
 
         const modal = await this.ensureGalleryImageModal();
@@ -6128,7 +6230,7 @@ Do not include any explanation or additional text.`;
             const viewSourceLink = this.renderViewSourceLink();
             let localwidgetHeader = `
                 <!-- Header -->
-                <div class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
+                <div id="listwidgetHeader" class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
                     <div style="flex:1;">
                         <h1>${this.config?.listTitle || 'Listings'}</h1>
                         ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
@@ -6381,6 +6483,25 @@ Do not include any explanation or additional text.`;
                     datasourcePath: datasourcePath
                 });
                 viewMenu.render();
+                if (!window.panelMenuOptions) {
+                    window.panelMenuOptions = {};
+                }
+                const useImageOnlyTour = !!document.querySelector('.heroImageScroll .heroImage, .heroImageScroll, .heroImage');
+                window.panelMenuOptions.locationDetails = Object.assign(
+                    {},
+                    window.panelMenuOptions.locationDetails || {},
+                    {
+                        panelType: 'Details',
+                        panelLabel: 'Details'
+                    }
+                );
+                if (useImageOnlyTour) {
+                    window.panelMenuOptions.locationDetails.getTourListingIds = () => this.getTourListingIds({ requireImages: true });
+                    window.panelMenuOptions.locationDetails.startTourAtFirstListing = true;
+                } else {
+                    delete window.panelMenuOptions.locationDetails.getTourListingIds;
+                    delete window.panelMenuOptions.locationDetails.startTourAtFirstListing;
+                }
 
                 // Check if tour is playing (detailplay in hash)
                 const hash = this.getCurrentHash();
@@ -6972,6 +7093,10 @@ Do not include any explanation or additional text.`;
         // Base64 encode to safely handle quotes and special characters including Unicode
         const jsonString = JSON.stringify(cleanedData);
         const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+        if (dataElement.getAttribute('data-widget-listings') === encodedData) {
+            console.log(`Skipped storeDataInDOM for unchanged dataset: ${this.currentShow || 'default'}`);
+            return;
+        }
         dataElement.setAttribute('data-widget-listings', encodedData);
         
         if (!document.getElementById('widget-stored-data')) {

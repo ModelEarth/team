@@ -1214,13 +1214,13 @@ async fn verify_google_auth(_req: web::Json<GoogleAuthRequest>) -> Result<HttpRe
 // TODO: Complete the Google Sheets API integration by resolving dependency version conflicts
 
 async fn get_sheets_config_data() -> anyhow::Result<serde_json::Value> {
-    let config_path = "admin/google/form/config.json";
+    let config_path = "admin/google/form/config.yaml";
     let config_content = std::fs::read_to_string(config_path)
         .context("Failed to read sheets config file")?;
-    
-    let config: serde_json::Value = serde_json::from_str(&config_content)
-        .context("Failed to parse sheets config JSON")?;
-    
+
+    let config: serde_json::Value = serde_yaml::from_str(&config_content)
+        .context("Failed to parse sheets config YAML")?;
+
     Ok(config)
 }
 
@@ -1241,11 +1241,11 @@ async fn validate_sheets_credentials() -> anyhow::Result<bool> {
 // Get Google Sheets configuration
 async fn get_sheets_config() -> Result<HttpResponse> {
     // Try to read configuration from file
-    let config_path = "admin/google/form/config.json";
-    
+    let config_path = "admin/google/form/config.yaml";
+
     match std::fs::read_to_string(config_path) {
         Ok(config_content) => {
-            match serde_json::from_str::<serde_json::Value>(&config_content) {
+            match serde_yaml::from_str::<serde_json::Value>(&config_content) {
                 Ok(config) => {
                     Ok(HttpResponse::Ok().json(json!({
                         "success": true,
@@ -1265,36 +1265,36 @@ async fn get_sheets_config() -> Result<HttpResponse> {
             Ok(HttpResponse::Ok().json(json!({
                 "success": true,
                 "config": {
-                    "googleSheets": {
+                    "GoogleSheets": {
                         "spreadsheetId": "REPLACE_WITH_YOUR_GOOGLE_SHEET_ID",
                         "worksheetName": "Members",
                         "headerRow": 1,
                         "dataStartRow": 2
                     },
-                    "oauth": {
+                    "OAuth": {
                         "clientId": "REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID"
                     },
-                    "appearance": {
+                    "Appearance": {
                         "title": "Member Registration",
                         "subtitle": "Join our community of developers and contributors working on sustainable impact projects",
                         "primaryColor": "#3B82F6",
                         "accentColor": "#10B981"
                     },
-                    "messages": {
+                    "Messages": {
                         "welcomeNew": "Welcome! Please fill out the registration form to join our community of developers working on sustainable impact projects.",
                         "welcomeReturning": "Welcome back! Your existing information has been loaded. Please review and update any details as needed."
                     },
-                    "behavior": {
+                    "Behavior": {
                         "allowDuplicates": false,
                         "requireGithub": true,
                         "showProgress": true,
                         "enablePreview": true
                     },
-                    "links": {
+                    "Links": {
                         "membersPage": "https://model.earth/community/members",
                         "projectsPage": "https://model.earth/projects"
                     },
-                    "message": "Default configuration loaded. Please update config.json with your Google Sheets details."
+                    "message": "Default configuration loaded. Please update config.yaml with your Google Sheets details."
                 }
             })))
         }
@@ -1303,8 +1303,8 @@ async fn get_sheets_config() -> Result<HttpResponse> {
 
 // Save Google Sheets configuration
 async fn save_sheets_config(req: web::Json<serde_json::Value>) -> Result<HttpResponse> {
-    let config_path = "admin/google/form/config.json";
-    
+    let config_path = "admin/google/form/config.yaml";
+
     // Create directory if it doesn't exist
     if let Some(parent) = std::path::Path::new(config_path).parent() {
         if let Err(e) = std::fs::create_dir_all(parent) {
@@ -1314,15 +1314,15 @@ async fn save_sheets_config(req: web::Json<serde_json::Value>) -> Result<HttpRes
             })));
         }
     }
-    
-    // Pretty print the JSON configuration
-    match serde_json::to_string_pretty(&*req) {
-        Ok(config_json) => {
-            match std::fs::write(config_path, config_json) {
+
+    // Serialize to YAML
+    match serde_yaml::to_string(&*req) {
+        Ok(config_yaml) => {
+            match std::fs::write(config_path, config_yaml) {
                 Ok(_) => {
                     Ok(HttpResponse::Ok().json(json!({
                         "success": true,
-                        "message": "Form configuration saved successfully to config.json"
+                        "message": "Form configuration saved successfully to config.yaml"
                     })))
                 }
                 Err(e) => {

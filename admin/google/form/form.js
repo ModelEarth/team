@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add a small delay to ensure all elements are ready
         setTimeout(() => {
             showLocalhostMode();
+            loadConfiguration(); // Check OAuth config to show status in form area
         }, 100);
     } else {
         console.log('Not localhost, loading OAuth configuration');
@@ -80,32 +81,32 @@ async function loadConfiguration() {
 // Apply configuration to form appearance and behavior
 function applyFormConfiguration(config) {
     // Apply appearance settings
-    if (config.appearance) {
-        if (config.appearance.title) {
+    if (config.Appearance) {
+        if (config.Appearance.title) {
             const titleElement = document.querySelector('.card-title');
             if (titleElement) {
-                titleElement.innerHTML = `<i data-feather="users"></i> ${config.appearance.title}`;
+                titleElement.innerHTML = `<i data-feather="users"></i> ${config.Appearance.title}`;
             }
         }
         
-        if (config.appearance.subtitle) {
+        if (config.Appearance.subtitle) {
             const subtitleElement = document.querySelector('.card-subtitle');
             if (subtitleElement) {
-                subtitleElement.textContent = config.appearance.subtitle;
+                subtitleElement.textContent = config.Appearance.subtitle;
             }
         }
         
         // Apply custom colors
-        if (config.appearance.primaryColor || config.appearance.accentColor) {
+        if (config.Appearance.primaryColor || config.Appearance.accentColor) {
             const style = document.createElement('style');
             let css = ':root {\n';
             
-            if (config.appearance.primaryColor) {
-                css += `  --accent-blue: ${config.appearance.primaryColor};\n`;
+            if (config.Appearance.primaryColor) {
+                css += `  --accent-blue: ${config.Appearance.primaryColor};\n`;
             }
             
-            if (config.appearance.accentColor) {
-                css += `  --accent-green: ${config.appearance.accentColor};\n`;
+            if (config.Appearance.accentColor) {
+                css += `  --accent-green: ${config.Appearance.accentColor};\n`;
             }
             
             css += '}';
@@ -115,8 +116,8 @@ function applyFormConfiguration(config) {
     }
     
     // Apply behavior settings
-    if (config.behavior) {
-        if (config.behavior.requireGithub === false) {
+    if (config.Behavior) {
+        if (config.Behavior.requireGithub === false) {
             const githubField = document.getElementById('github');
             if (githubField) {
                 githubField.removeAttribute('required');
@@ -127,14 +128,14 @@ function applyFormConfiguration(config) {
             }
         }
         
-        if (config.behavior.showProgress === false) {
+        if (config.Behavior.showProgress === false) {
             const progressIndicator = document.querySelector('.progress-indicator');
             if (progressIndicator) {
                 progressIndicator.style.display = 'none';
             }
         }
         
-        if (config.behavior.enablePreview === false) {
+        if (config.Behavior.enablePreview === false) {
             const previewButton = document.querySelector('button[onclick="previewData()"]');
             if (previewButton) {
                 previewButton.style.display = 'none';
@@ -143,38 +144,38 @@ function applyFormConfiguration(config) {
     }
     
     // Update links in help text
-    if (config.links) {
-        if (config.links.membersPage) {
+    if (config.Links) {
+        if (config.Links.membersPage) {
             const helpText = document.querySelector('.form-help');
             if (helpText && helpText.textContent.includes('model.earth/community/members')) {
                 helpText.innerHTML = helpText.innerHTML.replace(
                     'model.earth/community/members',
-                    `<a href="${config.links.membersPage}" target="_blank">${config.links.membersPage}</a>`
+                    `<a href="${config.Links.membersPage}" target="_blank">${config.Links.membersPage}</a>`
                 );
             }
         }
         
-        if (config.links.projectsPage) {
+        if (config.Links.projectsPage) {
             const focusField = document.querySelector('label[for="focus"] + textarea');
             if (focusField) {
                 focusField.placeholder = focusField.placeholder.replace(
                     'model.earth/projects',
-                    config.links.projectsPage
+                    config.Links.projectsPage
                 );
             }
         }
     }
 }
 
-// Check OAuth configuration from both .env and config.json
+// Check OAuth configuration from both .env and config.yaml
 async function checkOAuthConfiguration() {
     let configClientId = null;
     let envClientId = null;
     let hasValidClientId = false;
     
-    // Check config.json client ID
-    if (sheetsConfig && sheetsConfig.oauth && sheetsConfig.oauth.clientId) {
-        configClientId = sheetsConfig.oauth.clientId;
+    // Check config.yaml client ID
+    if (sheetsConfig && sheetsConfig.OAuth && sheetsConfig.OAuth.clientId) {
+        configClientId = sheetsConfig.OAuth.clientId;
         // Check if it's not the default placeholder
         if (configClientId !== 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID' && 
             configClientId.includes('.apps.googleusercontent.com')) {
@@ -182,7 +183,7 @@ async function checkOAuthConfiguration() {
         }
     }
     
-    // Check .env file client ID via API
+    // Check docker/.env file client ID via API
     try {
         const response = await fetch(`${API_BASE}/config/env`);
         if (response.ok) {
@@ -200,56 +201,69 @@ async function checkOAuthConfiguration() {
         console.warn('Could not check .env configuration:', error);
     }
     
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
     // Display warning if no valid client ID found
     if (!hasValidClientId) {
         showOAuthConfigWarning(configClientId, envClientId);
-        disableGoogleSignIn();
+        if (!isLocalhost) {
+            disableGoogleSignIn();
+        }
     } else {
         // If we have a valid client ID, initialize Google Auth
-        initializeGoogleAuth();
+        if (!isLocalhost) {
+            initializeGoogleAuth();
+        } else {
+            showTopStatus('success', '✓ Google OAuth Client ID is configured. Sign In with Google will work on production.');
+        }
     }
 }
 
 // Display OAuth configuration warning
 function showOAuthConfigWarning(configClientId, envClientId) {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    let message = '<strong>Google OAuth Client ID Required</strong><br><br>';
+    message += 'The "Sign in with Google" button will not work because no valid Google OAuth Client ID was found.<br><br>';
+
+    message += '<strong>Configuration Status:</strong><br>';
+
+    // Config.json status
+    if (configClientId) {
+        if (configClientId === 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID') {
+            message += '• config.yaml: Contains placeholder value<br>';
+        } else {
+            message += `• config.yaml: "${configClientId}" (invalid format)<br>`;
+        }
+    } else {
+        message += '• config.yaml: No client ID found<br>';
+    }
+
+    // .env status
+    if (envClientId) {
+        if (envClientId === 'your-google-client-id.apps.googleusercontent.com') {
+            message += '• docker/.env file: Contains placeholder value<br>';
+        } else {
+            message += `• docker/.env file: "${envClientId}" (invalid format)<br>`;
+        }
+    } else {
+        message += '• docker/.env file: No GOOGLE_CLIENT_ID found<br>';
+    }
+
+    message += '<br><strong>To fix this:</strong><br>';
+    message += '1. Get a Google OAuth Client ID <button class="btn-sm" onclick="toggleGoogleAuthSteps(this)">show steps</button><br>';
+    message += '2. Update either the config.yaml file or the GOOGLE_CLIENT_ID in your docker/.env file<br>';
+    message += '3. Reload this page to try again';
+
     const authStatus = document.getElementById('auth-status');
     if (authStatus) {
         authStatus.className = 'status-message error';
-        authStatus.style.display = 'block';
-        
-        let message = '⚠️ <strong>Google OAuth Client ID Required</strong><br><br>';
-        message += 'The "Sign in with Google" button will not work because no valid Google OAuth Client ID was found.<br><br>';
-        
-        message += '<strong>Configuration Status:</strong><br>';
-        
-        // Config.json status
-        if (configClientId) {
-            if (configClientId === 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID') {
-                message += '• config.json: Contains placeholder value<br>';
-            } else {
-                message += `• config.json: "${configClientId}" (invalid format)<br>`;
-            }
-        } else {
-            message += '• config.json: No client ID found<br>';
-        }
-        
-        // .env status
-        if (envClientId) {
-            if (envClientId === 'your-google-client-id.apps.googleusercontent.com') {
-                message += '• .env file: Contains placeholder value<br>';
-            } else {
-                message += `• .env file: "${envClientId}" (invalid format)<br>`;
-            }
-        } else {
-            message += '• .env file: No GOOGLE_CLIENT_ID found<br>';
-        }
-        
-        message += '<br><strong>To fix this:</strong><br>';
-        message += '1. Get a Google OAuth Client ID from <a href="https://console.developers.google.com" target="_blank" style="color: var(--accent-blue);">Google Cloud Console</a><br>';
-        message += '2. Update either the config.json file or the GOOGLE_CLIENT_ID in your .env file<br>';
-        message += '3. Reload this page to try again';
-        
         authStatus.innerHTML = message;
+        authStatus.style.display = 'block';
+    }
+
+    if (isLocalhost) {
+        showTopStatus('error', message);
     }
 }
 
@@ -341,6 +355,14 @@ function showUserInfo(userData) {
     document.getElementById('email').value = userData.email;
     
     userInfo.style.display = 'flex';
+
+    // Switch to Sign Out button now that user is authenticated
+    const authToggleBtn = document.getElementById('authToggleBtn');
+    if (authToggleBtn) {
+        authToggleBtn.setAttribute('onclick', 'signOut()');
+        authToggleBtn.innerHTML = '<i data-feather="log-out"></i> Sign Out';
+        initializeFeatherIcons();
+    }
 }
 
 function showFormSection() {
@@ -832,19 +854,39 @@ function showTopStatus(type, message) {
     if (!topStatus) {
         topStatus = document.createElement('div');
         topStatus.id = 'top-status';
-        topStatus.className = `status-message ${type}`;
         topStatus.style.marginBottom = '20px';
-        
+
         // Insert at the very top of the form section
         const formSection = document.querySelector('.form-section');
         if (formSection) {
             formSection.insertBefore(topStatus, formSection.firstChild);
         }
     }
-    
-    topStatus.className = `status-message ${type}`;
-    topStatus.innerHTML = message;
-    topStatus.style.display = 'block';
+
+    topStatus.className = `alert alert-${type === 'error' ? 'danger' : type}`;
+    topStatus.innerHTML = `<span>${message}</span>`;
+    topStatus.style.display = '';
+
+    const statusBtn = document.getElementById('statusBtn');
+    if (statusBtn) statusBtn.classList.add('active');
+}
+
+function toggleGoogleAuthSteps(btn) {
+    let panel = document.getElementById('google-auth-panel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'google-auth-panel';
+        panel.className = 'card';
+        panel.style.marginTop = '16px';
+        const topStatus = document.getElementById('top-status');
+        if (topStatus && topStatus.parentNode) {
+            topStatus.parentNode.insertBefore(panel, topStatus.nextSibling);
+        }
+        loadMarkdown('google-auth.md', 'google-auth-panel', '_parent', 1);
+    } else {
+        panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    }
+    if (btn) btn.textContent = (panel.style.display === 'none') ? 'show steps' : 'hide steps';
 }
 
 function hideStatus() {
@@ -862,24 +904,17 @@ function initializeGoogleAuth() {
         return;
     }
     
-    if (typeof google !== 'undefined' && google.accounts && sheetsConfig && sheetsConfig.oauth) {
+    if (typeof google !== 'undefined' && google.accounts && sheetsConfig && sheetsConfig.OAuth) {
         google.accounts.id.initialize({
-            client_id: sheetsConfig.oauth.clientId,
+            client_id: sheetsConfig.OAuth.clientId,
             callback: handleCredentialResponse
         });
         
         // Update the data-client_id attribute on the sign-in element
         const gSignInElement = document.getElementById('g_id_onload');
         if (gSignInElement) {
-            gSignInElement.setAttribute('data-client_id', sheetsConfig.oauth.clientId);
+            gSignInElement.setAttribute('data-client_id', sheetsConfig.OAuth.clientId);
         }
     }
 }
 
-// Initialize Google Sign-In after configuration is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Load configuration first, then initialize auth
-    loadConfiguration().then(() => {
-        initializeGoogleAuth();
-    });
-});

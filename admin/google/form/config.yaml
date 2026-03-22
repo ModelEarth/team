@@ -1,0 +1,80 @@
+GoogleSheets:
+  spreadsheetId: REPLACE_WITH_YOUR_GOOGLE_SHEET_ID
+  worksheetName: Members
+  columns:
+    Timestamp: A
+    Handle: B
+    Name: C
+    ToDos: D
+    Projects: E
+    Team: F
+    Focus: G
+    UN Goal: H
+    School and Degree Program: I
+    Your Location: J
+    Github: K
+    Status: L
+    Email: M
+    StartDate: N
+    EndDate: O
+    Note: P
+    Your Website: Q
+    Date Degree Completed: R
+    OPT University Department: S
+    "OPT University Department,Email Phone": T
+    HoursPerWeek: U
+    Job Title: V
+    Phone: W
+  headerRow: 1
+  dataStartRow: 2
+
+OAuth:
+  # The clientId is safe to expose publicly — it only identifies your app to Google.
+  # Keep the Client Secret private (used only server-side).
+  clientId: REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID
+  scopes:
+    - https://www.googleapis.com/auth/spreadsheets
+    - https://www.googleapis.com/auth/userinfo.profile
+    - https://www.googleapis.com/auth/userinfo.email
+
+Appearance:
+  title: Member Registration
+  subtitle: Join our community of developers and contributors working on sustainable impact projects
+  primaryColor: "#3B82F6"
+  accentColor: "#10B981"
+
+Messages:
+  welcomeNew: Welcome! Please fill out the registration form to join our community of developers working on sustainable impact projects.
+  welcomeReturning: Welcome back! Your existing information has been loaded. Please review and update any details as needed.
+
+Behavior:
+  allowDuplicates: false
+  requireGithub: true
+  showProgress: true
+  enablePreview: true
+
+Links:
+  membersPage: https://model.earth/community/members
+  projectsPage: https://model.earth/projects
+
+Validation:
+  requiredFields:
+    - name
+    - team
+    - un_goals
+    - location
+    - status
+    - github
+    - start_date
+    - job_title
+    - email
+  emailDomainWhitelist: []
+  maxNameLength: 100
+  maxNoteLength: 1000
+
+Features:
+  allowDuplicateEmails: false
+  updateMostRecentIfDuplicate: true
+  autoGenerateHandle: true
+  preloadExistingData: true
+  sendWelcomeEmail: false

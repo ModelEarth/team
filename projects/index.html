@@ -116,12 +116,13 @@
         })();
     </script>
     <style>
-        /* Participants heatmap container */
-        #participants-map-container { margin-bottom: 12px; display: none; position: relative; }
+        /* Participants heatmap section */
+        #participants-map-section { display: none; }
     /* Ensure the map container has an explicit height so Leaflet can size itself */
     /* Increased height and stronger visual border to match desired look */
     #participants-map { position: relative; width: 100%; height: 380px; min-height: 320px; border: 3px solid #2563eb; border-radius: 12px; overflow: hidden; box-sizing: border-box; }
-    #participants-map-container { margin-bottom: 12px; display: block; position: relative; padding: 8px; }
+    #participants-map-section { margin-bottom: 12px; }
+    #participants-map-container { display: none; position: relative; }
     /* Add a subtle blue inset shadow and thicker rounded outline on focus */
     #participants-map:focus, #participants-map:focus-within { outline: 3px solid rgba(37,99,235,0.12); box-shadow: 0 6px 20px rgba(37,99,235,0.12); }
     /* Make Leaflet's generated container absolutely fill our element (some global CSS can accidentally shrink it) */
@@ -3261,8 +3262,8 @@
                     <div class="snapshot-input-buttons">
                         <input type="text" id="snapshot-name-input" class="form-control snapshot-input" placeholder="Enter snapshot name..." style="display: none;">
                         <div class="snapshot-buttons">
-                            <button class="btn btn-secondary" id="edit-snapshot-btn" title="Edit snapshot name" style="display: none;">Edit</button>
-                            <button class="btn btn-secondary" id="delete-snapshot-btn" title="Delete snapshot" style="display: none;">×</button>
+                            <button class="btn btn-secondary" id="edit-snapshot-btn" title="Edit snapshot name" style="display: none;"><i class="material-icons" aria-hidden="true" style="font-size:130%;vertical-align:middle">edit</i></button>
+                            <button class="btn btn-secondary" id="delete-snapshot-btn" title="Delete snapshot" style="display: none; line-height:1; padding-bottom:4px;">×</button>
                             <button class="btn btn-primary" id="save-snapshot-btn" style="display: none;">Save</button>
                             <button class="btn btn-secondary" id="cancel-snapshot-btn" style="display: none;">Cancel</button>
                         </div>
@@ -3377,7 +3378,7 @@
             
             <!-- Column View (Default) -->
             <!-- Map (heat) inserted above views -->
-            <div id="participants-map-container">
+            <div id="participants-map-section" style="display:none">
                 <div id="participants-map-controls">
                     <div style="font-size:13px; color:var(--text-secondary)">Participants density</div>
                     <div style="display:flex; gap:8px; align-items:center;">
@@ -3385,8 +3386,10 @@
                         <button id="toggle-state-counts-btn" class="btn btn-sm btn-secondary">Show states</button>
                     </div>
                 </div>
-                <div id="participants-map"></div>
-                <div id="participants-map-no-data">No latitude/longitude data available for heatmap.</div>
+                <div id="participants-map-container">
+                    <div id="participants-map"></div>
+                    <div id="participants-map-no-data">No latitude/longitude data available for heatmap.</div>
+                </div>
             </div>
             <div class="view-container" id="column-view">
                 <div class="participants-grid" id="participants-column-grid"></div>
@@ -3512,7 +3515,21 @@
             let _participantsStateLayer = null;
             let _cityDetailLayer = null;
             let _participantsDataFitApplied = false;
-            let heatmapVisible = localStorage.getItem('heatmapHidden') !== '1';
+            let _pendingHeatPoints = null; // stored for lazy map init
+            // Default: map hidden; only shown if user explicitly saved show preference
+            let heatmapVisible = localStorage.getItem('heatmapShown') === '1';
+
+            function applyHeatmapPref() {
+                const cont = document.getElementById('participants-map-container');
+                const btn = document.getElementById('toggle-heatmap-btn');
+                if (!heatmapVisible) {
+                    if (cont) cont.style.display = 'none';
+                    if (btn) btn.textContent = 'Show map';
+                } else {
+                    if (cont) cont.style.display = 'block';
+                    if (btn) btn.textContent = 'Hide map';
+                }
+            }
 
             function initParticipantsHeatmap() {
                 if (_participantsMap) return _participantsMap;
@@ -3994,25 +4011,64 @@
                 }
             }
 
+            // Invalidate Leaflet size and fit bounds to points; retries to handle late layout.
+            function doMapInvalidateAndFit(points) {
+                (function tryInvalidate(retriesLeft, delay, boundsApplied){
+                    setTimeout(() => {
+                        try {
+                            if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') {
+                                _participantsMap.invalidateSize();
+                            }
+                            try { if (_participantsMap && typeof _participantsMap.panBy === 'function') { _participantsMap.panBy([1,0]); _participantsMap.panBy([-1,0]); } } catch(e){}
+                            let latLngs = [];
+                            try {
+                                if (_participantsHeatLayer && typeof _participantsHeatLayer.getLatLngs === 'function') {
+                                    latLngs = _participantsHeatLayer.getLatLngs();
+                                    if (!Array.isArray(latLngs) || !latLngs.length || !Array.isArray(latLngs[0])) {
+                                        latLngs = points.map(p => [p[0], p[1]]);
+                                    }
+                                } else {
+                                    latLngs = points.map(p => [p[0], p[1]]);
+                                }
+                            } catch (e) { latLngs = points.map(p => [p[0], p[1]]); }
+                            if (!boundsApplied && latLngs && latLngs.length) {
+                                const bounds = L.latLngBounds(latLngs);
+                                _participantsMap.fitBounds(bounds.pad(0.18), { animate: false });
+                                if (_participantsMap.getZoom && _participantsMap.getZoom() < 3) {
+                                    _participantsMap.setZoom(3, { animate: false });
+                                }
+                                _participantsDataFitApplied = true;
+                                boundsApplied = true;
+                            }
+                        } catch (e) {}
+                        if (retriesLeft > 0 && !boundsApplied) tryInvalidate(retriesLeft - 1, Math.min(600, delay * 2), boundsApplied);
+                    }, delay || 120);
+                })(4, 100, _participantsDataFitApplied);
+            }
+
             function updateParticipantsHeatmapFromData(data) {
                 // data: array of participant objects. Look for lat/lng fields (case-insensitive)
+                const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                const isModelTeam = listParam === 'modelteam';
+                const secEl = document.getElementById('participants-map-section');
+
+                if (!isModelTeam) {
+                    if (secEl) secEl.style.display = 'none';
+                    return;
+                }
+                if (secEl) secEl.style.display = 'block';
+
                 if (!data || !Array.isArray(data) || data.length === 0) {
-                    // No data: still ensure the map is created so tiles load and the
-                    // "no data" overlay can be shown on top of a real map.
-                    const contEl = document.getElementById('participants-map-container');
-                    if (contEl) contEl.style.display = 'block';
-                    initParticipantsHeatmap();
-                    document.getElementById('participants-map-no-data').style.display = 'flex';
+                    _pendingHeatPoints = [];
+                    applyHeatmapPref();
                     return;
                 }
 
                 // Detect lat/lng keys
                 const sample = data.find(d => d && typeof d === 'object');
                 if (!sample) {
-                    const contEl = document.getElementById('participants-map-container');
-                    if (contEl) contEl.style.display = 'block';
-                    initParticipantsHeatmap();
-                    document.getElementById('participants-map-no-data').style.display = 'flex';
+                    _pendingHeatPoints = [];
+                    applyHeatmapPref();
                     return;
                 }
 
@@ -4095,89 +4151,20 @@
                     }
                 });
 
-                if (points.length === 0) {
-                    // Ensure map exists so tiles are visible even when there are no points
+                // Store points for lazy init; apply pref (hides container if map is off)
+                _pendingHeatPoints = points.length > 0 ? points : [];
+                applyHeatmapPref();
+
+                // If user had previously shown the map, init Leaflet now and apply points
+                if (heatmapVisible) {
                     initParticipantsHeatmap();
-                    document.getElementById('participants-map-no-data').style.display = 'flex';
-                    try {
-                        const listParam = (typeof getHash === 'function') ? getHash().list : null;
-                        const pmc = document.getElementById('participants-map-container');
-                        if (pmc) {
-                            if (listParam === 'modelteam') pmc.style.display = 'block'; else pmc.style.display = 'none';
-                        }
-                    } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
-                    try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch(e){}
-                    return;
-                }
-
-                document.getElementById('participants-map-no-data').style.display = 'none';
-                try {
-                    const listParam = (typeof getHash === 'function') ? getHash().list : null;
-                    const pmc2 = document.getElementById('participants-map-container');
-                    if (pmc2) {
-                        if (listParam === 'modelteam') pmc2.style.display = 'block'; else pmc2.style.display = 'none';
+                    if (_pendingHeatPoints.length > 0) {
+                        ensureParticipantsHeatLayer().then(() => {
+                            try { _participantsHeatLayer.setLatLngs(_pendingHeatPoints); } catch(e){}
+                        }).catch(() => {});
+                        doMapInvalidateAndFit(_pendingHeatPoints);
                     }
-                } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
-                initParticipantsHeatmap();
-                // Restore saved map visibility preference
-                if (!heatmapVisible) {
-                    const mapElPref = document.getElementById('participants-map');
-                    const btnPref = document.getElementById('toggle-heatmap-btn');
-                    if (mapElPref) mapElPref.style.display = 'none';
-                    if (btnPref) btnPref.textContent = 'Show map';
                 }
-                // Ensure the heat layer exists and the map container has non-zero size
-                ensureParticipantsHeatLayer().then(() => {
-                    try {
-                        _participantsHeatLayer.setLatLngs(points);
-                    } catch (e) {
-                        console.warn('Failed to set heat layer latlngs', e);
-                    }
-                }).catch(err => {
-                    console.warn('Heat layer not ready, skipping setLatLngs', err);
-                });
-                // After making the container visible, invalidate size so Leaflet can render correctly,
-                // then fit bounds to the points. Use a short timeout to allow the DOM to layout.
-                // attempt invalidateSize + fitBounds with retries to handle late layout/styling changes
-                (function tryInvalidate(retriesLeft, delay, boundsApplied){
-                    setTimeout(() => {
-                        try {
-                            if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') {
-                                _participantsMap.invalidateSize();
-                            }
-                            // small nudge: panBy then pan back to force repaint of tiles in some browsers
-                            try { if (_participantsMap && typeof _participantsMap.panBy === 'function') { _participantsMap.panBy([1,0]); _participantsMap.panBy([-1,0]); } } catch(e){}
-                            // Use current heat layer latlngs if available
-                            let latLngs = [];
-                            try {
-                                if (_participantsHeatLayer && typeof _participantsHeatLayer.getLatLngs === 'function') {
-                                    latLngs = _participantsHeatLayer.getLatLngs();
-                                    if (!Array.isArray(latLngs) || !latLngs.length || !Array.isArray(latLngs[0])) {
-                                        latLngs = points.map(p => [p[0], p[1]]);
-                                    }
-                                } else {
-                                    latLngs = points.map(p => [p[0], p[1]]);
-                                }
-                            } catch (e) {
-                                latLngs = points.map(p => [p[0], p[1]]);
-                            }
-
-                            if (!boundsApplied && latLngs && latLngs.length) {
-                                const bounds = L.latLngBounds(latLngs);
-                                _participantsMap.fitBounds(bounds.pad(0.18), { animate: false });
-                                // Keep the initial loaded view from becoming excessively wide.
-                                if (_participantsMap.getZoom && _participantsMap.getZoom() < 3) {
-                                    _participantsMap.setZoom(3, { animate: false });
-                                }
-                                _participantsDataFitApplied = true;
-                                boundsApplied = true;
-                            }
-                        } catch (e) {
-                            // ignore
-                        }
-                        if (retriesLeft > 0 && !boundsApplied) tryInvalidate(retriesLeft - 1, Math.min(600, delay * 2), boundsApplied);
-                    }, delay || 120);
-                })(4, 100, _participantsDataFitApplied);
             }
 
             // Toggle control
@@ -4187,34 +4174,22 @@
                         if (id === 'toggle-heatmap-btn') {
                             heatmapVisible = !heatmapVisible;
                             const cont = document.getElementById('participants-map-container');
-                            const mapEl = document.getElementById('participants-map');
-                            const noDataEl = document.getElementById('participants-map-no-data');
-                            if (!cont || !mapEl) return;
-                            // Keep the container and controls visible; hide only the map pane so the toggle button remains accessible
-                            const listParamToggle = (typeof getHash === 'function') ? getHash().list : null;
-                            if (listParamToggle !== 'modelteam') {
-                                // Map is only available for modelteam; do not allow toggling otherwise
-                                heatmapVisible = false;
-                                e.target.textContent = 'Show map';
-                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
-                                return;
-                            }
+                            if (!cont) return;
                             if (heatmapVisible) {
-                                mapEl.style.display = 'block';
-                                if (noDataEl) noDataEl.style.display = 'none';
+                                cont.style.display = 'block';
                                 e.target.textContent = 'Hide map';
-                                localStorage.removeItem('heatmapHidden');
-                                try { if (cont && cont.dataset) delete cont.dataset.userHidden; } catch(e){}
-                                setTimeout(() => {
-                                    try { if (_participantsMap && typeof _participantsMap.invalidateSize === 'function') _participantsMap.invalidateSize(); } catch (err){}
-                                }, 120);
+                                localStorage.setItem('heatmapShown', '1');
+                                // Lazy-init Leaflet map on first show
+                                initParticipantsHeatmap();
+                                const pts = _pendingHeatPoints || [];
+                                ensureParticipantsHeatLayer().then(() => {
+                                    try { _participantsHeatLayer.setLatLngs(pts); } catch(e){}
+                                }).catch(() => {});
+                                doMapInvalidateAndFit(pts);
                             } else {
-                                // hide the map area but keep controls
-                                mapEl.style.display = 'none';
-                                if (noDataEl) noDataEl.style.display = 'none';
+                                cont.style.display = 'none';
                                 e.target.textContent = 'Show map';
-                                localStorage.setItem('heatmapHidden', '1');
-                                try { if (cont && cont.dataset) cont.dataset.userHidden = '1'; } catch(e){}
+                                localStorage.removeItem('heatmapShown');
                             }
                         } else if (id === 'toggle-state-counts-btn') {
                             // Toggle the state counts overlay visibility
@@ -6724,21 +6699,14 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     if (panel) panel.style.display = 'none';
                 }
 
-                // Also control participants map visibility when viewing modelteam
+                // Also control participants map section visibility when viewing modelteam
                 try {
-                    const mapContainer = document.getElementById('participants-map-container');
-                    if (mapContainer) {
-                        // show map for modelteam, hide otherwise (but do not force-hide if
-                        // user explicitly toggled the map via the Show/Hide map control)
-                        // We check a lightweight flag stored on the container to respect
-                        // user toggles: if container.dataset.userHidden === '1' we won't
-                        // override the user's preference when hiding.
+                    const mapSection = document.getElementById('participants-map-section');
+                    if (mapSection) {
                         if (isModel) {
-                            mapContainer.style.display = 'block';
+                            mapSection.style.display = 'block';
                         } else {
-                            if (!mapContainer.dataset.userHidden || mapContainer.dataset.userHidden !== '1') {
-                                mapContainer.style.display = 'none';
-                            }
+                            mapSection.style.display = 'none';
                         }
                     }
                 } catch (e) {
@@ -8251,17 +8219,18 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 
                 const card = document.createElement('div');
                 card.className = 'columns-card';
-                
+
                 // Get TopFields for dynamic display
                 const topFields = getCurrentTopFields();
                 const firstTopField = topFields && topFields.length > 0 ? topFields[0] : null;
-                
+
                 const name = getParticipantName(participant, firstTopField);
-                card.dataset.participantName = name;
-                
+                const rowId = getParticipantName(participant);
+                card.dataset.participantName = rowId;
+
                 // Get the actual field name being used as title
                 const titleFieldName = getTitleFieldName(participant, firstTopField);
-                
+
                 // Add clickable functionality for meta list
                 if (isMetaList && participant.List) {
                     card.style.cursor = 'pointer';
@@ -8275,8 +8244,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     card.style.cursor = 'pointer';
                     card.title = `Click to view details for: ${name}`;
                     card.addEventListener('click', (e) => {
-                        // Don't trigger if clicking on checkbox or menu
-                        if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu')) {
+                        // Don't trigger if clicking on checkbox, menu, or edit button
+                        if (e.target.closest('.columns-checkbox') || e.target.closest('.columns-menu') || e.target.closest('.local')) {
                             return;
                         }
                         // Participant detail pages on team/projects always use the modelteam list.
@@ -8286,10 +8255,20 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 
                 // Create image container if images are found
                 const imageContainer = imagePaths.length > 0 ? createImageContainer(imagePaths, false) : '';
-                
+
                 // Generate field display HTML using TopFields or fallback
                 const fieldDisplayHTML = createFieldDisplayHTML(participant, topFields, false, titleFieldName);
-                
+
+                // Build edit button for modelteam
+                let editButtonHTML = '';
+                if (isModelTeamList) {
+                    const editHashPairs = Object.entries(participant)
+                        .filter(([k, v]) => v !== undefined && v !== null && v !== '')
+                        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+                        .join('&');
+                    editButtonHTML = `<div class="local" style="display:none"><a class="btn btn-sm" href="../admin/google/form/#${editHashPairs}">Edit</a></div>`;
+                }
+
                 card.innerHTML = `
                     <div class="columns-menu">
                         ⋯
@@ -8301,12 +8280,13 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     </div>
                     ${imageContainer}
                     <div class="columns-name">
-                        <input type="checkbox" class="columns-checkbox" data-name="${name}">
+                        <input type="checkbox" class="columns-checkbox" data-name="${rowId}">
                         ${name}
                     </div>
                     ${fieldDisplayHTML}
+                    ${editButtonHTML}
                 `;
-                
+
                 container.appendChild(card);
                 
                 // Add checkbox event listener
@@ -9123,14 +9103,15 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 const card = document.createElement('div');
                 const teamClass = getTeamClass(participant.Team);
                 card.className = `gallery-card ${teamClass}`;
-                
+
                 // Get TopFields for dynamic display
                 const topFields = getCurrentTopFields();
                 const firstTopField = topFields && topFields.length > 0 ? topFields[0] : null;
-                
+
                 const name = getParticipantName(participant, firstTopField);
-                card.dataset.participantName = name;
-                
+                const rowId = getParticipantName(participant);
+                card.dataset.participantName = rowId;
+
                 // Get the actual field name being used as title
                 const titleFieldName = getTitleFieldName(participant, firstTopField);
                 
@@ -9179,7 +9160,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     </div>
                     <div class="gallery-content">
                         <div class="gallery-name">
-                            <input type="checkbox" class="columns-checkbox" data-name="${name}">
+                            <input type="checkbox" class="columns-checkbox" data-name="${rowId}">
                             ${name}
                         </div>
                         ${fieldDisplayHTML}
@@ -9987,21 +9968,20 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 const inputNameLower = inputName.toLowerCase();
                 return !datasetNamesLower.includes(inputNameLower);
             });
-            
-            // Store not found names for button access
-            currentNotFoundNames = notFoundNames;
-            
-            // Show message if there are names not found
+
+            // Silently remove stale names (e.g. old text-based identifiers in cache)
             if (notFoundNames.length > 0) {
-                const message = `Not found in dataset: ${notFoundNames.join(', ')}`;
-                console.warn('⚠️ ' + message);
-                
-                // Show a message to the user with remove button
-                showGroupValidationMessage(message, true);
-            } else {
-                // Hide message if all names are valid
-                hideGroupValidationMessage();
+                console.log('🧹 Removing stale group identifiers not in dataset:', notFoundNames);
+                notFoundNames.forEach(name => groupParticipants.delete(name));
+                const validNames = inputNames.filter(n => !notFoundNames.includes(n));
+                const groupField = document.getElementById('group');
+                if (groupField) groupField.value = validNames.join(', ');
+                saveGroupParticipants();
+                updateGroupCount();
             }
+
+            currentNotFoundNames = [];
+            hideGroupValidationMessage();
         }
         
         function showGroupValidationMessage(message, showButton = false) {
@@ -10156,15 +10136,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         }
         
         function shouldShowGroupParticipants() {
-            // Check current list from hash
+            // Show when there are checked items on any list, or always on modelteam
             const currentList = getHash().list;
-            
-            // Check if the current list supports groups (modelteam) AND it exists in fileSelect
-            const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
-            const isCurrentlyOnGroupList = currentList === 'modelteam';
-            
-            // Only show if currently on a group-supporting list AND that list is available in fileSelect
-            return isCurrentlyOnGroupList && isGroupList;
+            if (currentList === 'modelteam') return true;
+            return groupParticipants.size > 0;
         }
         
         function updateGroupParticipantsVisibility() {
@@ -10332,10 +10307,10 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 // Only add a Name column if no existing name column is found
                 if (!existingNameColumn) {
                     let nameField = null;
-                    
-                    if (processed.title && processed.title !== '') {
-                        // Use title field as name
-                        nameField = processed.title;
+
+                    if (processed.id !== undefined && processed.id !== null && processed.id !== '') {
+                        // Use id for stable, unique identification (avoids comma/space issues in group field)
+                        nameField = String(processed.id);
                     } else if (otherColumns.length > 0) {
                         // Use first non-ID column as name
                         const firstColumn = otherColumns[0];
@@ -10345,7 +10320,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         // Final fallback
                         nameField = 'Unknown';
                     }
-                    
+
                     // Add as "Name" column (not "displayName")
                     processed.Name = nameField;
                 }
@@ -10886,11 +10861,12 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         
         function updateListTitle() {
             const listTitle = document.getElementById('list-title');
-            const baseTitle = listTitle.textContent.split(' - ')[0]; // Remove existing snapshot name
-            
-            // Keep list title clean - no snapshot name in main title
-            listTitle.textContent = baseTitle;
-            
+            const span = listTitle.querySelector('span');
+            if (span) {
+                const baseTitle = span.textContent.split(' - ')[0];
+                span.textContent = baseTitle;
+            }
+
             // Update group snapshot info
             updateGroupSnapshotInfo();
         }
@@ -11381,7 +11357,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             const paginationControls = document.querySelector('.pagination-controls');
             const resultsCount = document.getElementById('results-count');
             const emailContainer = document.getElementById('emailListContainer');
-            const mapContainer = document.getElementById('participants-map-container');
+            const mapContainer = document.getElementById('participants-map-section');
 
             isListLoading = true;
 
@@ -11449,18 +11425,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             
             // Team legend will be shown by generateTeamLegend if there's a Team column
             
-            // Show group control only for modelteam list (if available in fileSelect)
-            const groupControl = document.getElementById('group-control');
-            const currentList = getHash().list;
-            if (groupControl) {
-                // Check if modelteam option exists in fileSelect before showing group control
-                const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
-                if (currentList === 'modelteam' && isGroupList) {
-                    groupControl.style.display = 'block';
-                } else {
-                    groupControl.style.display = 'none';
-                }
-            }
+            // Show group control based on shouldShowGroupParticipants
+            updateGroupParticipantsVisibility();
             
             // Update group snapshot info after elements are shown (only for modelteam if available)
             const isGroupList = Array.from(fileSelect.options).find(option => option.value === 'modelteam');
@@ -12214,39 +12180,18 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                         throw new Error('No data found in CSV');
                     }
 
-                    // Define contEl before using it
-                    const contEl = document.getElementById('participants-map-container');
+                    // Show/hide map section based on list
                     try {
-                        if (contEl) {
-                            const listParam = (typeof getHash === 'function') ? getHash().list : null;
-                            if (listParam === 'modelteam') {
-                                contEl.style.display = 'block';
-                            } else {
-                                contEl.style.display = 'none';
-                            }
-                        }
-                    } catch (e) { if (contEl) contEl.style.display = 'block'; }
+                        const listParam = (typeof getHash === 'function') ? getHash().list : null;
+                        const secEl = document.getElementById('participants-map-section');
+                        if (secEl) secEl.style.display = listParam === 'modelteam' ? 'block' : 'none';
+                    } catch (e) {}
                     const headers = rows[0];
                     const feedsData = [];
-                    
+
                     // Check if this is a geo site for filtering
                     const isGeoSiteCheck = isGeoSite();
                     document.getElementById('participants-map-no-data').style.display = 'none';
-                    try {
-                        const contEl2 = document.getElementById('participants-map-container');
-                        const listParam2 = (typeof getHash === 'function') ? getHash().list : null;
-                        if (contEl2) {
-                            if (listParam2 === 'modelteam') contEl2.style.display = 'block'; else contEl2.style.display = 'none';
-                        }
-                    } catch (e) {
-                        try {
-                            const listParam = (typeof getHash === 'function') ? getHash().list : null;
-                            const pmc3 = document.getElementById('participants-map-container');
-                            if (pmc3) {
-                                if (listParam === 'modelteam') pmc3.style.display = 'block'; else pmc3.style.display = 'none';
-                            }
-                        } catch(e) { try { document.getElementById('participants-map-container').style.display = 'block'; } catch(e){} }
-                    }
                     // Track skipped binary files for reporting
                     const skippedBinaryFiles = [];
                     

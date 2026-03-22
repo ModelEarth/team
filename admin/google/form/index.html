@@ -142,7 +142,8 @@
         .form-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 24px;
+            row-gap: 16px;
+            column-gap: 24px;
         }
 
         .form-row {
@@ -175,7 +176,7 @@
         }
 
         .form-help {
-            font-size: 0.875rem;
+            font-size: 1rem;
             color: var(--text-muted);
             margin-top: 4px;
         }
@@ -209,7 +210,7 @@
         .checkbox-group {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
+            gap: 6px;
             margin-top: 8px;
         }
 
@@ -224,7 +225,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 12px;
+            padding: 4px 12px;
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
             transition: all 0.2s ease;
@@ -292,7 +293,17 @@
             box-sizing: border-box;
         }
 
-        /* Dark mode button hover */
+        /* Dark mode */
+        .dark {
+            --text-primary: #f0f0f0;
+            --text-muted: #c8c8c8;
+        }
+
+        .dark #user-info,
+        .dark .progress-indicator {
+            background: #2a2a2a;
+        }
+
         .dark .btn-secondary:hover:not(:disabled) {
             color: white !important;
         }
@@ -413,6 +424,7 @@
 </head>
 <body>
     <div class="container">
+    <div class="content contentpadding">
         <!-- Header with Navigation and Sign In -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
@@ -422,6 +434,7 @@
                 </a>
             </div>
             <div class="sign-in-container" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="statusBtn" class="btn btn-secondary local" onclick="toggleAdminSection('status')" style="display: none;">Status</button>
                 <button id="adminInfoBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('admin')" style="display: none;">Admin Info</button>
                 <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('google')" style="display: none;">Google API</button>
                 <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth.js Config</button>
@@ -477,9 +490,9 @@
                     <div style="font-size: 0.875rem; color: var(--text-secondary);" id="user-email"></div>
                 </div>
                 <div style="margin-left: auto;">
-                    <button class="btn btn-secondary page-tab" onclick="signOut()">
-                        <i data-feather="log-out"></i>
-                        Sign Out
+                    <button id="authToggleBtn" class="btn btn-secondary page-tab" onclick="showAuthModal()">
+                        <i data-feather="log-in"></i>
+                        Sign In
                     </button>
                 </div>
             </div>
@@ -515,46 +528,46 @@
                         <label class="form-label required">Team</label>
                         <div class="form-help" style="margin-bottom: 12px;">Which programming teams are you interested in?</div>
                         <div class="checkbox-group" id="team-checkboxes">
-                            <div class="checkbox-item">
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-js" name="team" value="JS">
-                                <label for="team-js">JS - Javascript using Claude Code CLI</label>
-                            </div>
-                            <div class="checkbox-item">
+                                JS - Javascript using Claude Code CLI
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-ml" name="team" value="ML">
-                                <label for="team-ml">ML - Machine Learning / Python</label>
-                            </div>
-                            <div class="checkbox-item">
+                                ML - Machine Learning / Python
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-react" name="team" value="React">
-                                <label for="team-react">React - Next JS using Claude Code CLI</label>
-                            </div>
-                            <div class="checkbox-item">
+                                React - Next JS using Claude Code CLI
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-ai" name="team" value="AI">
-                                <label for="team-ai">AI - Insights UX using Claude Code CLI</label>
-                            </div>
-                            <div class="checkbox-item">
+                                AI - Insights UX using Claude Code CLI
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-flask" name="team" value="Flask">
-                                <label for="team-flask">Flask - Python with UX on Google Cloud</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Flask - Python with UX on Google Cloud
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-io" name="team" value="IO">
-                                <label for="team-io">IO - Multi-Region Input-Output models</label>
-                            </div>
-                            <div class="checkbox-item">
+                                IO - Multi-Region Input-Output models
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-discord" name="team" value="Discord">
-                                <label for="team-discord">Discord - Team API tools</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Discord - Team API tools
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-auth" name="team" value="Auth">
-                                <label for="team-auth">Auth - CyberSecurity</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Auth - CyberSecurity
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-suite" name="team" value="Suite">
-                                <label for="team-suite">Suite - CRM Partner and Team Admin Tools</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Suite - CRM Partner and Team Admin Tools
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="team-other" name="team" value="Other">
-                                <label for="team-other">Other:</label>
-                            </div>
+                                Other:
+                            </label>
                         </div>
                         <div class="custom-input" id="team-other-input" style="display: none;">
                             <input type="text" id="team-other-text" placeholder="Specify other team interest..." class="form-control">
@@ -572,90 +585,90 @@
                         <label class="form-label required">UN Goal</label>
                         <div class="form-help" style="margin-bottom: 12px;">Select UN goal areas for which you're interested in contributing to data visualizations and ML reports.</div>
                         <div class="checkbox-group" id="un-goals">
-                            <div class="checkbox-item">
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-jobs" name="un_goals" value="Great Jobs">
-                                <label for="goal-jobs">Great Jobs</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Great Jobs
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-food" name="un_goals" value="Healthy Food">
-                                <label for="goal-food">Healthy Food</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Healthy Food
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-health" name="un_goals" value="Excellent Health">
-                                <label for="goal-health">Excellent Health</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Excellent Health
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-education" name="un_goals" value="Quality Education">
-                                <label for="goal-education">Quality Education</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Quality Education
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-gender" name="un_goals" value="Gender Equality">
-                                <label for="goal-gender">Gender Equality</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Gender Equality
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-water" name="un_goals" value="Clean Water">
-                                <label for="goal-water">Clean Water</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Clean Water
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-energy" name="un_goals" value="Energy">
-                                <label for="goal-energy">Energy</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Energy
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-economy" name="un_goals" value="Vibrant Economies">
-                                <label for="goal-economy">Vibrant Economies</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Vibrant Economies
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-innovation" name="un_goals" value="Local Innovation">
-                                <label for="goal-innovation">Local Innovation</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Local Innovation
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-inclusion" name="un_goals" value="Inclusion">
-                                <label for="goal-inclusion">Inclusion</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Inclusion
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-biodiversity" name="un_goals" value="Biodiversity">
-                                <label for="goal-biodiversity">Biodiversity</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Biodiversity
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-conservation" name="un_goals" value="Conservation">
-                                <label for="goal-conservation">Conservation</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Conservation
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-climate" name="un_goals" value="Air and Climate">
-                                <label for="goal-climate">Air and Climate</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Air and Climate
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-aquatic" name="un_goals" value="Aquatic Life">
-                                <label for="goal-aquatic">Aquatic Life</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Aquatic Life
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-wildlife" name="un_goals" value="Abundant Wildlife">
-                                <label for="goal-wildlife">Abundant Wildlife</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Abundant Wildlife
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-peace" name="un_goals" value="Peace and Justice">
-                                <label for="goal-peace">Peace and Justice</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Peace and Justice
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-partnerships" name="un_goals" value="Partnerships">
-                                <label for="goal-partnerships">Partnerships</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Partnerships
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-budgets" name="un_goals" value="Balanced Budgets">
-                                <label for="goal-budgets">Balanced Budgets</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Balanced Budgets
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-transit" name="un_goals" value="Fast Reliable Transit">
-                                <label for="goal-transit">Fast Reliable Transit</label>
-                            </div>
-                            <div class="checkbox-item">
+                                Fast Reliable Transit
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-internet" name="un_goals" value="High Speed Internet">
-                                <label for="goal-internet">High Speed Internet</label>
-                            </div>
-                            <div class="checkbox-item">
+                                High Speed Internet
+                            </label>
+                            <label class="checkbox-item">
                                 <input type="checkbox" id="goal-zones" name="un_goals" value="Expanding Livable Zones">
-                                <label for="goal-zones">Expanding Livable Zones</label>
-                            </div>
+                                Expanding Livable Zones
+                            </label>
                         </div>
                     </div>
 
@@ -787,6 +800,7 @@
             <div id="form-status" class="status-message"></div>
         </div>
     </div>
+    </div>
 
     <script src="form.js"></script>
     
@@ -812,6 +826,9 @@
         
         // Show Admin Info buttons on localhost OR when admininfo=true
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocalhost) {
+            document.querySelectorAll('.local').forEach(el => el.style.display = 'block');
+        }
         if (isLocalhost || showAdminInfo) {
             document.getElementById('adminInfoBtn').style.display = 'block';
             document.getElementById('googleApiBtn').style.display = 'block';
@@ -823,19 +840,35 @@
         
         // Toggle admin section display
         function toggleAdminSection(section) {
+            const topStatus = document.getElementById('top-status');
             const adminDiv = document.getElementById('adminDiv');
             const buttons = {
+                'status': document.getElementById('statusBtn'),
                 'admin': document.getElementById('adminInfoBtn'),
                 'google': document.getElementById('googleApiBtn'),
                 'auth': document.getElementById('authConfigBtn')
             };
-            
+
+            // Status button only toggles #top-status, not #adminDiv
+            if (section === 'status') {
+                if (topStatus) topStatus.style.display = topStatus.style.display === 'none' ? '' : 'none';
+                adminDiv.style.display = 'none';
+                Object.values(buttons).forEach(btn => btn.classList.remove('active'));
+                buttons['status'].classList.toggle('active');
+                currentActiveSection = null;
+                return;
+            }
+
+            // Hide #top-status when opening other sections
+            if (topStatus) topStatus.style.display = 'none';
+            buttons['status']?.classList.remove('active');
+
             const files = {
                 'admin': 'admin.md',
                 'google': 'google.md',
                 'auth': 'auth.md'
             };
-            
+
             // If clicking the same section that's already active, hide it
             if (currentActiveSection === section) {
                 adminDiv.style.display = 'none';
@@ -843,13 +876,12 @@
                 currentActiveSection = null;
                 return;
             }
-            
+
             // Hide current section and remove active state from all buttons
             Object.values(buttons).forEach(btn => btn.classList.remove('active'));
-            
+
             // Load and show new section
-            console.log('Loading section:', section, 'file:', files[section]);
-            adminDiv.innerHTML = ''; // Clear previous content
+            adminDiv.innerHTML = '';
             loadMarkdown(files[section], 'adminDiv', '_parent', 1);
             adminDiv.style.display = 'block';
             buttons[section].classList.add('active');
@@ -863,12 +895,15 @@
             const shouldShowAdminInfo = isTrueValue(adminInfoParam);
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             
+            if (isLocalhost) {
+                document.querySelectorAll('.local').forEach(el => el.style.display = 'block');
+            }
             if (isLocalhost || shouldShowAdminInfo) {
                 // Show admin buttons
                 document.getElementById('adminInfoBtn').style.display = 'block';
                 document.getElementById('googleApiBtn').style.display = 'block';
                 document.getElementById('authConfigBtn').style.display = 'block';
-                
+
                 // Auto-open admin info if not already open and admininfo=true
                 if (shouldShowAdminInfo && currentActiveSection !== 'admin') {
                     setTimeout(function() {
@@ -877,15 +912,17 @@
                 }
             } else {
                 // Hide admin buttons if not localhost and no admininfo param
+                document.querySelectorAll('.local').forEach(el => el.style.display = 'none');
                 document.getElementById('adminInfoBtn').style.display = 'none';
                 document.getElementById('googleApiBtn').style.display = 'none';
                 document.getElementById('authConfigBtn').style.display = 'none';
-                
+
                 // Hide admin content if visible
                 const adminDiv = document.getElementById('adminDiv');
                 if (currentActiveSection) {
                     adminDiv.style.display = 'none';
                     const buttons = {
+                        'status': document.getElementById('statusBtn'),
                         'admin': document.getElementById('adminInfoBtn'),
                         'google': document.getElementById('googleApiBtn'),
                         'auth': document.getElementById('authConfigBtn')
