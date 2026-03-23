@@ -208,6 +208,28 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 **Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
 
+### Submodule Version Conflicts
+
+When `git.sh safe_submodule_update` detects that a submodule's local commit is older than the remote (origin/main), **do not silently overwrite local work**. Instead:
+
+1. **Identify the divergence**: Compare the local submodule commit with origin/main to understand what changed on each side.
+2. **Merge, don't replace**: Use your intelligence to merge the remote changes into the local submodule branch:
+   ```bash
+   git -C <submodule> checkout main
+   git -C <submodule> merge origin/main
+   ```
+3. **Resolve conflicts intelligently**: If merge conflicts arise, analyze the diff and resolve them — keeping both the remote improvements and the user's local changes where possible.
+4. **Commit the merge in the submodule**, then update the parent repo's submodule pointer to the merged commit.
+5. **Never use "preserve local" as a reason to let the local (older) commit overwrite what is already on GitHub** — that would push a regression. Preserving local work means merging it forward, not pushing it backward over the remote.
+
+**Goal**: The result should be a commit that is newer than both the local and remote versions, containing both sets of changes, pushed to the submodule's origin/main.
+
+6. **Before pushing, provide a localhost review link** so the user can inspect the merged result:
+   - Ensure the HTTP server is running on port 8887 (start it if needed — see Start HTTP Server above)
+   - Output the relevant localhost URL, e.g.:
+     `http://localhost:8887/<submodule>/<changed-path>/`
+   - Wait for the user to confirm before running `./git.sh push`
+
 When push or pull requests are received, ask the user:
 
 1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
