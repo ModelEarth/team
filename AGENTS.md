@@ -224,11 +224,12 @@ When `git.sh safe_submodule_update` detects that a submodule's local commit is o
 
 **Goal**: The result should be a commit that is newer than both the local and remote versions, containing both sets of changes, pushed to the submodule's origin/main.
 
-6. **Before pushing, provide a localhost review link** so the user can inspect the merged result:
+6. **Before pushing, if a merge or overwrite occurred**, provide a localhost review link so the user can inspect the result:
    - Ensure the HTTP server is running on port 8887 (start it if needed — see Start HTTP Server above)
    - Output the relevant localhost URL, e.g.:
      `http://localhost:8887/<submodule>/<changed-path>/`
    - Wait for the user to confirm before running `./git.sh push`
+   - If no merge or overwrite occurred (already up to date), proceed with the push without waiting.
 
 When push or pull requests are received, ask the user:
 
