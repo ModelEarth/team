@@ -80,7 +80,7 @@ nohup python3 desktop/install/server.py --port 8887 > /dev/null 2>&1 &
 #### Option 2: Claude Code CLI and terminal users (recommended when available)
 
 ```bash
-nohup ./desktop/install/quickstart.sh --cli > /dev/null 2>&1 &
+nohup ./desktop/install/quickstart.sh --cli --port 8887 > /dev/null 2>&1 &
 ```
 
 **IMPORTANT**: When executing this command, always use this exact description:
@@ -95,6 +95,15 @@ The quickstart.sh script automatically:
 - Starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use)
 
 **For terminal users:** You do NOT need to manually create or activate a virtual environment before running this command - the script handles it automatically.
+
+**If quickstart.sh does not exist**: Display the message "desktop quickstart.sh not available" and fall back to starting the server directly on the requested port (default 8887):
+```bash
+nohup python3 desktop/install/server.py --port [requested-port] > /dev/null 2>&1 &
+```
+If `server.py` also does not exist, fall back to the simple HTTP server:
+```bash
+nohup python3 -m http.server [requested-port] > /dev/null 2>&1 &
+```
 
 ### Start HTTP Server (Simple)
 When you type "start http", run:
