@@ -1965,6 +1965,57 @@ $pages_status
     fi
 }
 
+# Check if a submodule directory is a partial/incomplete clone.
+# Detects shallow clones, partial clone filters, and sparse checkouts.
+# Returns 0 (safe to push) or 1 (incomplete — push blocked).
+# Must be called from inside the submodule directory.
+check_submodule_completeness() {
+    local name="$1"
+
+    # Shallow clone: git clone --depth N
+    local is_shallow=$(git rev-parse --is-shallow-repository 2>/dev/null || echo "false")
+    if [ "$is_shallow" = "true" ]; then
+        echo ""
+        echo "⚠️  PARTIAL CLONE DETECTED: $name"
+        echo "   This submodule was cloned with --depth (shallow clone)."
+        echo "   Pushing a shallow clone would delete history on GitHub."
+        echo "   To fix: git -C $name fetch --unshallow"
+        echo "   Then re-run: ./git.sh push $name"
+        echo ""
+        return 1
+    fi
+
+    # Partial clone filter: git clone --filter=blob:none (or similar)
+    local clone_filter=$(git config remote.origin.partialclonefilter 2>/dev/null || echo "")
+    if [ -n "$clone_filter" ]; then
+        echo ""
+        echo "⚠️  PARTIAL CLONE DETECTED: $name"
+        echo "   This submodule uses a partial clone filter: $clone_filter"
+        echo "   Pushing a partial clone may remove files on GitHub."
+        echo "   To fix, re-clone the submodule fully:"
+        echo "     rm -rf $name && git submodule update --init $name"
+        echo "   Then re-run: ./git.sh push $name"
+        echo ""
+        return 1
+    fi
+
+    # Sparse checkout: only a subset of files checked out
+    local sparse=$(git config core.sparseCheckout 2>/dev/null || echo "false")
+    if [ "$sparse" = "true" ]; then
+        echo ""
+        echo "⚠️  SPARSE CHECKOUT DETECTED: $name"
+        echo "   Only a subset of files is checked out in this submodule."
+        echo "   Pushing now could remove files from GitHub."
+        echo "   Disable sparse checkout and check out all files before pushing:"
+        echo "     git -C $name sparse-checkout disable"
+        echo "   Then re-run: ./git.sh push $name"
+        echo ""
+        return 1
+    fi
+
+    return 0
+}
+
 # Push specific repository
 push_specific_repo() {
     local name="$1"
@@ -1999,6 +2050,10 @@ push_specific_repo() {
     if [[ "$submodule_list" =~ " $name " ]]; then
         if [ -d "$name" ]; then
             cd "$name"
+            if ! check_submodule_completeness "$name"; then
+                cd_webroot
+                return 1
+            fi
             commit_push "$name" "$skip_pr"
             
             # Update webroot submodule reference
@@ -2083,6 +2138,11 @@ push_submodules() {
             if [ "$sub_commit" = "$parent_expected" ]; then
                 continue
             fi
+        fi
+        # Block push if submodule is a partial/incomplete clone
+        if ! (cd "$sub" && check_submodule_completeness "$sub"); then
+            failed_pushes+=("$sub (partial clone)")
+            continue
         fi
         if ! safe_submodule_operation "$sub" "commit_push" "$sub" "$skip_pr"; then
             failed_pushes+=("$sub")

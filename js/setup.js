@@ -303,6 +303,16 @@ if (typeof API_BASE === 'undefined') {
     var API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
 }
 
+// Localhost access toggle — prevents browser Private Network Access prompt on non-localhost pages
+function isLocalhostAccessEnabled() {
+    if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) return true;
+    return localStorage.getItem('localhost-access-enabled') === 'true';
+}
+
+function setLocalhostAccessEnabled(val) {
+    localStorage.setItem('localhost-access-enabled', val ? 'true' : 'false');
+}
+
 // HTML content for the gemini resources section
 function createGeminiResourcesHTML() {
     return `
@@ -893,9 +903,10 @@ async function getWebServerStatusState() {
     const localhostWebUrl = `http://localhost:${localhostPort}/`;
     const localhostApiStatusUrl = `http://localhost:${localhostPort}/api/status`;
 
+    const localhostAccessOn = isLocalhostAccessEnabled();
     const [localhostWebRunning, localhostApiRunning, currentOriginRunning] = await Promise.all([
-        checkBackendAvailabilityCached(localhostWebUrl, `webServerLocalhost${localhostPort}`),
-        checkBackendAvailabilityCached(localhostApiStatusUrl, `webServerLocalhost${localhostPort}Api`),
+        localhostAccessOn ? checkBackendAvailabilityCached(localhostWebUrl, `webServerLocalhost${localhostPort}`) : Promise.resolve(false),
+        localhostAccessOn ? checkBackendAvailabilityCached(localhostApiStatusUrl, `webServerLocalhost${localhostPort}Api`) : Promise.resolve(false),
         checkBackendAvailabilityCached(currentOriginUrl, 'webServerCurrentOrigin')
     ]);
 
@@ -1980,12 +1991,23 @@ function setupQuickstartInstructions(containerId) {
     const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
         ? currentPort
         : '8887';
+    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    const localhostToggleHTML = isLocalHost ? '' : `
+        <label id="localhost-access-toggle-label" title="Enable to check if a local server is running (may trigger a browser permission prompt)" style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; cursor:pointer; white-space:nowrap;">
+            <span class="toggle-switch" style="position:relative; display:inline-block; width:34px; height:18px; flex-shrink:0;">
+                <input type="checkbox" id="localhost-access-toggle" style="opacity:0; width:0; height:0; position:absolute;" ${isLocalhostAccessEnabled() ? 'checked' : ''}>
+                <span class="toggle-slider" style="position:absolute; cursor:pointer; inset:0; background:var(--bg-tertiary,#ccc); border-radius:18px; transition:background .2s;"></span>
+                <span class="toggle-knob" style="position:absolute; left:2px; top:2px; width:14px; height:14px; background:#fff; border-radius:50%; transition:transform .2s; transform:${isLocalhostAccessEnabled() ? 'translateX(16px)' : 'translateX(0)'};"></span>
+            </span>
+            Access Localhost
+        </label>`;
 
     container.innerHTML = `
         <div>
             <h1 class="card-title" style="display:flex; align-items:center; gap:10px;">
                 <span class="status-indicator" id="${statusIndicatorId}"></span>
                 <span id="${titleId}">Local Web Server</span>
+                ${localhostToggleHTML}
             </h1>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
@@ -2020,6 +2042,31 @@ env\\Scripts\\activate
     `;
     attachQuickstartCliListeners();
     updateQuickstartDesktopInstallerStatus();
+
+    const localhostToggle = document.getElementById('localhost-access-toggle');
+    if (localhostToggle) {
+        const knob = localhostToggle.closest('label').querySelector('.toggle-knob');
+        const track = localhostToggle.closest('label').querySelector('.toggle-slider');
+        function applyLocalhostToggleStyle(checked) {
+            if (knob) knob.style.transform = checked ? 'translateX(16px)' : 'translateX(0)';
+            if (track) track.style.background = checked ? 'var(--color-success, #4caf50)' : 'var(--bg-tertiary, #ccc)';
+        }
+        applyLocalhostToggleStyle(localhostToggle.checked);
+        localhostToggle.addEventListener('change', () => {
+            setLocalhostAccessEnabled(localhostToggle.checked);
+            applyLocalhostToggleStyle(localhostToggle.checked);
+            window.backendStatusCache = {};
+            setupWebServerStatusPanel({
+                statusIndicatorId,
+                titleId,
+                contentId,
+                toggleButtonId,
+                commandsContainerId,
+                pythonStatusId,
+                buttonClass: 'btn btn-secondary'
+            });
+        });
+    }
 
     setupWebServerStatusPanel({
         statusIndicatorId,

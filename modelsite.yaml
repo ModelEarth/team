@@ -1,0 +1,11 @@
+modelsites:
+  - value: tools
+    label: PartnerTools
+  - value: neighborhood.org
+    label: Neighborhood
+  - value: democracylab
+    label: DemocracyLab
+    class: local
+    style: display:none;
+  - value: membercommons
+    label: MemberCommons

@@ -1,0 +1,9 @@
+[modelsite "tools"]
+	label = PartnerTools
+[modelsite "neighborhood.org"]
+	label = Neighborhood
+[modelsite "democracylab"]
+	label = DemocracyLab
+	class = local
+[modelsite "membercommons"]
+	label = MemberCommons
