@@ -2022,6 +2022,694 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
     }
 }
 
+// ============================================================
+// Industry Database (EXIOBASE) — Trade Data Insert
+// ============================================================
+
+fn get_exiobase_database_url() -> Result<String, String> {
+    let host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
+    let name = std::env::var("EXIOBASE_NAME").unwrap_or_default();
+    let user = std::env::var("EXIOBASE_USER").unwrap_or_default();
+    let password = std::env::var("EXIOBASE_PASSWORD").unwrap_or_default();
+    let ssl_mode = std::env::var("EXIOBASE_SSL_MODE").unwrap_or_else(|_| "require".to_string());
+    if host.is_empty() || name.is_empty() || user.is_empty() || password.is_empty() {
+        return Err("Industry Database not configured — set EXIOBASE_* environment variables".to_string());
+    }
+    Ok(format!("postgres://{user}:{password}@{host}:5432/{name}?sslmode={ssl_mode}"))
+}
+
+async fn connect_to_exiobase() -> Result<Pool<Postgres>, String> {
+    let url = get_exiobase_database_url()?;
+    PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&url)
+        .await
+        .map_err(|e| format!("Failed to connect to Industry Database: {e}"))
+}
+
+async fn fetch_github_csv(url: &str) -> Result<String, String> {
+    reqwest::get(url)
+        .await
+        .map_err(|e| format!("HTTP request failed for {url}: {e}"))?
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response body from {url}: {e}"))
+}
+
+// Run SQL, log result but don't propagate errors (graceful degradation for existing DBs)
+async fn try_exec(pool: &Pool<Postgres>, sql: &str, steps: &mut Vec<String>) {
+    match sqlx::query(sql).execute(pool).await {
+        Ok(_)  => steps.push(format!("OK: {}", sql.split_whitespace().take(5).collect::<Vec<_>>().join(" "))),
+        Err(e) => steps.push(format!("SKIP: {} — {}", sql.split_whitespace().take(5).collect::<Vec<_>>().join(" "), e)),
+    }
+}
+
+async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<String>, String> {
+    let mut steps: Vec<String> = Vec::new();
+
+    // Create tables without FK references first (existing DBs may lack PKs)
+
+    // industry — columns only; PK added separately so existing tables are handled
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS industry (
+            industry_id VARCHAR(10),
+            name        TEXT        NOT NULL,
+            category    VARCHAR(100)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: industry".to_string());
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='industry_pkey') THEN ALTER TABLE industry ADD PRIMARY KEY (industry_id); END IF; END $$", &mut steps).await;
+
+    // factor
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS factor (
+            factor_id   INTEGER,
+            unit        VARCHAR(50),
+            stressor    TEXT,
+            extension   VARCHAR(100)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: factor".to_string());
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
+
+    // trade
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS trade (
+            id        BIGSERIAL     PRIMARY KEY,
+            trade_id  INTEGER       NOT NULL,
+            year      SMALLINT      NOT NULL,
+            region1   VARCHAR(10)   NOT NULL,
+            region2   VARCHAR(10)   NOT NULL,
+            industry1 VARCHAR(10),
+            industry2 VARCHAR(10),
+            amount    NUMERIC(18,4),
+            flow_type VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            country   VARCHAR(10)   NOT NULL DEFAULT 'unknown'
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: trade".to_string());
+    try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS flow_type VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS country   VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='trade_dedup') THEN ALTER TABLE trade ADD CONSTRAINT trade_dedup UNIQUE (trade_id, year, country, flow_type); END IF; END $$", &mut steps).await;
+
+    // trade_factor
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS trade_factor (
+            id           BIGSERIAL      PRIMARY KEY,
+            trade_id     INTEGER        NOT NULL,
+            year         SMALLINT       NOT NULL,
+            country      VARCHAR(10)    NOT NULL,
+            flow_type    VARCHAR(10)    NOT NULL,
+            factor_id    INTEGER        NOT NULL,
+            coefficient  NUMERIC(20,10),
+            level NUMERIC(20,6)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: trade_factor".to_string());
+
+    // interstate
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS interstate (
+            id                  BIGSERIAL     PRIMARY KEY,
+            trade_id            INTEGER       NOT NULL,
+            year                SMALLINT      NOT NULL,
+            region1             VARCHAR(10)   NOT NULL,
+            region2             VARCHAR(10)   NOT NULL,
+            industry1           VARCHAR(10),
+            industry2           VARCHAR(10),
+            amount              NUMERIC(18,4),
+            commodity_code      VARCHAR(30),
+            industry_code       VARCHAR(30),
+            economic_multiplier NUMERIC(10,6)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: interstate".to_string());
+
+    // interstate_factor
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS interstate_factor (
+            id                  BIGSERIAL     PRIMARY KEY,
+            interstate_id       VARCHAR(80)   NOT NULL,
+            trade_id            INTEGER       NOT NULL,
+            factor_id           INTEGER,
+            coefficient         NUMERIC(20,10),
+            state_industry_code VARCHAR(30),
+            level          NUMERIC(20,6),
+            flow_type           VARCHAR(20),
+            employment_impact   NUMERIC(20,10)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    // Add factor_id / coefficient columns if table already existed without them
+    try_exec(pool, "ALTER TABLE interstate_factor ADD COLUMN IF NOT EXISTS factor_id INTEGER", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate_factor ADD COLUMN IF NOT EXISTS coefficient NUMERIC(20,10)", &mut steps).await;
+    steps.push("Ensured table: interstate_factor".to_string());
+
+    // FK constraints (gracefully skipped if PKs unavailable)
+    for sql in &[
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry1') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry2') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tf_factor') THEN ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry1') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
+    ] {
+        try_exec(pool, sql, &mut steps).await;
+    }
+    steps.push("Processed FK constraints".to_string());
+
+    // Indexes
+    for sql in &[
+        "CREATE INDEX IF NOT EXISTS idx_trade_lookup       ON trade (trade_id, year, country, flow_type)",
+        "CREATE INDEX IF NOT EXISTS idx_trade_year_country ON trade (year, country)",
+        "CREATE INDEX IF NOT EXISTS idx_trade_region1      ON trade (region1)",
+        "CREATE INDEX IF NOT EXISTS idx_trade_region2      ON trade (region2)",
+        "CREATE INDEX IF NOT EXISTS idx_trade_flow_type    ON trade (flow_type)",
+        "CREATE INDEX IF NOT EXISTS idx_tf_lookup          ON trade_factor (trade_id, year, country, flow_type)",
+        "CREATE INDEX IF NOT EXISTS idx_tf_factor_id       ON trade_factor (factor_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tf_year_country    ON trade_factor (year, country)",
+        "CREATE INDEX IF NOT EXISTS idx_istate_trade_id    ON interstate (trade_id)",
+        "CREATE INDEX IF NOT EXISTS idx_istate_year        ON interstate (year)",
+        "CREATE INDEX IF NOT EXISTS idx_istate_region1     ON interstate (region1)",
+        "CREATE INDEX IF NOT EXISTS idx_istate_region2     ON interstate (region2)",
+        "CREATE INDEX IF NOT EXISTS idx_isf_trade_id       ON interstate_factor (trade_id)",
+        "CREATE INDEX IF NOT EXISTS idx_isf_interstate_id  ON interstate_factor (interstate_id)",
+        "CREATE INDEX IF NOT EXISTS idx_isf_factor_id      ON interstate_factor (factor_id)",
+    ] {
+        try_exec(pool, sql, &mut steps).await;
+    }
+    steps.push("Processed indexes".to_string());
+
+    Ok(steps)
+}
+
+// POST /api/db/init-industry-tables
+async fn db_init_industry_tables(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    match connect_to_exiobase().await {
+        Err(e) => Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false, "error": e
+        }))),
+        Ok(pool) => match init_industry_tables_in_pool(&pool).await {
+            Ok(steps) => Ok(HttpResponse::Ok().json(json!({
+                "success": true,
+                "message": "Industry tables initialized",
+                "steps": steps
+            }))),
+            Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false, "error": e
+            }))),
+        },
+    }
+}
+
+// ---- CSV insert helpers ----
+
+async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let mut rows: Vec<(i32, String, String, String)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let factor_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
+        let unit = r.get(1).unwrap_or("").to_string();
+        let stressor = r.get(2).unwrap_or("").to_string();
+        let extension = r.get(3).unwrap_or("").to_string();
+        rows.push((factor_id, unit, stressor, extension));
+    }
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO factor (factor_id, unit, stressor, extension) "
+        );
+        qb.push_values(chunk, |mut b, (fid, unit, stressor, ext)| {
+            b.push_bind(fid).push_bind(unit).push_bind(stressor).push_bind(ext);
+        });
+        qb.push(" ON CONFLICT (factor_id) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn upsert_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let mut rows: Vec<(String, String, String)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let industry_id = r.get(0).unwrap_or("").to_string();
+        let name = r.get(1).unwrap_or("").to_string();
+        let category = r.get(2).unwrap_or("").to_string();
+        rows.push((industry_id, name, category));
+    }
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO industry (industry_id, name, category) "
+        );
+        qb.push_values(chunk, |mut b, (iid, name, cat)| {
+            b.push_bind(iid).push_bind(name).push_bind(cat);
+        });
+        qb.push(" ON CONFLICT (industry_id) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn insert_trade_rows(
+    pool: &Pool<Postgres>,
+    text: &str,
+    flow_type: &str,
+    country: &str,
+) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let mut rows: Vec<(i32, i16, String, String, String, String, f64)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
+        let year: i16 = r.get(1).unwrap_or("").parse().unwrap_or(0);
+        let region1 = r.get(2).unwrap_or("").to_string();
+        let region2 = r.get(3).unwrap_or("").to_string();
+        let industry1 = r.get(4).unwrap_or("").to_string();
+        let industry2 = r.get(5).unwrap_or("").to_string();
+        let amount: f64 = r.get(6).unwrap_or("").parse().unwrap_or(0.0);
+        rows.push((trade_id, year, region1, region2, industry1, industry2, amount));
+    }
+    let count = rows.len();
+    let ft = flow_type.to_string();
+    let ct = country.to_string();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO trade (trade_id, year, region1, region2, industry1, industry2, amount, flow_type, country) "
+        );
+        qb.push_values(chunk, |mut b, (tid, yr, r1, r2, i1, i2, amt)| {
+            b.push_bind(tid).push_bind(yr).push_bind(r1).push_bind(r2)
+             .push_bind(i1).push_bind(i2).push_bind(*amt as f64)
+             .push_bind(&ft).push_bind(&ct);
+        });
+        qb.push(" ON CONFLICT (trade_id, year, country, flow_type) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn insert_trade_factor_rows(
+    pool: &Pool<Postgres>,
+    text: &str,
+    year: i16,
+    flow_type: &str,
+    country: &str,
+) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let mut rows: Vec<(i32, i32, f64, f64)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
+        let factor_id: i32 = r.get(1).unwrap_or("").parse().unwrap_or(0);
+        let coefficient: f64 = r.get(2).unwrap_or("").parse().unwrap_or(0.0);
+        let level: f64 = r.get(3).unwrap_or("").parse().unwrap_or(0.0);
+        rows.push((trade_id, factor_id, coefficient, level));
+    }
+    let count = rows.len();
+    let ft = flow_type.to_string();
+    let ct = country.to_string();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO trade_factor (trade_id, year, country, flow_type, factor_id, coefficient, level) "
+        );
+        qb.push_values(chunk, |mut b, (tid, fid, coef, imp)| {
+            b.push_bind(tid).push_bind(year).push_bind(&ct).push_bind(&ft)
+             .push_bind(fid).push_bind(*coef).push_bind(*imp);
+        });
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn insert_interstate_rows(
+    pool: &Pool<Postgres>,
+    text: &str,
+) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    // Detect column names to handle both bea_trade_detail.csv (old) and interstate.csv (new)
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let commodity_col = headers.iter().position(|h| h == "bea_commodity_code" || h == "commodity_code").unwrap_or(7);
+    let industry_col  = headers.iter().position(|h| h == "bea_industry_code" || h == "industry_code").unwrap_or(8);
+
+    let mut rows: Vec<(i32, i16, String, String, String, String, f64, String, String, f64)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
+        let year: i16    = r.get(1).unwrap_or("").parse().unwrap_or(0);
+        let region1 = r.get(2).unwrap_or("").to_string();
+        let region2 = r.get(3).unwrap_or("").to_string();
+        let industry1 = r.get(4).unwrap_or("").to_string();
+        let industry2 = r.get(5).unwrap_or("").to_string();
+        let amount: f64  = r.get(6).unwrap_or("").parse().unwrap_or(0.0);
+        let commodity_code = r.get(commodity_col).unwrap_or("").to_string();
+        let industry_code  = r.get(industry_col).unwrap_or("").to_string();
+        let economic_multiplier: f64 = r.get(9).unwrap_or("").parse().unwrap_or(1.0);
+        rows.push((trade_id, year, region1, region2, industry1, industry2, amount, commodity_code, industry_code, economic_multiplier));
+    }
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO interstate (trade_id, year, region1, region2, industry1, industry2, amount, commodity_code, industry_code, economic_multiplier) "
+        );
+        qb.push_values(chunk, |mut b, (tid, yr, r1, r2, i1, i2, amt, cc, ic, em)| {
+            b.push_bind(tid).push_bind(yr).push_bind(r1).push_bind(r2)
+             .push_bind(i1).push_bind(i2).push_bind(*amt)
+             .push_bind(cc).push_bind(ic).push_bind(*em);
+        });
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn insert_interstate_factor_rows(
+    pool: &Pool<Postgres>,
+    text: &str,
+    _year: i16,
+) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str| headers.iter().position(|h| h == name);
+
+    let idx_iid  = col("interstate_id");
+    let idx_tid  = col("trade_id");
+    let idx_fid  = col("factor_id");
+    let idx_coef = col("coefficient");
+    let idx_sic  = col("state_industry_code");
+    let idx_fv   = col("level");
+    let idx_ft   = col("flow_type");
+    let idx_ei   = col("employment_impact");
+    // Legacy columns (old CSV without interstate_id)
+    let idx_orig = col("origin_state");
+    let idx_dest = col("destination_state");
+
+    // (interstate_id, trade_id, factor_id?, coefficient?, state_industry_code, level, flow_type, employment_impact)
+    let mut rows: Vec<(String, i32, Option<i32>, Option<f64>, String, f64, String, f64)> = Vec::new();
+
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
+
+        let trade_id: i32 = g(idx_tid).parse().unwrap_or(0);
+        let sic   = g(idx_sic);
+        let fv: f64 = g(idx_fv).parse().unwrap_or(0.0);
+        let ft    = g(idx_ft);
+        let ei: f64 = g(idx_ei).parse().unwrap_or(0.0);
+        let factor_id: Option<i32> = idx_fid.and_then(|i| r.get(i)).and_then(|s| s.parse().ok());
+        let coeff: Option<f64>     = idx_coef.and_then(|i| r.get(i)).and_then(|s| s.parse().ok());
+
+        // interstate_id: prefer direct column; fall back to computing from legacy origin/dest
+        let interstate_id = if let Some(iid) = idx_iid.and_then(|i| r.get(i)).filter(|s| !s.is_empty()) {
+            iid.to_string()
+        } else {
+            let origin = g(idx_orig);
+            let dest   = g(idx_dest);
+            format!("{_year}-US-{origin}-US-{dest}-{sic}")
+        };
+
+        rows.push((interstate_id, trade_id, factor_id, coeff, sic, fv, ft, ei));
+    }
+
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO interstate_factor (interstate_id, trade_id, factor_id, coefficient, state_industry_code, level, flow_type, employment_impact) "
+        );
+        qb.push_values(chunk, |mut b, (iid, tid, fid, coef, sic, fv, ft, ei)| {
+            b.push_bind(iid)
+             .push_bind(tid)
+             .push_bind(*fid)
+             .push_bind(*coef)
+             .push_bind(sic)
+             .push_bind(*fv)
+             .push_bind(ft)
+             .push_bind(*ei);
+        });
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+#[derive(Deserialize)]
+struct InsertTradeDataRequest {
+    year: String,
+    country: String,
+}
+
+// POST /api/db/insert-trade-data
+async fn db_insert_trade_data(
+    _data: web::Data<Arc<ApiState>>,
+    req: web::Json<InsertTradeDataRequest>,
+) -> Result<HttpResponse> {
+    let year_str = req.year.trim().to_string();
+    let country  = req.country.trim().to_uppercase();
+
+    let year_num: i16 = match year_str.parse() {
+        Ok(y) => y,
+        Err(_) => return Ok(HttpResponse::BadRequest().json(json!({
+            "success": false, "error": "Invalid year"
+        }))),
+    };
+
+    let pool = match connect_to_exiobase().await {
+        Ok(p) => p,
+        Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false, "error": e
+        }))),
+    };
+
+    // Ensure tables exist
+    if let Err(e) = init_industry_tables_in_pool(&pool).await {
+        return Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false, "error": format!("Table init failed: {e}")
+        })));
+    }
+
+    let base = "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year";
+    let mut summary: Vec<serde_json::Value> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    // 1. factor.csv
+    let factor_url = format!("{base}/{year_str}/factor.csv");
+    match fetch_github_csv(&factor_url).await {
+        Err(e) => errors.push(format!("factor.csv: {e}")),
+        Ok(text) => match upsert_factor_rows(&pool, &text).await {
+            Ok(n) => summary.push(json!({"file": "factor.csv", "rows": n})),
+            Err(e) => errors.push(format!("factor.csv insert: {e}")),
+        },
+    }
+
+    // 2. industry.csv
+    let industry_url = format!("{base}/{year_str}/industry.csv");
+    match fetch_github_csv(&industry_url).await {
+        Err(e) => errors.push(format!("industry.csv: {e}")),
+        Ok(text) => match upsert_industry_rows(&pool, &text).await {
+            Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
+            Err(e) => errors.push(format!("industry.csv insert: {e}")),
+        },
+    }
+
+    // 3. trade.csv + trade_factor.csv for each flow type
+    for flow_type in &["domestic", "imports", "exports"] {
+        let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
+        match fetch_github_csv(&trade_url).await {
+            Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
+            Ok(text) => match insert_trade_rows(&pool, &text, flow_type, &country).await {
+                Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n})),
+                Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
+            },
+        }
+
+        let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
+        match fetch_github_csv(&tf_url).await {
+            Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
+            Ok(text) => match insert_trade_factor_rows(&pool, &text, year_num, flow_type, &country).await {
+                Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": n})),
+                Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
+            },
+        }
+    }
+
+    // 4. US BEA interstate data (domestic only)
+    if country == "US" {
+        let interstate_url = format!("{base}/{year_str}/US/domestic/bea_trade_detail.csv");
+        match fetch_github_csv(&interstate_url).await {
+            Err(e) => errors.push(format!("bea_trade_detail.csv: {e}")),
+            Ok(text) => match insert_interstate_rows(&pool, &text).await {
+                Ok(n) => summary.push(json!({"file": "bea_trade_detail.csv → interstate", "rows": n})),
+                Err(e) => errors.push(format!("bea_trade_detail.csv insert: {e}")),
+            },
+        }
+
+        let isf_url = format!("{base}/{year_str}/US/domestic/state_trade_flows.csv");
+        match fetch_github_csv(&isf_url).await {
+            Err(e) => errors.push(format!("state_trade_flows.csv: {e}")),
+            Ok(text) => match insert_interstate_factor_rows(&pool, &text, year_num).await {
+                Ok(n) => summary.push(json!({"file": "state_trade_flows.csv → interstate_factor", "rows": n})),
+                Err(e) => errors.push(format!("state_trade_flows.csv insert: {e}")),
+            },
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(json!({
+        "success": errors.is_empty(),
+        "year": year_str,
+        "country": country,
+        "inserted": summary,
+        "errors": errors
+    })))
+}
+
+// GET /api/db/industry-schema
+async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    let pool = match connect_to_exiobase().await {
+        Ok(p) => p,
+        Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false, "error": e,
+            "schema": industry_static_schema()
+        }))),
+    };
+
+    // Query columns from information_schema
+    let col_rows = sqlx::query(r#"
+        SELECT table_name, column_name, data_type, ordinal_position
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name IN ('trade','trade_factor','factor','industry','interstate','interstate_factor')
+        ORDER BY table_name, ordinal_position
+    "#).fetch_all(&pool).await;
+
+    // Query row counts from pg_stat_user_tables
+    let count_rows = sqlx::query(r#"
+        SELECT relname AS table_name, n_live_tup AS row_count
+        FROM pg_stat_user_tables
+        WHERE relname IN ('trade','trade_factor','factor','industry','interstate','interstate_factor')
+    "#).fetch_all(&pool).await;
+
+    let mut tables: HashMap<String, serde_json::Value> = HashMap::new();
+
+    // Build static schema as base (columns)
+    for (name, cols) in industry_static_schema().as_object().unwrap_or(&serde_json::Map::new()) {
+        tables.insert(name.clone(), json!({"columns": cols, "row_count": 0, "exists": false}));
+    }
+
+    if let Ok(rows) = col_rows {
+        let mut seen_tables: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for row in &rows {
+            let tname: String = row.get("table_name");
+            seen_tables.insert(tname.clone());
+        }
+        // Mark existing tables
+        for tname in seen_tables {
+            if let Some(entry) = tables.get_mut(&tname) {
+                entry["exists"] = json!(true);
+            }
+        }
+        // Build column lists from live DB
+        let mut live_cols: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+        for row in &rows {
+            let tname: String = row.get("table_name");
+            let cname: String = row.get("column_name");
+            let dtype: String = row.get("data_type");
+            live_cols.entry(tname).or_default().push(json!({"name": cname, "type": dtype}));
+        }
+        for (tname, cols) in live_cols {
+            if let Some(entry) = tables.get_mut(&tname) {
+                entry["columns"] = json!(cols);
+            }
+        }
+    }
+
+    if let Ok(rows) = count_rows {
+        for row in rows {
+            let tname: String = row.get("table_name");
+            let cnt: i64 = row.get("row_count");
+            if let Some(entry) = tables.get_mut(&tname) {
+                entry["row_count"] = json!(cnt);
+            }
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(json!({
+        "success": true,
+        "tables": tables,
+        "relationships": [
+            {"from": "trade",        "to": "industry",           "on": "industry1 / industry2"},
+            {"from": "trade_factor", "to": "trade",              "on": "trade_id + year + country + flow_type"},
+            {"from": "trade_factor", "to": "factor",             "on": "factor_id"},
+            {"from": "interstate",   "to": "industry",           "on": "industry1 / industry2"},
+            {"from": "interstate",   "to": "trade",              "on": "trade_id (US domestic)"},
+            {"from": "interstate_factor", "to": "interstate",    "on": "trade_id"}
+        ]
+    })))
+}
+
+fn industry_static_schema() -> serde_json::Value {
+    json!({
+        "industry":  [
+            {"name":"industry_id","type":"varchar(10)"},
+            {"name":"name","type":"text"},
+            {"name":"category","type":"varchar(100)"}
+        ],
+        "factor": [
+            {"name":"factor_id","type":"integer"},
+            {"name":"unit","type":"varchar(50)"},
+            {"name":"stressor","type":"text"},
+            {"name":"extension","type":"varchar(100)"}
+        ],
+        "trade": [
+            {"name":"id","type":"bigserial"},
+            {"name":"trade_id","type":"integer"},
+            {"name":"year","type":"smallint"},
+            {"name":"region1","type":"varchar(10)"},
+            {"name":"region2","type":"varchar(10)"},
+            {"name":"industry1","type":"varchar(10)"},
+            {"name":"industry2","type":"varchar(10)"},
+            {"name":"amount","type":"numeric"},
+            {"name":"flow_type","type":"varchar(10)"},
+            {"name":"country","type":"varchar(10)"}
+        ],
+        "trade_factor": [
+            {"name":"id","type":"bigserial"},
+            {"name":"trade_id","type":"integer"},
+            {"name":"year","type":"smallint"},
+            {"name":"country","type":"varchar(10)"},
+            {"name":"flow_type","type":"varchar(10)"},
+            {"name":"factor_id","type":"integer"},
+            {"name":"coefficient","type":"numeric"},
+            {"name":"level","type":"numeric"}
+        ],
+        "interstate": [
+            {"name":"id","type":"bigserial"},
+            {"name":"trade_id","type":"integer"},
+            {"name":"year","type":"smallint"},
+            {"name":"region1","type":"varchar(10)"},
+            {"name":"region2","type":"varchar(10)"},
+            {"name":"industry1","type":"varchar(10)"},
+            {"name":"industry2","type":"varchar(10)"},
+            {"name":"amount","type":"numeric"},
+            {"name":"commodity_code","type":"varchar(30)"},
+            {"name":"industry_code","type":"varchar(30)"},
+            {"name":"economic_multiplier","type":"numeric"}
+        ],
+        "interstate_factor": [
+            {"name":"id","type":"bigserial"},
+            {"name":"interstate_id","type":"varchar(80)"},
+            {"name":"trade_id","type":"integer"},
+            {"name":"factor_id","type":"integer"},
+            {"name":"coefficient","type":"numeric"},
+            {"name":"state_industry_code","type":"varchar(30)"},
+            {"name":"level","type":"numeric"},
+            {"name":"flow_type","type":"varchar(20)"},
+            {"name":"employment_impact","type":"numeric"}
+        ]
+    })
+}
+
+// ============================================================
+// End Industry Database Trade Data Insert
+// ============================================================
+
 // List database tables with detailed info
 async fn db_list_tables(
     data: web::Data<Arc<ApiState>>,
@@ -2925,7 +3613,7 @@ async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>, connecti
         // Filter tables for EXIOBASE connection - only include valid tables
         if let Some(conn_name) = connection_name {
             if conn_name == "EXIOBASE" {
-                let valid_tables = ["trade", "industry", "factor", "trade_factor"];
+                let valid_tables = ["trade", "industry", "factor", "trade_factor", "interstate", "interstate_factor"];
                 if !valid_tables.contains(&table_name.as_str()) {
                     continue; // Skip tables not in the valid list
                 }
@@ -3091,9 +3779,11 @@ fn get_table_description(table_name: &str) -> Option<String> {
         "taggables" => Some("Polymorphic tag relationships".to_string()),
         "roles" => Some("User roles and permissions".to_string()),
         // EXIOBASE tables
-        "trade" => Some("International trade flow data".to_string()),
+        "trade" => Some("International trade flow data (domestic + imports + exports)".to_string()),
         "industry" => Some("Industry sector classifications and data".to_string()),
         "factor" => Some("Environmental and social impact factors".to_string()),
+        "interstate" => Some("US BEA state-to-state trade flows".to_string()),
+        "interstate_factor" => Some("State-level environmental factor flows".to_string()),
         "trade_factor" => Some("Trade flow with environmental factors".to_string()),
         _ => None,
     }
@@ -3180,6 +3870,9 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/table/{table_name}", web::get().to(db_get_table_info))
                             .route("/table-rows", web::post().to(db_get_table_rows))
                             .route("/query", web::post().to(db_execute_query))
+                            .route("/init-industry-tables", web::post().to(db_init_industry_tables))
+                            .route("/insert-trade-data", web::post().to(db_insert_trade_data))
+                            .route("/industry-schema", web::get().to(db_get_industry_schema))
                     )
                     .service(
                         web::scope("/import")
