@@ -34,10 +34,10 @@ function getCurrentAiModeValue() {
 }
 
 function syncDeployCliVisibility() {
-    const deployCliDiv = document.getElementById('deployCliDiv');
-    if (!deployCliDiv) return;
+    const deployChanges = document.getElementById('deployChanges');
+    if (!deployChanges) return;
     const withoutAiMode = getCurrentAiModeValue() === 'no';
-    deployCliDiv.style.display = withoutAiMode ? 'none' : '';
+    deployChanges.style.display = withoutAiMode ? 'none' : '';
 }
 
 if (!window.setupDeployCliAiModeBound) {
@@ -86,7 +86,7 @@ waitForElm('#textInPage').then(() => {
         createRustApiStatusPanel('combined-rust-api-container', false);
         setupTradeFlowRepos('extraRepos');
         setupGeminiResources();
-        loadMarkdown("../admin/github/deploy-cli.md", "deployCliDiv", "_parent", 1, syncDeployCliVisibility);
+        loadMarkdown("../admin/github/deploy-cli.md", "deployChanges", "_parent", 1, syncDeployCliVisibility);
         loadMarkdown("../admin/github/deploy-git.md", "deployGitDiv", "_parent", 1);
         setTimeout(() => { updateForkReposCommands(); }, 100);
     }, 200);
@@ -204,7 +204,7 @@ waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
     <div id="quickstartDiv" class="card"></div>
     <div id="combined-rust-api-container" class="card geo-x"></div>
     <div class="card" id="extraRepos"></div>
-    <div class="card" id="deployCliDiv"></div>
+    <div class="card" id="deployChanges"></div>
     <button id="showDeployGit" class="btn btn-success">Show Commands</button>
     <div id="deployGit">
         <div class="card" id="deployGitDiv"></div>

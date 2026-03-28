@@ -467,8 +467,10 @@ function createOSDetectionPanel(containerId) {
                     </select>
                     <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
                 </div>
-                <span class="mac-instructions" style="font-size: 12px;">
-                    Recommended terminal: <a href="https://iterm2.com/" target="_blank">iTerm2</a>
+                <span class="mac-instructions" style="font-size: 12px; line-height:1.45em; text-align:right">
+                    Recommended terminal: <a href="https://iterm2.com/" target="_blank">iTerm2</a><br>
+                    Install steps for <a href="/localsite/start/cmds/">Python and NodeJS</a><br>
+                    <a href="#deployChanges">How to deploy changes</a>
                 </span>
             </div>
         </div>
@@ -796,7 +798,7 @@ function initializeOSDetectionPanel() {
     
     // Function to update CLI commands display
     function updateCliCommands() {
-        const deployCliDiv = document.getElementById('deployCliDiv');
+        const deployChanges = document.getElementById('deployChanges');
         const selectedOS = osSelect.value;
         const codexChecked = codexCli ? codexCli.checked : false;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
@@ -839,9 +841,9 @@ function initializeOSDetectionPanel() {
                 delete githubCliCard.dataset.noAiPrevDisplay;
             }
         }
-        if (deployCliDiv) {
+        if (deployChanges) {
             const hideDeployCli = withoutAiMode && backendCommandMode !== 'both';
-            deployCliDiv.style.display = hideDeployCli ? 'none' : '';
+            deployChanges.style.display = hideDeployCli ? 'none' : '';
         }
         if (agentCheckboxes) {
             const showCheckboxes = (withAiMode || anyNonNoCliChecked) && !withoutAiMode;
@@ -1406,7 +1408,7 @@ npm install -g openai-codex-cli</code></pre>`;
     updateCliCommands();
 
     if (typeof waitForElm === 'function') {
-        waitForElm('#deployCliDiv').then(() => {
+        waitForElm('#deployChanges').then(() => {
             updateCliCommands();
         });
     }
