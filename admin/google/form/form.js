@@ -188,8 +188,8 @@ async function checkOAuthConfiguration() {
         const response = await fetch(`${API_BASE}/config/env`);
         if (response.ok) {
             const envData = await response.json();
-            if (envData.GOOGLE_CLIENT_ID) {
-                envClientId = envData.GOOGLE_CLIENT_ID;
+            if (envData.google_client_id) {
+                envClientId = envData.google_client_id;
                 // Check if it's not the default placeholder and is a valid format
                 if (envClientId !== 'your-google-client-id.apps.googleusercontent.com' && 
                     envClientId.includes('.apps.googleusercontent.com')) {
@@ -250,10 +250,7 @@ function showOAuthConfigWarning(configClientId, envClientId) {
         message += '• docker/.env file: No GOOGLE_CLIENT_ID found<br>';
     }
 
-    message += '<br><strong>To fix this:</strong><br>';
-    message += '1. Get a Google OAuth Client ID <button class="btn-sm" onclick="toggleGoogleAuthSteps(this)">show steps</button><br>';
-    message += '2. Update either the config.yaml file or the GOOGLE_CLIENT_ID in your docker/.env file<br>';
-    message += '3. Reload this page to try again';
+    message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">show steps</button>';
 
     const authStatus = document.getElementById('auth-status');
     if (authStatus) {

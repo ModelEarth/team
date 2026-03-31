@@ -393,6 +393,7 @@ struct EnvConfigResponse {
     database: Option<EnvDatabaseConfig>,
     database_connections: Vec<DatabaseConnection>,
     gemini_api_key_present: bool,
+    google_client_id: Option<String>,
     google_project_id: Option<String>,
     google_user_email: Option<String>,
     google_org_id: Option<String>,
@@ -666,16 +667,18 @@ async fn get_env_config() -> Result<HttpResponse> {
     };
     
     // Get Google configuration values
+    let google_client_id = std::env::var("GOOGLE_CLIENT_ID").ok();
     let google_project_id = std::env::var("GOOGLE_PROJECT_ID").ok();
     let google_user_email = std::env::var("GOOGLE_USER_EMAIL").ok();
     let google_org_id = std::env::var("GOOGLE_ORG_ID").ok();
     let google_billing_id = std::env::var("GOOGLE_BILLING_ID").ok();
     let google_service_key = std::env::var("GOOGLE_SERVICE_KEY").ok();
-    
+
     Ok(HttpResponse::Ok().json(EnvConfigResponse {
         database: database_config,
         database_connections,
         gemini_api_key_present,
+        google_client_id,
         google_project_id,
         google_user_email,
         google_org_id,

@@ -248,21 +248,7 @@
             background: var(--bg-secondary);
         }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            border: none;
-            border-radius: var(--radius-md);
-            font-weight: 500;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-decoration: none;
-        }
-
-        .btn:disabled {
+.btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
@@ -277,17 +263,8 @@
             transform: translateY(-1px);
         }
 
-        .btn-secondary {
-            background: var(--bg-tertiary);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-light);
-        }
 
-        .btn-secondary:hover:not(:disabled) {
-            background: var(--border-light);
-        }
-
-        .btn-secondary.active {
+.btn-secondary.active {
             border: 2px solid var(--accent-blue);
             background: rgba(59, 130, 246, 0.1);
             box-sizing: border-box;

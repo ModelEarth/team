@@ -2,7 +2,7 @@
 
 ## 1. Open Google Cloud Console
 
-Go to [console.cloud.google.com](https://console.cloud.google.com) and sign in with the Google account that owns your project.
+Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> and sign in with the Google account that owns your project. <span class="local" style="display:none">MemberSense</span>
 
 ## 2. Create or Select a Project
 
