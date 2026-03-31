@@ -96,6 +96,7 @@ div.breadcrumb a:focus-visible {
     background-color: rgba(156, 163, 175, 0.28);
     text-decoration: none;
     outline: none;
+    padding: 4px 10px;
 }
 
 .dark .breadcrumbs a:hover,

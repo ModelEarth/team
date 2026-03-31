@@ -341,7 +341,7 @@
                 padding: 24px;
             }
         }
-        .welcome-hero-geo-wrap {
+        #welcome-hero-geo-wrap {
             border-radius: 20px;
             margin-top: 20px;
             width: 100%;
@@ -349,7 +349,7 @@
             color: var(--bg-header-text);
             position: relative;
             aspect-ratio: 1400 / 290;
-            min-height: 120px;
+            min-height: 140px;
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -364,7 +364,7 @@
             display: block;
         }
         @media (max-width: 600px) {
-            .welcome-hero-geo-wrap {
+            #welcome-hero-geo-wrap {
                 aspect-ratio: unset;
                 overflow: hidden;
             }
@@ -391,11 +391,11 @@
     <div class="container" style="max-width:1400px">
 
         <a href="#system-status" style="display:block;color:inherit;text-decoration:none;">
-        <div class="welcome-hero-geo-wrap admin-card">
+        <div id="welcome-hero-geo-wrap" class="admin-card">
             <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
             <div class="header-center geo-x">
-                <div class="large-list"><h1 style="justify-content: center; font-weight: 400 !important;">AI Team Partner Tools</h1></div>
-                <p class="hideMobile">Tech management, location details, AI insights and partner directories.</p>
+                <div class="large-list"><h1 style="justify-content: center; font-weight: 400 !important;">AI Builder Team Tools</h1></div>
+                <p class="hideMobile">Collaboration on location datascapes and partner directories.</p>
             </div>
         </div>
         </a>
@@ -1131,6 +1131,12 @@
             // No text selected and not a text selection attempt, proceed with navigation
             navigationFunction();
         }
+
+        waitForElm("#welcome-hero-geo-wrap").then((elm) => {
+            if (typeof isGeoSite === 'function' && !isGeoSite()) {
+                elm.style.aspectRatio = 'unset';
+            }
+        });
 
         initAdminCardRowToggles();
 
