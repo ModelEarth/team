@@ -1,4 +1,7 @@
-# Admin Info
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h2 style="margin:0">Admin Info</h2>
+<button class="btn btn-secondary" onclick="toggleGithubAuthSteps(this)">Google Client ID</button>
+</div>
 
 ## How Auth.js Works
 

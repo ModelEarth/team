@@ -239,7 +239,9 @@ h1.card-title {
     color: var(--text-secondary);
     border: 1px solid var(--border-light);
 }
-
+.btn-secondary:link, .btn-secondary:visited {
+    color: var(--text-secondary);
+}
 .btn-secondary:hover:not(:disabled) {
     /* Caused hover to occur on active layout indicator on team/projects */
     /* background: var(--border-light); */

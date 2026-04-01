@@ -399,6 +399,9 @@ struct EnvConfigResponse {
     google_org_id: Option<String>,
     google_billing_id: Option<String>,
     google_service_key: Option<String>,
+    better_auth_secret_present: bool,
+    better_auth_base_url: Option<String>,
+    better_auth_allowed_origins: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -674,6 +677,15 @@ async fn get_env_config() -> Result<HttpResponse> {
     let google_billing_id = std::env::var("GOOGLE_BILLING_ID").ok();
     let google_service_key = std::env::var("GOOGLE_SERVICE_KEY").ok();
 
+    // Better Auth configuration
+    let better_auth_secret_present = if let Ok(secret) = std::env::var("BETTER_AUTH_SECRET") {
+        secret.len() >= 32 && secret != "CHANGE_ME_GENERATE_WITH_openssl_rand_base64_32"
+    } else {
+        false
+    };
+    let better_auth_base_url = std::env::var("BASE_URL").ok();
+    let better_auth_allowed_origins = std::env::var("ALLOWED_ORIGINS").ok();
+
     Ok(HttpResponse::Ok().json(EnvConfigResponse {
         database: database_config,
         database_connections,
@@ -684,6 +696,9 @@ async fn get_env_config() -> Result<HttpResponse> {
         google_org_id,
         google_billing_id,
         google_service_key,
+        better_auth_secret_present,
+        better_auth_base_url,
+        better_auth_allowed_origins,
     }))
 }
 

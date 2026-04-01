@@ -214,7 +214,26 @@ async function checkOAuthConfiguration() {
         if (!isLocalhost) {
             initializeGoogleAuth();
         } else {
-            showTopStatus('success', '✓ Google OAuth Client ID is configured. Sign In with Google will work on production.');
+            let statusMsg = '✓ Google OAuth Client ID is configured. Sign In with Google will work on production.';
+
+            // Check Better Auth configuration
+            try {
+                const envResponse = await fetch(`${API_BASE}/config/env`);
+                if (envResponse.ok) {
+                    const envData = await envResponse.json();
+                    const missing = [];
+                    if (!envData.better_auth_secret_present) missing.push('BETTER_AUTH_SECRET');
+                    if (!envData.better_auth_base_url) missing.push('BASE_URL');
+                    if (!envData.better_auth_allowed_origins) missing.push('ALLOWED_ORIGINS');
+                    if (missing.length > 0) {
+                        statusMsg += `<br>⚠ Better Auth: missing from docker/.env: <code>${missing.join(', ')}</code>`;
+                    } else {
+                        statusMsg += '<br>✓ Better Auth variables configured.';
+                    }
+                }
+            } catch (e) { /* non-fatal */ }
+
+            showTopStatus('success', statusMsg);
         }
     }
 }
@@ -250,7 +269,7 @@ function showOAuthConfigWarning(configClientId, envClientId) {
         message += '• docker/.env file: No GOOGLE_CLIENT_ID found<br>';
     }
 
-    message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">show steps</button>';
+    message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">show steps</button> <a href="../../../setup" class="btn btn-secondary">start rust</a>';
 
     const authStatus = document.getElementById('auth-status');
     if (authStatus) {
@@ -866,6 +885,22 @@ function showTopStatus(type, message) {
 
     const statusBtn = document.getElementById('statusBtn');
     if (statusBtn) statusBtn.classList.add('active');
+}
+
+function toggleGithubAuthSteps(btn) {
+    let panel = document.getElementById('google-auth-panel-info');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'google-auth-panel-info';
+        panel.className = 'card';
+        panel.style.marginTop = '16px';
+        const container = btn.parentNode;
+        container.parentNode.insertBefore(panel, container.nextSibling);
+        loadMarkdown('google-auth.md', 'google-auth-panel-info', '_parent', 1);
+    } else {
+        panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    }
+    if (btn) btn.textContent = (panel.style.display === 'none') ? 'Google Client ID' : 'Hide Google Info';
 }
 
 function toggleGoogleAuthSteps(btn) {

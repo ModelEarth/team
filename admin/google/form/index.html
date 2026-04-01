@@ -21,7 +21,11 @@
     -->
 
     <!-- Load Shared Auth Modal -->
-    <script src="../../../js/auth-modal.js"></script>
+    <!-- <script src="../../../js/auth-modal.js"></script> -->
+
+    <!-- Better Auth Modal -->
+    <script src="../../../../better-auth/public/js/auth-modal.js"></script>
+
 
     <!-- Google OAuth (only load if not localhost) -->
     <script>
@@ -416,6 +420,7 @@
                 <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('google')" style="display: none;">Google API</button>
                 <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth.js Config</button>
                 <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showAuthModal()">Sign In</button>
+                <button class="btn btn-secondary" onclick="initAuthModal(); window.authModal.show()">Better Auth</button>
             </div>
         </div>
 
@@ -814,6 +819,7 @@
         
         // Track current active section
         let currentActiveSection = null;
+        const sectionCache = {};
         
         // Toggle admin section display
         function toggleAdminSection(section) {
@@ -829,6 +835,8 @@
             // Status button only toggles #top-status, not #adminDiv
             if (section === 'status') {
                 if (topStatus) topStatus.style.display = topStatus.style.display === 'none' ? '' : 'none';
+                const googleAuthPanel = document.getElementById('google-auth-panel');
+                if (googleAuthPanel) googleAuthPanel.style.display = topStatus?.style.display === 'none' ? 'none' : '';
                 adminDiv.style.display = 'none';
                 Object.values(buttons).forEach(btn => btn.classList.remove('active'));
                 buttons['status'].classList.toggle('active');
@@ -836,8 +844,10 @@
                 return;
             }
 
-            // Hide #top-status when opening other sections
+            // Hide #top-status and #google-auth-panel when opening other sections
             if (topStatus) topStatus.style.display = 'none';
+            const googleAuthPanel = document.getElementById('google-auth-panel');
+            if (googleAuthPanel) googleAuthPanel.style.display = 'none';
             buttons['status']?.classList.remove('active');
 
             const files = {
@@ -855,11 +865,18 @@
             }
 
             // Hide current section and remove active state from all buttons
+            if (currentActiveSection) {
+                sectionCache[currentActiveSection] = adminDiv.innerHTML;
+            }
             Object.values(buttons).forEach(btn => btn.classList.remove('active'));
 
-            // Load and show new section
-            adminDiv.innerHTML = '';
-            loadMarkdown(files[section], 'adminDiv', '_parent', 1);
+            // Load and show new section (restore from cache if available)
+            if (sectionCache[section]) {
+                adminDiv.innerHTML = sectionCache[section];
+            } else {
+                adminDiv.innerHTML = '';
+                loadMarkdown(files[section], 'adminDiv', '_parent', 1);
+            }
             adminDiv.style.display = 'block';
             buttons[section].classList.add('active');
             currentActiveSection = section;
