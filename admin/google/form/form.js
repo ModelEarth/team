@@ -2,6 +2,28 @@
 // Google Sheets integration with OAuth authentication
 
 // API_BASE is already defined in common.js
+
+function showBetterAuthModal() {
+    document.getElementById('auth-modal')?.remove();
+    document.getElementById('auth-modal-styles')?.remove();
+    window.authModal = new AuthModal(); // better-auth's AuthModal (last script loaded)
+    window.authModal.show();
+}
+
+function showTeamAuthModal() {
+    if (!window.TeamAuthModalClass) return;
+    document.getElementById('auth-modal')?.remove();
+    document.getElementById('auth-modal-styles')?.remove();
+    window.authModal = new window.TeamAuthModalClass();
+    const content = document.querySelector('#auth-modal .auth-modal-content');
+    if (content) {
+        const note = document.createElement('div');
+        note.style.cssText = 'background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:0.875rem;';
+        note.innerHTML = 'We\'re using <a href="#" onclick="showBetterAuthModal();return false;">better-auth popup</a> instead.';
+        content.insertBefore(note, content.firstChild);
+    }
+    window.authModal.show();
+}
 let currentUser = null;
 let existingMemberData = null;
 let sheetsConfig = null;

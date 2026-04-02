@@ -20,11 +20,16 @@
     <link rel="stylesheet" href="../../../css/claude.css">
     -->
 
-    <!-- Load Shared Auth Modal -->
-    <!-- <script src="../../../js/auth-modal.js"></script> -->
+    <!-- Team Auth Modal (loaded first so class can be saved before better-auth overwrites it) -->
+    <!-- Also "Team Version" below -->
+    <!--
+    <script src="../../../js/auth-modal.js"></script>
+    <script>window.TeamAuthModalClass = typeof AuthModal !== 'undefined' ? AuthModal : null;</script>
+    -->
 
     <!-- Better Auth Modal -->
     <script src="../../../../better-auth/public/js/auth-modal.js"></script>
+
 
 
     <!-- Google OAuth (only load if not localhost) -->
@@ -418,9 +423,8 @@
                 <button id="statusBtn" class="btn btn-secondary local" onclick="toggleAdminSection('status')" style="display: none;">Status</button>
                 <button id="adminInfoBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('admin')" style="display: none;">Admin Info</button>
                 <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('google')" style="display: none;">Google API</button>
-                <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth.js Config</button>
-                <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showAuthModal()">Sign In</button>
-                <button class="btn btn-secondary" onclick="initAuthModal(); window.authModal.show()">Better Auth</button>
+                <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth Config</button>
+                <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showBetterAuthModal()">Sign In</button>
             </div>
         </div>
 
@@ -471,11 +475,14 @@
                     <div style="font-weight: 500;" id="user-name"></div>
                     <div style="font-size: 0.875rem; color: var(--text-secondary);" id="user-email"></div>
                 </div>
-                <div style="margin-left: auto;">
-                    <button id="authToggleBtn" class="btn btn-secondary page-tab" onclick="showAuthModal()">
+                <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                    <button id="authToggleBtn" class="btn btn-secondary page-tab" onclick="showBetterAuthModal()">
                         <i data-feather="log-in"></i>
                         Sign In
                     </button>
+                    <span class="localX" style="display:none">
+                        <button class="btn btn-secondary" onclick="showTeamAuthModal()">Team Version</button>
+                    </span>
                 </div>
             </div>
 
