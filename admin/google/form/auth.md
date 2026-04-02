@@ -3,7 +3,6 @@
 ---
 
 <span id="betterauth"></span>
-<br>
 
 # BetterAuth
 
@@ -13,11 +12,15 @@ BetterAuth (`better-auth/`) is the authentication service for this site, running
 
 This form also supports a **Google Identity Services (GSI)** sign-in button (see "Getting a Google OAuth Client ID"). The two use the same OAuth Client ID but require different settings in Google Cloud Console:
 
-| | GSI Sign-In Button | BetterAuth |
-|---|---|---|
-| **Flow** | Popup / one-tap | Server-side redirect |
-| **Google Console setting** | Authorized JavaScript origins | Authorized redirect URIs |
-| **Redirect URI needed?** | No | Yes |
+**GSI Sign-In Button**
+- Flow: Popup / one-tap
+- Google Console setting: Authorized JavaScript origins
+- Redirect URI needed: No
+
+**BetterAuth**
+- Flow: Server-side redirect
+- Google Console setting: Authorized redirect URIs
+- Redirect URI needed: Yes
 
 ## Adding the Google Redirect URI
 
@@ -53,8 +56,7 @@ Then restart the BetterAuth server (`better-auth/src/index.js`).
 
 ---
 
-<span id="microsoft-auth"></span>
-<br>
+<div id="microsoft-auth" style="margin-top:40px"></div>
 
 # Microsoft Auth
 
@@ -75,8 +77,7 @@ http://localhost:3002/api/auth/callback/microsoft
 
 ---
 
-<span id="old-nextjs"></span>
-<br>
+<div id="old-nextjs" style="margin-top:40px"></div>
 
 # Old Next.js
 

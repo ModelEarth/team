@@ -5,6 +5,10 @@
 
 ## How Auth.js Works
 
+We're using Better Auth (click Auth Config above)
+
+This will be revised/replaced...
+
 **Safe Flow:**
 1. User authenticates with Google, Microsoft, etc. via Auth.js
 2. Auth.js creates a **server-side session** (stored securely with signed cookies/JWTs)
