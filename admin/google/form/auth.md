@@ -4,27 +4,29 @@
 
 <span id="betterauth"></span>
 
-# BetterAuth
+# BetterAuth with Google Settings
 
-BetterAuth (`better-auth/`) is the authentication service for this site, running on port 3002. It handles OAuth sign-in via Google, GitHub, LinkedIn, Microsoft, Discord, and Facebook using a server-side callback flow.
+[BetterAuth](../../../../better-auth) provides authentication in our site using port 3002. Its being configured to handle OAuth sign-in via Google, GitHub, LinkedIn, Microsoft, Discord, and Facebook using a server-side callback flow.
 
 ## How It Differs from the Google Sign-In Button
 
-This form also supports a **Google Identity Services (GSI)** sign-in button (see "Getting a Google OAuth Client ID"). The two use the same OAuth Client ID but require different settings in Google Cloud Console:
-
-**GSI Sign-In Button**
-- Flow: Popup / one-tap
-- Google Console setting: Authorized JavaScript origins
-- Redirect URI needed: No
+Both use **Google Identity Services (GSI)** (see "Getting a Google OAuth Client ID") via the same OAuth Client ID, but the have different settings in Google Cloud Console:
 
 **BetterAuth**
 - Flow: Server-side redirect
 - Google Console setting: Authorized redirect URIs
 - Redirect URI needed: Yes
 
-## Adding the Google Redirect URI
+**GSI Sign-In Button (not using here)**
+- Flow: Popup / one-tap
+- Google Console setting: Authorized JavaScript origins
+- Redirect URI needed: No
 
-The `redirect_uri_mismatch` error occurs when the redirect URI sent by BetterAuth is not registered in your Google OAuth client.
+
+## Adding the Google Redirect URI for BetterAuth
+
+For BetterAuth, register the redirect URI sent by BetterAuth in your Google OAuth client.  
+Doing so prevents the "redirect_uri_mismatch" error when your site user attempts to sign in.
 
 In [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), open your OAuth client and add to **Authorized redirect URIs**:
 

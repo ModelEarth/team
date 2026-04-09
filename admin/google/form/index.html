@@ -271,14 +271,15 @@
             background: #2563EB;
             transform: translateY(-1px);
         }
-
-
-.btn-secondary.active {
+        .btn-secondary.active {
             border: 2px solid var(--accent-blue);
+            color: #222;
             background: rgba(59, 130, 246, 0.1);
             box-sizing: border-box;
         }
-
+        .dark .btn-secondary.active {
+            color: #fff;
+        }
         /* Dark mode */
         .dark {
             --text-primary: #f0f0f0;
@@ -401,7 +402,7 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
-            
+
             .form-actions {
                 flex-direction: column;
             }
@@ -420,10 +421,10 @@
                 </a>
             </div>
             <div class="sign-in-container" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button id="statusBtn" class="btn btn-secondary local" onclick="toggleAdminSection('status')" style="display: none;">Status</button>
-                <button id="adminInfoBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('admin')" style="display: none;">Admin Info</button>
-                <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('google')" style="display: none;">Google API</button>
-                <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="toggleAdminSection('auth')" style="display: none;">Auth Config</button>
+                <button id="formBtn" class="btn btn-secondary" onclick="setTab('form')">Form</button>
+                <button id="adminInfoBtn" class="btn btn-secondary admin-info-btn" onclick="setTab('admin')" style="display: none;">Admin Info</button>
+                <button id="googleApiBtn" class="btn btn-secondary admin-info-btn" onclick="setTab('google')" style="display: none;">Google API</button>
+                <button id="authConfigBtn" class="btn btn-secondary admin-info-btn" onclick="setTab('auth')" style="display: none;">Auth Config</button>
                 <button id="signInBtn" class="btn btn-primary sign-in-btn" onclick="showBetterAuthModal()">Sign In</button>
             </div>
         </div>
@@ -828,25 +829,31 @@
         let currentActiveSection = null;
         const sectionCache = {};
         
+        // Set tab via hash and toggle section
+        function setTab(tab) {
+            if (typeof updateHash === 'function') updateHash({'tab': tab});
+            toggleAdminSection(tab);
+        }
+
         // Toggle admin section display
         function toggleAdminSection(section) {
             const topStatus = document.getElementById('top-status');
             const adminDiv = document.getElementById('adminDiv');
             const buttons = {
-                'status': document.getElementById('statusBtn'),
+                'form': document.getElementById('formBtn'),
                 'admin': document.getElementById('adminInfoBtn'),
                 'google': document.getElementById('googleApiBtn'),
                 'auth': document.getElementById('authConfigBtn')
             };
 
-            // Status button only toggles #top-status, not #adminDiv
-            if (section === 'status') {
+            // Form button only toggles #top-status, not #adminDiv
+            if (section === 'form') {
                 if (topStatus) topStatus.style.display = topStatus.style.display === 'none' ? '' : 'none';
                 const googleAuthPanel = document.getElementById('google-auth-panel');
                 if (googleAuthPanel) googleAuthPanel.style.display = topStatus?.style.display === 'none' ? 'none' : '';
                 adminDiv.style.display = 'none';
-                Object.values(buttons).forEach(btn => btn.classList.remove('active'));
-                buttons['status'].classList.toggle('active');
+                Object.values(buttons).forEach(btn => btn && btn.classList.remove('active'));
+                buttons['form'].classList.toggle('active');
                 currentActiveSection = null;
                 return;
             }
@@ -855,7 +862,7 @@
             if (topStatus) topStatus.style.display = 'none';
             const googleAuthPanel = document.getElementById('google-auth-panel');
             if (googleAuthPanel) googleAuthPanel.style.display = 'none';
-            buttons['status']?.classList.remove('active');
+            buttons['form']?.classList.remove('active');
 
             const files = {
                 'admin': 'admin.md',
@@ -923,7 +930,7 @@
                 if (currentActiveSection) {
                     adminDiv.style.display = 'none';
                     const buttons = {
-                        'status': document.getElementById('statusBtn'),
+                        'form': document.getElementById('formBtn'),
                         'admin': document.getElementById('adminInfoBtn'),
                         'google': document.getElementById('googleApiBtn'),
                         'auth': document.getElementById('authConfigBtn')
@@ -936,10 +943,20 @@
         
         // Check on initial load
         checkAndShowAdminInfo();
-        
-        // Listen for hash changes
-        window.addEventListener('hashchange', function() {
+
+        // Open tab from hash on initial load
+        const initialTab = (typeof getHash === 'function') ? getHash().tab : null;
+        if (initialTab) {
+            toggleAdminSection(initialTab);
+        }
+
+        // Listen for hash changes (direct URL edits + goHash)
+        document.addEventListener('hashChangeEvent', function() {
             checkAndShowAdminInfo();
+            const hash = (typeof getHash === 'function') ? getHash() : {};
+            if (hash.tab !== window.priorHash?.tab) {
+                if (hash.tab) toggleAdminSection(hash.tab);
+            }
         });
     </script>
 </body>

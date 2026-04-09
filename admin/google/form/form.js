@@ -905,8 +905,6 @@ function showTopStatus(type, message) {
     topStatus.innerHTML = `<span>${message}</span>`;
     topStatus.style.display = '';
 
-    const statusBtn = document.getElementById('statusBtn');
-    if (statusBtn) statusBtn.classList.add('active');
 }
 
 function toggleGithubAuthSteps(btn) {

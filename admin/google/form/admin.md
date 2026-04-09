@@ -1,11 +1,11 @@
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="margin:0">Admin Info</h2>
+<h1 style="margin:0">Admin Info</h1>
 <button class="btn btn-secondary" onclick="toggleGithubAuthSteps(this)">Google Client ID</button>
 </div>
 
-## How Auth.js Works
+## How Auth.js Works - Switched to BetterAuth
 
-We're using Better Auth (click Auth Config above)
+We're using BetterAuth (click "[Auth Config](#tab=auth)" tab above)
 
 This will be revised/replaced...
 
