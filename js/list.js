@@ -604,14 +604,14 @@ async function fetchListFeed(url, options = {}, forceCorsProxy = false, API_BASE
         }
     } catch (proxyError) {
         console.error('Rust backend proxy failed:', proxyError.message);
-        if (forceCorsProxy) {
-            showMessage('CORS proxy failed. Using fallback data...', 'warning');
-        } else {
-            showMessage('Both direct access and proxy failed. Using fallback data...', 'warning');
-        }
-        
+
         // Return mock data structure for DemocracyLab as last resort
         if (url.includes('democracylab.org')) {
+            if (forceCorsProxy) {
+                showMessage('CORS proxy failed. Using sample fallback data for DemocracyLab.', 'warning');
+            } else {
+                showMessage('Both direct access and proxy failed. Using sample fallback data for DemocracyLab.', 'warning');
+            }
             return [
                 {
                     project_name: "Sample DemocracyLab Project",
@@ -622,6 +622,13 @@ async function fetchListFeed(url, options = {}, forceCorsProxy = false, API_BASE
                     project_date_modified: new Date().toISOString()
                 }
             ];
+        }
+
+        // No fallback data available for this URL type
+        if (forceCorsProxy) {
+            showMessage('CORS proxy failed. No fallback data available — Rust backend (localhost:8081) may not be running.', 'warning');
+        } else {
+            showMessage('Both direct access and proxy failed. No fallback data available.', 'warning');
         }
         throw proxyError;
     }
