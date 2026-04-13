@@ -6,7 +6,7 @@ Append "nopr" if you are not yet ready to send a Pull Request.
 
 ## Using your AI Coding Agent to push and pull
 
-IMPORTANT: The firt time you use in a session, include extra guidance.
+IMPORTANT: The first time you use in a session, include extra guidance.
 
 <pre><code>push using AGENTS.md guidance with git.sh</code></pre>
 
