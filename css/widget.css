@@ -359,6 +359,49 @@ body {
     color: #ddd;
 }
 
+#city-search-note {
+    display: none;
+    padding: 0 12px 22px;
+}
+.city-search-expanded-note {
+    font-size: 0.85rem;
+    color: #666;
+    padding: 4px 0 6px;
+}
+.dark .city-search-expanded-note {
+    color: #aaa;
+}
+
+#city-autocomplete {
+    display: none;
+    padding: 0 12px 22px;
+}
+.city-autocomplete-list {
+    list-style: none;
+    margin: 4px 0 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.dark .city-autocomplete-list {
+    background: #333;
+    border-color: #555;
+}
+.city-autocomplete-item {
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.city-autocomplete-item:hover {
+    background: #f0f4ff;
+    color: #333;
+}
+.dark .city-autocomplete-item:hover {
+    background: #444;
+}
+
 .pagination-container {
     display: flex;
     justify-content: center;

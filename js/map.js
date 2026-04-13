@@ -210,6 +210,7 @@ class ListingsDisplay {
         this.inspectMode = false; // Track inspect mode for debug messages
         this.debugMessages = []; // Store debug messages
         this.citydataCache = null; // Cache for citydata lookup
+        this.cityLookupData = null; // Cache for city autocomplete
 
         // Configuration for paths
         this.pathConfig = {
@@ -720,12 +721,15 @@ class ListingsDisplay {
         this.listings = data;
         this.filteredListings = data;
         this.currentPage = 1;
-        
+
         // Store filtered data in DOM for download/print functionality
         this.storeDataInDOM(data);
-        
+
         this.initializeSearchFields();
         this.dataLoaded = true;
+
+        // Load city lookup data for autocomplete (async, non-blocking)
+        this.loadCityLookupData();
         
         this.loading = false;
         
@@ -2841,8 +2845,9 @@ Do not include any explanation or additional text.`;
             this.filteredListings = this.listings.filter(listing => {
                 if (isSingleLetterSearch) {
                     let primaryValue = '';
-                    if (this.config?.nameColumn && listing[this.config.nameColumn]) {
-                        primaryValue = listing[this.config.nameColumn].toString();
+                    if (this.config?.nameColumn) {
+                        const nameKey = Object.keys(listing).find(k => k.toLowerCase() === this.config.nameColumn.toLowerCase());
+                        if (nameKey && listing[nameKey]) primaryValue = listing[nameKey].toString();
                     } else if (this.config?.titleColumn && listing[this.config.titleColumn]) {
                         primaryValue = listing[this.config.titleColumn].toString();
                     } else {
@@ -3041,9 +3046,129 @@ Do not include any explanation or additional text.`;
 
     clearSearch() {
         this.searchTerm = '';
+        this.cityLookupActive = false;
         const searchInput = document.getElementById('searchInput');
         if (searchInput) searchInput.value = '';
+        const autocomplete = document.getElementById('city-autocomplete');
+        if (autocomplete) { autocomplete.innerHTML = ''; autocomplete.style.display = 'none'; }
+        const noteEl = document.getElementById('city-search-note');
+        if (noteEl) { noteEl.innerHTML = ''; noteEl.style.display = 'none'; }
         this.filterListings();
+    }
+
+    async loadCityLookupData() {
+        this.cityLookupData = null;
+        if (!this.config?.citylookup) return;
+
+        const citylookup = this.config.citylookup;
+
+        // If citylookup refers to the current show, reuse already-loaded listings
+        if (citylookup === this.currentShow) {
+            this.cityLookupData = this.listings;
+            return;
+        }
+
+        // If citylookup is a key in showConfigs, get its dataset path
+        let dataPath = citylookup;
+        if (this.showConfigs[citylookup]?.dataset) {
+            dataPath = this.showConfigs[citylookup].dataset;
+        }
+
+        // If it still looks like a bare key name (no path separators), bail
+        if (!dataPath.includes('/') && !dataPath.includes('.')) {
+            console.warn(`citylookup "${citylookup}" not found in showConfigs and is not a path`);
+            return;
+        }
+
+        try {
+            const url = this.resolveDatasetUrl(dataPath);
+            this.cityLookupData = await this.loadCSVData(url);
+            console.log(`City lookup data loaded: ${this.cityLookupData.length} cities`);
+        } catch (err) {
+            console.error('Failed to load city lookup data:', err);
+        }
+    }
+
+    hasCityAutocompleteMatch() {
+        if (!this.cityLookupData || !this.searchTerm) return false;
+        const term = this.searchTerm.trim().toLowerCase();
+        if (!term) return false;
+        const nameCol = this.getCityLookupNameColumn();
+        return this.cityLookupData.some(row => {
+            const cityKey = Object.keys(row).find(k => k.toLowerCase() === nameCol.toLowerCase());
+            const city = cityKey ? row[cityKey] : '';
+            return city && city.toLowerCase().startsWith(term);
+        });
+    }
+
+    getCityLookupNameColumn() {
+        if (!this.config?.citylookup) return 'City';
+        const refConfig = this.showConfigs[this.config.citylookup];
+        return refConfig?.nameColumn || 'City';
+    }
+
+    updateCityAutocomplete() {
+        const container = document.getElementById('city-autocomplete');
+        if (!container) return;
+
+        const term = this.searchTerm.trim().toLowerCase();
+        if (!term || !this.cityLookupData || this.cityLookupData.length === 0) {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            return;
+        }
+
+        const nameCol = this.getCityLookupNameColumn();
+        const matches = this.cityLookupData
+            .filter(row => {
+                const cityKey = Object.keys(row).find(k => k.toLowerCase() === nameCol.toLowerCase());
+                const city = cityKey ? row[cityKey] : '';
+                return city && city.toLowerCase().startsWith(term);
+            })
+            .slice(0, 10);
+
+        if (matches.length === 0) {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            return;
+        }
+
+        const nameColKey = Object.keys(matches[0]).find(k => k.toLowerCase() === nameCol.toLowerCase()) || nameCol;
+        const countyColKey = Object.keys(matches[0]).find(k => k.toLowerCase() === 'county');
+        container.innerHTML = `<ul class="city-autocomplete-list" style="overflow-y:${matches.length <= 5 ? 'hidden' : 'auto'}">${matches.map(row => {
+            const city = row[nameColKey] || '';
+            const county = countyColKey ? row[countyColKey] : '';
+            const label = county ? `${city}, ${county} County` : city;
+            return `<li class="city-autocomplete-item" onclick="window.listingsApp.selectCity('${city.replace(/'/g, "\\'")}','${county.replace(/'/g, "\\'")}')">${label}</li>`;
+        }).join('')}</ul>`;
+        container.style.display = 'block';
+    }
+
+    selectCity(cityName, countyName) {
+        const searchInput = document.getElementById('searchInput');
+        const autocomplete = document.getElementById('city-autocomplete');
+        const noteEl = document.getElementById('city-search-note');
+
+        if (autocomplete) { autocomplete.innerHTML = ''; autocomplete.style.display = 'none'; }
+        if (noteEl) { noteEl.innerHTML = ''; noteEl.style.display = 'none'; }
+
+        this.searchTerm = cityName;
+        if (searchInput) searchInput.value = cityName;
+        this.filterListings();
+
+        // Fall back to county if city found no results
+        if (countyName && this.filteredListings.length === 0) {
+            this.searchTerm = countyName;
+            if (searchInput) searchInput.value = countyName;
+            this.filterListings();
+            if (this.filteredListings.length > 0) {
+                this.cityLookupActive = true;
+                if (noteEl) {
+                    noteEl.innerHTML = `<div class="city-search-expanded-note">Expanded search for ${cityName} to ${countyName} County</div>`;
+                    noteEl.style.display = 'block';
+                }
+            }
+        }
     }
 
     async changeShow(showKey, updateCache = true) {
@@ -3076,8 +3201,12 @@ Do not include any explanation or additional text.`;
             this.isDatasetChanging = true;
         }
         await this.loadShowData(); // This calls render(), but it will be skipped due to flag
-        this.updateListingsDisplay(); // Update only the listings display
         this.isDatasetChanging = false;
+        if (this.searchTerm.trim()) {
+            this.filterListings(); // Re-apply existing search term to new dataset
+        } else {
+            this.updateListingsDisplay();
+        }
         
         // Update map with new dataset and fit to new points
         if (window.leafletMap) {
@@ -3116,7 +3245,11 @@ Do not include any explanation or additional text.`;
             // Create bound handler for removal later
             this.searchInputHandler = (e) => {
                 this.searchTerm = e.target.value;
-                
+                this.cityLookupActive = false;
+                this.updateCityAutocomplete();
+                const noteEl = document.getElementById('city-search-note');
+                if (noteEl) { noteEl.innerHTML = ''; noteEl.style.display = 'none'; }
+
                 const now = Date.now();
                 const timeSinceLastInput = this.lastInputTime ? now - this.lastInputTime : 1000;
                 this.lastInputTime = now;
@@ -3169,7 +3302,7 @@ Do not include any explanation or additional text.`;
 
         // Close popup when clicking outside
         document.addEventListener('click', (e) => {
-            if (this.searchPopupOpen && !e.target.closest('.search-fields-control')) {
+            if (this.searchPopupOpen && !e.target.closest('.search-fields-control') && !e.target.closest('.search-fields-popup')) {
                 this.closeSearchPopup();
             }
         });
@@ -5881,7 +6014,7 @@ Do not include any explanation or additional text.`;
 
     renderNoResults() {
         // Show no results message when data is loaded but filtered results are empty
-        if (this.dataLoaded && this.filteredListings.length === 0 && this.searchTerm) {
+        if (this.dataLoaded && this.filteredListings.length === 0 && this.searchTerm && !this.cityLookupActive && !this.hasCityAutocompleteMatch()) {
             return `
                 <div class="no-results">
                     <div class="no-results-content">
@@ -6320,6 +6453,12 @@ Do not include any explanation or additional text.`;
 
                         <!-- Popups Container -->
                         <div id="widgetDetailsPopups" style="position: relative;"></div>
+
+                        <!-- City Search Expanded Note -->
+                        <div id="city-search-note"></div>
+
+                        <!-- City Autocomplete -->
+                        <div id="city-autocomplete"></div>
 
                         <!-- Listings Grid -->
                         <!-- Above-the-fold key/value pairs come from getRecognizedFields + config.featuredColumns. -->
