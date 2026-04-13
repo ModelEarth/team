@@ -396,7 +396,6 @@ body {
 }
 .city-autocomplete-item:hover {
     background: #f0f4ff;
-    color: #333;
 }
 .dark .city-autocomplete-item:hover {
     background: #444;
