@@ -234,14 +234,20 @@ class ListingsDisplay {
 
             const detailsTrigger = e.target.closest('.view-details-btn, .listing-title');
             if (detailsTrigger) {
+                const scrollToDetails = () => {
+                    const section = document.querySelector('.locationDetails');
+                    if (section) { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+                };
                 const indexValue = Number(detailsTrigger.dataset.listingIndex);
                 if (!Number.isNaN(indexValue)) {
                     const listing = this.filteredListings[indexValue];
                     const hashId = listing ? this.getListingHashId(listing, indexValue) : null;
                     if (hashId && typeof goHash === 'function') {
                         goHash({ id: hashId });
+                        setTimeout(scrollToDetails, 50);
                     } else {
                         this.showListingDetailsByIndex(indexValue);
+                        scrollToDetails();
                     }
                     return;
                 }
@@ -253,8 +259,10 @@ class ListingsDisplay {
                         const hashId = listing ? this.getListingHashId(listing, resolvedIndex) : listingId;
                         if (hashId && typeof goHash === 'function') {
                             goHash({ id: hashId });
+                            setTimeout(scrollToDetails, 50);
                         } else {
                             this.showListingDetailsByIndex(resolvedIndex);
+                            scrollToDetails();
                         }
                     }
                 }
@@ -537,7 +545,7 @@ class ListingsDisplay {
     getNotFoundMessage(listName) {
         return `
             <span class="material-icons" style="font-size: 48px; color: #999;">search_off</span>
-            <p>List ${listName} not found.</p>
+            <p>The requested dataset ${listName} was not found in the current site.</p>
         `;
     }
 
@@ -639,12 +647,13 @@ class ListingsDisplay {
             this.dataLoadError = this.getNotFoundMessage(this.currentShow);
             this.loading = false;
 
-            // Wait for and replace the loading spinner with error message
-            waitForElm("#listwidget .loading").then((spinner) => {
-                if (spinner) {
-                    spinner.innerHTML = this.getNotFoundMessage(this.currentShow);
-                }
-            });
+            // Replace the loading spinner with error message
+            const spinner = document.querySelector("#listwidget .loading");
+            if (spinner) {
+                spinner.innerHTML = this.getNotFoundMessage(this.currentShow);
+            } else {
+                this.showLoadingState(this.getNotFoundMessage(this.currentShow));
+            }
 
             return;
         }
@@ -6224,6 +6233,10 @@ Do not include any explanation or additional text.`;
             return;
         }
 
+        const listingsGrid = document.querySelector('.listings-grid');
+        const cardCount = listingsGrid ? listingsGrid.querySelectorAll('.listing-card').length : 0;
+        expandBtn.style.display = cardCount > 4 ? '' : 'none';
+
         const widgetDetails = document.getElementById('widgetDetails');
         const heroContainer = document.getElementById('widgetHero');
 
@@ -6279,7 +6292,7 @@ Do not include any explanation or additional text.`;
                 const viewSourceLink = this.renderViewSourceLink();
                 detailsBottom.innerHTML = `
                     <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                        <button class="expand-list-btn">Expand List</button>
+                        <button class="expand-list-btn btn-clear" style="display:none">Expand List</button>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="search-results">
                                 ${this.renderSearchResults()}
@@ -6474,7 +6487,7 @@ Do not include any explanation or additional text.`;
                         <!-- Widget Details Bottom Container -->
                         <div id="widgetDetailsBottom">
                             <div class="search-results-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                                <button class="expand-list-btn">Expand List</button>
+                                <button class="expand-list-btn btn-clear" style="display:none">Expand List</button>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <div class="search-results">
                                         ${this.renderSearchResults()}
@@ -6558,6 +6571,7 @@ Do not include any explanation or additional text.`;
             this.setupPanelMenuToggles();
         //}, 0);
 
+        this.updateExpandListButtonText();
     }
 
     setupPanelMenuToggles() {
