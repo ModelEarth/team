@@ -276,6 +276,8 @@ When a user says "push [name]" and chooses option 1 (git.sh script):
 - `nopr` - Skip PR creation on push failures
 - `nopull` - Skip auto-pull before push (use when history has diverged, after git filter-repo, or when you need to force push)
 
+**Clarification:** If the user owns the target repo and direct push is expected to succeed, use plain `./git.sh push` without appending `nopr`. Reserve `nopr` for cases where the user explicitly wants to suppress PR fallback behavior.
+
 **When to use `nopull`:**
 - After using `git filter-repo` to clean git history (histories have diverged)
 - When you need to force push without pulling first
