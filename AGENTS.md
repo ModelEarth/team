@@ -251,12 +251,13 @@ The ./git.sh commands are `./git.sh push` and `./git.sh pull`
 
 ### Push Reporting Guidelines
 
-- In either push (git.sh or direct), include commit/PR info
+- In either push (git.sh or direct), include commit info
 - Keep commit messages clean and focused on the actual changes
 - **ONLY report what was pushed in the current push operation**
 - Do NOT describe or reference previous commits or earlier implementations
 - Focus on the specific files and changes that were just committed
 - Keep push summaries factual and limited to the immediate operation
+- **Do NOT assume a PR was created** when git.sh reports "fork workflow" — if the current account is a collaborator on the target repo, the push succeeds directly without a PR. Only mention a PR if git.sh explicitly confirms one was created.
 
 ### Pull / Pull All
 When you type "pull" or "pull all" and choose workflow #1 (direct), run this comprehensive pull workflow that pulls from all parent repos, submodules, and site repos:
