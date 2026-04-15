@@ -381,24 +381,21 @@ This repository contains git submodules configured in `.gitmodules` including:
 - **Repository Hierarchy**: `user-fork` → `modelearth` (STOP - do not go higher)
 
 ### Repository Root Navigation
-**CRITICAL**: Always ensure you're in the root folder before executing any commands. The CLI session is pointed to the root folder directory, and all operations must start from there:
+The CLI session is already pointed to the root folder directory. Do **not** prefix commands with `cd $(git rev-parse --show-toplevel)` — the `$()` substitution triggers unnecessary approval prompts. All `./git.sh` commands can be run directly.
 
+To verify you're in the correct root repository:
 ```bash
-# ALWAYS navigate to root folder first (required for all operations)
-cd $(git rev-parse --show-toplevel)
-
-# Verify you're in the correct root repository
 git remote -v
 # Should show: origin pointing to the root repo (folder name matches repo name)
 ```
 
-**IMPORTANT FILE PATH POLICY**: 
+**IMPORTANT FILE PATH POLICY**:
 - **NEVER hardcode specific file paths** from any user's computer in code or documentation
 - **NEVER include paths like `/Users/username/` or `C:\Users\`** in any commands or examples
 - Always use relative paths, environment variables, or git commands to determine paths dynamically
 
 ### Supported Repository Names
-- **Root repo**: current folder name (e.g. `$(basename $(git rev-parse --show-toplevel))`)
+- **Root repo**: current folder name — use `git remote -v` or `pwd` to confirm, not `$(basename $(git rev-parse --show-toplevel))`
 - **Submodules**: Defined in `.gitmodules` file
 - **Site Repos**: Defined in `.siterepos` file
 
