@@ -207,6 +207,8 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 **NEVER add Claude Code attribution or co-authored-by lines to commits**
 
+- Git: only run push/pull via `./git.sh` and only commit/push when the user explicitly asks.
+
 ### Standard Git Workflow
 
 **CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
