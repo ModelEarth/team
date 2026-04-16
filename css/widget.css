@@ -350,6 +350,9 @@ body {
     display: none;
     padding: 0 12px 22px;
 }
+.listings-margin-left {
+    margin-left: 46px;
+}
 .city-search-expanded-note {
     font-size: 0.85rem;
     color: #666;

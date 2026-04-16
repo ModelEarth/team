@@ -6468,14 +6468,14 @@ Do not include any explanation or additional text.`;
                         <div id="widgetDetailsPopups" style="position: relative;"></div>
 
                         <!-- City Search Expanded Note -->
-                        <div id="city-search-note"></div>
+                        <div id="city-search-note" class="listings-margin-left"></div>
 
                         <!-- City Autocomplete -->
-                        <div id="city-autocomplete"></div>
+                        <div id="city-autocomplete" class="listings-margin-left"></div>
 
                         <!-- Listings Grid -->
                         <!-- Above-the-fold key/value pairs come from getRecognizedFields + config.featuredColumns. -->
-                        <div class="listings-scroll-container">
+                        <div class="listings-scroll-container listings-margin-left">
                             <div class="listings-grid basePanelPadding" style="padding-top:0px">
                                 ${this.renderListings()}
                             </div>
