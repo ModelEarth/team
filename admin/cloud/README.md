@@ -1,6 +1,6 @@
 # Coding Meetup Integration - PartnerTools
 
-- **Launch Our Model.earth Meetup:** [https://meet.google.com/pcv-xrdh-bat](https://meet.google.com/pcv-xrdh-bat)
+- **Launch Our Model.earth Meetup:** [io/coders](/io/coders/)
 - **Google Sheet ID:** You'll need to create a Google Sheet and get its ID from the URL. The ID is the long string of characters between `/d/` and `/edit`.
 
 ## Add Settings for Coding Meetup Integration
