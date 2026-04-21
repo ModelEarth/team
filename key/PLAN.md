@@ -177,13 +177,15 @@ chat/key/
 | Phase | Status |
 |---|---|
 | Phase 1 — Expand `chat` Storage Schema | Complete |
-| Phase 1b — Encrypt Keys at Rest | Not started |
+| Phase 1b — Encrypt Keys at Rest | Complete |
 | Phase 2 — Update `chat` Model Selector | Complete |
 | Phase 3 — Show list of all models in Chat Sidebar | Complete |
 | Phase 4 — Build the Embeddable Static Widget | Complete |
 | Phase 5 — Update `team/projects/index.html` | Complete |
 | Phase 6 — Update `requests/engine/` | Complete |
 | Phase 7 — `chat` Settings Page Updates | Complete |
+| Phase 8 — Server-Side .env Key Indicators | Not started |
+| Phase 9 — Asymmetric Key Encryption (Server-Only Decryption) | Not started |
 
 ---
 
