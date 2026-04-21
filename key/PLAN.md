@@ -178,7 +178,7 @@ chat/key/
 |---|---|
 | Phase 1 — Expand `chat` Storage Schema | Complete |
 | Phase 1b — Encrypt Keys at Rest | Not started |
-| Phase 2 — Update `chat` Model Selector | Not started |
+| Phase 2 — Update `chat` Model Selector | Complete |
 | Phase 3 — Show list of all models in Chat Sidebar | Complete |
 | Phase 4 — Build the Embeddable Static Widget | Complete |
 | Phase 5 — Update `team/projects/index.html` | Complete |
