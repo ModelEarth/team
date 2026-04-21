@@ -454,82 +454,109 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 
 **Goal:** Show in the key manager UI which providers have a key available from the local `docker/.env` file (read by the Rust team server), so users know they can use those models without entering a browser key.
 
-Currently the Rust server at `localhost:8081` exposes `GET /api/config/current` with `gemini_api_key_present: bool`. This phase extends that to cover all relevant providers and surfaces the information in every key manager UI.
-
 ### Rust changes — `team/src/main.rs`
 
-Add presence flags for every provider key that can appear in `docker/.env`:
+Replace the existing `gemini_api_key_present: bool` field (and the individual per-provider approach) with a single generic list driven by a static mapping:
+
+```rust
+/// Maps provider ID → env var name. Single source of truth for all key lookups.
+const PROVIDER_ENV_VARS: &[(&str, &str)] = &[
+    ("google",     "GEMINI_API_KEY"),
+    ("anthropic",  "ANTHROPIC_API_KEY"),
+    ("openai",     "OPENAI_API_KEY"),
+    ("xai",        "XAI_API_KEY"),
+    ("groq",       "GROQ_API_KEY"),
+    ("together",   "TOGETHER_API_KEY"),
+    ("fireworks",  "FIREWORKS_API_KEY"),
+    ("mistral",    "MISTRAL_API_KEY"),
+    ("perplexity", "PERPLEXITY_API_KEY"),
+    ("deepseek",   "DEEPSEEK_API_KEY"),
+    ("discord",    "DISCORD_BOT_TOKEN"),
+];
+
+fn env_keys_present() -> Vec<String> {
+    PROVIDER_ENV_VARS.iter()
+        .filter(|(_, var)| {
+            std::env::var(var).map_or(false, |v| !v.is_empty() && v != "dummy_key")
+        })
+        .map(|(id, _)| id.to_string())
+        .collect()
+}
+```
+
+Update `EnvConfigResponse` — remove `gemini_api_key_present`, add `env_keys_present`:
 
 ```rust
 #[derive(Serialize)]
 struct EnvConfigResponse {
-    // existing fields ...
-    gemini_api_key_present: bool,
-    // new
-    anthropic_api_key_present: bool,
-    openai_api_key_present: bool,
-    xai_api_key_present: bool,
-    groq_api_key_present: bool,
-    together_api_key_present: bool,
-    fireworks_api_key_present: bool,
-    mistral_api_key_present: bool,
-    perplexity_api_key_present: bool,
-    deepseek_api_key_present: bool,
-    discord_bot_token_present: bool,
+    database: Option<EnvDatabaseConfig>,
+    database_connections: Vec<DatabaseConnection>,
+    env_keys_present: Vec<String>,   // replaces gemini_api_key_present
+    google_client_id: Option<String>,
+    // ... other existing fields unchanged
 }
 ```
 
-Populate each flag by checking `std::env::var("PROVIDER_API_KEY").map_or(false, |k| !k.is_empty() && k != "dummy_key")`.
-
-Also add the same flags to `get_current_config` (the fast in-memory path at `/api/config/current`), reading from `config_guard` where loaded and falling back to `std::env::var` for newly added keys.
+Update `get_env_config` and `get_current_config` to call `env_keys_present()` instead of the individual boolean check. Remove all references to `gemini_api_key_present`.
 
 ### New Next.js API route — `chat/app/api/server-keys/route.ts`
 
-Proxies to the team Rust server and returns a normalized map of which providers have a server-side key:
+Fetches from the Rust server and returns the list directly:
 
 ```ts
 // GET /api/server-keys
-// Returns: { google: true, discord: true, ... } — only present = true entries
-```
+// Returns: ["google", "discord"]  — provider IDs that have a .env key
+export const revalidate = 30;
 
-- Fetches `http://localhost:8081/api/config/current` (fast path)
-- Maps `gemini_api_key_present → google`, `discord_bot_token_present → discord`, etc.
-- Returns only providers where the flag is `true`
-- On fetch failure (Rust server not running): returns `{}` — client treats all as absent
-- Cache with `revalidate: 30` so the UI updates within 30 s of a `.env` change
+export async function GET() {
+  try {
+    const res = await fetch("http://localhost:8081/api/config/current");
+    const data = await res.json();
+    return Response.json(data.env_keys_present ?? []);
+  } catch {
+    return Response.json([]);  // Rust server not running — treat all as absent
+  }
+}
+```
 
 ### Key manager UI changes
 
-**`chat/key/key-manager.js`** — on `init()`, fetch `/api/server-keys` (if running on the chat app's origin) or `http://localhost:8081/api/config/current` (if running on `localhost:8887`):
+**`chat/key/key-manager.js`** — fetch server keys on `init()` before rendering:
 
 ```js
-// Determine which endpoint to use based on current origin
 var SERVER_KEYS_URL = location.port === '3000'
   ? '/api/server-keys'
   : 'http://localhost:8081/api/config/current';
+
+var _serverKeys = new Set();
+
+function _loadServerKeys() {
+  return fetch(SERVER_KEYS_URL)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      // /api/server-keys returns an array; /api/config/current returns object with env_keys_present
+      var list = Array.isArray(data) ? data : (data.env_keys_present || []);
+      _serverKeys = new Set(list);
+    })
+    .catch(function() {});  // silently ignore if unavailable
+}
 ```
 
-Store result in `_serverKeys: {}` (provider → bool).
+Call `_loadServerKeys()` in parallel with `_initCrypto()` before `_renderWidget`.
 
-In `buildProviderHeader`, if `_serverKeys[provider.id]` is true and `!hasKey(provider.id)`, show a "server" badge:
+In `buildProviderHeader`, if `_serverKeys.has(provider.id)` and `!hasKey(provider.id)`, show a `.key-server-badge` next to the provider name (e.g. `[.env]`). If both browser key and server key are present, only show the browser check mark — the server key is a silent fallback.
 
-```
-✓  Google   [server]  3 models  ›
-```
+**`chat/components/model-selector.tsx`** — fetch `/api/server-keys` via SWR; pass `serverKeys: Set<string>` alongside `keyedProviders`. A provider shows a check icon if `keyedProviders.has(id) || serverKeys.has(id)`. Use a distinct icon (e.g. `Server` from lucide-react) when the key comes only from the server.
 
-The badge uses a distinct style (e.g. `key-server-badge`) so it's clearly different from the browser-key check mark.
-
-**`chat/components/model-selector.tsx`** — fetch `/api/server-keys` from the server component or via SWR in the client; pass `serverKeys: Set<string>` to the selector. A provider counts as "available" if `keyedProviders.has(id) || serverKeys.has(id)`. Show a different icon (e.g. `Server` from lucide-react) when availability comes only from the server key.
-
-**`chat/key/style.css`** — add `.key-server-badge` style, visually distinct from `.key-model-badge`.
+**`chat/key/style.css`** — add `.key-server-badge` styled to be visually distinct from `.key-model-badge` (e.g. muted blue instead of gray).
 
 ### Priority of key resolution (client)
 
 When assembling request headers in `chat.tsx`:
-1. Browser localStorage key (decrypted from cache) — always preferred
-2. If absent, send no key header — the server will fall back to its own `.env` key for that provider
+1. Browser localStorage key (decrypted from cache) — always preferred; sent as `x-google-api-key`
+2. If absent, send no key header — the server falls back to its own `.env` key for that provider
 
-The server already reads its env keys as a fallback in `/api/chat`; no change needed there.
+No changes needed in `/api/chat` — it already reads its own env vars as a fallback.
 
 ---
 
@@ -657,7 +684,7 @@ Duplicate `fetchServerPublicKey` / `encryptForServer` / `isServerEncrypted` logi
 | `chat/key/style.css` | **New** — widget styles |
 | `chat/key/index.html` | **New** — static settings page at localhost:8887/chat/key/ |
 | `team/projects/index.html` | Use `KeyManager.*` instead of `getCachedApiKey`; embed widget in modal |
-| `team/src/main.rs` | Add presence flags for all providers + `discord_bot_token_present` to `EnvConfigResponse` and `get_current_config` |
+| `team/src/main.rs` | Replace `gemini_api_key_present` with generic `env_keys_present: Vec<String>` driven by `PROVIDER_ENV_VARS` mapping |
 | `requests/engine/agents/agents.js` | **Remove** after Phase 6 migration is verified |
 | `chat/app/api/server-keys/route.ts` | **New** — proxy to Rust `/api/config/current`, return normalized provider presence map |
 | `chat/app/api/public-key/route.ts` | **New** — serve RSA public key JWK for client-side asymmetric encryption |
