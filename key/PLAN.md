@@ -131,7 +131,7 @@ key-manager/
 `KeyManagerPanel` renders:
 - For each provider (all providers, not just those with keys):
   - Provider row: icon, name, model count, availability indicator
-    - check mark (`CheckCircleFillIcon` from `components/icons.tsx`, the inline SVG icon already used in the chat repo) if key stored
+    - check mark (`CheckCircleFillIcon` from `components/icons.tsx` for React components; `lucide-react`'s `Check` is also available for sidebar tab panel content) if key stored
   - When expanded / entering key: same `APIKeySection` card as current settings page (password input, show/hide, clear, verify)
 - "Where to get your key" link per provider
 - Security notice (keys stored locally, never transmitted)
@@ -263,32 +263,20 @@ Add named IDs to the rendered elements:
 
 **File:** `chat/components/app-sidebar.tsx`
 
-Use the existing padlock button process that opens a left side panel. Add an update to the `SidebarHeader` action row (alongside the existing Trash and Plus buttons):
+Use the existing padlock button process that opens a left side panel. Add an update to the `TABS` array entry currently using `Lock` / "Visibility":
+
+- **Rename** label from `"Visibility"` → `"AI Models & API Keys"`
+- **Replace icon** from `Lock` → `BrainCog` (from `lucide-react`; conveys AI + configuration)
+- **Panel content**: render `KeyManagerPanel` showing the full list of providers and models with check mark availability indicators. The existing Private/Public visibility toggle moves into this panel as a secondary section below the model list.
 
 ```tsx
-import { LockIcon } from "@/components/icons";
+import { BrainCog } from "lucide-react";
 
-// In the button row:
-<Tooltip>
-  <TooltipTrigger asChild>
-    <Button
-      id="km-sidebar-lock-btn"
-      className="h-8 p-1 md:h-fit md:p-2"
-      onClick={() => router.push("/settings")}
-      type="button"
-      variant="ghost"
-      aria-label="API Keys"
-    >
-      <LockIcon size={16} />
-    </Button>
-  </TooltipTrigger>
-  <TooltipContent align="end" className="hidden md:block">
-    API Keys
-  </TooltipContent>
-</Tooltip>
+// In the TABS array:
+{ id: "visibility" as ActiveTab, icon: <BrainCog size={15} />, label: "AI Models & API Keys" }
 ```
 
-Optionally, add an inline `KeyManagerPanel` slide-out within the sidebar (below `SidebarContent`) that expands when clicked, avoiding a full page navigation.
+The sidebar tab row uses `lucide-react` for all icons — use it here rather than `components/icons.tsx`. See `chat/AGENTS.md` for the icon system decision table.
 
 ---
 
