@@ -195,8 +195,7 @@ Current behavior: filters out providers/models where `enabled === false`.
 New behavior:
 - Show **all** providers from config (both enabled and disabled)
 - Show **all** models per provider (both active and inactive)
-- For providers where the user has no key stored: show 🔒 icon next to provider name in the submenu trigger
-- For providers where key is present: show ✅ icon
+- For providers where key is present: show a check icon using the material icon library (or whatever icon system is already in use) rather than a font emoji
 - Model items in providers without a key: render greyed out with a "Add key to use" note
 - Clicking a locked provider's submenu trigger (or a locked model) opens `KeyManagerPanel` focused on that provider instead of selecting the model
 
@@ -207,11 +206,11 @@ Add named IDs to the rendered elements:
 
 ---
 
-## Phase 3 — Add Lock Icon to Chat Sidebar
+## Phase 3 — Show list of all models in Chat Sidebar
 
 **File:** `chat/components/app-sidebar.tsx`
 
-Add a padlock button to the `SidebarHeader` action row (alongside the existing Trash and Plus buttons):
+Use the existing padlock button process that opens a left side panel. Add an update to the `SidebarHeader` action row (alongside the existing Trash and Plus buttons):
 
 ```tsx
 import { LockIcon } from "@/components/icons";
@@ -417,7 +416,7 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 | `chat/components/key-manager/ModelSelectorPanel.tsx` | **New** — model selector with lock indicators |
 | `chat/components/key-manager/useKeyManager.ts` | **New** — hook for key presence state |
 | `chat/components/model-selector.tsx` | Show all providers/models; add 🔒/✅ indicators; add IDs |
-| `chat/components/app-sidebar.tsx` | Add padlock button to sidebar header |
+| `chat/components/app-sidebar.tsx` | Update existing padlock left side panel to render `KeyManagerPanel` |
 | `chat/components/settings/settings-page.tsx` | Replace 3 hardcoded sections with `KeyManagerPanel` |
 | `chat/key/providers.js` | **New** — static JS copy of provider registry |
 | `chat/key/key-manager.js` | **New** — vanilla JS embeddable widget |
