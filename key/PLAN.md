@@ -450,6 +450,183 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 
 ---
 
+## Phase 8 — Server-Side .env Key Indicators
+
+**Goal:** Show in the key manager UI which providers have a key available from the local `docker/.env` file (read by the Rust team server), so users know they can use those models without entering a browser key.
+
+Currently the Rust server at `localhost:8081` exposes `GET /api/config/current` with `gemini_api_key_present: bool`. This phase extends that to cover all relevant providers and surfaces the information in every key manager UI.
+
+### Rust changes — `team/src/main.rs`
+
+Add presence flags for every provider key that can appear in `docker/.env`:
+
+```rust
+#[derive(Serialize)]
+struct EnvConfigResponse {
+    // existing fields ...
+    gemini_api_key_present: bool,
+    // new
+    anthropic_api_key_present: bool,
+    openai_api_key_present: bool,
+    xai_api_key_present: bool,
+    groq_api_key_present: bool,
+    together_api_key_present: bool,
+    fireworks_api_key_present: bool,
+    mistral_api_key_present: bool,
+    perplexity_api_key_present: bool,
+    deepseek_api_key_present: bool,
+    discord_bot_token_present: bool,
+}
+```
+
+Populate each flag by checking `std::env::var("PROVIDER_API_KEY").map_or(false, |k| !k.is_empty() && k != "dummy_key")`.
+
+Also add the same flags to `get_current_config` (the fast in-memory path at `/api/config/current`), reading from `config_guard` where loaded and falling back to `std::env::var` for newly added keys.
+
+### New Next.js API route — `chat/app/api/server-keys/route.ts`
+
+Proxies to the team Rust server and returns a normalized map of which providers have a server-side key:
+
+```ts
+// GET /api/server-keys
+// Returns: { google: true, discord: true, ... } — only present = true entries
+```
+
+- Fetches `http://localhost:8081/api/config/current` (fast path)
+- Maps `gemini_api_key_present → google`, `discord_bot_token_present → discord`, etc.
+- Returns only providers where the flag is `true`
+- On fetch failure (Rust server not running): returns `{}` — client treats all as absent
+- Cache with `revalidate: 30` so the UI updates within 30 s of a `.env` change
+
+### Key manager UI changes
+
+**`chat/key/key-manager.js`** — on `init()`, fetch `/api/server-keys` (if running on the chat app's origin) or `http://localhost:8081/api/config/current` (if running on `localhost:8887`):
+
+```js
+// Determine which endpoint to use based on current origin
+var SERVER_KEYS_URL = location.port === '3000'
+  ? '/api/server-keys'
+  : 'http://localhost:8081/api/config/current';
+```
+
+Store result in `_serverKeys: {}` (provider → bool).
+
+In `buildProviderHeader`, if `_serverKeys[provider.id]` is true and `!hasKey(provider.id)`, show a "server" badge:
+
+```
+✓  Google   [server]  3 models  ›
+```
+
+The badge uses a distinct style (e.g. `key-server-badge`) so it's clearly different from the browser-key check mark.
+
+**`chat/components/model-selector.tsx`** — fetch `/api/server-keys` from the server component or via SWR in the client; pass `serverKeys: Set<string>` to the selector. A provider counts as "available" if `keyedProviders.has(id) || serverKeys.has(id)`. Show a different icon (e.g. `Server` from lucide-react) when availability comes only from the server key.
+
+**`chat/key/style.css`** — add `.key-server-badge` style, visually distinct from `.key-model-badge`.
+
+### Priority of key resolution (client)
+
+When assembling request headers in `chat.tsx`:
+1. Browser localStorage key (decrypted from cache) — always preferred
+2. If absent, send no key header — the server will fall back to its own `.env` key for that provider
+
+The server already reads its env keys as a fallback in `/api/chat`; no change needed there.
+
+---
+
+## Phase 9 — Asymmetric Key Encryption (Server-Only Decryption)
+
+**Goal:** Eliminate the window where an API key exists as plaintext in client-side JS memory after initial entry. After this phase, XSS that runs after a key is saved cannot extract it.
+
+### Threat model improvement
+
+Current model (Phase 1b): key is encrypted at rest with a browser-bound AES key. To send to the server, it is decrypted into JS memory first — meaning active XSS on the chat page could read it from the plaintext cache or intercept the `fetch` header.
+
+New model: the key is encrypted client-side with the **server's RSA public key** before being stored. The server decrypts it with its private key on each request. The plaintext key is only in JS memory for the brief moment the user types and saves it — never during a normal chat send.
+
+```
+Entry:  user types key → encrypt(key, serverPublicKey) → store "rsa:<base64>" in localStorage
+Send:   read "rsa:<base64>" from cache (no decrypt) → send as header to server
+Server: decrypt(blob, serverPrivateKey) → use plaintext to call AI provider
+```
+
+### Key pair management
+
+Generate an RSA-OAEP 2048-bit key pair once:
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out server_private.pem
+openssl rsa -pubout -in server_private.pem -out server_public.pem
+```
+
+- Private key → `BROWSER_ENCRYPTION_PRIVATE_KEY` in `docker/.env` and Vercel environment variables (PEM string, newlines as `\n`)
+- Public key is served at `GET /api/public-key` (safe to expose)
+
+### New Next.js API route — `chat/app/api/public-key/route.ts`
+
+```ts
+// Returns the RSA public key as a JWK, for use with crypto.subtle.importKey
+export async function GET() {
+  // Parse BROWSER_ENCRYPTION_PRIVATE_KEY from env, extract public key, return as JWK
+}
+```
+
+### `chat/lib/storage/crypto.ts` additions
+
+```ts
+export async function fetchServerPublicKey(): Promise<CryptoKey>
+// Fetches /api/public-key, imports as RSA-OAEP key, caches in module var
+
+export async function encryptForServer(plaintext: string): Promise<string>
+// Returns "rsa:<base64>" — encrypted with server public key
+
+export function isServerEncrypted(value: string): boolean
+// Returns true if value starts with "rsa:"
+```
+
+### `chat/lib/storage/local-storage-manager.ts` changes
+
+`setAPIKey`:
+1. Keep plaintext in `_plaintextCache` for the duration of the current session (so `getAPIKey` keeps working sync)
+2. Encrypt with browser AES key **and** with server public key in parallel
+3. Store the server-encrypted blob: `apiKeys[provider] = "rsa:<base64>"`
+4. The browser-AES version is **not** stored — the "rsa:" blob is what persists
+
+`getAPIKey` (sync, from cache) — unchanged; still returns plaintext from `_plaintextCache`.
+
+`initCrypto`:
+- On finding an `"rsa:<base64>"` entry, do **not** try to decrypt client-side; instead mark the provider as "has key" in a separate set (`_serverEncryptedProviders`)
+- `_plaintextCache` is only populated for the current session's freshly-set keys
+
+`prepareSendMessagesRequest` in `chat.tsx`:
+- If `_plaintextCache` has the key (set this session): send as `x-google-api-key: <plaintext>` header (existing behavior, only during the session the key was entered)
+- Otherwise send the raw "rsa:<base64>" blob as `x-google-api-key-enc: <blob>` header
+- Server decrypts the blob before calling the AI provider
+
+### Server-side decryption — `chat/app/api/chat/route.ts`
+
+```ts
+// Existing: const googleKey = request.headers.get("x-google-api-key");
+// New:
+const googleKeyEnc = request.headers.get("x-google-api-key-enc");
+const googleKey = googleKeyEnc
+  ? await decryptWithServerKey(googleKeyEnc)
+  : request.headers.get("x-google-api-key");
+```
+
+`decryptWithServerKey(blob)` — strips `"rsa:"` prefix, base64-decodes, decrypts with private key loaded from `BROWSER_ENCRYPTION_PRIVATE_KEY` env var.
+
+### Migration / fallback
+
+- Existing browser-AES entries (`"<iv>:<ct>"`) continue to work: `initCrypto` decrypts them into `_plaintextCache` as before, and they are re-encrypted as `"rsa:<base64>"` on next save
+- If `/api/public-key` is unavailable: fall back to browser-AES storage (Phase 1b behavior)
+- `isEncrypted` check in `crypto.ts` now also matches `"rsa:"` prefix
+
+### `chat/key/key-manager.js` changes
+
+Duplicate `fetchServerPublicKey` / `encryptForServer` / `isServerEncrypted` logic in vanilla JS, using the same `/api/public-key` endpoint. The static widget at `localhost:8887/chat/key/` falls back to browser-AES if the chat server is not running.
+
+---
+
 ## What Does NOT Change
 
 - The `storage.apiKeys.*` call signatures — callers always receive/pass plaintext; encryption is transparent inside `LocalStorageManager`
@@ -480,5 +657,8 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 | `chat/key/style.css` | **New** — widget styles |
 | `chat/key/index.html` | **New** — static settings page at localhost:8887/chat/key/ |
 | `team/projects/index.html` | Use `KeyManager.*` instead of `getCachedApiKey`; embed widget in modal |
-| `team/src/main.rs` | Add `xai_api_key_present` etc. to `EnvConfigResponse` |
+| `team/src/main.rs` | Add presence flags for all providers + `discord_bot_token_present` to `EnvConfigResponse` and `get_current_config` |
 | `requests/engine/agents/agents.js` | **Remove** after Phase 6 migration is verified |
+| `chat/app/api/server-keys/route.ts` | **New** — proxy to Rust `/api/config/current`, return normalized provider presence map |
+| `chat/app/api/public-key/route.ts` | **New** — serve RSA public key JWK for client-side asymmetric encryption |
+| `chat/key/style.css` | Add `.key-server-badge` style |
