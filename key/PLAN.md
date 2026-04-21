@@ -185,6 +185,60 @@ chat/key/
 
 ---
 
+## Phase 1b — Encrypt Keys at Rest
+
+Keys stored in `settings_api-keys` are encrypted so they are only decryptable within the same browser that saved them, preventing a JavaScript injection attack from reading a plaintext key out of localStorage.
+
+### Mechanism — Web Crypto API with a non-extractable browser key
+
+On first use, generate a non-extractable AES-GCM `CryptoKey` via `crypto.subtle.generateKey()` and persist it in **IndexedDB** (not localStorage). Because the key is non-extractable, JavaScript can call `crypto.subtle.encrypt/decrypt()` with it but can never read its raw bytes — it is therefore inaccessible to injected scripts that can only read storage values.
+
+```
+IndexedDB['km-store']['browser-key']  →  CryptoKey (non-extractable, AES-GCM 256-bit)
+localStorage['settings_api-keys']     →  { google: "<iv>:<ciphertext base64>", ... }
+```
+
+The browser key is unique per browser profile and origin. It is never transmitted and cannot be exported. Keys encrypted in one browser cannot be decrypted in another — which is why the export window exists (see below).
+
+### `chat/lib/storage/crypto.ts` — new file
+
+Responsibilities:
+- `initBrowserKey()` — retrieve existing key from IndexedDB, or generate and store a new one
+- `encryptValue(plaintext)` — encrypt a string, return `"<iv base64>:<ciphertext base64>"`
+- `decryptValue(stored)` — decrypt a stored string, return plaintext
+- `isEncrypted(value)` — detect whether a stored value is already in encrypted format (for migration of plaintext legacy entries)
+
+### Changes to `LocalStorageManager`
+
+- On `setAPIKey(provider, value)`: encrypt `value` before writing to `settings_api-keys`
+- On `getAPIKey(provider)`: decrypt the stored value before returning
+- On `migrateFromLegacy()`: after migrating plaintext entries from `aPro` / `${aiType}_api_key`, immediately encrypt them
+- Record `settings_api-keys-last-edit` timestamp in localStorage on every `setAPIKey` call
+
+### Export window — 1 hour after last edit
+
+The `.env` format export (replacing the output textarea from `requests/engine/agents.js`) is only available within **1 hour** of the most recent key edit:
+
+- Check `Date.now() - parseInt(localStorage['settings_api-keys-last-edit']) < 3_600_000`
+- If within window: show "Export as .env" button; clicking decrypts all keys and displays them in a blurred textarea (same reveal-on-focus pattern as `agents.js`), formatted as `PROVIDER_API_KEY=value` lines
+- If outside window: button is hidden; only a note explaining that editing any key re-opens the 1-hour window is shown
+
+### UI additions in `KeyManagerPanel`
+
+- **"Encrypt Now" button** — visible whenever a key has been entered or edited in the current session but the 1-hour export window is still open. Clicking immediately closes the export window (sets `settings_api-keys-last-edit` to 0) and confirms encryption is active. This is the user's way of saying "I'm done transferring — lock it down now."
+- **Info icon** (ℹ) next to the "Encrypt Now" button and the export section — opens an inline tooltip or expand panel explaining:
+  - Keys are encrypted with a key stored in your browser that cannot be read by JavaScript
+  - Encrypted keys cannot be used in another browser without re-entering them
+  - The 1-hour export window lets you copy keys to another browser or to a `.env` file
+  - "Encrypt Now" closes the export window immediately
+- The existing show/hide (eye) toggle on key inputs continues to work — it decrypts transiently for display only, never writes plaintext back to storage
+
+### Encryption in the vanilla JS widget (`chat/key/key-manager.js`)
+
+The same `initBrowserKey` / `encryptValue` / `decryptValue` logic is duplicated (or imported as a small shared utility) in the static vanilla JS widget, so encryption works identically on `localhost:8887/chat/key/` and in `team/projects/index.html`.
+
+---
+
 ## Phase 2 — Update `chat` Model Selector
 
 **File:** `chat/components/model-selector.tsx`
@@ -393,7 +447,7 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 
 ## What Does NOT Change
 
-- The `LocalStorageManager` singleton and `storage.apiKeys.*` API in `chat` — only the schema is widened
+- The `storage.apiKeys.*` call signatures — callers always receive/pass plaintext; encryption is transparent inside `LocalStorageManager`
 - The Rust API key reading from `.env` — still functions as server-side fallback
 - The `chat` verification services (live API call on verify) — unchanged, reused in `KeyManagerPanel`
 - The `docker/js/llm-configs.js` and `LLM_CONFIGS` structure in `team/` — add optional `providerId` field only
@@ -406,7 +460,8 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 | File | Action |
 |---|---|
 | `chat/lib/storage/types.ts` | Expand `APIProvider` type + `LocalStorageSchema["api-keys"]` |
-| `chat/lib/storage/local-storage-manager.ts` | Add `migrateFromLegacy()` |
+| `chat/lib/storage/local-storage-manager.ts` | Add `migrateFromLegacy()`; encrypt on write, decrypt on read via `crypto.ts` |
+| `chat/lib/storage/crypto.ts` | **New** — browser-key generation (IndexedDB), AES-GCM encrypt/decrypt, `isEncrypted` detection |
 | `chat/lib/providers.ts` | **New** — canonical provider+model registry (TypeScript) |
 | `chat/components/key-manager/KeyManagerWidget.tsx` | **New** — React embeddable widget |
 | `chat/components/key-manager/KeyManagerPanel.tsx` | **New** — all-providers key UI |
