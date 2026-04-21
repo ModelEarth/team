@@ -3506,6 +3506,21 @@
         if (typeof loadLLMConfig !== 'function') { window.loadLLMConfig = async function() {}; }
         if (typeof LLM_API_ENDPOINT === 'undefined') { window.LLM_API_ENDPOINT = null; }
     </script>
+    <script src="/chat/key/providers.js"></script>
+    <script src="/chat/key/key-manager.js"></script>
+    <script>
+        // Migrate legacy ${aiType}_api_key entries into settings_api-keys
+        if (window.KeyManager) { KeyManager.migrateFromLegacy(); }
+
+        // Map LLM_CONFIGS aiType IDs → KeyManager provider IDs
+        var AITYPE_TO_PROVIDER = {
+            gemini: 'google',
+            claude: 'anthropic',
+            openai: 'openai',
+            xai: 'xai',
+            groq: 'groq',
+        };
+    </script>
     <script>
             // Leaflet heatmap helpers
             let _participantsMap = null;
@@ -5923,7 +5938,11 @@
         }
 
         function getCachedApiKey(aiType) {
-            // Use specific cache key for each LLM
+            // Read from canonical settings_api-keys store via KeyManager
+            var providerId = AITYPE_TO_PROVIDER[aiType] || aiType;
+            if (window.KeyManager) {
+                return KeyManager.get(providerId);
+            }
             return localStorage.getItem(`${aiType}_api_key`);
         }
 
@@ -5972,7 +5991,12 @@
 
             const key = keyInput.value.trim();
             if (key) {
-                localStorage.setItem(`${aiType}_api_key`, key);
+                var providerId = AITYPE_TO_PROVIDER[aiType] || aiType;
+                if (window.KeyManager) {
+                    KeyManager.set(providerId, key);
+                } else {
+                    localStorage.setItem(`${aiType}_api_key`, key);
+                }
 
                 // Re-check and update UI
                 const llmConfig = LLM_CONFIGS.find(c => c.id === aiType) || { name: aiType };

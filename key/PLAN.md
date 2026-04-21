@@ -140,7 +140,7 @@ key-manager/
 - Same two-level dropdown: provider → models
 - **Changed**: also shows providers/models without a key; they appear greyed out
 - Clicking a locked model prompts key entry inline rather than being disabled
-- Named container IDs for external targeting: `#km-provider-{id}`, `#km-model-{id}`, `#km-key-input-{id}`
+- Named container IDs for external targeting: `id="key-provider-{id}`, `id="key-model-{id}`, `#key-key-input-{id}`
 
 ### Static Build Output (embeddable in non-Next.js pages)
 
@@ -179,11 +179,11 @@ chat/key/
 | Phase 1 — Expand `chat` Storage Schema | Complete |
 | Phase 1b — Encrypt Keys at Rest | Not started |
 | Phase 2 — Update `chat` Model Selector | Not started |
-| Phase 3 — Show list of all models in Chat Sidebar | Not started |
+| Phase 3 — Show list of all models in Chat Sidebar | Complete |
 | Phase 4 — Build the Embeddable Static Widget | Complete |
-| Phase 5 — Update `team/projects/index.html` | Not started |
-| Phase 6 — Update `requests/engine/` | Not started |
-| Phase 7 — `chat` Settings Page Updates | Not started |
+| Phase 5 — Update `team/projects/index.html` | Complete |
+| Phase 6 — Update `requests/engine/` | Complete |
+| Phase 7 — `chat` Settings Page Updates | Complete |
 
 ---
 
@@ -268,9 +268,9 @@ New behavior:
 - Clicking a locked provider's submenu trigger (or a locked model) opens `KeyManagerPanel` focused on that provider instead of selecting the model
 
 Add named IDs to the rendered elements:
-- `id="km-model-selector"` on the root `<DropdownMenu>` wrapper
-- `id="km-provider-{providerId}"` on each `<DropdownMenuSub>`
-- `id="km-model-{modelId}"` on each `<DropdownMenuItem>`
+- `id="key-model-selector"` on the root `<DropdownMenu>` wrapper
+- `id="key-provider-{providerId}"` on each `<DropdownMenuSub>`
+- `id="key-model-{modelId}"` on each `<DropdownMenuItem>`
 
 ---
 
@@ -430,10 +430,10 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 
 1. Replace `#agentsContainer` logic that currently calls `initAgentsEditor()` (from `agents.js`) with:
    ```html
-   <div id="km-agents-root"></div>
+   <div id="key-root"></div>
    <script src="/chat/key/providers.js"></script>
    <script src="/chat/key/key-manager.js"></script>
-   <script>KeyManager.init(document.getElementById('km-agents-root'));</script>
+   <script>KeyManager.init(document.getElementById('key-root'));</script>
    ```
 2. Run `KeyManager.migrateFromLegacy()` on load to migrate existing `aPro` data.
 3. Once the above is verified, remove `requests/engine/agents/agents.js`.
