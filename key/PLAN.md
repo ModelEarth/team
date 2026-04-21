@@ -172,6 +172,21 @@ chat/key/
 
 ---
 
+## Progress
+
+| Phase | Status |
+|---|---|
+| Phase 1 — Expand `chat` Storage Schema | Complete |
+| Phase 1b — Encrypt Keys at Rest | Not started |
+| Phase 2 — Update `chat` Model Selector | Not started |
+| Phase 3 — Show list of all models in Chat Sidebar | Not started |
+| Phase 4 — Build the Embeddable Static Widget | Complete |
+| Phase 5 — Update `team/projects/index.html` | Not started |
+| Phase 6 — Update `requests/engine/` | Not started |
+| Phase 7 — `chat` Settings Page Updates | Not started |
+
+---
+
 ## Phase 1 — Expand `chat` Storage Schema
 
 **Files:** `chat/lib/storage/types.ts`, `chat/lib/storage/local-storage-manager.ts`
