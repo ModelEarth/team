@@ -131,15 +131,14 @@ key-manager/
 `KeyManagerPanel` renders:
 - For each provider (all providers, not just those with keys):
   - Provider row: icon, name, model count, availability indicator
-    - 🔒 (lock icon) if no key stored → clicking opens key entry inline
-    - ✅ (green check) if key stored
+    - check mark (`CheckCircleFillIcon` from `components/icons.tsx`, the inline SVG icon already used in the chat repo) if key stored
   - When expanded / entering key: same `APIKeySection` card as current settings page (password input, show/hide, clear, verify)
 - "Where to get your key" link per provider
 - Security notice (keys stored locally, never transmitted)
 
 `ModelSelectorPanel` renders (adapted from `model-selector.tsx`):
 - Same two-level dropdown: provider → models
-- **Changed**: also shows providers/models without a key; they appear greyed out with 🔒
+- **Changed**: also shows providers/models without a key; they appear greyed out
 - Clicking a locked model prompts key entry inline rather than being disabled
 - Named container IDs for external targeting: `#km-provider-{id}`, `#km-model-{id}`, `#km-key-input-{id}`
 
@@ -158,7 +157,7 @@ chat/key/
 `key-manager.js` is a **vanilla JS** implementation (not a React bundle) that:
 - Renders the full key management UI into any container element via `KeyManager.init(el, options)`
 - Reads/writes `settings_api-keys` in localStorage (same format as the Next.js `LocalStorageManager`)
-- Shows all providers with 🔒/✅ availability indicators
+- Shows all providers with lock/check mark availability indicators
 - Shows models within each provider
 - Includes inline key entry (password input, show/hide, clear)
 - No external dependencies beyond `providers.js`
@@ -235,9 +234,7 @@ import { LockIcon } from "@/components/icons";
 </Tooltip>
 ```
 
-When a provider has no key stored, the lock icon shows a small badge (red dot) to draw attention.
-
-Optionally, add an inline `KeyManagerPanel` slide-out within the sidebar (below `SidebarContent`) that expands when the lock icon is clicked, avoiding a full page navigation.
+Optionally, add an inline `KeyManagerPanel` slide-out within the sidebar (below `SidebarContent`) that expands when clicked, avoiding a full page navigation.
 
 ---
 
@@ -313,7 +310,7 @@ Storage uses `localStorage['settings_api-keys']` (same JSON format as the Next.j
 
 UI rendered by `init()` into the container:
 - Provider list with expand/collapse per provider
-  - Header row: `id="km-provider-{id}"` div — provider name, model count, 🔒/✅ icon
+  - Header row: `id="km-provider-{id}"` div — provider name, model count, lock/check mark icon
   - Collapsed state: click to expand
   - Expanded state: shows `APIKeySection`-equivalent UI (password input with show/hide, clear, verify button, get-key link) and model list
 - Model list per provider: `id="km-model-{id}"` for each model row, greyed if no key
@@ -413,9 +410,9 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 | `chat/lib/providers.ts` | **New** — canonical provider+model registry (TypeScript) |
 | `chat/components/key-manager/KeyManagerWidget.tsx` | **New** — React embeddable widget |
 | `chat/components/key-manager/KeyManagerPanel.tsx` | **New** — all-providers key UI |
-| `chat/components/key-manager/ModelSelectorPanel.tsx` | **New** — model selector with lock indicators |
+| `chat/components/key-manager/ModelSelectorPanel.tsx` | **New** — model selector with check mark indicating available models (which have keys in browser cache or .env) |
 | `chat/components/key-manager/useKeyManager.ts` | **New** — hook for key presence state |
-| `chat/components/model-selector.tsx` | Show all providers/models; add 🔒/✅ indicators; add IDs |
+| `chat/components/model-selector.tsx` | Show all providers/models; add lock/check mark indicators; add IDs |
 | `chat/components/app-sidebar.tsx` | Update existing padlock left side panel to render `KeyManagerPanel` |
 | `chat/components/settings/settings-page.tsx` | Replace 3 hardcoded sections with `KeyManagerPanel` |
 | `chat/key/providers.js` | **New** — static JS copy of provider registry |
