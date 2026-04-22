@@ -388,11 +388,35 @@ struct EnvDatabaseConfig {
     ssl: bool,
 }
 
+/// Maps provider ID → env var name. Single source of truth for all key lookups.
+const PROVIDER_ENV_VARS: &[(&str, &str)] = &[
+    ("google",     "GEMINI_API_KEY"),
+    ("anthropic",  "ANTHROPIC_API_KEY"),
+    ("openai",     "OPENAI_API_KEY"),
+    ("xai",        "XAI_API_KEY"),
+    ("groq",       "GROQ_API_KEY"),
+    ("together",   "TOGETHER_API_KEY"),
+    ("fireworks",  "FIREWORKS_API_KEY"),
+    ("mistral",    "MISTRAL_API_KEY"),
+    ("perplexity", "PERPLEXITY_API_KEY"),
+    ("deepseek",   "DEEPSEEK_API_KEY"),
+    ("discord",    "DISCORD_BOT_TOKEN"),
+];
+
+fn env_keys_present() -> Vec<String> {
+    PROVIDER_ENV_VARS.iter()
+        .filter(|(_, var)| {
+            std::env::var(var).map_or(false, |v| !v.is_empty() && v != "dummy_key")
+        })
+        .map(|(id, _)| id.to_string())
+        .collect()
+}
+
 #[derive(Serialize)]
 struct EnvConfigResponse {
     database: Option<EnvDatabaseConfig>,
     database_connections: Vec<DatabaseConnection>,
-    gemini_api_key_present: bool,
+    env_keys_present: Vec<String>,
     google_client_id: Option<String>,
     google_project_id: Option<String>,
     google_user_email: Option<String>,
@@ -535,14 +559,17 @@ async fn health_check(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
 
 // Get current configuration from shared state
 async fn get_current_config(data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
-    let config_guard = data.config.lock().unwrap();
+    let (server_host, server_port, site_favicon) = {
+        let config_guard = data.config.lock().unwrap();
+        (config_guard.server_host.clone(), config_guard.server_port, config_guard.site_favicon.clone())
+    };
     let config_json = json!({
-        "server_host": config_guard.server_host,
-        "server_port": config_guard.server_port,
-        "site_favicon": config_guard.site_favicon,
-        "gemini_api_key_present": !config_guard.gemini_api_key.is_empty() && config_guard.gemini_api_key != "dummy_key"
+        "server_host": server_host,
+        "server_port": server_port,
+        "site_favicon": site_favicon,
+        "env_keys_present": env_keys_present()
     });
-    
+
     Ok(HttpResponse::Ok().json(config_json))
 }
 
@@ -662,13 +689,6 @@ async fn get_env_config() -> Result<HttpResponse> {
         }
     }
     
-    // Check if Gemini API key is present and valid (but don't expose the actual key)
-    let gemini_api_key_present = if let Ok(key) = std::env::var("GEMINI_API_KEY") {
-        !key.is_empty() && key != "dummy_key" && key != "get-key-at-aistudio.google.com"
-    } else {
-        false
-    };
-    
     // Get Google configuration values
     let google_client_id = std::env::var("GOOGLE_CLIENT_ID").ok();
     let google_project_id = std::env::var("GOOGLE_PROJECT_ID").ok();
@@ -689,7 +709,7 @@ async fn get_env_config() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(EnvConfigResponse {
         database: database_config,
         database_connections,
-        gemini_api_key_present,
+        env_keys_present: env_keys_present(),
         google_client_id,
         google_project_id,
         google_user_email,

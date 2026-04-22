@@ -184,8 +184,8 @@ chat/key/
 | Phase 5 — Update `team/projects/index.html` | Complete |
 | Phase 6 — Update `requests/engine/` | Complete |
 | Phase 7 — `chat` Settings Page Updates | Complete |
-| Phase 8 — Server-Side .env Key Indicators | Not started |
-| Phase 9 — Asymmetric Key Encryption (Server-Only Decryption) | Not started |
+| Phase 8 — Server-Side .env Key Indicators | Complete |
+| Phase 9 — Asymmetric Key Encryption (Server-Only Decryption) | Complete |
 
 ---
 
