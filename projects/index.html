@@ -3506,8 +3506,8 @@
         if (typeof loadLLMConfig !== 'function') { window.loadLLMConfig = async function() {}; }
         if (typeof LLM_API_ENDPOINT === 'undefined') { window.LLM_API_ENDPOINT = null; }
     </script>
-    <script src="/chat/key/providers.js"></script>
-    <script src="/chat/key/key-manager.js"></script>
+    <script src="/chat/keys/providers.js"></script>
+    <script src="/chat/keys/key-manager.js"></script>
     <script>
         // Migrate legacy ${aiType}_api_key entries into settings_api-keys
         if (window.KeyManager) { KeyManager.migrateFromLegacy(); }

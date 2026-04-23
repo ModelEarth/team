@@ -812,12 +812,21 @@ function updateRustRecheckMessageVisibilityForDesktopInstaller() {
     recheckMessage.style.display = detailsVisible ? 'none' : 'block';
 
     const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
-    if (githubCliAutoStatus && githubCliAutoStatus.previousElementSibling !== recheckMessage) {
-        recheckMessage.insertAdjacentElement('afterend', githubCliAutoStatus);
-    }
     if (githubCliAutoStatus) {
         const shouldShow = githubCliAutoStatus.dataset.shouldShow === 'true';
-        githubCliAutoStatus.style.display = shouldShow && !detailsVisible ? 'block' : 'none';
+        githubCliAutoStatus.style.display = shouldShow ? 'block' : 'none';
+    }
+    moveGithubCliAutoStatusToQuickstart();
+}
+
+function moveGithubCliAutoStatusToQuickstart() {
+    const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
+    const quickstartPanel = document.getElementById('quickstartDiv');
+    if (!githubCliAutoStatus || !quickstartPanel) return;
+
+    githubCliAutoStatus.style.marginTop = '12px';
+    if (githubCliAutoStatus.parentElement !== quickstartPanel) {
+        quickstartPanel.appendChild(githubCliAutoStatus);
     }
 }
 
@@ -944,6 +953,82 @@ async function getWebServerStatusState() {
     };
 }
 
+async function getNodeWebServerProbeState(localhostPort) {
+    if (localhostPort !== '8888') return null;
+
+    const rootUrl = `http://localhost:${localhostPort}/`;
+    const statusUrl = `http://localhost:${localhostPort}/api/status`;
+    let statusDetails = null;
+
+    try {
+        const response = await fetch(statusUrl, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        let body = null;
+        try {
+            body = await response.json();
+        } catch (error) {
+            body = null;
+        }
+        statusDetails = {
+            ok: response.ok,
+            status: response.status,
+            body
+        };
+    } catch (error) {
+        statusDetails = {
+            ok: false,
+            status: null,
+            body: null,
+            error: error && error.message ? error.message : 'Request failed'
+        };
+    }
+
+    return {
+        rootUrl,
+        statusUrl,
+        statusDetails
+    };
+}
+
+function getNodeWebServerStatusMarkup(nodeStatus) {
+    if (!nodeStatus) return '';
+
+    const body = nodeStatus.statusDetails && nodeStatus.statusDetails.body
+        ? JSON.stringify(nodeStatus.statusDetails.body, null, 2)
+        : '';
+    const statusText = nodeStatus.statusDetails
+        ? (nodeStatus.statusDetails.status === null
+            ? `Request failed${nodeStatus.statusDetails.error ? `: ${nodeStatus.statusDetails.error}` : ''}`
+            : `HTTP ${nodeStatus.statusDetails.status}${nodeStatus.statusDetails.ok ? ' OK' : ''}`)
+        : 'Not checked';
+    const bodyMarkup = body
+        ? `<pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0 0 0;"><code>${body}</code></pre>`
+        : '';
+
+    return `
+        <div style="margin-top: 14px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+            <h4 style="margin: 0 0 8px 0;">Node Unified Server on Port 8888</h4>
+            <p style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 13px;">
+                The setup page probes these URLs for the chat/webroot unified Node.js server:
+            </p>
+            <p style="color: var(--text-secondary); margin: 0; font-size: 13px;">
+                Root probe: <code>${nodeStatus.rootUrl}</code><br>
+                Status probe: <code>${nodeStatus.statusUrl}</code> (${statusText})
+            </p>
+            ${bodyMarkup}
+            <p style="color: var(--text-secondary); margin: 10px 0 6px 0; font-size: 13px;">
+                From <code>chat/AGENTS.md</code>, start it from the webroot root with:
+            </p>
+            <pre style="background: var(--bg-secondary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>node chat/server.mjs</code></pre>
+            <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
+                First time only, install dependencies with <code>pnpm --prefix chat install</code>.
+            </p>
+        </div>
+    `;
+}
+
 function getPythonBackendStatusMarkup(containerId) {
     return `
         <div class="geo-x">
@@ -953,6 +1038,20 @@ function getPythonBackendStatusMarkup(containerId) {
         </h1>
         <p style="color:var(--text-secondary); margin:0 0 6px 0; font-size:13px;">You don't need to activate these to contribute - since our webroot uses JAM Stack (static pages with APIs)</p>
         <div id="${containerId}">
+            <div data-backend="engine" style="margin-top: 6px;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                    <span class="status-indicator loading"></span>
+                    <span style="flex: 1;"><a href="/requests/engine/">Arts Engine Python</a> (port 8082): <span class="backend-text">Checking...</span></span>
+                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                </div>
+                <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>cargo run --manifest-path requests/engine/rust-api/Cargo.toml</code></pre>
+                </div>
+                <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>cargo run --manifest-path requests/engine/rust-api/Cargo.toml</code></pre>
+                </div>
+            </div>
             <div data-backend="pipeline" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
@@ -1590,15 +1689,20 @@ function updateGeorgiaModelsitePanelVisibility() {
 }
 
 async function updateBackendSectionVisibilityByFiles(container) {
+    const engineRow = container ? container.querySelector('[data-backend="engine"]') : null;
     const pipelineRow = container ? container.querySelector('[data-backend="pipeline"]') : null;
     const cloudRow = container ? container.querySelector('[data-backend="cloud"]') : null;
     const hideForGeorgia = isGeorgiaModelsiteSelected();
 
-    const [pipelineExists, cloudExists] = await Promise.all([
+    const [engineExists, pipelineExists, cloudExists] = await Promise.all([
+        checkWebrootFileExists('/requests/engine/index.html', 'requestsEngineIndex'),
         checkWebrootFileExists('/data-pipeline/index.html', 'dataPipelineIndex'),
         checkWebrootFileExists('/cloud/index.html', 'cloudIndex')
     ]);
 
+    if (engineRow) {
+        engineRow.style.display = engineExists ? '' : 'none';
+    }
     if (pipelineRow) {
         pipelineRow.classList.toggle('geo-x', hideForGeorgia);
         pipelineRow.style.display = pipelineExists && !hideForGeorgia ? '' : 'none';
@@ -1609,6 +1713,7 @@ async function updateBackendSectionVisibilityByFiles(container) {
     }
 
     return {
+        engineExists,
         pipelineExists: pipelineExists && !hideForGeorgia,
         cloudExists: cloudExists && !hideForGeorgia
     };
@@ -1754,10 +1859,16 @@ async function updatePythonBackendStatus(containerId) {
     if (!container) return;
 
     ensureNoAiBackendUseAIListener();
-    const { pipelineExists, cloudExists } = await updateBackendSectionVisibilityByFiles(container);
+    const { engineExists, pipelineExists, cloudExists } = await updateBackendSectionVisibilityByFiles(container);
     updateNoAiFlaskStartVisibility();
 
     const checks = [];
+    if (engineExists) {
+        checks.push(
+            checkBackendAvailability('http://localhost:8082/api/health')
+                .then((isRunning) => ({ backendKey: 'engine', isRunning }))
+        );
+    }
     if (pipelineExists) {
         checks.push(
             checkBackendAvailability('http://localhost:5001/')
@@ -1901,6 +2012,7 @@ async function setupWebServerStatusPanel(options) {
         localhostApiRunning,
         currentOriginRunning
     } = await getWebServerStatusState();
+    const nodeStatus = await getNodeWebServerProbeState(localhostPort);
     const currentOriginDisplay = currentOriginUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const localhostDisplay = localhostWebUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const connectedClass = options.buttonClassConnected || options.buttonClass || 'btn btn-secondary';
@@ -1928,6 +2040,7 @@ async function setupWebServerStatusPanel(options) {
                 </div>
             </div>
             <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
+            ${getNodeWebServerStatusMarkup(nodeStatus)}
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         `;
     } else {
@@ -1954,6 +2067,7 @@ async function setupWebServerStatusPanel(options) {
             <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
                 Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhostDisplay}</code> (${localhostWebRunning ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port ${localhostPort} (${localhostApiRunning ? 'reachable' : 'not reachable'}).
             </p>
+            ${getNodeWebServerStatusMarkup(nodeStatus)}
             ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         `;
     }
@@ -2039,6 +2153,7 @@ env\\Scripts\\activate
             </div>
         </div>
     `;
+    moveGithubCliAutoStatusToQuickstart();
     attachQuickstartCliListeners();
     updateQuickstartDesktopInstallerStatus();
 

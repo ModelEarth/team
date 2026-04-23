@@ -1238,24 +1238,26 @@ npm install -g openai-codex-cli</code></pre>`;
 
         function placeGithubCliAutoStatus() {
             if (!githubCliAutoStatus) return;
-            const rustRecheckMessage = document.getElementById('rust-recheck-message');
-            if (rustRecheckMessage) {
-                if (githubCliAutoStatus.previousElementSibling !== rustRecheckMessage) {
-                    rustRecheckMessage.insertAdjacentElement('afterend', githubCliAutoStatus);
-                }
+            if (typeof moveGithubCliAutoStatusToQuickstart === 'function') {
+                moveGithubCliAutoStatusToQuickstart();
+                return;
+            }
+            const quickstartPanel = document.getElementById('quickstartDiv');
+            if (quickstartPanel && githubCliAutoStatus.parentElement !== quickstartPanel) {
+                githubCliAutoStatus.style.marginTop = '12px';
+                quickstartPanel.appendChild(githubCliAutoStatus);
                 return;
             }
             if (osDetectionPanel && githubCliAutoStatus.parentElement !== osDetectionPanel) {
+                githubCliAutoStatus.style.marginTop = '12px';
                 osDetectionPanel.appendChild(githubCliAutoStatus);
             }
         }
 
         function syncGithubCliAutoStatusVisibility() {
             if (!githubCliAutoStatus) return;
-            const rustRecheckMessage = document.getElementById('rust-recheck-message');
-            const recheckVisible = !rustRecheckMessage || getComputedStyle(rustRecheckMessage).display !== 'none';
             const shouldShow = githubCliAutoStatus.dataset.shouldShow === 'true';
-            githubCliAutoStatus.style.display = shouldShow && recheckVisible ? 'block' : 'none';
+            githubCliAutoStatus.style.display = shouldShow ? 'block' : 'none';
         }
         placeGithubCliAutoStatus();
         

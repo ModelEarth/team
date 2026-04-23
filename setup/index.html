@@ -40,57 +40,65 @@ function syncDeployCliVisibility() {
     deployChanges.style.display = withoutAiMode ? 'none' : '';
 }
 
+function getWebrootRepoLinkHtml() {
+    const currentPath = window.location.href;
+    let myRepo = 'PartnerTools';
+
+    const githubPagesMatch = currentPath.match(/\/\/([^.]+)\.github\.io/);
+    if (githubPagesMatch && githubPagesMatch[1]) {
+        myRepo = githubPagesMatch[1];
+    } else if (currentPath.includes('localhost') || currentPath.includes('model.earth')) {
+        myRepo = 'modelearth';
+    }
+
+    return "<a href='https://github.com/" + myRepo + "/webroot/' target='github_fork'>github.com/" + myRepo + "/webroot</a>";
+}
+
+function replaceWebrootRepoLinkText() {
+    const webrootSetup = document.getElementById('webrootSetup');
+    if (!webrootSetup) return;
+    webrootSetup.innerHTML = webrootSetup.innerHTML.replace(/the webroot repo/g, getWebrootRepoLinkHtml());
+}
+
+function runSetupStep(stepName, fn) {
+    try {
+        fn();
+    } catch (error) {
+        console.error('team/setup initialization failed during ' + stepName, error);
+    }
+}
+
 if (!window.setupDeployCliAiModeBound) {
     document.addEventListener('aiModeChanged', syncDeployCliVisibility);
     window.setupDeployCliAiModeBound = true;
 }
 
 waitForElm('#textInPage').then(() => {
-    let currentPath = window.location.href;
-    let myRepo = "PartnerTools";
+    runSetupStep('webroot setup', () => setupWebrootSetup('webrootSetup'));
+    runSetupStep('git account fields', () => setupGitAccountFields('textInPage'));
+    runSetupStep('webroot repo text replacement', replaceWebrootRepoLinkText);
+    runSetupStep('fork repo commands', () => updateForkReposCommands());
+});
 
-    const githubPagesMatch = currentPath.match(/\/\/([^.]+)\.github\.io/);
-    if (githubPagesMatch && githubPagesMatch[1]) {
-        myRepo = githubPagesMatch[1];
-    } else if (currentPath.includes("localhost") || currentPath.includes("model.earth")) {
-        myRepo = "modelearth";
-    }
+waitForElm('#quickstartDiv').then(() => {
+    runSetupStep('quickstart instructions', () => setupQuickstartInstructions('quickstartDiv'));
+});
 
-    let linkString = "<a href='https://github.com/" + myRepo + "/webroot/' target='github_fork'>github.com/" + myRepo + "/webroot</a>";
+waitForElm('#combined-rust-api-container').then(() => {
+    runSetupStep('rust api status panel', () => createRustApiStatusPanel('combined-rust-api-container', false));
+});
 
-    setTimeout(() => {
-        const textInPage = document.getElementById('textInPage');
-        if (textInPage) {
-            const gitAccountField = document.getElementById("gitAccount");
-            const myWebrootForkNameField = document.getElementById("myWebrootForkName");
-            const gitAccountValue = gitAccountField ? gitAccountField.value : '';
-            const myWebrootForkNameValue = myWebrootForkNameField ? myWebrootForkNameField.value : '';
+waitForElm('#extraRepos').then(() => {
+    runSetupStep('trade flow repos', () => setupTradeFlowRepos('extraRepos'));
+    runSetupStep('gemini resources', () => setupGeminiResources());
+});
 
-            textInPage.innerHTML = textInPage.innerHTML.replace(/the webroot repo/g, linkString);
+waitForElm('#deployChanges').then(() => {
+    runSetupStep('deploy cli markdown', () => loadMarkdown('../admin/github/deploy-cli.md', 'deployChanges', '_parent', 1, syncDeployCliVisibility));
+});
 
-            const newGitAccountField = document.getElementById("gitAccount");
-            const newMyWebrootForkNameField = document.getElementById("myWebrootForkName");
-            if (newGitAccountField && gitAccountValue) {
-                newGitAccountField.value = gitAccountValue;
-            }
-            if (newMyWebrootForkNameField && myWebrootForkNameValue) {
-                newMyWebrootForkNameField.value = myWebrootForkNameValue;
-            }
-        }
-    }, 100);
-
-    setTimeout(() => {
-        setupWebrootSetup('webrootSetup');
-        setupGitAccountFields('textInPage');
-        setupQuickstartInstructions('quickstartDiv');
-        createRustApiStatusPanel('combined-rust-api-container', false);
-        setupTradeFlowRepos('extraRepos');
-        setupGeminiResources();
-        loadMarkdown("../admin/github/deploy-cli.md", "deployChanges", "_parent", 1, syncDeployCliVisibility);
-        loadMarkdown("../admin/github/deploy-git.md", "deployGitDiv", "_parent", 1);
-        setTimeout(() => { updateForkReposCommands(); }, 100);
-    }, 200);
-
+waitForElm('#deployGitDiv').then(() => {
+    runSetupStep('deploy git markdown', () => loadMarkdown('../admin/github/deploy-git.md', 'deployGitDiv', '_parent', 1));
 });
 
 function setupDeployGitLayout() {
@@ -202,7 +210,7 @@ waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
     </div>
     <div id="commonSetupDiv"></div>
     <div id="quickstartDiv" class="card"></div>
-    <div id="combined-rust-api-container" class="card geo-x"></div>
+    <div id="combined-rust-api-container" class="card"></div>
     <div class="card" id="extraRepos"></div>
     <div class="card" id="deployChanges"></div>
     <button id="showDeployGit" class="btn btn-success">Show Commands</button>

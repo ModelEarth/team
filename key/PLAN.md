@@ -89,7 +89,7 @@ type APIKeysStore = {
 
 The `chat` repo is the source of truth for the provider + model list. Add a static registry file that both the Next.js app and the embeddable widget can read:
 
-**`chat/lib/providers.ts`** (and a plain-JS copy at **`chat/key/providers.js`** for the static widget):
+**`chat/lib/providers.ts`** (and a plain-JS copy at **`chat/keys/providers.js`** for the static widget):
 
 ```ts
 export type ProviderConfig = {
@@ -144,10 +144,10 @@ key-manager/
 
 ### Static Build Output (embeddable in non-Next.js pages)
 
-**`chat/key/`** — new subfolder, committed to the repo and served statically at `localhost:8887/chat/key/`:
+**`chat/keys/`** — new subfolder, committed to the repo and served statically at `localhost:8887/chat/keys/`:
 
 ```
-chat/key/
+chat/keys/
   index.html        # Standalone key settings page (no Next.js required)
   key-manager.js    # Self-contained JS bundle (no React, no build needed)
   providers.js      # Static copy of provider + model registry
@@ -161,9 +161,9 @@ chat/key/
 - Shows models within each provider
 - Includes inline key entry (password input, show/hide, clear)
 - No external dependencies beyond `providers.js`
-- Can be included in `team/projects/index.html`, `requests/engine/`, etc. via `<script src="/chat/key/key-manager.js">`
+- Can be included in `team/projects/index.html`, `requests/engine/`, etc. via `<script src="/chat/keys/key-manager.js">`
 
-`index.html` at `localhost:8887/chat/key/`:
+`index.html` at `localhost:8887/chat/keys/`:
 - Standalone HTML page using `key-manager.js` + `providers.js`
 - Shows the full key management UI (all providers and their models)
 - Uses localsite `base.css` for consistent styling
@@ -250,9 +250,9 @@ The `.env` format export (replacing the output textarea from `requests/engine/ag
   - "Encrypt Now" closes the export window immediately
 - The existing show/hide (eye) toggle on key inputs continues to work — it decrypts transiently for display only, never writes plaintext back to storage
 
-### Encryption in the vanilla JS widget (`chat/key/key-manager.js`)
+### Encryption in the vanilla JS widget (`chat/keys/key-manager.js`)
 
-The same `initBrowserKey` / `encryptValue` / `decryptValue` logic is duplicated (or imported as a small shared utility) in the static vanilla JS widget, so encryption works identically on `localhost:8887/chat/key/` and in `team/projects/index.html`.
+The same `initBrowserKey` / `encryptValue` / `decryptValue` logic is duplicated (or imported as a small shared utility) in the static vanilla JS widget, so encryption works identically on `localhost:8887/chat/keys/` and in `team/projects/index.html`.
 
 ---
 
@@ -299,7 +299,7 @@ The sidebar tab row uses `lucide-react` for all icons — use it here rather tha
 
 ## Phase 4 — Build the Embeddable Static Widget
 
-**New files:** `chat/key/key-manager.js`, `chat/key/providers.js`, `chat/key/style.css`, `chat/key/index.html`
+**New files:** `chat/keys/key-manager.js`, `chat/keys/providers.js`, `chat/keys/style.css`, `chat/keys/index.html`
 
 ### `providers.js`
 
@@ -398,7 +398,7 @@ UI rendered by `init()` into the container:
 </html>
 ```
 
-This page is committed to the repo and served statically at `localhost:8887/chat/key/`. It works with zero build steps and zero server-side dependencies.
+This page is committed to the repo and served statically at `localhost:8887/chat/keys/`. It works with zero build steps and zero server-side dependencies.
 
 ---
 
@@ -408,8 +408,8 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 
 1. Add script tags for the shared files:
    ```html
-   <script src="/chat/key/providers.js"></script>
-   <script src="/chat/key/key-manager.js"></script>
+   <script src="/chat/keys/providers.js"></script>
+   <script src="/chat/keys/key-manager.js"></script>
    ```
 
 2. In `checkAndShowApiKeyManagement()`, replace `getCachedApiKey(aiType)` with `KeyManager.get(providerId)` where `providerId` maps from `aiType` via `LLM_CONFIG_TO_ENV`:
@@ -433,8 +433,8 @@ This page is committed to the repo and served statically at `localhost:8887/chat
 1. Replace `#agentsContainer` logic that currently calls `initAgentsEditor()` (from `agents.js`) with:
    ```html
    <div id="key-root"></div>
-   <script src="/chat/key/providers.js"></script>
-   <script src="/chat/key/key-manager.js"></script>
+   <script src="/chat/keys/providers.js"></script>
+   <script src="/chat/keys/key-manager.js"></script>
    <script>KeyManager.init(document.getElementById('key-root'));</script>
    ```
 2. Run `KeyManager.migrateFromLegacy()` on load to migrate existing `aPro` data.
@@ -521,7 +521,7 @@ export async function GET() {
 
 ### Key manager UI changes
 
-**`chat/key/key-manager.js`** — fetch server keys on `init()` before rendering:
+**`chat/keys/key-manager.js`** — fetch server keys on `init()` before rendering:
 
 ```js
 var SERVER_KEYS_URL = location.port === '3000'
@@ -548,7 +548,7 @@ In `buildProviderHeader`, if `_serverKeys.has(provider.id)` and `!hasKey(provide
 
 **`chat/components/model-selector.tsx`** — fetch `/api/server-keys` via SWR; pass `serverKeys: Set<string>` alongside `keyedProviders`. A provider shows a check icon if `keyedProviders.has(id) || serverKeys.has(id)`. Use a distinct icon (e.g. `Server` from lucide-react) when the key comes only from the server.
 
-**`chat/key/style.css`** — add `.key-server-badge` styled to be visually distinct from `.key-model-badge` (e.g. muted blue instead of gray).
+**`chat/keys/style.css`** — add `.key-server-badge` styled to be visually distinct from `.key-model-badge` (e.g. muted blue instead of gray).
 
 ### Priority of key resolution (client)
 
@@ -648,9 +648,9 @@ const googleKey = googleKeyEnc
 - If `/api/public-key` is unavailable: fall back to browser-AES storage (Phase 1b behavior)
 - `isEncrypted` check in `crypto.ts` now also matches `"rsa:"` prefix
 
-### `chat/key/key-manager.js` changes
+### `chat/keys/key-manager.js` changes
 
-Duplicate `fetchServerPublicKey` / `encryptForServer` / `isServerEncrypted` logic in vanilla JS, using the same `/api/public-key` endpoint. The static widget at `localhost:8887/chat/key/` falls back to browser-AES if the chat server is not running.
+Duplicate `fetchServerPublicKey` / `encryptForServer` / `isServerEncrypted` logic in vanilla JS, using the same `/api/public-key` endpoint. The static widget at `localhost:8887/chat/keys/` falls back to browser-AES if the chat server is not running.
 
 ---
 
@@ -679,13 +679,13 @@ Duplicate `fetchServerPublicKey` / `encryptForServer` / `isServerEncrypted` logi
 | `chat/components/model-selector.tsx` | Show all providers/models; add lock/check mark indicators; add IDs |
 | `chat/components/app-sidebar.tsx` | Update existing padlock left side panel to render `KeyManagerPanel` |
 | `chat/components/settings/settings-page.tsx` | Replace 3 hardcoded sections with `KeyManagerPanel` |
-| `chat/key/providers.js` | **New** — static JS copy of provider registry |
-| `chat/key/key-manager.js` | **New** — vanilla JS embeddable widget |
-| `chat/key/style.css` | **New** — widget styles |
-| `chat/key/index.html` | **New** — static settings page at localhost:8887/chat/key/ |
+| `chat/keys/providers.js` | **New** — static JS copy of provider registry |
+| `chat/keys/key-manager.js` | **New** — vanilla JS embeddable widget |
+| `chat/keys/style.css` | **New** — widget styles |
+| `chat/keys/index.html` | **New** — static settings page at localhost:8887/chat/keys/ |
 | `team/projects/index.html` | Use `KeyManager.*` instead of `getCachedApiKey`; embed widget in modal |
 | `team/src/main.rs` | Replace `gemini_api_key_present` with generic `env_keys_present: Vec<String>` driven by `PROVIDER_ENV_VARS` mapping |
 | `requests/engine/agents/agents.js` | **Remove** after Phase 6 migration is verified |
 | `chat/app/api/server-keys/route.ts` | **New** — proxy to Rust `/api/config/current`, return normalized provider presence map |
 | `chat/app/api/public-key/route.ts` | **New** — serve RSA public key JWK for client-side asymmetric encryption |
-| `chat/key/style.css` | Add `.key-server-badge` style |
+| `chat/keys/style.css` | Add `.key-server-badge` style |
