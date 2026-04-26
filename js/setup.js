@@ -302,8 +302,9 @@ if (typeof API_BASE === 'undefined') {
     var API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
 }
 
-// Localhost access toggle — prevents browser Private Network Access prompt on non-localhost pages
+// Localhost access toggle — defers to accesslocal cookie (set via #accesslocal menu in localsite nav)
 function isLocalhostAccessEnabled() {
+    if (typeof window.shouldAccessLocalhost === 'function') return window.shouldAccessLocalhost();
     if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) return true;
     return localStorage.getItem('localhost-access-enabled') === 'true';
 }
@@ -1761,6 +1762,7 @@ function notifyStopResult(message, type = 'info') {
 }
 
 async function stopLocalWebServer() {
+    if (!isLocalhostAccessEnabled()) return;
     const localWebPort = getConfiguredLocalWebPort();
     const pythonAvailable = await checkBackendAvailabilityCached(`http://localhost:${localWebPort}/api/status`, `pythonServer${localWebPort}`);
     const rustAvailable = pythonAvailable
@@ -1863,23 +1865,25 @@ async function updatePythonBackendStatus(containerId) {
     updateNoAiFlaskStartVisibility();
 
     const checks = [];
-    if (engineExists) {
-        checks.push(
-            checkBackendAvailability('http://localhost:8082/api/health')
-                .then((isRunning) => ({ backendKey: 'engine', isRunning }))
-        );
-    }
-    if (pipelineExists) {
-        checks.push(
-            checkBackendAvailability('http://localhost:5001/')
-                .then((isRunning) => ({ backendKey: 'pipeline', isRunning }))
-        );
-    }
-    if (cloudExists) {
-        checks.push(
-            checkBackendAvailability('http://localhost:8100/')
-                .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
-        );
+    if (isLocalhostAccessEnabled()) {
+        if (engineExists) {
+            checks.push(
+                checkBackendAvailability('http://localhost:8082/api/health')
+                    .then((isRunning) => ({ backendKey: 'engine', isRunning }))
+            );
+        }
+        if (pipelineExists) {
+            checks.push(
+                checkBackendAvailability('http://localhost:5001/')
+                    .then((isRunning) => ({ backendKey: 'pipeline', isRunning }))
+            );
+        }
+        if (cloudExists) {
+            checks.push(
+                checkBackendAvailability('http://localhost:8100/')
+                    .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
+            );
+        }
     }
 
     Promise.all(checks).then((results) => {

@@ -264,31 +264,12 @@ function updateFaviconPath() {
     });
 }
 
-// API Configuration with localhost fallback for external domains
+// API Configuration — only returns a URL when localhost access is permitted
 function getApiBase() {
-    // Check if user has disabled localhost fallback
-    const pullLocalRust = localStorage.getItem('pullLocalRust');
-    if (pullLocalRust === 'false') {
-        // Fallback disabled, use current domain
-        return window.location.origin.includes('localhost')
-            ? 'http://localhost:8081/api'
-            : `${window.location.origin}/api`;
-    }
-
-    // Default behavior: always try localhost first when on external domains
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-    if (!isLocalhost) {
-        // On external domain (model.earth, dreamstudio.com, etc.)
-        // Enable pullLocalRust flag to indicate we're using localhost fallback
-        if (pullLocalRust === null) {
-            localStorage.setItem('pullLocalRust', 'true');
-        }
-        return 'http://localhost:8081/api';
-    }
-
-    // On localhost, use localhost
-    return 'http://localhost:8081/api';
+    const canAccess = (typeof window.shouldAccessLocalhost === 'function')
+        ? window.shouldAccessLocalhost()
+        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    return canAccess ? 'http://localhost:8081/api' : null;
 }
 
 if (typeof API_BASE === 'undefined') {
@@ -1350,6 +1331,7 @@ npm install -g openai-codex-cli</code></pre>`;
         }
 
         async function detectGithubCliFromRust() {
+            if (!window.shouldAccessLocalhost?.()) return;
             try {
                 const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
                 if (!response.ok) {
@@ -2242,6 +2224,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const recheckTime = new Date().toLocaleTimeString();
     
     if (!indicator || !title || !content) return;
+    if (!window.shouldAccessLocalhost?.()) return;
 
     try {
         // Check if backend API is running
@@ -2460,6 +2443,7 @@ async function checkDatabaseConnection(endpoint, indicatorId, textId, activeText
 
 // Function to check all backend status (API + databases)
 async function checkBackendStatus() {
+    if (!window.shouldAccessLocalhost?.()) return;
     // Check individual database connections
     await Promise.all([
         checkDatabaseConnection(
