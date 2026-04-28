@@ -301,6 +301,77 @@ function detectOS() {
     return { os: detectedOS, details: osDetails };
 }
 
+let detectedMacArchitecture = null;
+let detectedMacModelYear = null;
+let macArchitectureDetectionStarted = false;
+
+function getMacModelYearFromText(value) {
+    const match = String(value || '').match(/\b(19[8-9]\d|20[0-3]\d)\b/);
+    return match ? match[1] : '';
+}
+
+function getDetectedMacModelYear() {
+    if (detectedMacModelYear) return detectedMacModelYear;
+
+    detectedMacModelYear = getMacModelYearFromText(navigator.userAgent);
+    return detectedMacModelYear;
+}
+
+function getDetectedMacArchitectureType() {
+    if (detectedMacArchitecture) return detectedMacArchitecture;
+
+    const uaData = navigator.userAgentData;
+    const architecture = uaData && typeof uaData.architecture === 'string'
+        ? uaData.architecture.toLowerCase()
+        : '';
+
+    if (architecture.includes('arm') || architecture.includes('aarch64')) return 'apple-silicon';
+    if (architecture.includes('x86') || architecture.includes('amd64') || architecture.includes('intel')) return 'intel';
+
+    return 'unknown';
+}
+
+function detectMacArchitectureAsync(onDetected) {
+    if (macArchitectureDetectionStarted) return;
+    macArchitectureDetectionStarted = true;
+
+    const uaData = navigator.userAgentData;
+    if (!uaData || typeof uaData.getHighEntropyValues !== 'function') return;
+
+    uaData.getHighEntropyValues(['architecture', 'model'])
+        .then(values => {
+            const architecture = String(values.architecture || '').toLowerCase();
+            if (architecture.includes('arm') || architecture.includes('aarch64')) {
+                detectedMacArchitecture = 'apple-silicon';
+            } else if (architecture.includes('x86') || architecture.includes('amd64') || architecture.includes('intel')) {
+                detectedMacArchitecture = 'intel';
+            }
+            detectedMacModelYear = getMacModelYearFromText(values.model) || getDetectedMacModelYear();
+
+            if (detectedMacArchitecture && typeof onDetected === 'function') {
+                onDetected(detectedMacArchitecture);
+            }
+        })
+        .catch(error => {
+            console.debug('Mac architecture detection unavailable:', error);
+        });
+}
+
+function getCodexSubscriptionText(selectedOS) {
+    const codexLink = '<a href="https://chatgpt.com/codex/get-started" target="_blank" rel="noopener noreferrer">OpenAI Codex</a>';
+
+    if (selectedOS === 'Mac') {
+        if (getDetectedMacArchitectureType() === 'intel') {
+            const modelYear = getDetectedMacModelYear();
+            const macLabel = modelYear ? `${modelYear} Mac` : 'older Mac';
+            return `Since your ${macLabel} does not use Apple Silicon, you can use the terminal CLI version. It's great!`;
+        }
+        return `If your Mac is Apple Silicon, you can run ${codexLink} as an app.`;
+    }
+
+    return `Get yourself ${codexLink}.`;
+}
+
 // Helper function to show and expand a section (handles both collapsible and non-collapsible states)
 function expandSection(sectionId) {
     const section = document.getElementById(sectionId);
@@ -451,7 +522,7 @@ function createOSDetectionPanel(containerId) {
                 <span class="mac-instructions" style="font-size: 12px; line-height:1.45em; text-align:right">
                     Recommended terminal: <a href="https://iterm2.com/" target="_blank">iTerm2</a><br>
                     Install steps for <a href="/localsite/start/cmds/">Python and NodeJS</a><br>
-                    <a href="#deployChanges">How to deploy changes</a>
+                    <a href="#deployChanges">How to push/pull changes</a>
                 </span>
             </div>
         </div>
@@ -680,6 +751,7 @@ function initializeOSDetectionPanel() {
     const osDetails = osInfo_detected.details;
     
     osSelect.value = detectedOS;
+    detectMacArchitectureAsync(() => updateCliCommands());
     
     // Update dropdown options to show (current) for detected OS
     const options = osSelect.querySelectorAll('option');
@@ -869,7 +941,7 @@ function initializeOSDetectionPanel() {
             if (cliTips) cliTips.style.display = 'block';
         } else if (codexChecked) {
             if (cliSubscriptionText) {
-                cliSubscriptionText.innerHTML = 'Get yourself <a href="https://chatgpt.com/codex/get-started" target="_blank" rel="noopener noreferrer">OpenAI Codex</a>.';
+                cliSubscriptionText.innerHTML = getCodexSubscriptionText(selectedOS);
             }
             if (optionalMigrate) optionalMigrate.style.display = 'none';
             if (cliTips) cliTips.style.display = 'none';
@@ -1033,20 +1105,20 @@ function initializeOSDetectionPanel() {
                 if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
                     installContent += `<strong>For PC users:</strong> Use PowerShell to install:<br>
                     <pre><code>irm https://claude.ai/install.ps1 | iex
-npm install -g openai-codex-cli</code></pre>`;
+npm install -g @openai/codex</code></pre>`;
                 }
                 if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
                     if (selectedOS === 'PC') installContent += '<br>';
                     const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
                     installContent += `<strong>For ${osLabel} users:</strong> Install both CLIs with npm:<br>
                     <pre><code>npm install -g @anthropic-ai/claude-code
-npm install -g openai-codex-cli</code></pre>`;
+npm install -g @openai/codex</code></pre>`;
                 }
             } else if (codexChecked) {
                 // Only Codex selected
                 const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : (selectedOS === 'PC' ? 'PC' : 'all');
                 installContent += `<strong>Install OpenAI Codex CLI:</strong><br>
-                <pre><code>npm install -g openai-codex-cli</code></pre>`;
+                <pre><code>npm install -g @openai/codex</code></pre>`;
             } else if (claudeCodeChecked) {
                 // Only Claude selected
                 if (selectedOS === 'PC' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {

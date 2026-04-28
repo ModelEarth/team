@@ -1,4 +1,4 @@
-<h1 class="card-title">How to deploy changes</h1>
+<h1 class="card-title">How to push/pull changes</h1>
 
 Update and make commits often. (At least hourly if you are editing code.)
 Append "nopr" if you are not yet ready to send a Pull Request.
