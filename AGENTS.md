@@ -219,6 +219,14 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 **Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
 
+### Submodule Detached HEAD
+
+After a pull, submodules will be in detached HEAD state because `git submodule update` checks out a pinned commit, not a branch. Before staging or committing work in a submodule, always reattach:
+
+```bash
+git -C <submodule> checkout main
+```
+
 ### Submodule Version Conflicts
 
 When `git.sh safe_submodule_update` detects that a submodule's local commit is older than the remote (origin/main), **do not silently overwrite local work**. Instead:
