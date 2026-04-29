@@ -1085,6 +1085,19 @@ commit_push() {
     local commit_hash=""
     
     if [ -n "$(git status --porcelain)" ]; then
+        # Must be on a branch to commit — never commit to detached HEAD.
+        # fix_detached_head skips checkout when the pinned commit matches the parent,
+        # but if there are working changes we must be on main regardless.
+        local branch_check=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [ "$branch_check" = "HEAD" ]; then
+            local detached_sha=$(git rev-parse HEAD)
+            echo "🔀 $name: switching to main before committing (was detached at ${detached_sha:0:8})"
+            git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+            # Bring the detached history forward if it isn't already reachable from main.
+            if ! git merge-base --is-ancestor "$detached_sha" HEAD 2>/dev/null; then
+                git merge "$detached_sha" --no-edit 2>/dev/null || true
+            fi
+        fi
         # Only check user change and update remotes when there are actual changes
         check_user_change "$name"
         git add .
