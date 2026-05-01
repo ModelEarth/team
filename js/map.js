@@ -1421,6 +1421,12 @@ Do not include any explanation or additional text.`;
         let data;
 
         if (config?.cors) {
+            const allowLocalhostAccess = (typeof window.shouldAccessLocalhost == 'function')
+                ? window.shouldAccessLocalhost()
+                : (window.location.hostname == 'localhost' || window.location.hostname == '127.0.0.1');
+            if (!allowLocalhostAccess) {
+                throw new Error('CORS proxy requires localhost access. Enable #accesslocal to use this feature.');
+            }
             // Route through Rust proxy to avoid CORS (same mechanism as lists.csv CORS=TRUE)
             const proxyResponse = await fetch('http://localhost:8081/api/proxy/csv', {
                 method: 'POST',
@@ -1454,7 +1460,14 @@ Do not include any explanation or additional text.`;
         // Determine the API URL to call
         let apiUrl;
 
+        const allowLocalhostAccess = (typeof window.shouldAccessLocalhost == 'function')
+            ? window.shouldAccessLocalhost()
+            : (window.location.hostname == 'localhost' || window.location.hostname == '127.0.0.1');
+
         if (apiPath.startsWith('https://www.cognitoforms.com')) {
+            if (!allowLocalhostAccess) {
+                throw new Error('Cognito Forms proxy requires localhost access. Enable #accesslocal to use this feature.');
+            }
             // Cognito Forms URLs should be proxied through our Rust API server
             // which will add authentication - use the generic proxy endpoint
             const encodedUrl = encodeURIComponent(apiPath);
@@ -1464,6 +1477,9 @@ Do not include any explanation or additional text.`;
             // Other external URLs are called directly
             apiUrl = apiPath;
         } else {
+            if (!allowLocalhostAccess) {
+                throw new Error('Relative API paths require localhost access. Enable #accesslocal to use this feature.');
+            }
             // Relative paths are resolved to local API server
             apiUrl = `http://localhost:8081${apiPath}`;
         }
