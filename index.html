@@ -806,10 +806,16 @@
 
         // Check system status
         async function checkSystemStatus() {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (!isLocalhost && !(window.shouldAccessLocalhost && window.shouldAccessLocalhost())) {
+                document.getElementById('db-status').textContent = '';
+                document.getElementById('api-status').textContent = '';
+                return;
+            }
             const API_BASE = 'http://localhost:8081/api';
             let dbConnected = false;
             let apiConnected = false;
-            
+
             try {
                 // Test API connection
                 const response = await fetch(`${API_BASE}/health`);
@@ -843,6 +849,10 @@
         }
 
         async function checkUsage(apiType) {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (!isLocalhost && !(window.shouldAccessLocalhost && window.shouldAccessLocalhost())) {
+                return;
+            }
             const button = document.getElementById(`check-${apiType}-usage-btn`);
             const getConnectedButton = document.getElementById(`get-connected-${apiType}-btn`);
             const status = document.getElementById(`usage-status-${apiType}`);
