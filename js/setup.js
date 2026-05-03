@@ -651,6 +651,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function getQuickstartCommandsHtml() {
     const localWebPort = getConfiguredLocalWebPort();
+    const dotnetPort = getConfiguredDotnetPort();
     const currentPort = window.location.port;
     const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
         ? currentPort
@@ -667,7 +668,7 @@ function getQuickstartCommandsHtml() {
         `
         : '';
     return `
-        <p style="color: var(--text-primary);"><strong>Full command</strong> - Does not include server-side Python execution</p>
+        <p style="color: var(--text-primary);"><strong>Static server command</strong> - Does not include server-side Python execution</p>
         <div class="quickstart-port-wrap" style="position:relative; container-type:inline-size;">
             <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localWebPort}</code></pre>
             ${stopServerButton}
@@ -1140,6 +1141,20 @@ else
 fi</code></pre>
                 </div>
             </div>
+            <div data-backend="dotnet" style="margin-top: 6px;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                    <span class="status-indicator loading"></span>
+                    <span style="flex: 1;"><a href="/host/net/">Shared .NET Host</a> (port 8010): <span class="backend-text">Checking...</span></span>
+                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                </div>
+                <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start net</code></pre>
+                </div>
+                <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>bash host/net/net.sh start</code></pre>
+                </div>
+            </div>
         </div>
         </div>
     `;
@@ -1380,11 +1395,13 @@ function setGlobalCommandToggleAppearance(state) {
 function updateBackendCommandForRow(row, isRunning) {
     if (!row) return;
     const modeState = getBackendCommandState();
+    const backendKey = row.dataset.backend || '';
+    const allowCommandsWhileRunning = backendKey === 'dotnet';
     const withAiBlock = row.querySelector('.with-ai-backend-cmd');
     const commandBlock = row.querySelector('.no-ai-backend-cmd');
     const fullCommandLabel = row.querySelector('.full-command-label');
     const showCmdBtn = row.querySelector('.show-cmd-btn');
-    const commandsVisible = !isRunning;
+    const commandsVisible = !isRunning || allowCommandsWhileRunning;
     const showFullCommandLabel = commandsVisible && modeState.withAi && modeState.withoutAi;
     if (withAiBlock) {
         withAiBlock.style.display = commandsVisible && modeState.withAi ? 'block' : 'none';
@@ -1678,6 +1695,10 @@ function getConfiguredLocalWebPort() {
     return isGeorgiaModelsiteSelected() ? '8888' : '8887';
 }
 
+function getConfiguredDotnetPort() {
+    return '8010';
+}
+
 function updateGeorgiaModelsitePanelVisibility() {
     const isGeorgia = isGeorgiaModelsiteSelected();
     const panels = [
@@ -1693,12 +1714,14 @@ async function updateBackendSectionVisibilityByFiles(container) {
     const engineRow = container ? container.querySelector('[data-backend="engine"]') : null;
     const pipelineRow = container ? container.querySelector('[data-backend="pipeline"]') : null;
     const cloudRow = container ? container.querySelector('[data-backend="cloud"]') : null;
+    const dotnetRow = container ? container.querySelector('[data-backend="dotnet"]') : null;
     const hideForGeorgia = isGeorgiaModelsiteSelected();
 
-    const [engineExists, pipelineExists, cloudExists] = await Promise.all([
+    const [engineExists, pipelineExists, cloudExists, dotnetExists] = await Promise.all([
         checkWebrootFileExists('/requests/engine/index.html', 'requestsEngineIndex'),
         checkWebrootFileExists('/data-pipeline/index.html', 'dataPipelineIndex'),
-        checkWebrootFileExists('/cloud/index.html', 'cloudIndex')
+        checkWebrootFileExists('/cloud/index.html', 'cloudIndex'),
+        checkWebrootFileExists('/host/net/index.html', 'dotnetSetupIndex')
     ]);
 
     if (engineRow) {
@@ -1712,11 +1735,15 @@ async function updateBackendSectionVisibilityByFiles(container) {
         cloudRow.classList.toggle('geo-x', hideForGeorgia);
         cloudRow.style.display = cloudExists && !hideForGeorgia ? '' : 'none';
     }
+    if (dotnetRow) {
+        dotnetRow.style.display = dotnetExists ? '' : 'none';
+    }
 
     return {
         engineExists,
         pipelineExists: pipelineExists && !hideForGeorgia,
-        cloudExists: cloudExists && !hideForGeorgia
+        cloudExists: cloudExists && !hideForGeorgia,
+        dotnetExists
     };
 }
 
@@ -1861,11 +1888,17 @@ async function updatePythonBackendStatus(containerId) {
     if (!container) return;
 
     ensureNoAiBackendUseAIListener();
-    const { engineExists, pipelineExists, cloudExists } = await updateBackendSectionVisibilityByFiles(container);
+    const { engineExists, pipelineExists, cloudExists, dotnetExists } = await updateBackendSectionVisibilityByFiles(container);
     updateNoAiFlaskStartVisibility();
 
     const checks = [];
     if (isLocalhostAccessEnabled()) {
+        if (dotnetExists) {
+            checks.push(
+                checkBackendAvailability('http://localhost:8010/healthz')
+                    .then((isRunning) => ({ backendKey: 'dotnet', isRunning }))
+            );
+        }
         if (engineExists) {
             checks.push(
                 checkBackendAvailability('http://localhost:8082/api/health')

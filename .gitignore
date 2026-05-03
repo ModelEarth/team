@@ -85,3 +85,8 @@ target/
 # Prevent nested webroot repositories
 webroot/
 **/webroot/
+
+__pycache__
+bin
+obj
+

@@ -7,6 +7,15 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 "push" always invokes the "./git.sh push" command.
 
+## .NET / C#
+
+Use [NET.md](../host/net/NET.md) for the shared .NET workflow across this webroot:
+- `net/` is legacy ASP.NET Web Forms / .NET Framework-era code.
+- `core/` is legacy .NET Core-era code.
+- `host/net/` is the newer cross-platform .NET host for local development.
+- The legacy `net/` and `core/` modules are intended to share a separate `.NET 4.x` backend on port `8004`.
+- Shared local .NET settings should go in `../docker/.env`, not new XML-only local config files.
+
 ### Build and Run
 - `cargo build` - Build the project
 - `cargo run --bin partner_tools -- serve` - Start the REST API server  
@@ -194,6 +203,21 @@ bash team/start-rust.sh
 ```
 
 Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (docker/.env relative to root) and is created from .env.example only if it doesn't already exist.
+
+### Start .NET Server
+When you type "start net", run:
+
+```bash
+bash host/net/net.sh start
+```
+
+Notes:
+- The shared .NET host uses `host/net/` and serves the current webroot root as the site root.
+- The shared `.NET 10` host is intended for everything outside `/net/` and `/core/` and defaults to port `8010`.
+- The legacy `/net/` and `/core/` paths are expected to be served by a `.NET 4.x` backend on port `8004`.
+- Shared settings are loaded from `docker/.env` through `host/net/net.sh`.
+- If the SDK is missing, use `bash host/net/net.sh install-sdk` or `bash host/net/net.sh start --install-sdk`.
+- See `host/net/NET.md` for install, legacy `net` / `core`, and nginx manifest guidance.
 
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:
