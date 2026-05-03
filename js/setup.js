@@ -956,6 +956,7 @@ async function getWebServerStatusState() {
 }
 
 async function getNodeWebServerProbeState(localhostPort) {
+    if (!isLocalhostAccessEnabled()) return null;
     if (localhostPort !== '8888') return null;
 
     const rootUrl = `http://localhost:${localhostPort}/`;
