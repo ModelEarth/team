@@ -219,6 +219,10 @@ Notes:
 - If the SDK is missing, use `bash host/net/net.sh install-sdk` or `bash host/net/net.sh start --install-sdk`.
 - See `host/net/NET.md` for install, legacy `net` / `core`, and nginx manifest guidance.
 
+### Start Arts Engine / Chat Server
+- `start art` — Arts Engine Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
+- `start chat` — see `chat/AGENTS.md` for the full command (`node chat/server.mjs`, port 8888); first run: `pnpm --prefix chat install`
+
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:
 ```bash

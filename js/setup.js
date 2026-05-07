@@ -650,37 +650,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function getQuickstartCommandsHtml() {
-    const localWebPort = getConfiguredLocalWebPort();
-    const dotnetPort = getConfiguredDotnetPort();
-    const currentPort = window.location.port;
-    const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
-        ? currentPort
-        : '8887';
-    const isLocalhost = window.location.hostname === 'localhost';
-    const basicCommandPreClass = isLocalhost
-        ? 'quickstart-port-pre quickstart-port-pre-with-stop'
-        : 'quickstart-port-pre';
-    const stopServerButton = isLocalhost
-        ? `
-            <button class="btn btn-secondary quickstart-stop-port-btn" onclick="stopLocalWebServer()">
-                Stop ${localWebPort} Server
-            </button>
-        `
-        : '';
-    return `
-        <p style="color: var(--text-primary);"><strong>Static server command</strong> - Does not include server-side Python execution</p>
-        <div class="quickstart-port-wrap" style="position:relative; container-type:inline-size;">
-            <pre class="${basicCommandPreClass}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localWebPort}</code></pre>
-            ${stopServerButton}
-        </div>
-        <div id="quickstart-cli-prompt-wrap" style="display:none; margin-top: 12px;">
-            <div style="color: var(--text-secondary); display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-                <span id="quickstart-cli-line"><strong>Using your Code CLI</strong>, start a web server (and python backend) within a virtual environment on port ${localWebPort}:</span>
-            </div>
-            <div id="stop-port-fallback"></div>
-            <pre id="quickstart-cli-command" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>start server using guidance in team/AGENTS.md</code></pre>
-        </div>
-    `;
+    return '';
 }
 
 function ensureQuickstartLayoutStyles() {
@@ -1048,7 +1018,7 @@ function getPythonBackendStatusMarkup(containerId) {
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>cargo run --manifest-path requests/engine/rust-api/Cargo.toml</code></pre>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start art</code></pre>
                 </div>
                 <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
@@ -1140,6 +1110,20 @@ else
   # Return to webroot
   cd ../..
 fi</code></pre>
+                </div>
+            </div>
+            <div data-backend="nodejs" style="margin-top: 6px;">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                    <span class="status-indicator loading"></span>
+                    <span style="flex: 1;"><a href="http://localhost:8888/">Node Unified Server</a> (port 8888): <span class="backend-text">Checking...</span></span>
+                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                </div>
+                <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start chat</code></pre>
+                </div>
+                <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                    <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>node chat/server.mjs</code></pre>
                 </div>
             </div>
             <div data-backend="dotnet" style="margin-top: 6px;">
@@ -1397,7 +1381,7 @@ function updateBackendCommandForRow(row, isRunning) {
     if (!row) return;
     const modeState = getBackendCommandState();
     const backendKey = row.dataset.backend || '';
-    const allowCommandsWhileRunning = backendKey === 'dotnet';
+    const allowCommandsWhileRunning = backendKey === 'dotnet' || backendKey === 'webserver';
     const withAiBlock = row.querySelector('.with-ai-backend-cmd');
     const commandBlock = row.querySelector('.no-ai-backend-cmd');
     const fullCommandLabel = row.querySelector('.full-command-label');
@@ -1715,13 +1699,15 @@ async function updateBackendSectionVisibilityByFiles(container) {
     const engineRow = container ? container.querySelector('[data-backend="engine"]') : null;
     const pipelineRow = container ? container.querySelector('[data-backend="pipeline"]') : null;
     const cloudRow = container ? container.querySelector('[data-backend="cloud"]') : null;
+    const nodejsRow = container ? container.querySelector('[data-backend="nodejs"]') : null;
     const dotnetRow = container ? container.querySelector('[data-backend="dotnet"]') : null;
     const hideForGeorgia = isGeorgiaModelsiteSelected();
 
-    const [engineExists, pipelineExists, cloudExists, dotnetExists] = await Promise.all([
+    const [engineExists, pipelineExists, cloudExists, nodejsExists, dotnetExists] = await Promise.all([
         checkWebrootFileExists('/requests/engine/index.html', 'requestsEngineIndex'),
         checkWebrootFileExists('/data-pipeline/index.html', 'dataPipelineIndex'),
         checkWebrootFileExists('/cloud/index.html', 'cloudIndex'),
+        checkWebrootFileExists('/chat/server.mjs', 'chatServerMjs'),
         checkWebrootFileExists('/host/net/index.html', 'dotnetSetupIndex')
     ]);
 
@@ -1736,6 +1722,9 @@ async function updateBackendSectionVisibilityByFiles(container) {
         cloudRow.classList.toggle('geo-x', hideForGeorgia);
         cloudRow.style.display = cloudExists && !hideForGeorgia ? '' : 'none';
     }
+    if (nodejsRow) {
+        nodejsRow.style.display = nodejsExists ? '' : 'none';
+    }
     if (dotnetRow) {
         dotnetRow.style.display = dotnetExists ? '' : 'none';
     }
@@ -1744,6 +1733,7 @@ async function updateBackendSectionVisibilityByFiles(container) {
         engineExists,
         pipelineExists: pipelineExists && !hideForGeorgia,
         cloudExists: cloudExists && !hideForGeorgia,
+        nodejsExists,
         dotnetExists
     };
 }
@@ -1889,7 +1879,7 @@ async function updatePythonBackendStatus(containerId) {
     if (!container) return;
 
     ensureNoAiBackendUseAIListener();
-    const { engineExists, pipelineExists, cloudExists, dotnetExists } = await updateBackendSectionVisibilityByFiles(container);
+    const { engineExists, pipelineExists, cloudExists, nodejsExists, dotnetExists } = await updateBackendSectionVisibilityByFiles(container);
     updateNoAiFlaskStartVisibility();
 
     const checks = [];
@@ -1916,6 +1906,12 @@ async function updatePythonBackendStatus(containerId) {
             checks.push(
                 checkBackendAvailability('http://localhost:8100/')
                     .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
+            );
+        }
+        if (nodejsExists) {
+            checks.push(
+                checkBackendAvailability('http://localhost:8888/')
+                    .then((isRunning) => ({ backendKey: 'nodejs', isRunning }))
             );
         }
     }
@@ -2061,54 +2057,71 @@ async function setupWebServerStatusPanel(options) {
     const toggleGap = isCompactToggle ? '2px' : '8px';
     const toggleGroupClass = `quickstart-commands-toggle-group${isCompactToggle ? ' compact-toggle-group' : ''}`;
 
-    if (isRunning) {
-        statusIndicator.className = 'status-indicator connected';
-        titleEl.textContent = `Web Server Running (${detectedLabel})`;
-        contentEl.innerHTML = `
-            <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
-                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 360px; display:flex; align-items:center; align-self:center;">
-                    Your local http server is running at&nbsp;<a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
-                </p>
-                <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
-                        ${getQuickstartToggleButtonMarkup('with-ai', connectedClass, 'With AI')}
-                        ${getQuickstartToggleButtonMarkup('without-ai', connectedClass, 'Without AI')}
-                        ${getQuickstartToggleButtonMarkup('both', connectedClass, 'Both')}
+    titleEl.textContent = 'Web Servers';
+    const webserverLabel = localhostApiRunning
+        ? 'Python HTTP Server Server-Side'
+        : (localhostWebRunning ? 'Python HTTP-Only Server' : 'Python HTTP Server');
+    const stopBtn = isRunning && isLocalOrigin
+        ? `<button class="btn btn-secondary quickstart-stop-port-btn" onclick="stopLocalWebServer()">Stop ${localhostPort} Server</button>`
+        : '';
+    const btnClass = isRunning ? connectedClass : defaultClass;
+    contentEl.innerHTML = `
+        <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
+        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 14px 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
+        <div data-backend="webserver" style="margin-bottom: 12px;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                <span class="status-indicator ${isRunning ? 'connected' : 'error'}"></span>
+                <span style="flex: 1;"><a href="http://localhost:${localhostPort}">${webserverLabel}</a> (port ${localhostPort}): <span class="backend-text">${isRunning ? 'Running' : 'Not running'}</span></span>
+                <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+            </div>
+            <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server</code></pre>
+            </div>
+            <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">With Server-Side Python and support for <a href="#" id="desktop-installer-link" style="color: inherit; text-decoration: underline; cursor: pointer;">Desktop Installer</a></div>
+                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>nohup ./desktop/install/quickstart.sh --cli --port ${localhostPort} > /dev/null 2>&1 &</code></pre>
+                <div id="quickstart-desktop-installer-details" style="display:none; margin: 0 0 4px 0;">
+                    <div id="quickstart-mac-linux-section">
+                        <p style="color: var(--text-primary); margin: 0 0 4px 0;">Optional: run an executable python backend for the <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a>${localhostPort ? ` (stop existing ${localhostPort} first.)` : ''}</p>
+                        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 6px 0;"><code>python3 -m venv env
+source env/bin/activate
+./desktop/install/quickstart.sh ${localhostPort}</code></pre>
                     </div>
+                    <div id="quickstart-windows-section">
+                        <p style="color: var(--text-primary); margin: 0 0 4px 0;">Start http server and server-side Python (PC):</p>
+                        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 6px 0;"><code>python -m venv env
+env\\\\Scripts\\\\activate
+./desktop/install/quickstart.sh ${localhostPort}</code></pre>
+                    </div>
+                    <p style="color: var(--text-secondary); margin: 0 0 4px 0;"><strong>About the quickstart.sh script:</strong></p>
+                    <ul style="color: var(--text-secondary); margin: 0 0 4px 20px;">
+                        <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
+                        <li>Activates the virtual environment</li>
+                        <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+                        <li>Installs the <code>anthropic</code> package if API key is present</li>
+                        <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localhostPort}</li>
+                    </ul>
+                </div>
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Only</div>
+                <div style="position: relative; container-type: inline-size;">
+                    <pre class="quickstart-port-pre${isRunning ? ' quickstart-port-pre-with-stop' : ''}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localhostPort}</code></pre>
+                    ${stopBtn}
                 </div>
             </div>
-            <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
-            ${getNodeWebServerStatusMarkup(nodeStatus)}
-            ${getPythonBackendStatusMarkup(options.pythonStatusId)}
-        `;
-    } else {
-        statusIndicator.className = 'status-indicator error';
-        titleEl.textContent = 'Local Web Server';
-        contentEl.innerHTML = `
-            <div class="web-server-status-row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
-                <p style="color: var(--text-secondary); margin: 0; flex: 1 1 300px;">
-                    To view webroots locally at:<br>
-                    <a href="http://localhost:${localhostPort}">localhost:${localhostPort}</a>
-                </p>
-                <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; justify-content:flex-end;">
-                    <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
-                        ${getQuickstartToggleButtonMarkup('with-ai', defaultClass, 'With AI')}
-                        ${getQuickstartToggleButtonMarkup('without-ai', defaultClass, 'Without AI')}
-                        ${getQuickstartToggleButtonMarkup('both', defaultClass, 'Both')}
-                    </div>
+        </div>
+        ${getPythonBackendStatusMarkup(options.pythonStatusId)}
+        <div class="web-server-status-row" style="margin-top: 6px;">
+            <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+                <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
+                    ${getQuickstartToggleButtonMarkup('with-ai', btnClass, 'With AI')}
+                    ${getQuickstartToggleButtonMarkup('without-ai', btnClass, 'Without AI')}
+                    ${getQuickstartToggleButtonMarkup('both', btnClass, 'Both')}
                 </div>
             </div>
-            <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
-            <p id="hosted-origin-note" class="local" style="display:none; color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
-                ${!isLocalOrigin ? `This page is loaded from hosted origin <code>${currentOriginDisplay}</code>; hosted page reachability does not mean local server-side Python is running on your machine.` : ''}
-            </p>
-            <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 13px;">
-                Checks: origin <code>${currentOriginDisplay}</code> (${currentOriginRunning ? 'reachable' : 'not reachable'}), local web server <code>${localhostDisplay}</code> (${localhostWebRunning ? 'reachable' : 'not reachable'}), local API path <code>/api/status</code> on port ${localhostPort} (${localhostApiRunning ? 'reachable' : 'not reachable'}).
-            </p>
-            ${getNodeWebServerStatusMarkup(nodeStatus)}
-            ${getPythonBackendStatusMarkup(options.pythonStatusId)}
-        `;
-    }
+        </div>
+        <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
+        ${getNodeWebServerStatusMarkup(nodeStatus)}
+    `;
 
     const commandsContainer = document.getElementById(commandsContainerId);
     const statusRow = contentEl.querySelector('.web-server-status-row');
@@ -2118,6 +2131,22 @@ async function setupWebServerStatusPanel(options) {
     const aiPromptHost = document.getElementById(`${commandsContainerId}-ai-prompt-host`);
     if (aiPromptHost && commandsContainer) {
         commandsContainer.insertAdjacentElement('beforebegin', aiPromptHost);
+    }
+
+    const webserverRow = contentEl.querySelector('[data-backend="webserver"]');
+    if (webserverRow) {
+        updateBackendCommandForRow(webserverRow, isRunning);
+    }
+
+    const desktopLink = contentEl.querySelector('#desktop-installer-link');
+    const desktopDetails = document.getElementById('quickstart-desktop-installer-details');
+    if (desktopLink && desktopDetails) {
+        desktopLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isHidden = desktopDetails.style.display === 'none';
+            desktopDetails.style.display = isHidden ? 'block' : 'none';
+            updateRustRecheckMessageVisibilityForDesktopInstaller();
+        });
     }
 
     setupCommandsToggle(buttonId, commandsContainerId, renderQuickstartCommands);
@@ -2156,44 +2185,16 @@ function setupQuickstartInstructions(containerId) {
     container.innerHTML = `
         <div>
             <h1 class="card-title" style="display:flex; align-items:center; gap:10px;">
-                <span class="status-indicator" id="${statusIndicatorId}"></span>
-                <span id="${titleId}">Local Web Server</span>
+                <span class="status-indicator" id="${statusIndicatorId}" style="display:none;"></span>
+                <span id="${titleId}">Web Servers</span>
                 ${localhostToggleHTML}
             </h1>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
-            <div class="geo-x">
-                <div id="quickstart-cli-placeholder" style="color: var(--text-secondary); margin-top: 6px; display:inline-flex; align-items:center; gap:6px;">
-                    <button type="button" id="quickstart-desktop-installer-toggle" class="btn btn-secondary" aria-expanded="false">Desktop Installer <span id="quickstart-desktop-installer-arrow" aria-hidden="true">▸</span></button><span id="quickstart-desktop-installer-status"></span><br>
-                </div>
-            </div>
-            <div id="quickstart-desktop-installer-details" style="display: none;">
-                <div id="quickstart-mac-linux-section">
-                    <p style="color: var(--text-primary);">Optional: run an executable python backend for the <a href="/desktop/install/" id="quickstart-manage-desktop-apps-link">Desktop Installer</a>${currentPort ? ` (stop existing ${currentPort} first.)` : ''}</p>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python3 -m venv env
-source env/bin/activate
-./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
-                </div>
-                <div id="quickstart-windows-section">
-                    <p style="color: var(--text-primary);">Start http server and server-side Python (PC):</p>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m venv env
-env\\Scripts\\activate
-./desktop/install/quickstart.sh ${desktopInstallerPort}</code></pre>
-                </div>
-                <p style="color: var(--text-secondary);"><strong>About the quickstart.sh script:</strong></p>
-                <ul style="color: var(--text-secondary); margin-left: 20px;">
-                    <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
-                    <li>Activates the virtual environment</li>
-                    <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
-                    <li>Installs the <code>anthropic</code> package if API key is present</li>
-                    <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localWebPort}</li>
-                </ul>
-            </div>
         </div>
     `;
     moveGithubCliAutoStatusToQuickstart();
     attachQuickstartCliListeners();
-    updateQuickstartDesktopInstallerStatus();
 
     const localhostToggle = document.getElementById('localhost-access-toggle');
     if (localhostToggle) {
