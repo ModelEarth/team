@@ -196,13 +196,42 @@ Execute both start commands sequentially (data-pipeline first, then cloud run).
 - **Cloud Run**: Port 8100, executes Jupyter notebooks from GitHub, cloud deployment ready
 
 ### Start Rust API Server
-When you type "start rust", run the start script (checks if already running, then starts if needed):
+When you type "start rust", use the startup method that matches your environment.
+
+#### OpenAI Codex, Claude Code CLI, and Similar Agent Runners
+
+Do **not** rely on detached child processes such as `nohup`, `screen`, or `setsid` here. In these agent-runner environments, the runner may clean them up after the parent command exits.
+
+Instead, start the Rust API in a long-lived PTY session and keep that PTY open:
+
+```bash
+cd team
+cargo run --bin partner_tools -- serve
+```
+
+After the PTY-backed process is live, verify with:
+
+```bash
+curl http://localhost:8081/api/health
+```
+
+#### Terminal Users
+
+For a regular interactive terminal outside agent runners, use the start script (checks if already running, then starts if needed):
 
 ```bash
 bash team/start-rust.sh
 ```
 
-Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (docker/.env relative to root) and is created from .env.example only if it doesn't already exist.
+The script waits until `http://localhost:8081/api/health` responds before reporting success, so do not treat the first compile delay as a startup failure.
+
+If you need to verify manually after startup, use:
+
+```bash
+curl http://localhost:8081/api/health
+```
+
+Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (docker/.env relative to root) and is created from .env.example only if it doesn't already exist. If port `8081` is already occupied by some other process, the script exits with an error instead of claiming the Rust API started successfully.
 
 ### Start .NET Server
 When you type "start net", run:

@@ -2380,7 +2380,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             <div id="rust-start-mode-content">
                 <div id="with-cli-content" style="display: none;">
                     <p id="with-cli-label" style="display:none; color: var(--text-secondary); margin: 0 0 8px 0;"><strong>AI Command</strong></p>
-                    <pre><code>Using guidance in team/AGENTS.md start rust</code></pre>
+                    <pre><code>start rust using guidance in team/AGENTS.md</code></pre>
                 </div>
                 <div id="without-cli-content" style="display: none;">
                     <p id="without-cli-label" style="display:none; color: var(--text-secondary); margin: 0 0 8px 0;"><strong>Full Command</strong></p>
