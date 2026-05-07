@@ -1003,18 +1003,19 @@ function getNodeWebServerStatusMarkup(nodeStatus) {
 }
 
 function getPythonBackendStatusMarkup(containerId) {
+    const checkingText = isLocalhostAccessEnabled() ? 'Checking...' : '';
     return `
         <div class="geo-x">
-        <h1 class="card-title" style="display:flex; align-items:center; gap:10px; margin-top:26px;">
-            <span class="status-indicator error" id="${containerId}-aggregate-dot"></span>
-            <span>Backend Code and API</span>
-        </h1>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:26px; margin-bottom:6px;">
+            <!-- <span class="status-indicator error" id="${containerId}-aggregate-dot"></span> -->
+            <h3 style="margin:0;">Backend Code and APIs</h3>
+        </div>
         <p style="color:var(--text-secondary); margin:0 0 6px 0; font-size:13px;">You don't need to activate these to contribute - since our webroot uses JAM Stack (static pages with APIs)</p>
         <div id="${containerId}">
             <div data-backend="engine" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="/requests/engine/">Arts Engine Python</a> (port 8082): <span class="backend-text">Checking...</span></span>
+                    <span style="flex: 1;"><a href="/requests/engine/">Arts Engine Axum Rust</a> (port 8082): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1028,7 +1029,7 @@ function getPythonBackendStatusMarkup(containerId) {
             <div data-backend="pipeline" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">Checking...</span></span>
+                    <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1069,7 +1070,7 @@ fi</code></pre>
             <div data-backend="cloud" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">Checking...</span></span>
+                    <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1115,7 +1116,7 @@ fi</code></pre>
             <div data-backend="nodejs" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="http://localhost:8888/">Node Unified Server</a> (port 8888): <span class="backend-text">Checking...</span></span>
+                    <span style="flex: 1;"><a href="/chat/keys/">NodeJS Server</a> (port 8888): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1129,7 +1130,7 @@ fi</code></pre>
             <div data-backend="dotnet" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="/host/net/">Shared .NET Host</a> (port 8010): <span class="backend-text">Checking...</span></span>
+                    <span style="flex: 1;"><a href="/host/net/">Shared .NET Host</a> (port 8010): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1703,10 +1704,8 @@ async function updateBackendSectionVisibilityByFiles(container) {
     const dotnetRow = container ? container.querySelector('[data-backend="dotnet"]') : null;
     const hideForGeorgia = isGeorgiaModelsiteSelected();
 
-    const [engineExists, pipelineExists, cloudExists, nodejsExists, dotnetExists] = await Promise.all([
+    const [engineExists, nodejsExists, dotnetExists] = await Promise.all([
         checkWebrootFileExists('/requests/engine/index.html', 'requestsEngineIndex'),
-        checkWebrootFileExists('/data-pipeline/index.html', 'dataPipelineIndex'),
-        checkWebrootFileExists('/cloud/index.html', 'cloudIndex'),
         checkWebrootFileExists('/chat/server.mjs', 'chatServerMjs'),
         checkWebrootFileExists('/host/net/index.html', 'dotnetSetupIndex')
     ]);
@@ -1716,11 +1715,11 @@ async function updateBackendSectionVisibilityByFiles(container) {
     }
     if (pipelineRow) {
         pipelineRow.classList.toggle('geo-x', hideForGeorgia);
-        pipelineRow.style.display = pipelineExists && !hideForGeorgia ? '' : 'none';
+        pipelineRow.style.display = hideForGeorgia ? 'none' : '';
     }
     if (cloudRow) {
         cloudRow.classList.toggle('geo-x', hideForGeorgia);
-        cloudRow.style.display = cloudExists && !hideForGeorgia ? '' : 'none';
+        cloudRow.style.display = hideForGeorgia ? 'none' : '';
     }
     if (nodejsRow) {
         nodejsRow.style.display = nodejsExists ? '' : 'none';
@@ -1731,8 +1730,8 @@ async function updateBackendSectionVisibilityByFiles(container) {
 
     return {
         engineExists,
-        pipelineExists: pipelineExists && !hideForGeorgia,
-        cloudExists: cloudExists && !hideForGeorgia,
+        pipelineExists: !hideForGeorgia,
+        cloudExists: !hideForGeorgia,
         nodejsExists,
         dotnetExists
     };
@@ -1879,7 +1878,7 @@ async function updatePythonBackendStatus(containerId) {
     if (!container) return;
 
     ensureNoAiBackendUseAIListener();
-    const { engineExists, pipelineExists, cloudExists, nodejsExists, dotnetExists } = await updateBackendSectionVisibilityByFiles(container);
+    const { engineExists, nodejsExists, dotnetExists } = await updateBackendSectionVisibilityByFiles(container);
     updateNoAiFlaskStartVisibility();
 
     const checks = [];
@@ -1896,18 +1895,14 @@ async function updatePythonBackendStatus(containerId) {
                     .then((isRunning) => ({ backendKey: 'engine', isRunning }))
             );
         }
-        if (pipelineExists) {
-            checks.push(
-                checkBackendAvailability('http://localhost:5001/')
-                    .then((isRunning) => ({ backendKey: 'pipeline', isRunning }))
-            );
-        }
-        if (cloudExists) {
-            checks.push(
-                checkBackendAvailability('http://localhost:8100/')
-                    .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
-            );
-        }
+        checks.push(
+            checkBackendAvailability('http://localhost:5001/')
+                .then((isRunning) => ({ backendKey: 'pipeline', isRunning }))
+        );
+        checks.push(
+            checkBackendAvailability('http://localhost:8100/')
+                .then((isRunning) => ({ backendKey: 'cloud', isRunning }))
+        );
         if (nodejsExists) {
             checks.push(
                 checkBackendAvailability('http://localhost:8888/')
@@ -1921,6 +1916,26 @@ async function updatePythonBackendStatus(containerId) {
             setBackendRowStatus(container, result.backendKey, result.isRunning);
         });
     });
+
+    relocateRustStatusIndicators(container);
+}
+
+function relocateRustStatusIndicators(container) {
+    if (!container) return;
+    const indicators = document.getElementById('backend-status-indicators');
+    if (indicators) {
+        if (container.firstChild !== indicators) {
+            container.insertBefore(indicators, container.firstChild);
+        }
+        const rustContainer = document.getElementById('combined-rust-api-container');
+        if (rustContainer) {
+            rustContainer.style.display = 'none';
+        }
+    } else if (typeof waitForElm === 'function') {
+        waitForElm('#backend-status-indicators').then(() => {
+            relocateRustStatusIndicators(container);
+        });
+    }
 }
 
 function moveCommandsToggleBeforeUseAI(buttonId = 'quickstartDiv-toggle') {

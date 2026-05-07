@@ -589,8 +589,7 @@ function createOSDetectionPanel(containerId) {
 source env/bin/activate
 npx @anthropic-ai/claude-code</div>
             <div id="codex-reasoning-tip" style="display: none; margin-top: 8px; font-size: 0.9em;">
-                For a complex problem, turn on reasoning (not normally needed):
-                <pre><code>codex -c model_reasoning_effort="medium" "fix this bug"</code></pre>
+                In Codex, for a complex problem set reasoning to high under "/model" (not normally needed).
             </div>
             <div style="font-size: .8em;" id="cli-tips">
                 Since context is passed with each request, use a new terminal window when your context changes, or run /clear.<br>
@@ -2215,7 +2214,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                     <div class="rust-api-status-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator" id="rust-api-status-indicator"></span>
-                            <span id="rust-api-status-title"><strong>Rust Backend API</strong> - start locally for access to CORS datasets and SQL databases</span>
+                            <span id="rust-api-status-title">${currentPath.includes('/team/admin/sql/panel/') ? 'Team Repo API' : '<a href="/team/admin/sql/panel/">Team Repo API</a>'} (port 8081): Start our Actix Rust API for CORS and SQL access</span>
                         </div>
                         <div class="rust-api-status-actions">
                             <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
@@ -2244,11 +2243,11 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <span class="status-indicator error" id="location-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                     </div>
+                    ${currentPath.includes('/team/admin/sql/panel/') ? `
                     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px;">
-                        <button class="btn btn-secondary rust-api-status-button" onclick="window.location.href='http://localhost:${localWebPort}/team/admin/sql/panel/'" id="database-admin-btn">Database Admin</button>
                         <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" id="reload-status-btn">Recheck Status</button>
                         <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite" style="color: var(--text-secondary); font-size: 14px;"></div>
-                    </div>
+                    </div>` : ''}
                 </div>
             </div>
         </div>
