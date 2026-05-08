@@ -2,6 +2,8 @@
 use actix_web::{web, HttpResponse, Result};
 use serde::{Deserialize, Serialize};
 use anyhow::Context;
+use tokio::process::Command;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Deserialize)]
 pub struct ClaudeAnalysisRequest {
@@ -61,8 +63,8 @@ pub async fn analyze_with_claude_cli(
 
 // Call Claude Code CLI for dataset analysis
 pub async fn call_claude_code_cli(prompt: &str, dataset_info: &Option<serde_json::Value>) -> anyhow::Result<(String, Option<TokenUsage>)> {
-    use std::process::Command;
     use std::path::Path;
+    use std::process::Command as StdCommand;
 
     // Find the Claude CLI executable from multiple possible locations
     let claude_paths = vec![
@@ -83,7 +85,7 @@ pub async fn call_claude_code_cli(prompt: &str, dataset_info: &Option<serde_json
         .find(|path| {
             if path == "claude" {
                 // For "claude" in PATH, try to execute it
-                Command::new(path)
+                StdCommand::new(path)
                     .arg("--version")
                     .output()
                     .map(|output| output.status.success())
@@ -109,12 +111,31 @@ pub async fn call_claude_code_cli(prompt: &str, dataset_info: &Option<serde_json
 
     println!("Executing Claude Code CLI analysis...");
 
-    // First try with regular text output since JSON format has issues
-    let output = Command::new(&claude_cmd)
+    let timeout_seconds = std::env::var("CLAUDE_CLI_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(90);
+
+    // Run Claude in non-interactive text mode with tools disabled.
+    // The insights prompt already includes the dataset context inline.
+    let mut command = Command::new(&claude_cmd);
+    command
         .arg("--print")
+        .arg("--tools")
+        .arg("")
         .arg(&full_prompt)
-        .output()
-        .context(format!("Failed to execute claude command at {}. Make sure Claude Code CLI is installed and accessible.", claude_cmd))?;
+        .kill_on_drop(true);
+
+    let output = timeout(Duration::from_secs(timeout_seconds), command.output())
+        .await
+        .map_err(|_| anyhow::anyhow!(
+            "Claude Code CLI timed out after {} seconds. The CLI may be waiting on authentication, network access, or an internal startup step.",
+            timeout_seconds
+        ))?
+        .context(format!(
+            "Failed to execute claude command at {}. Make sure Claude Code CLI is installed and accessible.",
+            claude_cmd
+        ))?;
     
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
