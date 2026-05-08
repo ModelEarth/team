@@ -42,14 +42,11 @@ pub async fn analyze_with_llm(
 
     match model_id.as_str() {
         "claude" => {
-            // Create Claude request from unified request
             let claude_req = claude_insights::ClaudeAnalysisRequest {
                 prompt: req.prompt.clone(),
                 dataset_info: req.dataset_info.clone(),
             };
-
-            // Route to existing Claude handler (doesn't need data/API key, uses CLI)
-            claude_insights::analyze_with_claude_cli(web::Json(claude_req)).await
+            claude_insights::analyze_with_claude_cli(data, web::Json(claude_req)).await
         }
         "gemini" => {
             println!("Processing Gemini request...");

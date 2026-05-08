@@ -40,6 +40,7 @@ use oauth::{OAuthConfig, UserSession, OAuthUrlResponse};
 struct Config {
     database_url: String,
     gemini_api_key: String,
+    anthropic_api_key: String,
     server_host: String,
     server_port: u16,
     excel_file_path: String,
@@ -65,6 +66,8 @@ impl Config {
                 database_url,
                 gemini_api_key: std::env::var("GEMINI_API_KEY")
                     .unwrap_or_else(|_| "dummy_key".to_string()),
+                anthropic_api_key: std::env::var("ANTHROPIC_API_KEY")
+                    .unwrap_or_default(),
                 server_host: std::env::var("SERVER_HOST")
                     .unwrap_or_else(|_| "127.0.0.1".to_string()),
                 server_port: std::env::var("SERVER_PORT")

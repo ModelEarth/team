@@ -5,7 +5,7 @@ use actix_web::{web, HttpResponse, Result};
 use serde::{Deserialize, Serialize};
 use crate::prompts::{build_semantic_search_prompt, ProjectData};
 use crate::gemini_insights::{self, GeminiAnalysisRequest};
-use crate::claude_insights::{self, ClaudeAnalysisRequest};
+use crate::claude_insights;
 use crate::ApiState;
 
 /// Request payload for semantic search
@@ -163,7 +163,7 @@ pub async fn search_projects(
     // 5. Call AI API based on provider
     match req.provider.as_str() {
         "gemini" => call_gemini_for_search(data, &prompt).await,
-        "claude" => call_claude_for_search(&prompt).await,
+        "claude" => call_claude_for_search(data, &prompt).await,
         _ => Ok(HttpResponse::BadRequest().json(SemanticSearchResponse {
             success: false,
             matches: None,
@@ -285,13 +285,19 @@ async fn call_gemini_for_search(
     }))
 }
 
-/// Call Claude CLI for semantic search
-async fn call_claude_for_search(prompt: &str) -> Result<HttpResponse> {
-    match crate::claude_insights::call_claude_code_cli(prompt, &None).await {
-        Ok((analysis, token_usage)) => {
-            println!("✅ Claude CLI call successful");
+/// Call Claude API for semantic search
+async fn call_claude_for_search(
+    data: web::Data<std::sync::Arc<ApiState>>,
+    prompt: &str,
+) -> Result<HttpResponse> {
+    let api_key = {
+        let config = data.config.lock().unwrap();
+        config.anthropic_api_key.clone()
+    };
 
-            // Parse AI response
+    match crate::claude_insights::call_claude_api(&api_key, prompt, &None).await {
+        Ok((analysis, token_usage)) => {
+            println!("✅ Claude API call successful");
             match parse_search_results(&analysis) {
                 Ok((matches, total_matches, interpretation)) => {
                     Ok(HttpResponse::Ok().json(SemanticSearchResponse {
@@ -317,13 +323,13 @@ async fn call_claude_for_search(prompt: &str) -> Result<HttpResponse> {
             }
         }
         Err(e) => {
-            eprintln!("❌ Claude CLI call failed: {}", e);
+            eprintln!("❌ Claude API call failed: {}", e);
             Ok(HttpResponse::InternalServerError().json(SemanticSearchResponse {
                 success: false,
                 matches: None,
                 total_matches: None,
                 search_interpretation: None,
-                error: Some(format!("Claude CLI error: {}", e)),
+                error: Some(format!("Claude API error: {}", e)),
                 token_usage: None,
             }))
         }
