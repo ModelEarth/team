@@ -250,7 +250,7 @@ Notes:
 
 ### Start Arts Engine / Chat Server
 - `start art` — Arts Engine Axum Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
-- `start chat` — see `chat/AGENTS.md` for the full command (`node chat/server.mjs`, port 8888); first run: `pnpm --prefix chat install`
+- `start chat` — see `chat/AGENTS.md` for the full command (`node chat/server.mjs`, port 8888). This starts the chat app and mounts the `sanity/` Next.js site at `/sanity`; first run: `pnpm --prefix chat install` and `bun --cwd sanity install`
 
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:

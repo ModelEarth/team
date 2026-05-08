@@ -1116,7 +1116,7 @@ fi</code></pre>
             <div data-backend="nodejs" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
-                    <span style="flex: 1;"><a href="/chat/keys/">NodeJS Server</a> (port 8888): <span class="backend-text">${checkingText}</span></span>
+                    <span style="flex: 1;"><a href="/chat/keys/">NodeJS Server + Sanity</a> (port 8888): <span class="backend-text">${checkingText}</span></span>
                     <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
@@ -1124,7 +1124,9 @@ fi</code></pre>
                 </div>
                 <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <div class="full-command-label" style="display:none; color: var(--text-secondary); margin: 0 0 4px 0;">Full Command</div>
-                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>node chat/server.mjs</code></pre>
+                    <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>pnpm --prefix chat install
+bun --cwd sanity install
+node chat/server.mjs</code></pre>
                 </div>
             </div>
             <div data-backend="dotnet" style="margin-top: 6px;">
