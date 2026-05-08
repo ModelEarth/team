@@ -11419,6 +11419,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         
         // Show UI elements when new list loads successfully
         function showListDisplayElements() {
+            const currentList = getHash().list || fileSelect.value || 'modelteam';
+
             // Show view controls
             const viewControls = document.querySelector('.view-controls');
             if (viewControls) {
