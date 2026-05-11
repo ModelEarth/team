@@ -233,6 +233,12 @@ const BASE_PATH = getBasePath();
 
 // Function to fix relative paths dynamically
 function fixRelativePath(relativePath) {
+    if (!relativePath) {
+        return relativePath;
+    }
+    if (/^(?:[a-z]+:)?\/\//i.test(relativePath) || relativePath.indexOf('data:') === 0 || relativePath.startsWith('/')) {
+        return relativePath;
+    }
     if (relativePath.startsWith('../') || relativePath.startsWith('./')) {
         // Already relative, keep as is for direct serving
         if (!window.location.pathname.includes('/team/')) {
@@ -253,7 +259,7 @@ function updateFaviconPath() {
     const faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
     faviconLinks.forEach(faviconLink => {
         const originalHref = faviconLink.getAttribute('href');
-        if (originalHref && !originalHref.startsWith('http')) {
+        if (originalHref && !/^(?:[a-z]+:)?\/\//i.test(originalHref) && originalHref.indexOf('data:') !== 0) {
             // Fix any incorrect /team/ paths for direct serving
             if (originalHref.includes('/team/') && !window.location.pathname.includes('/team/')) {
                 faviconLink.href = originalHref.replace('/team/', '');
@@ -264,12 +270,38 @@ function updateFaviconPath() {
     });
 }
 
-// API Configuration — only returns a URL when localhost access is permitted
+function getExternalApiBase() {
+    const host = String(window.location.hostname || '').toLowerCase();
+    if (!isLocalDevelopmentHost(host)) {
+        return `${window.location.protocol}//${window.location.host}/api`;
+    }
+
+    const effectiveModelsite = getEffectiveModelsite();
+    if (effectiveModelsite === 'model.georgia') {
+        return 'https://model.georgia.org/api';
+    }
+    if (effectiveModelsite === 'planet.live') {
+        return 'https://planet.live/api';
+    }
+    if (effectiveModelsite === 'democracylab') {
+        return 'https://www.democracylab.org/api';
+    }
+    if (effectiveModelsite === 'membercommons') {
+        return 'https://membercommons.org/api';
+    }
+    if (effectiveModelsite === 'neighborhood.org') {
+        return 'https://neighborhood.org/api';
+    }
+
+    return 'https://model.earth/api';
+}
+
+// API Configuration — use localhost only when localhost access is permitted.
 function getApiBase() {
     const canAccess = (typeof window.shouldAccessLocalhost === 'function')
         ? window.shouldAccessLocalhost()
-        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    return canAccess ? 'http://localhost:8081/api' : null;
+        : false;
+    return canAccess ? 'http://localhost:8081/api' : getExternalApiBase();
 }
 
 if (typeof API_BASE === 'undefined') {
@@ -2308,41 +2340,11 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
             // Backend is active
             indicator.className = 'status-indicator connected';
 
-            // Check if we're using localhost fallback on an external domain
-            const isExternalDomain = !(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-            const pullLocalRustEnabled = localStorage.getItem('pullLocalRust') !== 'false';
-            const showFallbackToggle = isExternalDomain;
-            const fallbackTitle = pullLocalRustEnabled ? 'Localhost Fallback Active' : 'Localhost Fallback Disabled';
-            const fallbackDescription = pullLocalRustEnabled
-                ? 'Using localhost:8081 API from your local machine'
-                : `Using ${window.location.hostname} API endpoints`;
-
-            const fallbackToggleHtml = showFallbackToggle ? `
-                <div style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                        <div>
-                            <strong style="color: var(--text-primary);">${fallbackTitle}</strong>
-                            <p style="color: var(--text-secondary); font-size: 14px; margin: 4px 0 0 0;">
-                                ${fallbackDescription}
-                            </p>
-                        </div>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                            <input type="checkbox" id="localhost-fallback-toggle"
-                                   ${pullLocalRustEnabled ? 'checked' : ''}
-                                   onchange="toggleLocalhostFallback(this)"
-                                   style="width: 18px; height: 18px; cursor: pointer;">
-                            <span style="color: var(--text-primary); font-size: 14px;">Enable</span>
-                        </label>
-                    </div>
-                </div>
-            ` : '';
-
             content.innerHTML = `
                 <div style="color: var(--accent-green); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                     <span class="status-indicator connected"></span>
                     <span>Backend Rust API is accessible</span>
                 </div>
-                ${fallbackToggleHtml}
             `;
 
             // Show stop button
@@ -2567,29 +2569,6 @@ async function checkDatabaseStatus() {
     checkIndividualDatabaseStatus();
 }
 
-// Function to toggle localhost fallback
-function toggleLocalhostFallback(checkbox) {
-    const enabled = checkbox.checked;
-    localStorage.setItem('pullLocalRust', enabled ? 'true' : 'false');
-
-    if (enabled) {
-        // Re-enable fallback
-        API_BASE = getApiBase();
-        showNotification('✅ Localhost fallback enabled. Page will reload.', 'success');
-    } else {
-        // Disable fallback
-        API_BASE = window.location.origin.includes('localhost')
-            ? 'http://localhost:8081/api'
-            : `${window.location.origin}/api`;
-        showNotification('⚠️ Localhost fallback disabled. Page will reload.', 'info');
-    }
-
-    // Reload page after a short delay
-    setTimeout(() => {
-        window.location.reload();
-    }, 1500);
-}
-
 // Make functions globally available
 // Function to stop Rust server
 async function stopRustServer() {
@@ -2644,7 +2623,6 @@ async function stopRustServer() {
 }
 
 window.getApiBase = getApiBase;
-window.toggleLocalhostFallback = toggleLocalhostFallback;
 window.createOSDetectionPanel = createOSDetectionPanel;
 window.createRustApiStatusPanel = createRustApiStatusPanel;
 window.updateRustApiStatusPanel = updateRustApiStatusPanel;

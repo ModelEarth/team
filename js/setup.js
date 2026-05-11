@@ -302,15 +302,106 @@ if (typeof API_BASE === 'undefined') {
     var API_BASE = (typeof getApiBase === 'function') ? getApiBase() : 'http://localhost:8081/api';
 }
 
-// Localhost access toggle — defers to accesslocal cookie (set via #accesslocal menu in localsite nav)
-function isLocalhostAccessEnabled() {
-    if (typeof window.shouldAccessLocalhost === 'function') return window.shouldAccessLocalhost();
-    if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) return true;
-    return localStorage.getItem('localhost-access-enabled') === 'true';
+// Localhost access toggle — uses the accesslocal cookie shared with the Settings menu.
+function getLocalhostAccessSetting() {
+    if (typeof getAccesslocalSetting === 'function') {
+        return getAccesslocalSetting();
+    }
+    return '';
 }
 
-function setLocalhostAccessEnabled(val) {
-    localStorage.setItem('localhost-access-enabled', val ? 'true' : 'false');
+function isLocalhostAccessEnabled() {
+    if (typeof window.shouldAccessLocalhost === 'function') return window.shouldAccessLocalhost();
+    return getLocalhostAccessSetting() === 'enabled';
+}
+
+function isLocalhostToggleChecked() {
+    const accessSetting = getLocalhostAccessSetting();
+    if (!accessSetting && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) {
+        return true;
+    }
+    return accessSetting === 'enabled' || accessSetting === 'install';
+}
+
+function setLocalhostAccessEnabled(enabled) {
+    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    if (typeof setAccesslocal === 'function') {
+        setAccesslocal(enabled ? 'enabled' : (isLocalHost ? 'block' : ''));
+        return;
+    }
+    if (typeof Cookies !== 'undefined') {
+        if (enabled) {
+            Cookies.set('accesslocal', 'enabled');
+        } else if (isLocalHost) {
+            Cookies.set('accesslocal', 'block');
+        } else {
+            Cookies.remove('accesslocal');
+        }
+    }
+}
+
+function applyLocalhostToggleStyle(toggleElement, checked) {
+    if (!toggleElement) return;
+    const toggleLabel = toggleElement.closest('label');
+    const knob = toggleLabel ? toggleLabel.querySelector('.toggle-knob') : null;
+    const track = toggleLabel ? toggleLabel.querySelector('.toggle-slider') : null;
+    toggleElement.checked = !!checked;
+    if (knob) knob.style.transform = checked ? 'translateX(16px)' : 'translateX(0)';
+    if (track) track.style.background = checked ? 'var(--color-success, #4caf50)' : 'var(--bg-tertiary, #ccc)';
+}
+
+function syncLocalhostToggleFromSettings() {
+    const localhostToggle = document.getElementById('localhost-access-toggle');
+    if (!localhostToggle) return;
+    applyLocalhostToggleStyle(localhostToggle, isLocalhostToggleChecked());
+}
+
+function bindLocalhostSettingsSync() {
+    if (window.localhostSettingsSyncBound) return;
+    window.localhostSettingsSyncBound = true;
+
+    document.addEventListener('accesslocalChanged', () => {
+        syncLocalhostToggleFromSettings();
+        updateLocalhostAccessNotice();
+    });
+    waitForElm('#accesslocal').then((accesslocalSelect) => {
+        if (accesslocalSelect.dataset.localhostToggleBound === 'true') return;
+        accesslocalSelect.dataset.localhostToggleBound = 'true';
+        accesslocalSelect.addEventListener('change', () => {
+            const selectedValue = (accesslocalSelect.value || '').toLowerCase();
+            applyLocalhostToggleStyle(
+                document.getElementById('localhost-access-toggle'),
+                selectedValue === 'enabled' || selectedValue === 'install'
+            );
+            updateLocalhostAccessNotice();
+        });
+        syncLocalhostToggleFromSettings();
+        updateLocalhostAccessNotice();
+    });
+}
+
+function canUseLocalRustConfigApi() {
+    return !!(typeof window.shouldAccessLocalhost === 'function' && window.shouldAccessLocalhost());
+}
+
+function updateLocalhostAccessNotice() {
+    const notice = document.getElementById('quickstartDiv-localhost-notice');
+    if (!notice) return;
+
+    if (canUseLocalRustConfigApi()) {
+        notice.style.display = 'none';
+        notice.innerHTML = '';
+        return;
+    }
+
+    notice.style.display = 'block';
+    notice.innerHTML = `
+        <div class="alert alert-danger" style="margin-top: 10px; font-size: 13px;">
+            <div>
+                <strong>Turn on the Localhost Backend access above</strong> for Rust and local API Keys. <!--<code>docker/.env</code> are unavailable here because <code>model.earth</code> does not currently expose the team Rust API endpoints.-->
+            </div>
+        </div>
+    `;
 }
 
 // HTML content for the gemini resources section
@@ -327,6 +418,10 @@ function createGeminiResourcesHTML() {
 
 // Function to check Gemini key status and update UI
 async function checkGeminiKeyStatus() {
+    if (!canUseLocalRustConfigApi()) {
+        updateGeminiKeyUI(false);
+        return false;
+    }
     try {
         // Call the config/current endpoint to check if Gemini key is available
         const response = await fetch(`${API_BASE}/config/current`);
@@ -525,6 +620,15 @@ function saveBrowserGeminiKey() {
 async function testGeminiFromPanel() {
     const resultDiv = document.getElementById('gemini-test-result');
     if (!resultDiv) return;
+
+    if (!canUseLocalRustConfigApi()) {
+        resultDiv.innerHTML = `
+            <div style="background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; padding: 8px; border-radius: 4px; font-size: 12px; margin-top: 4px;">
+                ⚠️ Enable Access Localhost or start the Rust API locally to test Gemini server access.
+            </div>
+        `;
+        return;
+    }
     
     resultDiv.innerHTML = '<div style="color: var(--text-secondary); font-size: 12px;">Testing Gemini API...</div>';
     
@@ -591,6 +695,9 @@ function setupGeminiResources() { // containerId
 
 // Check if Gemini key is available and working
 async function isGeminiKeyAvailable() {
+    if (!canUseLocalRustConfigApi()) {
+        return false;
+    }
     try {
         const response = await fetch(`${API_BASE}/config/current`);
         if (response.ok) {
@@ -1981,8 +2088,17 @@ function moveCommandsToggleBeforeUseAI(buttonId = 'quickstartDiv-toggle') {
     } else if (host.parentElement !== agentCheckboxes.parentElement || host.nextElementSibling !== agentCheckboxes) {
         agentCheckboxes.parentElement.insertBefore(host, agentCheckboxes);
     }
+    const previousParent = toggleGroup.parentElement;
+    const previousRow = previousParent ? previousParent.closest('.web-server-status-row') : null;
     if (toggleGroup.parentElement !== host) {
         host.appendChild(toggleGroup);
+    }
+
+    if (previousParent && previousParent !== host && previousParent.childElementCount === 0) {
+        previousParent.remove();
+    }
+    if (previousRow && previousRow.parentElement && previousRow.querySelector('.quickstart-commands-toggle-group') == null) {
+        previousRow.remove();
     }
 
     toggleGroup.style.gap = '2px';
@@ -2022,9 +2138,6 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     }
     setCommandsVisibility(showCommandsOnLoad);
     updateQuickstartCliVisibility();
-    if (buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle') {
-        moveCommandsToggleBeforeUseAI(buttonId);
-    }
 
     buttons.forEach((button) => {
         if (button.dataset.bound === 'true') return;
@@ -2039,9 +2152,6 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
             }
             setCommandsVisibility(shouldShowFullCommandsContainer(nextState));
             updateQuickstartCliVisibility();
-            if (buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle') {
-                moveCommandsToggleBeforeUseAI(buttonId);
-            }
         });
     });
 }
@@ -2051,6 +2161,8 @@ async function setupWebServerStatusPanel(options) {
     const titleEl = document.getElementById(options.titleId);
     const contentEl = document.getElementById(options.contentId);
     if (!statusIndicator || !titleEl || !contentEl) return;
+    const renderToken = String(Date.now()) + Math.random().toString(36).slice(2);
+    contentEl.dataset.webServerRenderToken = renderToken;
 
     const {
         isRunning,
@@ -2063,7 +2175,9 @@ async function setupWebServerStatusPanel(options) {
         localhostApiRunning,
         currentOriginRunning
     } = await getWebServerStatusState();
+    if (!contentEl.isConnected || contentEl.dataset.webServerRenderToken !== renderToken) return;
     const nodeStatus = await getNodeWebServerProbeState(localhostPort);
+    if (!contentEl.isConnected || contentEl.dataset.webServerRenderToken !== renderToken) return;
     const currentOriginDisplay = currentOriginUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const localhostDisplay = localhostWebUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const connectedClass = options.buttonClassConnected || options.buttonClass || 'btn btn-secondary';
@@ -2071,6 +2185,7 @@ async function setupWebServerStatusPanel(options) {
     const buttonId = options.toggleButtonId;
     const commandsContainerId = options.commandsContainerId;
     const isCompactToggle = buttonId === 'quickstartDiv-toggle' || buttonId === 'webserver-commands-toggle';
+    const useTopToggleHost = buttonId === 'quickstartDiv-toggle' && !!document.getElementById('quickstartDiv-toggle-host');
     const toggleGap = isCompactToggle ? '2px' : '8px';
     const toggleGroupClass = `quickstart-commands-toggle-group${isCompactToggle ? ' compact-toggle-group' : ''}`;
 
@@ -2082,6 +2197,13 @@ async function setupWebServerStatusPanel(options) {
         ? `<button class="btn btn-secondary quickstart-stop-port-btn" onclick="stopLocalWebServer()">Stop ${localhostPort} Server</button>`
         : '';
     const btnClass = isRunning ? connectedClass : defaultClass;
+    const toggleGroupMarkup = `
+                <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; justify-content:flex-end;">
+                    ${getQuickstartToggleButtonMarkup('with-ai', btnClass, 'With AI')}
+                    ${getQuickstartToggleButtonMarkup('without-ai', btnClass, 'Without AI')}
+                    ${getQuickstartToggleButtonMarkup('both', btnClass, 'Both')}
+                </div>
+    `;
     contentEl.innerHTML = `
         <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
         <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 14px 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
@@ -2127,18 +2249,21 @@ env\\\\Scripts\\\\activate
             </div>
         </div>
         ${getPythonBackendStatusMarkup(options.pythonStatusId)}
-        <div class="web-server-status-row" style="margin-top: 6px;">
+        ${useTopToggleHost ? '' : `<div class="web-server-status-row" style="margin-top: 6px;">
             <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
-                <div id="${buttonId}" class="${toggleGroupClass}" style="display:flex; flex-wrap:wrap; gap:${toggleGap}; margin-left:auto; justify-content:flex-end;">
-                    ${getQuickstartToggleButtonMarkup('with-ai', btnClass, 'With AI')}
-                    ${getQuickstartToggleButtonMarkup('without-ai', btnClass, 'Without AI')}
-                    ${getQuickstartToggleButtonMarkup('both', btnClass, 'Both')}
-                </div>
+                ${toggleGroupMarkup}
             </div>
-        </div>
+        </div>`}
         <div id="${commandsContainerId}-ai-prompt-host" class="quickstart-ai-prompt-host" data-commands-container-id="${commandsContainerId}" style="display:none; margin-top: 8px;"></div>
         ${getNodeWebServerStatusMarkup(nodeStatus)}
     `;
+
+    if (useTopToggleHost) {
+        const topToggleHost = document.getElementById('quickstartDiv-toggle-host');
+        if (topToggleHost) {
+            topToggleHost.innerHTML = toggleGroupMarkup;
+        }
+    }
 
     const commandsContainer = document.getElementById(commandsContainerId);
     const statusRow = contentEl.querySelector('.web-server-status-row');
@@ -2188,15 +2313,15 @@ function setupQuickstartInstructions(containerId) {
     const desktopInstallerPort = (currentPort && /^[0-9]+$/.test(currentPort))
         ? currentPort
         : '8887';
-    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-    const localhostToggleHTML = isLocalHost ? '' : `
-        <label id="localhost-access-toggle-label" title="Enable to check if a local server is running (may trigger a browser permission prompt)" style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; cursor:pointer; white-space:nowrap;">
+    const localhostToggleTitle = 'Enable to check if a local server is running (may trigger a browser permission prompt)';
+    const localhostToggleHTML = `
+        <label id="localhost-access-toggle-label" title="${localhostToggleTitle}" style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; cursor:pointer; white-space:nowrap;">
             <span class="toggle-switch" style="position:relative; display:inline-block; width:34px; height:18px; flex-shrink:0;">
-                <input type="checkbox" id="localhost-access-toggle" style="opacity:0; width:0; height:0; position:absolute;" ${isLocalhostAccessEnabled() ? 'checked' : ''}>
+                <input type="checkbox" id="localhost-access-toggle" style="opacity:0; width:0; height:0; position:absolute;" ${isLocalhostToggleChecked() ? 'checked' : ''}>
                 <span class="toggle-slider" style="position:absolute; cursor:pointer; inset:0; background:var(--bg-tertiary,#ccc); border-radius:18px; transition:background .2s;"></span>
-                <span class="toggle-knob" style="position:absolute; left:2px; top:2px; width:14px; height:14px; background:#fff; border-radius:50%; transition:transform .2s; transform:${isLocalhostAccessEnabled() ? 'translateX(16px)' : 'translateX(0)'};"></span>
+                <span class="toggle-knob" style="position:absolute; left:2px; top:2px; width:14px; height:14px; background:#fff; border-radius:50%; transition:transform .2s; transform:${isLocalhostToggleChecked() ? 'translateX(16px)' : 'translateX(0)'};"></span>
             </span>
-            Access Localhost
+            Localhost Backend
         </label>`;
 
     container.innerHTML = `
@@ -2206,6 +2331,7 @@ function setupQuickstartInstructions(containerId) {
                 <span id="${titleId}">Web Servers</span>
                 ${localhostToggleHTML}
             </h1>
+            <div id="quickstartDiv-localhost-notice" style="display:none;"></div>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
         </div>
@@ -2215,16 +2341,11 @@ function setupQuickstartInstructions(containerId) {
 
     const localhostToggle = document.getElementById('localhost-access-toggle');
     if (localhostToggle) {
-        const knob = localhostToggle.closest('label').querySelector('.toggle-knob');
-        const track = localhostToggle.closest('label').querySelector('.toggle-slider');
-        function applyLocalhostToggleStyle(checked) {
-            if (knob) knob.style.transform = checked ? 'translateX(16px)' : 'translateX(0)';
-            if (track) track.style.background = checked ? 'var(--color-success, #4caf50)' : 'var(--bg-tertiary, #ccc)';
-        }
-        applyLocalhostToggleStyle(localhostToggle.checked);
+        applyLocalhostToggleStyle(localhostToggle, isLocalhostToggleChecked());
         localhostToggle.addEventListener('change', () => {
             setLocalhostAccessEnabled(localhostToggle.checked);
-            applyLocalhostToggleStyle(localhostToggle.checked);
+            applyLocalhostToggleStyle(localhostToggle, localhostToggle.checked);
+            updateLocalhostAccessNotice();
             window.backendStatusCache = {};
             setupWebServerStatusPanel({
                 statusIndicatorId,
@@ -2237,6 +2358,8 @@ function setupQuickstartInstructions(containerId) {
             });
         });
     }
+    bindLocalhostSettingsSync();
+    updateLocalhostAccessNotice();
 
     setupWebServerStatusPanel({
         statusIndicatorId,
