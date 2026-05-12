@@ -188,7 +188,12 @@ function autoCreateOSDetectionPanel(targetSelector = '.content', beforeSelector 
                 frontendNote.appendChild(frontendCode);
                 cliOnlyDiv.appendChild(frontendNote);
 
-                panel.appendChild(cliOnlyDiv);
+                const osPanelExtraContent = panel.querySelector('#os-detection-extra-content');
+                if (osPanelExtraContent) {
+                    osPanelExtraContent.appendChild(cliOnlyDiv);
+                } else {
+                    panel.appendChild(cliOnlyDiv);
+                }
             }
         }
     }
@@ -535,7 +540,7 @@ function createOSDetectionPanel(containerId) {
     <div>
         <div id="coding-with-row" style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-bottom: 0; container-type: inline-size;">
             <div id="coding-with-left" style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; min-width: 220px;">
-                <span id="coding-with-label" style="font-weight: 500;">I'll run setup and deployments...</span>
+                <span id="coding-with-label" style="font-weight: 500;">Run setup with or without AI?</span>
                 <div id="coding-with-controls">
                     <div id="quickstartDiv-toggle-host" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;"></div>
                 </div>
@@ -559,33 +564,37 @@ function createOSDetectionPanel(containerId) {
             </div>
         </div>
         <div style="margin-bottom: 4px;"></div>
-        <div id="agent-checkboxes" style="display: none; flex-wrap: nowrap; margin-top:20px; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="claude-code-cli" style="margin: 0;">
-                <span>Claude</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="codex-cli" style="margin: 0;">
-                <span>OpenAI</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="gemini-cli" style="margin: 0;">
-                <span>Gemini</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="grok-cli" style="margin: 0;">
-                <span>Grok</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                <input type="checkbox" id="vscode-claude" style="margin: 0;">
-                <span>VS Code</span>
-            </label>
+        <div id="agent-checkboxes-holder" style="display: none; align-items: center; gap: 12px; margin-top: 20px;">
+            <div id="agent-checkboxes" style="display: none; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 12px; overflow-x: auto; padding-left: 3px; box-sizing: border-box;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="checkbox" id="claude-code-cli" style="margin: 0;">
+                    <span>Claude</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="checkbox" id="codex-cli" style="margin: 0;">
+                    <span>OpenAI</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="checkbox" id="gemini-cli" style="margin: 0;">
+                    <span>Gemini</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="checkbox" id="grok-cli" style="margin: 0;">
+                    <span>Grok</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <input type="checkbox" id="vscode-claude" style="margin: 0;">
+                    <span>VS Code</span>
+                </label>
+            </div>
+            <button id="os-panel-toggle-btn" class="btn btn-primary" style="display: none; margin-left: auto; padding: 6px 12px; font-size: 12px;">Done</button>
         </div>
+    </div>
+    <div id="os-detection-extra-content">
         <div id="agent-checkboxes-helper" style="display: none; margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
             Select an AI Coding Agent above for install and session start commands
         </div>
-    </div>
-    <div id="cli-commands" class="cli-only" style="display: none;">
+        <div id="cli-commands" class="cli-only" style="display: none;">
         <div id="cli-code-commands" style="display: none;">
             <h4 style="margin: 0 0 8px 0;" id="cli-installation-title">CLI Installation:</h4>
             <div style="margin: 8px 0 16px 0; display: flex; gap: 20px;">
@@ -628,7 +637,6 @@ npx @anthropic-ai/claude-code</div>
                 Also, use /compact with instructions on what to keep. (These approaches will keep responses fast and will use fewer tokens.)
             </div>
         </div>
-    </div>
     </div>
 
         <div class="card" id="gemini-installation-card" style="display: none; position: relative;">
@@ -740,6 +748,7 @@ choco install gh -y</code></pre>
     <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
 
     </div>
+    </div>
 </div>
 <div id="github-cli-auto-status" style="display: none; margin-top: 0; font-size: 14px;">
     Github CLI is installed. <a href="#" id="github-cli-show-commands-link">Show commands</a>
@@ -764,8 +773,11 @@ function initializeOSDetectionPanel() {
     const geminiCli = document.getElementById('gemini-cli');
     const grokCli = document.getElementById('grok-cli');
     const vscodeClaude = document.getElementById('vscode-claude');
+    const agentCheckboxesHolder = document.getElementById('agent-checkboxes-holder');
     const agentCheckboxes = document.getElementById('agent-checkboxes');
     const agentCheckboxesHelper = document.getElementById('agent-checkboxes-helper');
+    const osDetectionExtraContent = document.getElementById('os-detection-extra-content');
+    const osPanelToggleBtn = document.getElementById('os-panel-toggle-btn');
     const cliCommands = document.getElementById('cli-commands');
     const cliCodeCommands = document.getElementById('cli-code-commands');
     const geminiInstallation = document.getElementById('gemini-installation');
@@ -775,6 +787,34 @@ function initializeOSDetectionPanel() {
     const githubCliCard = document.getElementById('githubCLICard');
 
     if (!osSelect || !osInfo) return;
+
+    function getInitialOsPanelCollapsedState() {
+        const savedPanelState = localStorage.getItem('os-detection-panel-collapsed');
+        if (savedPanelState === 'true' || savedPanelState === 'false') {
+            return savedPanelState === 'true';
+        }
+        return localStorage.getItem('cli-commands-collapsed') === 'true';
+    }
+
+    function setOsPanelExtraExpanded(isExpanded) {
+        if (osDetectionExtraContent) {
+            osDetectionExtraContent.style.display = isExpanded ? 'block' : 'none';
+        }
+        if (osPanelToggleBtn) {
+            osPanelToggleBtn.textContent = isExpanded ? 'Done' : 'Show';
+            osPanelToggleBtn.className = isExpanded ? 'btn btn-primary' : 'btn btn-secondary';
+        }
+        localStorage.setItem('os-detection-panel-collapsed', isExpanded ? 'false' : 'true');
+    }
+
+    if (osPanelToggleBtn) {
+        osPanelToggleBtn.addEventListener('click', function() {
+            const isExpanded = !osDetectionExtraContent || osDetectionExtraContent.style.display !== 'none';
+            setOsPanelExtraExpanded(!isExpanded);
+        });
+    }
+
+    setOsPanelExtraExpanded(!getInitialOsPanelCollapsedState());
     
     // Auto-detect OS and set initial values
     const osInfo_detected = detectOS();
@@ -929,8 +969,14 @@ function initializeOSDetectionPanel() {
             const hideDeployCli = withoutAiMode && backendCommandMode !== 'both';
             deployChanges.style.display = hideDeployCli ? 'none' : '';
         }
+        const showCheckboxes = (withAiMode || anyNonNoCliChecked) && !withoutAiMode;
+        if (agentCheckboxesHolder) {
+            agentCheckboxesHolder.style.display = showCheckboxes ? 'flex' : 'none';
+        }
+        if (osPanelToggleBtn) {
+            osPanelToggleBtn.style.display = showCheckboxes ? 'inline-flex' : 'none';
+        }
         if (agentCheckboxes) {
-            const showCheckboxes = (withAiMode || anyNonNoCliChecked) && !withoutAiMode;
             agentCheckboxes.style.display = showCheckboxes ? 'flex' : 'none';
             if (agentCheckboxesHelper) {
                 const showHelper = showCheckboxes && !withoutAiMode && !anyNonNoCliChecked;
@@ -1225,6 +1271,7 @@ npm install -g @openai/codex</code></pre>`;
     if (codexCli) {
         codexCli.addEventListener('change', function() {
             localStorage.setItem('codex-cli-installed', this.checked);
+            setOsPanelExtraExpanded(true);
             updateCliCommands();
         });
     }
@@ -1232,6 +1279,7 @@ npm install -g @openai/codex</code></pre>`;
     if (claudeCodeCli) {
         claudeCodeCli.addEventListener('change', function() {
             localStorage.setItem('claude-code-cli-installed', this.checked);
+            setOsPanelExtraExpanded(true);
             updateCliCommands();
         });
     }
@@ -1239,6 +1287,7 @@ npm install -g @openai/codex</code></pre>`;
     if (geminiCli) {
         geminiCli.addEventListener('change', function() {
             localStorage.setItem('gemini-cli-installed', this.checked);
+            setOsPanelExtraExpanded(true);
             updateCliCommands();
         });
     }
@@ -1246,6 +1295,7 @@ npm install -g @openai/codex</code></pre>`;
     if (grokCli) {
         grokCli.addEventListener('change', function() {
             localStorage.setItem('grok-cli-installed', this.checked);
+            setOsPanelExtraExpanded(true);
             updateCliCommands();
         });
     }
@@ -1253,6 +1303,7 @@ npm install -g @openai/codex</code></pre>`;
     if (vscodeClaude) {
         vscodeClaude.addEventListener('change', function() {
             localStorage.setItem('vscode-claude-installed', this.checked);
+            setOsPanelExtraExpanded(true);
             updateCliCommands();
         });
     }
@@ -1502,7 +1553,6 @@ npm install -g @openai/codex</code></pre>`;
     
     // Make sections collapsible after initialization
     setTimeout(() => {
-        makeCollapsible('cli-commands', 'CLI Installation');
         makeCollapsible('vscode-cmds', 'VS Code Commands');
 
         // Setup custom Gemini toggle
