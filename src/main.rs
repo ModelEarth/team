@@ -1,6 +1,6 @@
 // src/main.rs
 use actix_cors::Cors;
-use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware, HttpRequest};
+use actix_web::{web, App, HttpResponse, HttpServer, Result, middleware, middleware::DefaultHeaders, HttpRequest};
 use anyhow::Context;
 use chrono::{Utc, NaiveDate, NaiveDateTime};
 use clap::{Parser, Subcommand};
@@ -3893,6 +3893,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
             .app_data(web::Data::new(session_manager_clone.clone()))
             .app_data(web::Data::new(cognito_config_clone.clone()))
             .wrap(cors)
+            .wrap(DefaultHeaders::new().add(("Access-Control-Allow-Private-Network", "true")))
             .wrap(middleware::Logger::default())
             .service(
                 web::scope("/api")
