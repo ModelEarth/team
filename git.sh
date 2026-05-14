@@ -5,8 +5,8 @@
 # Push commands automatically pull first unless 'nopull' or 'no pull' is specified
 #
 # IMPORTANT: This script includes safeguards against submodule rollbacks
-# - Uses safe_submodule_update() to preserve newer commits in submodules
-# - Prevents accidental reversion to older commits during merges/pulls
+# - Uses safe_submodule_update() to keep submodule pointers current
+# - Advances stale parent pointers to the newest remote commit; never reverts submodules backward
 
 set -e  # Exit on any error
 
@@ -790,7 +790,7 @@ safe_submodule_update() {
         return
     fi
     
-    echo "🛡️ Performing safe submodule update (preserving newer commits)..."
+    echo "🛡️ Performing safe submodule update (advancing stale parent pointers to latest remote commits)..."
     
     # Get all submodules from .gitmodules file
     local submodules=($(get_submodules))
@@ -873,13 +873,13 @@ safe_submodule_update() {
                     echo "⬆️ Updating $sub to parent's expected commit: $expected_commit ($(git show -s --format='%ci' "$expected_commit" 2>/dev/null || echo 'unknown date'))"
                     git checkout "$expected_commit" 2>/dev/null || echo "⚠️ Failed to checkout $expected_commit in $sub"
                 elif [ "$expected_timestamp" -lt "$current_timestamp" ]; then
-                    echo "🛡️ Preserving newer commit in $sub: $current_commit ($(git show -s --format='%ci' "$current_commit" 2>/dev/null || echo 'unknown date'))"
-                    echo "   ↳ Parent repo wants older commit: $expected_commit ($(git show -s --format='%ci' "$expected_commit" 2>/dev/null || echo 'unknown date'))"
-                    
+                    echo "📌 Parent pointer is stale for $sub — advancing to: $current_commit ($(git show -s --format='%ci' "$current_commit" 2>/dev/null || echo 'unknown date'))"
+                    echo "   ↳ Parent repo had stale pointer to: $expected_commit ($(git show -s --format='%ci' "$expected_commit" 2>/dev/null || echo 'unknown date'))"
+
                     # Update parent repo to point to the newer commit
                     cd_webroot
                     git add "$sub"
-                    echo "🔵 Updated parent repo to preserve newer $sub commit"
+                    echo "🔵 Updated parent repo pointer for $sub to latest remote commit"
                 else
                     echo "✅ $sub is already at the correct commit"
                 fi
@@ -2478,8 +2478,8 @@ case "$1" in
         echo "  overwrite-local                    - Overwrite local commits with parent repository state"
         echo ""
         echo "Safety Features:"
-        echo "  🛡️ Safe submodule updates enabled by default - preserves newer commits during merges"
-        echo "  🔍 Prevents accidental rollback to older submodule commits from merged PRs"
+        echo "  🛡️ Safe submodule updates enabled by default - advances stale parent pointers to latest remote commits"
+        echo "  🔍 Prevents accidental rollback when parent repo pointer is behind the submodule's remote"
         echo ""
         echo "Legacy Commands (deprecated):"
         echo "  update  -> use 'pull' or 'pull all'"
