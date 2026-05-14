@@ -1495,12 +1495,44 @@ function updateBackendCommandForRow(row, isRunning) {
     const modeState = getBackendCommandState();
     const backendKey = row.dataset.backend || '';
     const allowCommandsWhileRunning = backendKey === 'dotnet' || backendKey === 'webserver' || backendKey === 'engine' || backendKey === 'nodejs';
+    const collapseCommandsWhenRunning = backendKey === 'webserver' && isRunning;
     const withAiBlock = row.querySelector('.with-ai-backend-cmd');
     const commandBlock = row.querySelector('.no-ai-backend-cmd');
     const fullCommandLabel = row.querySelector('.full-command-label');
     const showCmdBtn = row.querySelector('.show-cmd-btn');
     const commandsVisible = !isRunning || allowCommandsWhileRunning;
     const showFullCommandLabel = commandsVisible && modeState.withAi && modeState.withoutAi;
+
+    if (collapseCommandsWhenRunning) {
+        const showBtn = hasEnabledBackendCommandMode(modeState);
+        const isExpanded = showCmdBtn && showCmdBtn.dataset.expanded === 'true';
+        if (showCmdBtn) {
+            showCmdBtn.style.display = showBtn ? 'inline-block' : 'none';
+            showCmdBtn.textContent = isExpanded ? 'Hide Commands' : 'Show Commands';
+            if (showBtn && !showCmdBtn.dataset.listenerBound) {
+                showCmdBtn.dataset.listenerBound = 'true';
+                showCmdBtn.addEventListener('click', function() {
+                    const nextExpanded = showCmdBtn.dataset.expanded !== 'true';
+                    showCmdBtn.dataset.expanded = nextExpanded ? 'true' : 'false';
+                    updateBackendCommandForRow(row, isRunning);
+                });
+            }
+            if (!showBtn) {
+                showCmdBtn.dataset.expanded = 'false';
+            }
+        }
+        if (withAiBlock) {
+            withAiBlock.style.display = showBtn && isExpanded && modeState.withAi ? 'block' : 'none';
+        }
+        if (commandBlock) {
+            commandBlock.style.display = showBtn && isExpanded && modeState.withoutAi ? 'block' : 'none';
+        }
+        if (fullCommandLabel) {
+            fullCommandLabel.style.display = showBtn && isExpanded && modeState.withAi && modeState.withoutAi ? 'block' : 'none';
+        }
+        return;
+    }
+
     if (withAiBlock) {
         withAiBlock.style.display = commandsVisible && modeState.withAi ? 'block' : 'none';
     }
@@ -2196,6 +2228,7 @@ async function setupWebServerStatusPanel(options) {
     const webserverLabel = localhostApiRunning
         ? 'Python HTTP Server Server-Side'
         : (localhostWebRunning ? 'Python HTTP-Only Server' : 'Python HTTP Server');
+    const stopServerCommand = `lsof -ti:${localhostPort} | xargs kill -9`;
     const stopBtn = isRunning && isLocalOrigin
         ? `<button class="btn btn-secondary quickstart-stop-port-btn" onclick="stopLocalWebServer()">Stop ${localhostPort} Server</button>`
         : '';
@@ -2212,17 +2245,21 @@ async function setupWebServerStatusPanel(options) {
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                 <span class="status-indicator ${isRunning ? 'connected' : 'error'}"></span>
                 <span style="flex: 1;"><a href="http://localhost:${localhostPort}">${webserverLabel}</a> (port ${localhostPort}): <span class="backend-text">${isRunning ? 'Running' : 'Not running'}</span></span>
+                <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
             </div>
             <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                 <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
             </div>
             <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
-                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only</div>
+                ${stopBtn ? `
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">Stop HTTP Server</div>
                 <div style="position: relative; container-type: inline-size; margin: 0 0 4px 0;">
-                    <pre class="quickstart-port-pre${isRunning ? ' quickstart-port-pre-with-stop' : ''}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localhostPort}</code></pre>
+                    <pre class="quickstart-port-pre quickstart-port-pre-with-stop" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>${stopServerCommand}</code></pre>
                     ${stopBtn}
-                </div>
+                </div>` : ''}
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only</div>
+                <pre class="quickstart-port-pre" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>python -m http.server ${localhostPort}</code></pre>
                 <div style="color: var(--text-secondary); margin: 0 0 4px 0;">With Server-Side Python and support for <a href="#" id="desktop-installer-link" style="color: inherit; text-decoration: underline; cursor: pointer;">Desktop Installer</a></div>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>nohup ./desktop/install/quickstart.sh --cli --port ${localhostPort} > /dev/null 2>&1 &</code></pre>
                 <div id="quickstart-desktop-installer-details" style="display:none; margin: 0 0 4px 0;">
