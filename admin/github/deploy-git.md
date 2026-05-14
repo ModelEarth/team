@@ -1,11 +1,13 @@
 ## Manual submodule refresh
 
-You can refresh all your local submodules by running:
+Pull, review status and then commit new pointers:
 
-	git submodule foreach 'git pull origin main || git pull origin master'
+	git submodule update --remote --merge
+	git status
+	git add -A && git commit -m "Update submodule pointers" && git push
 
 
-## Git Workflow with git.sh
+## Better workflow with git.sh
 
 Rather than using the simple Code CLI commands above, the <code>git.sh</code> script can be callled directly to manage git operations across webroot, submodules, and site repos.</p>
 

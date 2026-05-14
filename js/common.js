@@ -590,6 +590,7 @@ function createOSDetectionPanel(containerId) {
             <button id="os-panel-toggle-btn" class="btn btn-primary" style="display: none; margin-left: auto; padding: 6px 12px; font-size: 12px;">Done</button>
         </div>
     </div>
+    <div id="command-display-external" style="display: none; margin-top: 8px;"></div>
     <div id="os-detection-extra-content">
         <div id="agent-checkboxes-helper" style="display: none; margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
             Select an AI Coding Agent above for install and session start commands
@@ -796,14 +797,35 @@ function initializeOSDetectionPanel() {
         return localStorage.getItem('cli-commands-collapsed') === 'true';
     }
 
+    function syncCommandDisplayExternal(isExpanded) {
+        const commandDisplayExternal = document.getElementById('command-display-external');
+        if (!commandDisplayExternal) return;
+        if (isExpanded) {
+            commandDisplayExternal.style.display = 'none';
+            return;
+        }
+        const commandDisplay = document.getElementById('command-display');
+        const cliCommandsEl = document.getElementById('cli-commands');
+        const cliCodeCommandsEl = document.getElementById('cli-code-commands');
+        const cliVisible = cliCommandsEl && cliCommandsEl.style.display !== 'none' &&
+                           cliCodeCommandsEl && cliCodeCommandsEl.style.display !== 'none';
+        if (commandDisplay && cliVisible) {
+            commandDisplayExternal.innerHTML = commandDisplay.innerHTML;
+            commandDisplayExternal.style.display = 'block';
+        } else {
+            commandDisplayExternal.style.display = 'none';
+        }
+    }
+
     function setOsPanelExtraExpanded(isExpanded) {
         if (osDetectionExtraContent) {
             osDetectionExtraContent.style.display = isExpanded ? 'block' : 'none';
         }
         if (osPanelToggleBtn) {
-            osPanelToggleBtn.textContent = isExpanded ? 'Done' : 'Show';
+            osPanelToggleBtn.textContent = isExpanded ? 'Done' : 'Show more';
             osPanelToggleBtn.className = isExpanded ? 'btn btn-primary' : 'btn btn-secondary';
         }
+        syncCommandDisplayExternal(isExpanded);
         localStorage.setItem('os-detection-panel-collapsed', isExpanded ? 'false' : 'true');
     }
 
@@ -1152,8 +1174,10 @@ function initializeOSDetectionPanel() {
                 pcInstructions.forEach(element => element.style.display = 'none');
             }
         }
+
+        syncCommandDisplayExternal(osDetectionExtraContent ? osDetectionExtraContent.style.display !== 'none' : true);
     }
-    
+
     // Separate function to update Gemini commands based on OS
     function updateGeminiCommandsForOS(selectedOS) {
         const geminiCommandDisplay = document.getElementById('gemini-command-display');
@@ -1258,9 +1282,13 @@ npm install -g @openai/codex</code></pre>`;
             }
 
             commandDisplay.innerHTML = newContent;
+            const commandDisplayExternal = document.getElementById('command-display-external');
+            if (commandDisplayExternal && commandDisplayExternal.style.display !== 'none') {
+                commandDisplayExternal.innerHTML = newContent;
+            }
         }
     }
-    
+
     // Add OS select change event listener
     osSelect.addEventListener('change', function() {
         const selectedOS = this.value;

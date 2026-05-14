@@ -387,18 +387,17 @@ function canUseLocalRustConfigApi() {
 function updateLocalhostAccessNotice() {
     const notice = document.getElementById('quickstartDiv-localhost-notice');
     if (!notice) return;
+    const toggleLabel = document.getElementById('localhost-access-toggle-label');
 
     if (canUseLocalRustConfigApi()) {
-        notice.style.display = 'none';
         notice.innerHTML = '';
         return;
     }
 
-    notice.style.display = 'block';
     notice.innerHTML = `
-        <div class="alert alert-danger" style="margin-top: 10px; font-size: 13px;">
+        <div class="alert alert-danger" style="margin-top: 10px; margin-bottom: 6px; font-size: 13px;">
             <div>
-                <strong>Turn on the Localhost Backend access above</strong> for Rust and local API Keys. <!--<code>docker/.env</code> are unavailable here because <code>model.earth</code> does not currently expose the team Rust API endpoints.-->
+                <strong>Turn on your Localhost Backend</strong> for Rust endpoints and local API Keys. <!--<code>docker/.env</code> are unavailable here because <code>model.earth</code> does not currently expose the team Rust API endpoints.-->
             </div>
         </div>
     `;
@@ -2205,18 +2204,21 @@ async function setupWebServerStatusPanel(options) {
                 </div>
     `;
     contentEl.innerHTML = `
-        <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
-        <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 14px 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
         <div data-backend="webserver" style="margin-bottom: 12px;">
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                 <span class="status-indicator ${isRunning ? 'connected' : 'error'}"></span>
                 <span style="flex: 1;"><a href="http://localhost:${localhostPort}">${webserverLabel}</a> (port ${localhostPort}): <span class="backend-text">${isRunning ? 'Running' : 'Not running'}</span></span>
-                <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
             </div>
             <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
-                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server</code></pre>
+                <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
+                <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
             </div>
             <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only</div>
+                <div style="position: relative; container-type: inline-size; margin: 0 0 4px 0;">
+                    <pre class="quickstart-port-pre${isRunning ? ' quickstart-port-pre-with-stop' : ''}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localhostPort}</code></pre>
+                    ${stopBtn}
+                </div>
                 <div style="color: var(--text-secondary); margin: 0 0 4px 0;">With Server-Side Python and support for <a href="#" id="desktop-installer-link" style="color: inherit; text-decoration: underline; cursor: pointer;">Desktop Installer</a></div>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>nohup ./desktop/install/quickstart.sh --cli --port ${localhostPort} > /dev/null 2>&1 &</code></pre>
                 <div id="quickstart-desktop-installer-details" style="display:none; margin: 0 0 4px 0;">
@@ -2240,11 +2242,6 @@ env\\\\Scripts\\\\activate
                         <li>Installs the <code>anthropic</code> package if API key is present</li>
                         <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localhostPort}</li>
                     </ul>
-                </div>
-                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Only</div>
-                <div style="position: relative; container-type: inline-size;">
-                    <pre class="quickstart-port-pre${isRunning ? ' quickstart-port-pre-with-stop' : ''}" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto;"><code>python -m http.server ${localhostPort}</code></pre>
-                    ${stopBtn}
                 </div>
             </div>
         </div>
@@ -2329,13 +2326,34 @@ function setupQuickstartInstructions(containerId) {
             <h1 class="card-title" style="display:flex; align-items:center; gap:10px;">
                 <span class="status-indicator" id="${statusIndicatorId}" style="display:none;"></span>
                 <span id="${titleId}">Web Servers</span>
-                ${localhostToggleHTML}
             </h1>
-            <div id="quickstartDiv-localhost-notice" style="display:none;"></div>
             <div id="${contentId}"${contentStyle}></div>
             <div id="${commandsContainerId}" class="readme-content" style="display:none; margin-top: 16px;"></div>
         </div>
     `;
+
+    // Place notice after #coding-with-right, spanning full width of the flex row
+    if (!document.getElementById('quickstartDiv-localhost-notice')) {
+        const codingWithRight = document.getElementById('coding-with-right');
+        if (codingWithRight && codingWithRight.parentElement) {
+            const wrapper = document.createElement('div');
+            wrapper.id = 'localhost-toggle-wrapper';
+            wrapper.style.width = '100%';
+
+            const toggleWrapper = document.createElement('div');
+            toggleWrapper.innerHTML = localhostToggleHTML;
+            const toggleLabel = toggleWrapper.firstElementChild;
+            toggleLabel.style.marginLeft = '';
+            wrapper.appendChild(toggleLabel);
+
+            const noticeEl = document.createElement('div');
+            noticeEl.id = 'quickstartDiv-localhost-notice';
+            wrapper.appendChild(noticeEl);
+
+            codingWithRight.parentElement.insertBefore(wrapper, codingWithRight.nextSibling);
+        }
+    }
+
     moveGithubCliAutoStatusToQuickstart();
     attachQuickstartCliListeners();
 

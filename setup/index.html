@@ -40,6 +40,14 @@ function syncDeployCliVisibility() {
     deployChanges.style.display = withoutAiMode ? 'none' : '';
 }
 
+function syncDeployGitVisibility() {
+    const withAiMode = getCurrentAiModeValue() === 'yes';
+    const deployGit = document.getElementById('deployGit');
+    const showDeployGitBtn = document.getElementById('showDeployGit');
+    if (deployGit) deployGit.style.display = withAiMode ? 'none' : '';
+    if (showDeployGitBtn) showDeployGitBtn.style.display = withAiMode ? 'none' : '';
+}
+
 function getWebrootRepoLinkHtml() {
     const currentPath = window.location.href;
     let myRepo = 'PartnerTools';
@@ -70,6 +78,7 @@ function runSetupStep(stepName, fn) {
 
 if (!window.setupDeployCliAiModeBound) {
     document.addEventListener('aiModeChanged', syncDeployCliVisibility);
+    document.addEventListener('aiModeChanged', syncDeployGitVisibility);
     window.setupDeployCliAiModeBound = true;
 }
 
@@ -98,7 +107,7 @@ waitForElm('#deployChanges').then(() => {
 });
 
 waitForElm('#deployGitDiv').then(() => {
-    runSetupStep('deploy git markdown', () => loadMarkdown('../admin/github/deploy-git.md', 'deployGitDiv', '_parent', 1));
+    runSetupStep('deploy git markdown', () => loadMarkdown('../admin/github/deploy-git.md', 'deployGitDiv', '_parent', 1, syncDeployGitVisibility));
 });
 
 function setupDeployGitLayout() {
@@ -118,7 +127,7 @@ function setupDeployGitLayout() {
     titleEl.id = 'manualsubmodulerefresh';
     titleEl.className = 'card-title';
     titleEl.style.margin = '0';
-    titleEl.textContent = 'Deployment Commands without AI';
+    titleEl.textContent = 'Deployment Commands (without AI)';
 
     let headerRow = document.getElementById('deploy-git-header-row');
     if (!headerRow) {
@@ -187,15 +196,29 @@ function setupDeployGitLayout() {
     }
 }
 
+waitForElm('#coding-with-right').then(() => {
+    const right = document.getElementById('coding-with-right');
+    if (!right) return;
+    right.style.alignItems = 'flex-start';
+    right.style.textAlign = 'left';
+    const mac = right.querySelector('.mac-instructions');
+    if (mac) mac.style.textAlign = 'left';
+});
+
 waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
     setupDeployGitLayout();
 });
 </script>
 <style>
 #textInPage { container-type: inline-size; }
-#githubAccountFields { float: right; }
+#githubAccountFields { float: right; margin-left: 16px; }
 @container (max-width: 450px) {
     #githubAccountFields { float: none; }
+}
+#localhost-toggle-wrapper { margin-top: -18px; }
+@container (max-width: 639px) {
+    #localhost-toggle-wrapper { margin-top: 0; }
+    #coding-with-right { flex: 0 0 100%; margin-left: 0 !important; }
 }
 </style>
 </head>
