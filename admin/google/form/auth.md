@@ -6,7 +6,9 @@
 
 # BetterAuth with Google Settings
 
-[BetterAuth](../../../../better-auth) provides authentication in our site using port 3002. Its being configured to handle OAuth sign-in via Google, GitHub, LinkedIn, Microsoft, Discord, and Facebook using a server-side callback flow.
+TO DO: delete the betterauth submodule
+
+BetterAuth provides authentication from the Earthscape "[chat](../../../../chat/)" submodule using port 8888 to handle OAuth sign-in, eventually via Google, GitHub, LinkedIn, Microsoft, Discord, and Facebook using a server-side callback flow.
 
 ## How It Differs from the Google Sign-In Button
 
