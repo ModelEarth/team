@@ -2236,7 +2236,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                     <div class="rust-api-status-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator" id="rust-api-status-indicator"></span>
-                            <span id="rust-api-status-title">${currentPath.includes('/team/admin/sql/panel/') ? 'Team Repo API' : '<a href="/team/admin/sql/panel/">Team Repo API</a>'} (port 8081): Start our Actix Rust API for CORS and SQL access</span>
+                            <span id="rust-api-status-title">${currentPath.includes('/team/admin/sql/panel/') ? 'Team Repo Rust API' : '<a href="/team/admin/sql/panel/">Team Repo Rust API</a>'} (port 8081): Start our Actix Rust API for CORS and SQL access</span>
                         </div>
                         <div class="rust-api-status-actions">
                             <button class="btn btn-danger btn-width rust-api-status-button" onclick="stopRustServer()" style="display: none; background: #b87333; color: white; border-color: #b87333; opacity: 0.85;" id="stop-rust-btn">
@@ -2245,7 +2245,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         </div>
                     </div>
                     <!-- Rust API Status Section -->
-                    <div id="rust-api-status-content" style="margin-bottom: 16px;">
+                    <div id="rust-api-status-content" style="margin-bottom: 7px;">
                         <p style="color: var(--text-secondary); margin-bottom: 16px;">
                             Checking backend API status...
                         </p>
@@ -2321,6 +2321,8 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     const stopBtn = document.getElementById('stop-rust-btn');
     const recheckMessage = document.getElementById('rust-recheck-message');
     const recheckTime = new Date().toLocaleTimeString();
+    const currentPath = window.location.pathname;
+    const rustApiLabel = `${currentPath.includes('/team/admin/sql/panel/') ? 'Team Repo Rust API' : '<a href="/team/admin/sql/panel/">Team Repo Rust API</a>'} (port 8081)`;
     
     if (!indicator || !title || !content) return;
     if (!window.shouldAccessLocalhost?.()) return;
@@ -2335,13 +2337,9 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
         if (healthResponse.ok) {
             // Backend is active
             indicator.className = 'status-indicator connected';
+            title.innerHTML = `${rustApiLabel}: Running`;
 
-            content.innerHTML = `
-                <div style="color: var(--accent-green); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <span class="status-indicator connected"></span>
-                    <span>Backend Rust API is accessible</span>
-                </div>
-            `;
+            content.innerHTML = '';
 
             // Show stop button
             if (stopBtn) {
@@ -2373,6 +2371,7 @@ async function updateRustApiStatusPanel(showConfigureLink = true, adminPath = 'a
     } catch (error) {
         // Backend is inactive - show demo mode
         indicator.className = 'status-indicator error';
+        title.innerHTML = `${rustApiLabel}: Start our Actix Rust API for CORS and SQL access`;
         
         content.innerHTML = `
             <div id="rust-start-mode-content">
