@@ -897,16 +897,7 @@ function updateRustRecheckMessageVisibilityForDesktopInstaller() {
     moveGithubCliAutoStatusToQuickstart();
 }
 
-function moveGithubCliAutoStatusToQuickstart() {
-    const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
-    const quickstartPanel = document.getElementById('quickstartDiv');
-    if (!githubCliAutoStatus || !quickstartPanel) return;
-
-    githubCliAutoStatus.style.marginTop = '12px';
-    if (githubCliAutoStatus.parentElement !== quickstartPanel) {
-        quickstartPanel.appendChild(githubCliAutoStatus);
-    }
-}
+function moveGithubCliAutoStatusToQuickstart() {}
 
 
 async function isExecutablePythonRunning() {
@@ -1112,7 +1103,7 @@ function getPythonBackendStatusMarkup(containerId) {
     const checkingText = isLocalhostAccessEnabled() ? 'Checking...' : '';
     return `
         <div class="geo-x">
-        <div style="display:flex; align-items:center; gap:10px; margin-top:26px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; margin-bottom:6px;">
             <!-- <span class="status-indicator error" id="${containerId}-aggregate-dot"></span> -->
             <h3 style="margin:0;">Backend Code and APIs</h3>
         </div>
@@ -1122,7 +1113,7 @@ function getPythonBackendStatusMarkup(containerId) {
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/requests/engine/">Arts Engine Axum Rust</a> (port 8082): <span class="backend-text">${checkingText}</span></span>
-                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                    <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start art</code></pre>
@@ -1132,11 +1123,12 @@ function getPythonBackendStatusMarkup(containerId) {
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>cargo run --manifest-path requests/engine/rust-api/Cargo.toml</code></pre>
                 </div>
             </div>
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
             <div data-backend="pipeline" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/data-pipeline/admin">Data-Pipeline Flask</a> (port 5001): <span class="backend-text">${checkingText}</span></span>
-                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                    <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start pipeline</code></pre>
@@ -1173,11 +1165,12 @@ else
 fi</code></pre>
                 </div>
             </div>
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
             <div data-backend="cloud" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/cloud/run">Cloud/Run Flask</a> (port 8100): <span class="backend-text">${checkingText}</span></span>
-                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                    <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start cloud</code></pre>
@@ -1219,11 +1212,12 @@ else
 fi</code></pre>
                 </div>
             </div>
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
             <div data-backend="nodejs" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/chat/keys/">NodeJS Server + Sanity</a> (port 8888): <span class="backend-text">${checkingText}</span></span>
-                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                    <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start chat</code></pre>
@@ -1235,11 +1229,12 @@ bun --cwd sanity install
 node chat/server.mjs</code></pre>
                 </div>
             </div>
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
             <div data-backend="dotnet" style="margin-top: 6px;">
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                     <span class="status-indicator loading"></span>
                     <span style="flex: 1;"><a href="/host/net/">Shared .NET Host</a> (port 8010): <span class="backend-text">${checkingText}</span></span>
-                    <button class="btn btn-secondary show-cmd-btn" style="display:none; margin-left:auto;">Show Command</button>
+                    <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
                 </div>
                 <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start net</code></pre>
@@ -1249,6 +1244,15 @@ node chat/server.mjs</code></pre>
                     <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>bash host/net/net.sh start</code></pre>
                 </div>
             </div>
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
+        </div>
+        <div id="github-cli-auto-status" style="display:none; margin-top:6px;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                <span class="status-indicator connected"></span>
+                <span style="flex: 1;">Github CLI is installed</span>
+                <button class="btn btn-secondary btn-width" id="github-cli-show-commands-link" style="margin-left:auto;">Show Commands</button>
+            </div>
+            <div id="github-cli-inline-commands" style="display:none; margin-top: 6px;"></div>
         </div>
         </div>
     `;
@@ -1490,7 +1494,7 @@ function updateBackendCommandForRow(row, isRunning) {
     if (!row) return;
     const modeState = getBackendCommandState();
     const backendKey = row.dataset.backend || '';
-    const allowCommandsWhileRunning = backendKey === 'dotnet' || backendKey === 'webserver';
+    const allowCommandsWhileRunning = backendKey === 'dotnet' || backendKey === 'webserver' || backendKey === 'engine' || backendKey === 'nodejs';
     const withAiBlock = row.querySelector('.with-ai-backend-cmd');
     const commandBlock = row.querySelector('.no-ai-backend-cmd');
     const fullCommandLabel = row.querySelector('.full-command-label');
@@ -1505,14 +1509,14 @@ function updateBackendCommandForRow(row, isRunning) {
         showCmdBtn.style.display = showBtn ? 'inline-block' : 'none';
         if (!showBtn && commandBlock) {
             commandBlock.style.display = 'none';
-            showCmdBtn.textContent = 'Show Command';
+            showCmdBtn.textContent = 'Show Commands';
         }
         if (showBtn && !showCmdBtn.dataset.listenerBound) {
             showCmdBtn.dataset.listenerBound = 'true';
             showCmdBtn.addEventListener('click', function() {
                 const expanded = commandBlock && commandBlock.style.display !== 'none';
                 if (commandBlock) commandBlock.style.display = expanded ? 'none' : 'block';
-                showCmdBtn.textContent = expanded ? 'Show Command' : 'Hide Command';
+                showCmdBtn.textContent = expanded ? 'Show Commands' : 'Hide Commands';
             });
         }
     } else if (commandBlock) {
@@ -2204,7 +2208,7 @@ async function setupWebServerStatusPanel(options) {
                 </div>
     `;
     contentEl.innerHTML = `
-        <div data-backend="webserver" style="margin-bottom: 12px;">
+        <div data-backend="webserver" style="margin-bottom: 0;">
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                 <span class="status-indicator ${isRunning ? 'connected' : 'error'}"></span>
                 <span style="flex: 1;"><a href="http://localhost:${localhostPort}">${webserverLabel}</a> (port ${localhostPort}): <span class="backend-text">${isRunning ? 'Running' : 'Not running'}</span></span>
@@ -2245,6 +2249,7 @@ env\\\\Scripts\\\\activate
                 </div>
             </div>
         </div>
+        <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
         ${getPythonBackendStatusMarkup(options.pythonStatusId)}
         ${useTopToggleHost ? '' : `<div class="web-server-status-row" style="margin-top: 6px;">
             <div class="actions ${isCompactToggle ? 'quickstart-toggle-actions' : ''}" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">

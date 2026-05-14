@@ -465,7 +465,7 @@ function makeCollapsible(divId, statusMessage = 'Section completed and collapsed
 
     // Create toggle button
     const toggleBtn = document.createElement('button');
-    toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-secondary' : 'collapse-toggle-btn btn btn-primary';
+    toggleBtn.className = isCollapsed ? 'collapse-toggle-btn btn btn-success' : 'collapse-toggle-btn btn btn-primary';
     toggleBtn.style.cssText = 'position: absolute; top: 12px; right: 0px; padding: 6px 12px; font-size: 12px; z-index: 10;';
     toggleBtn.textContent = isCollapsed ? 'Show' : 'Done';
 
@@ -516,7 +516,7 @@ function makeCollapsible(divId, statusMessage = 'Section completed and collapsed
             contentWrapper.style.display = 'none';
             statusDiv.style.display = 'block';
             toggleBtn.textContent = 'Show';
-            toggleBtn.className = 'collapse-toggle-btn btn btn-secondary';
+            toggleBtn.className = 'collapse-toggle-btn btn btn-success';
             localStorage.setItem(`${divId}-collapsed`, 'true');
 
             // Call the collapse callback if provided
@@ -676,21 +676,15 @@ gemini</code></pre></div>
             <pre><code>git submodule update --init --recursive</code></pre>
         </div>
 
-        <div class="card" id="githubCLICard" style="margin-bottom: 16px;">
-
-            <h1 class="card-title">Github CLI for sending a Pull Request (PR)</h1>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                <span>Do you have Github CLI installed?</span>
-                <select id="github-cli-status" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 220px;">
-                    <option value="choose">Choose</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                    <option value="not-using">Not using Github Automation</option>
-                </select>
+        <div id="githubCLICard" style="margin: 0;">
+            <hr style="border:none; border-top:1px solid var(--border-light); margin: 0 0 8px 0;">
+            <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 0;">
+                <span class="status-indicator error" id="github-cli-indicator"></span>
+                <span style="font-size: 16px; color: var(--text-secondary); flex: 1 1 auto;" id="github-cli-status-text">Github CLI not detected</span>
+                <button id="github-cli-card-toggle" class="btn btn-width">Show Commands</button>
             </div>
-            
 
-            <div id="githubCLIinstall">
+            <div id="githubCLIinstall" style="display: none; margin-top: 12px;">
 
             In a terminal separate from your Code CLI, check if you have Github CLI installed:
             <pre><code>gh auth status</code></pre>
@@ -744,15 +738,12 @@ choco install gh -y</code></pre>
         <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
     </div>
 
-    Now retry the Code CLI install above.<br><br>
+    After fixing the .config ownership, retry the Github CLI command above.<br><br>
 
     <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
 
     </div>
     </div>
-</div>
-<div id="github-cli-auto-status" style="display: none; margin-top: 0; font-size: 14px;">
-    Github CLI is installed. <a href="#" id="github-cli-show-commands-link">Show commands</a>
 </div>
 
     `;
@@ -823,7 +814,7 @@ function initializeOSDetectionPanel() {
         }
         if (osPanelToggleBtn) {
             osPanelToggleBtn.textContent = isExpanded ? 'Done' : 'Show more';
-            osPanelToggleBtn.className = isExpanded ? 'btn btn-primary' : 'btn btn-secondary';
+            osPanelToggleBtn.className = isExpanded ? 'btn btn-primary' : 'btn btn-success';
         }
         syncCommandDisplayExternal(isExpanded);
         localStorage.setItem('os-detection-panel-collapsed', isExpanded ? 'false' : 'true');
@@ -969,23 +960,9 @@ function initializeOSDetectionPanel() {
             codingWithLabel.style.display = '';
         }
         if (githubCliCard) {
-            const forceGithubCliCommands = githubCliCard.dataset.forceCommands === 'true';
-            if (withoutAiMode && !forceGithubCliCommands) {
-                if (githubCliCard.dataset.noAiHidden !== 'true') {
-                    githubCliCard.dataset.noAiPrevDisplay = githubCliCard.style.display || '';
-                }
-                githubCliCard.dataset.noAiHidden = 'true';
-                githubCliCard.style.display = 'none';
-            } else if (withoutAiMode && forceGithubCliCommands) {
-                githubCliCard.style.display = 'block';
-                delete githubCliCard.dataset.noAiHidden;
-                delete githubCliCard.dataset.noAiPrevDisplay;
-            } else if (githubCliCard.dataset.noAiHidden === 'true') {
-                const prevDisplay = githubCliCard.dataset.noAiPrevDisplay || '';
-                githubCliCard.style.display = prevDisplay;
-                delete githubCliCard.dataset.noAiHidden;
-                delete githubCliCard.dataset.noAiPrevDisplay;
-            }
+            githubCliCard.style.display = 'block';
+            delete githubCliCard.dataset.noAiHidden;
+            delete githubCliCard.dataset.noAiPrevDisplay;
         }
         if (deployChanges) {
             const hideDeployCli = withoutAiMode && backendCommandMode !== 'both';
@@ -1386,48 +1363,56 @@ npm install -g @openai/codex</code></pre>`;
         updateCliCommands();
     }, 200);
     
-    // Add event listeners for GitHub CLI status dropdown and userComputer text box
+    // Add event listeners for GitHub CLI card toggle and userComputer text box
     setTimeout(() => {
-        const githubCliStatusSelect = document.getElementById('github-cli-status');
         const githubInstallDiv = document.getElementById('githubCLIinstall');
+        const githubCliCardToggle = document.getElementById('github-cli-card-toggle');
+        const githubCliIndicator = document.getElementById('github-cli-indicator');
+        const githubCliStatusText = document.getElementById('github-cli-status-text');
         const userComputerInput = document.getElementById('userComputer');
-        const osDetectionPanel = document.getElementById('os-detection-panel');
-        const githubCliCard = document.getElementById('githubCLICard');
-        const githubCliAutoStatus = document.getElementById('github-cli-auto-status');
-        const githubCliShowCommandsLink = document.getElementById('github-cli-show-commands-link');
-        const savedGithubCliStatus = localStorage.getItem('github-cli-status');
         const savedUserComputer = localStorage.getItem('user-computer-name');
-        let ghCommandsExpanded = false;
+        const githubCliExpanded = localStorage.getItem('github-cli-card-expanded') === 'true';
 
-        function placeGithubCliAutoStatus() {
-            if (!githubCliAutoStatus) return;
-            if (typeof moveGithubCliAutoStatusToQuickstart === 'function') {
-                moveGithubCliAutoStatusToQuickstart();
-                return;
+        function setGithubCliCommandsExpanded(isExpanded) {
+            if (githubInstallDiv) {
+                githubInstallDiv.style.display = isExpanded ? 'block' : 'none';
             }
-            const quickstartPanel = document.getElementById('quickstartDiv');
-            if (quickstartPanel && githubCliAutoStatus.parentElement !== quickstartPanel) {
-                githubCliAutoStatus.style.marginTop = '12px';
-                quickstartPanel.appendChild(githubCliAutoStatus);
-                return;
+            if (githubCliCardToggle) {
+                githubCliCardToggle.textContent = isExpanded ? 'Hide Commands' : 'Show Commands';
+                githubCliCardToggle.className = isExpanded ? 'btn btn-primary btn-width' : 'btn btn-width';
             }
-            if (osDetectionPanel && githubCliAutoStatus.parentElement !== osDetectionPanel) {
-                githubCliAutoStatus.style.marginTop = '12px';
-                osDetectionPanel.appendChild(githubCliAutoStatus);
+            localStorage.setItem('github-cli-card-expanded', isExpanded ? 'true' : 'false');
+        }
+
+        function setGithubCliStatus(installed, message) {
+            if (githubCliIndicator) {
+                githubCliIndicator.className = installed ? 'status-indicator connected' : 'status-indicator error';
+            }
+            if (githubCliStatusText) {
+                githubCliStatusText.textContent = message;
             }
         }
 
-        function syncGithubCliAutoStatusVisibility() {
-            if (!githubCliAutoStatus) return;
-            const shouldShow = githubCliAutoStatus.dataset.shouldShow === 'true';
-            githubCliAutoStatus.style.display = shouldShow ? 'block' : 'none';
-        }
-        placeGithubCliAutoStatus();
-        
-        // Set dropdown based on saved preference, default to "choose"
-        if (githubCliStatusSelect && savedGithubCliStatus) {
-            const validValues = ['choose', 'yes', 'no', 'not-using'];
-            githubCliStatusSelect.value = validValues.includes(savedGithubCliStatus) ? savedGithubCliStatus : 'choose';
+        async function detectGithubCliStatus() {
+            if (!window.shouldAccessLocalhost?.()) {
+                setGithubCliStatus(false, 'Github CLI status unavailable');
+                return;
+            }
+            try {
+                const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
+                if (!response.ok) {
+                    setGithubCliStatus(false, 'Github CLI not detected');
+                    return;
+                }
+                const data = await response.json();
+                if (data && data.installed) {
+                    setGithubCliStatus(true, 'Github CLI Running');
+                } else {
+                    setGithubCliStatus(false, 'Github CLI not detected');
+                }
+            } catch (error) {
+                setGithubCliStatus(false, 'Github CLI not detected');
+            }
         }
         
         // Set userComputer input from saved value
@@ -1473,86 +1458,13 @@ npm install -g @openai/codex</code></pre>`;
             currentUserLength = replacementText.length;
         }
         
-        // Function to update GitHub CLI install div and userComputer text box visibility
-        function updateGithubCliVisibility() {
-            const selectedValue = githubCliStatusSelect ? githubCliStatusSelect.value : 'choose';
-            const showInstall = selectedValue === 'no';
-            if (githubInstallDiv) {
-                githubInstallDiv.style.display = showInstall ? 'block' : 'none';
-            }
-            
-            // Hide/show userComputer text box based on dropdown selection
-            if (userComputerInput) {
-                userComputerInput.style.display = showInstall ? 'block' : 'none';
-            }
-        }
-
-        function updateGithubCliCardVisibilityFromRust(installed) {
-            if (!githubCliCard || !githubCliAutoStatus) return;
-            githubCliAutoStatus.dataset.shouldShow = installed ? 'true' : 'false';
-            placeGithubCliAutoStatus();
-            syncGithubCliAutoStatusVisibility();
-            githubCliCard.dataset.forceCommands = ghCommandsExpanded ? 'true' : 'false';
-            const withoutAiMode = getCurrentAiModeValue() === 'no';
-            if (installed) {
-                githubCliCard.style.display = ghCommandsExpanded ? 'block' : 'none';
-                if (githubCliShowCommandsLink) {
-                    githubCliShowCommandsLink.textContent = ghCommandsExpanded ? 'Hide commands' : 'Show commands';
-                }
-            } else {
-                githubCliCard.style.display = 'block';
-                if (githubCliShowCommandsLink) {
-                    githubCliShowCommandsLink.textContent = 'Show commands';
-                }
-            }
-            if (withoutAiMode && !ghCommandsExpanded) {
-                githubCliCard.style.display = 'none';
-            } else if (ghCommandsExpanded) {
-                githubCliCard.style.display = 'block';
-            }
-        }
-
-        async function detectGithubCliFromRust() {
-            if (!window.shouldAccessLocalhost?.()) return;
-            try {
-                const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
-                if (!response.ok) {
-                    updateGithubCliCardVisibilityFromRust(false);
-                    return;
-                }
-                const data = await response.json();
-                const installed = !!data.installed;
-                if (installed && githubCliStatusSelect) {
-                    githubCliStatusSelect.value = 'yes';
-                    localStorage.setItem('github-cli-status', 'yes');
-                    updateGithubCliVisibility();
-                }
-                updateGithubCliCardVisibilityFromRust(installed);
-            } catch (error) {
-                updateGithubCliCardVisibilityFromRust(false);
-            }
-        }
-        
-        // Add event listener for dropdown
-        if (githubCliStatusSelect) {
-            githubCliStatusSelect.addEventListener('change', function() {
-                console.log('GitHub CLI dropdown changed to:', this.value);
-                // Save the selected value to localStorage
-                localStorage.setItem('github-cli-status', this.value);
-                
-                // Update div visibility
-                updateGithubCliVisibility();
+        if (githubCliCardToggle) {
+            githubCliCardToggle.addEventListener('click', function() {
+                const isExpanded = githubInstallDiv && githubInstallDiv.style.display !== 'none';
+                setGithubCliCommandsExpanded(!isExpanded);
             });
         }
 
-        if (githubCliShowCommandsLink) {
-            githubCliShowCommandsLink.addEventListener('click', function(event) {
-                event.preventDefault();
-                ghCommandsExpanded = !ghCommandsExpanded;
-                updateGithubCliCardVisibilityFromRust(true);
-            });
-        }
-        
         // Add event listener for userComputer text box
         if (userComputerInput) {
             userComputerInput.addEventListener('input', function() {
@@ -1565,9 +1477,9 @@ npm install -g @openai/codex</code></pre>`;
         }
         
         // Initial updates
-        updateGithubCliVisibility();
+        setGithubCliCommandsExpanded(githubCliExpanded);
         updateUserAcctPlaceholders();
-        detectGithubCliFromRust();
+        detectGithubCliStatus();
     }, 200);
     
     // Initial update
@@ -1604,7 +1516,7 @@ function setupGeminiToggle() {
         content.style.display = 'none';
         statusDiv.style.display = 'block';
         toggleBtn.textContent = 'Show';
-        toggleBtn.className = 'btn btn-secondary';
+        toggleBtn.className = 'btn btn-success';
         // Run API check for initial collapsed state
         checkGeminiApiStatus();
     }
@@ -1625,7 +1537,7 @@ function setupGeminiToggle() {
             content.style.display = 'none';
             statusDiv.style.display = 'block';
             toggleBtn.textContent = 'Show';
-            toggleBtn.className = 'btn btn-secondary';
+            toggleBtn.className = 'btn btn-success';
             localStorage.setItem('gemini-installation-collapsed', 'true');
 
             // Run API check when collapsed
@@ -2358,6 +2270,7 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" id="reload-status-btn">Recheck Status</button>
                         <div id="rust-recheck-message" class="rust-api-recheck-message" aria-live="polite" style="color: var(--text-secondary); font-size: 14px;"></div>
                     </div>` : ''}
+                    <hr style="border:none; border-top:1px solid var(--border-light); margin: 8px 0 0 0;">
                 </div>
             </div>
         </div>
@@ -2370,9 +2283,14 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
 
     container.innerHTML = panelHtml;
     const githubCliCard = document.getElementById('githubCLICard');
-    const quickstartPanel = document.getElementById('quickstartDiv');
-    if (quickstartPanel && githubCliCard) {
-        quickstartPanel.insertAdjacentElement('afterend', githubCliCard);
+    const backendStatusIndicators = document.getElementById('backend-status-indicators');
+    if (backendStatusIndicators && githubCliCard) {
+        const divider = backendStatusIndicators.querySelector('hr');
+        if (divider) {
+            backendStatusIndicators.insertBefore(githubCliCard, divider);
+        } else {
+            backendStatusIndicators.appendChild(githubCliCard);
+        }
     }
     // Initialize the status check
     updateRustApiStatusPanel(showConfigureLink, adminPath);
