@@ -74,6 +74,8 @@ lsof -ti:8081 | xargs kill -9
 ### Start HTTP Server
 When you type "start server", use the appropriate command for your environment:
 
+**First check**: If `workflow/comfyui/main.py` exists, start ComfyUI on port 8887 instead of the standard HTTP server — ComfyUI provides its own web server. See below.
+
 #### Option 1: OpenAI Codex (and other agents without shell script support)
 
 ```bash
@@ -113,6 +115,38 @@ If `server.py` also does not exist, fall back to the simple HTTP server:
 ```bash
 nohup python3 -m http.server [requested-port] > /dev/null 2>&1 &
 ```
+
+#### Option 3: Workflow repo — ComfyUI as the server on port 8887
+
+When `workflow/comfyui/main.py` is present, start ComfyUI on port 8887 instead of
+the standard HTTP server. ComfyUI includes its own aiohttp web server and serves the
+workflow UI. Run from the webroot root folder:
+
+```bash
+lsof -ti:8887 > /dev/null 2>&1 || \
+  nohup workflow/env/bin/python3 workflow/comfyui/main.py \
+    --port 8887 --cpu > workflow/comfy.log 2>&1 &
+```
+
+**IMPORTANT**: `--cpu` disables local GPU/model inference. All LLM calls go through
+external APIs configured at http://localhost:8887/chat/keys/ (stored in local cache
+or `docker/.env`). No local model checkpoint files are needed.
+
+**What this command does:**
+- Starts ComfyUI's aiohttp server on port 8887
+- Serves the ComfyUI graph UI and REST/WebSocket API
+- CPU-only mode — no local model loading
+- Logs to `workflow/comfy.log`
+
+**Before first use**, install Python dependencies into `workflow/env/` (one-time build):
+```bash
+workflow/env/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+workflow/env/bin/pip install av --only-binary=:all:
+workflow/env/bin/pip install -r workflow/comfyui/requirements.txt \
+  --extra-index-url https://download.pytorch.org/whl/cpu
+```
+Note: `av` (video support) requires `pkg-config` + FFmpeg to build from source;
+`--only-binary=:all:` installs the available binary wheel and skips video if unavailable.
 
 ### Start HTTP Server (Simple)
 When you type "start http", run:
