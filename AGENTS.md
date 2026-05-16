@@ -286,6 +286,39 @@ Notes:
 - `start art` — Arts Engine Axum Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
 - `start chat` — see `chat/AGENTS.md` for the full command (`node chat/server.mjs`, port 8888). This starts the chat app and mounts the `sanity/` Next.js site at `/sanity`; first run: `pnpm --prefix chat install` and `bun --cwd sanity install`
 
+### Start Workflow
+When you type "start workflow", run both steps below from the webroot root folder:
+
+**1. Start server** (Python / ComfyUI on port 8887 — Option 3 above):
+```bash
+lsof -ti:8887 > /dev/null 2>&1 || \
+  nohup workflow/env/bin/python3 workflow/comfyui/main.py \
+    --port 8887 --cpu > workflow/comfy.log 2>&1 &
+```
+
+**2. Start chat** (Node.js on port 8888 — see `chat/AGENTS.md`):
+```bash
+lsof -ti:8888 > /dev/null 2>&1 || \
+  nohup node chat/server.mjs > /tmp/chat-dev.log 2>&1 &
+```
+
+**3. Start comfyui-deploy** (port 3001 — only if `CLERK_SECRET_KEY` is in `docker/.env`):
+```bash
+grep -q "CLERK_SECRET_KEY=sk_" docker/.env 2>/dev/null && \
+  { lsof -ti:3001 > /dev/null 2>&1 || \
+    nohup bash -c 'set -a; source docker/.env; set +a; PORT=3001 pnpm --prefix workflow/comfyui-deploy/web dev' \
+      > /tmp/comfydeploy-dev.log 2>&1 &; }
+```
+
+comfyui-deploy does not auto-load `docker/.env`, so Clerk keys must be sourced explicitly.
+
+Then confirm all are up:
+```bash
+sleep 6 && curl -s http://localhost:8887/system_stats | head -1 && \
+  curl -s -o /dev/null -w "chat: %{http_code}\n" http://localhost:8888 && \
+  curl -s -o /dev/null -w "deploy: %{http_code}\n" http://localhost:3001
+```
+
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:
 ```bash
