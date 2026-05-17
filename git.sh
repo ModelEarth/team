@@ -386,6 +386,24 @@ get_submodules() {
     fi
 }
 
+get_gitmodules_file() {
+    if [ -f ".gitmodules" ]; then
+        echo ".gitmodules"
+    elif [ -f "../.gitmodules" ]; then
+        echo "../.gitmodules"
+    fi
+}
+
+get_submodule_config() {
+    local repo_name="$1"
+    local key="$2"
+    local gitmodules_file
+    gitmodules_file=$(get_gitmodules_file)
+    [ -z "$gitmodules_file" ] && return 1
+
+    git config -f "$gitmodules_file" --get "submodule.$repo_name.$key" 2>/dev/null
+}
+
 # Parse site repos from .siterepos file in webroot directory
 get_site_repos() {
     local siterepos_file
@@ -409,11 +427,8 @@ get_upstream_account() {
     local repo_name="$1"
     local gitmodules_file
 
-    if [ -f ".gitmodules" ]; then
-        gitmodules_file=".gitmodules"
-    elif [ -f "../.gitmodules" ]; then
-        gitmodules_file="../.gitmodules"
-    else
+    gitmodules_file=$(get_gitmodules_file)
+    if [ -z "$gitmodules_file" ]; then
         # Fallback to hardcoded check
         if [[ "$repo_name" == "localsite" ]] || [[ "$repo_name" == "home" ]] || [[ "$repo_name" == "webroot" ]]; then
             echo "ModelEarth"
@@ -452,10 +467,53 @@ get_origin_repo_name() {
 add_upstream() {
     local repo_name="$1"
     local account="$2"
+    local configured_upstream=$(get_submodule_config "$repo_name" "upstream")
 
-    if [ -z "$(git remote | grep upstream)" ]; then
-        git remote add upstream "https://github.com/$account/$repo_name.git"
+    if [ -z "$(git remote | grep '^upstream$')" ]; then
+        if [ -n "$configured_upstream" ]; then
+            git remote add upstream "$configured_upstream"
+        else
+            git remote add upstream "https://github.com/$account/$repo_name.git"
+        fi
+    elif [ -n "$configured_upstream" ]; then
+        local current_upstream=$(git remote get-url upstream 2>/dev/null || echo "")
+        if [ "$current_upstream" != "$configured_upstream" ]; then
+            git remote set-url upstream "$configured_upstream"
+        fi
     fi
+}
+
+submodule_upstream_policy() {
+    local repo_name="$1"
+    get_submodule_config "$repo_name" "upstream-policy"
+}
+
+prepare_submodule_for_upstream_merge() {
+    local repo_name="$1"
+    local policy=$(submodule_upstream_policy "$repo_name")
+    [ "$policy" != "merge-if-clean" ] && return 0
+
+    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+        echo "⏭️  Skipping branch checkout for $repo_name due to local changes"
+        return 0
+    fi
+
+    if [ -n "$(git symbolic-ref -q HEAD 2>/dev/null)" ]; then
+        return 0
+    fi
+
+    if git show-ref --verify --quiet refs/heads/main; then
+        git checkout main >/dev/null 2>&1 || return 1
+        return 0
+    fi
+
+    if git show-ref --verify --quiet refs/heads/master; then
+        git checkout master >/dev/null 2>&1 || return 1
+        return 0
+    fi
+
+    echo "⏭️  Skipping upstream merge prep for $repo_name (no local main/master branch)"
+    return 0
 }
 
 # Merge from upstream with fallback branches
@@ -807,6 +865,8 @@ safe_submodule_update() {
             if git remote | grep -q upstream; then
                 git fetch upstream main 2>/dev/null || git fetch upstream master 2>/dev/null || echo "⚠️ Could not fetch from upstream"
             fi
+
+            local upstream_policy=$(submodule_upstream_policy "$sub")
             
             # Get current commit hash and timestamp
             local current_commit=$(git rev-parse HEAD 2>/dev/null || echo "")
@@ -860,8 +920,16 @@ safe_submodule_update() {
                 # Get timestamp of expected commit
                 local expected_timestamp=$(git show -s --format=%ct "$expected_commit" 2>/dev/null || echo "0")
                 
+                # For submodules configured to merge upstream changes conservatively,
+                # never jump to upstream/origin by timestamp here. Let the pull flow
+                # perform a regular merge on a branch instead.
+                if [ "$upstream_policy" = "merge-if-clean" ] && [ "$expected_timestamp" -lt "$current_timestamp" ]; then
+                    echo "📌 Parent pointer is stale for $sub — advancing to current commit: $current_commit ($(git show -s --format='%ci' "$current_commit" 2>/dev/null || echo 'unknown date'))"
+                    cd_webroot
+                    git add "$sub"
+                    echo "🔵 Updated parent repo pointer for $sub to current merged commit"
                 # Update to the newest available commit if it's newer than current
-                if [ "$newest_timestamp" -gt "$current_timestamp" ] && [ "$newest_commit" != "$current_commit" ]; then
+                elif [ "$newest_timestamp" -gt "$current_timestamp" ] && [ "$newest_commit" != "$current_commit" ]; then
                     echo "⬆️ Updating $sub to newer commit from $update_source: $newest_commit ($(git show -s --format='%ci' "$newest_commit" 2>/dev/null || echo 'unknown date'))"
                     git checkout "$newest_commit" 2>/dev/null || echo "⚠️ Failed to checkout $newest_commit in $sub"
                     
@@ -910,6 +978,8 @@ safe_single_submodule_update() {
         if git remote | grep -q upstream; then
             git fetch upstream main 2>/dev/null || git fetch upstream master 2>/dev/null || echo "⚠️ Could not fetch from upstream"
         fi
+
+        local upstream_policy=$(submodule_upstream_policy "$sub")
         
         # Get current commit hash and timestamp
         local current_commit=$(git rev-parse HEAD 2>/dev/null || echo "")
@@ -954,8 +1024,11 @@ safe_single_submodule_update() {
             update_source="upstream"
         fi
         
+        # For merge-if-clean submodules, don't advance to upstream/origin by timestamp.
+        if [ "$upstream_policy" = "merge-if-clean" ]; then
+            echo "ℹ️  Leaving $sub at its current commit; upstream updates must come through a clean merge"
         # Update to the newest available commit if it's newer than current
-        if [ "$newest_timestamp" -gt "$current_timestamp" ] && [ "$newest_commit" != "$current_commit" ]; then
+        elif [ "$newest_timestamp" -gt "$current_timestamp" ] && [ "$newest_commit" != "$current_commit" ]; then
             echo "⬆️ Updating $sub to newer commit from $update_source: $newest_commit ($(git show -s --format='%ci' "$newest_commit" 2>/dev/null || echo 'unknown date'))"
             git checkout "$newest_commit" 2>/dev/null || echo "⚠️ Failed to checkout $newest_commit in $sub"
         else
@@ -1249,6 +1322,48 @@ commit_push() {
     cd "$original_dir"
 }
 
+# Check whether a submodule needs push handling during "push all".
+# A submodule qualifies if it has working tree changes, detached HEAD work
+# that differs from the parent-pinned commit, or commits ahead of origin.
+submodule_needs_push() {
+    local sub="$1"
+
+    [ ! -d "$sub" ] && return 1
+
+    if [ -n "$(git -C "$sub" status --porcelain 2>/dev/null)" ]; then
+        return 0
+    fi
+
+    local sub_head=$(git -C "$sub" symbolic-ref -q HEAD 2>/dev/null)
+    if [ -z "$sub_head" ]; then
+        local sub_commit=$(git -C "$sub" rev-parse HEAD 2>/dev/null)
+        local parent_expected=$(git ls-tree HEAD "$sub" 2>/dev/null | awk '{print $3}')
+        if [ -n "$sub_commit" ] && [ "$sub_commit" != "$parent_expected" ]; then
+            return 0
+        fi
+        return 1
+    fi
+
+    local current_branch=$(git -C "$sub" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    local upstream_ref=""
+    if git -C "$sub" rev-parse --verify "origin/$current_branch" >/dev/null 2>&1; then
+        upstream_ref="origin/$current_branch"
+    elif git -C "$sub" rev-parse --verify origin/main >/dev/null 2>&1; then
+        upstream_ref="origin/main"
+    elif git -C "$sub" rev-parse --verify origin/master >/dev/null 2>&1; then
+        upstream_ref="origin/master"
+    fi
+
+    if [ -n "$upstream_ref" ]; then
+        local unpushed=$(git -C "$sub" rev-list --count "$upstream_ref"..HEAD 2>/dev/null || echo "0")
+        if [ "$unpushed" -gt 0 ]; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 # Pull command - streamlined pull workflow  
 pull_command() {
     local repo_name="$1"
@@ -1332,6 +1447,13 @@ pull_command() {
             failed_submodules+=("$sub (directory access)")
             continue
         }
+
+        if ! prepare_submodule_for_upstream_merge "$sub"; then
+            echo "⚠️ Could not prepare $sub for upstream merge"
+            failed_submodules+=("$sub (upstream merge prep)")
+            cd_webroot || cd ..
+            continue
+        fi
 
         # Skip submodules pinned at parent's expected commit (intentional detached HEAD)
         if [ -z "$(git symbolic-ref -q HEAD 2>/dev/null)" ]; then
@@ -2137,20 +2259,14 @@ push_submodules() {
         echo "✅ Pull completed for submodules, proceeding with push..."
     fi
     
-    # Push each submodule with changes - with safe directory management
+    # Push only submodules that actually need attention.
     local submodules=($(get_submodules))
     local failed_pushes=()
     
     for sub in "${submodules[@]}"; do
         [ ! -d "$sub" ] && continue
-        # Skip submodules pinned at parent's expected commit (intentional detached HEAD)
-        local sub_head=$(git -C "$sub" symbolic-ref -q HEAD 2>/dev/null)
-        if [ -z "$sub_head" ]; then
-            local sub_commit=$(git -C "$sub" rev-parse HEAD 2>/dev/null)
-            local parent_expected=$(git ls-tree HEAD "$sub" 2>/dev/null | awk '{print $3}')
-            if [ "$sub_commit" = "$parent_expected" ]; then
-                continue
-            fi
+        if ! submodule_needs_push "$sub"; then
+            continue
         fi
         # Block push if submodule is a partial/incomplete clone
         if ! (cd "$sub" && check_submodule_completeness "$sub"); then
