@@ -2335,7 +2335,28 @@ push_all() {
             for file in "${modified_files[@]}"; do
                 if [ -d "$file" ] && [ -f "$file/.git" ]; then
                     echo "🔵 Committing changes in submodule: $file"
-                    (cd "$file" && git add -A && local commit_msg=$(get_commit_message "$file" ".") && git commit -m "$commit_msg" 2>/dev/null) || echo "ℹ️  No changes to commit in $file"
+                    (
+                        cd "$file" || exit 1
+                        # Never commit onto a detached HEAD. After a pull, submodules sit
+                        # detached at their parent-pinned commit; committing here lands the
+                        # work on no branch. We then advance the parent pointer to that new
+                        # commit, so submodule_needs_push() and fix_detached_head() both see
+                        # "detached HEAD == parent-pinned commit", treat it as an intentional
+                        # pin, and skip pushing — leaving the parent pointing at a commit that
+                        # was never pushed to the submodule's origin. Reattach to main first.
+                        if [ -z "$(git symbolic-ref -q HEAD 2>/dev/null)" ]; then
+                            detached_sha=$(git rev-parse HEAD)
+                            echo "🔀 $file: reattaching to main before committing (was detached at ${detached_sha:0:8})"
+                            git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+                            # Carry the detached work forward if main didn't already contain it.
+                            if ! git merge-base --is-ancestor "$detached_sha" HEAD 2>/dev/null; then
+                                git merge "$detached_sha" --no-edit 2>/dev/null || true
+                            fi
+                        fi
+                        git add -A
+                        commit_msg=$(get_commit_message "$file" ".")
+                        git commit -m "$commit_msg" 2>/dev/null
+                    ) || echo "ℹ️  No changes to commit in $file"
                 else
                     echo "🔵 Skipping non-submodule file: $file"
                 fi
