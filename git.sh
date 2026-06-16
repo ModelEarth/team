@@ -537,6 +537,10 @@ merge_upstream() {
         return 0
     fi
 
+    # Abort before trying the fallback branch; without this, upstream/master runs
+    # on top of a conflicting merge and produces nested conflict markers.
+    git merge --abort 2>/dev/null || true
+
     merge_output=$(git merge upstream/master --no-edit 2>&1) || true
     if [[ "$merge_output" == *"unrelated histories"* ]]; then
         echo "⏭️  Skipping upstream merge for $repo_name (unrelated histories)"
@@ -548,7 +552,10 @@ merge_upstream() {
         return 0
     fi
 
-    echo "⚠️ Merge conflicts - manual resolution needed"
+    git merge --abort 2>/dev/null || true
+    local conflict_files
+    conflict_files=$(echo "$merge_output" | grep "^CONFLICT" | sed 's/CONFLICT.*: //' | tr '\n' ' ')
+    echo "⏭️  Skipping upstream merge for $repo_name — conflicts in: ${conflict_files}(repo left clean)"
     return 1
 }
 
