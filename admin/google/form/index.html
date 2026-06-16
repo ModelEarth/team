@@ -27,8 +27,8 @@
     <script>window.TeamAuthModalClass = typeof AuthModal !== 'undefined' ? AuthModal : null;</script>
     -->
 
-    <!-- Better Auth Modal -->
-    <script src="../../../../better-auth/public/js/auth-modal.js"></script>
+    <!-- Auth modal from the chat repo (under /chat unless the deploy root is chat) -->
+    <script src="/chat/auth/js/auth-modal.js"></script>
 
 
 
@@ -867,7 +867,7 @@
             const files = {
                 'admin': 'admin.md',
                 'google': 'google.md',
-                'auth': 'auth.md'
+                'auth': '/chat/auth/oauth-setup.md'
             };
 
             // If clicking the same section that's already active, hide it

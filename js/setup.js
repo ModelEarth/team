@@ -1557,6 +1557,11 @@ function updateBackendCommandForRow(row, isRunning) {
     if (fullCommandLabel) {
         fullCommandLabel.style.display = showFullCommandLabel ? 'block' : 'none';
     }
+
+    if (backendKey === 'webserver' && !isRunning && modeState.withoutAi && commandBlock && showCmdBtn) {
+        commandBlock.style.display = 'block';
+        showCmdBtn.textContent = 'Hide Commands';
+    }
 }
 
 function updateNoAiFlaskStartVisibility() {
@@ -2191,6 +2196,31 @@ function setupCommandsToggle(buttonId, commandsContainerId, renderFn) {
     });
 }
 
+async function updateAlsoRunningPorts(elementId, currentPort, renderToken, contentEl) {
+    if (!isLocalhostAccessEnabled()) return;
+    const portsToCheck = ['8888', '8889', '8890', '8891', '8892', '8893', '8894', '8895']
+        .filter(p => p !== currentPort);
+    const runningPorts = (await Promise.all(
+        portsToCheck.map(async (port) => {
+            const available = await checkBackendAvailability(`http://localhost:${port}/`);
+            return available ? port : null;
+        })
+    )).filter(Boolean);
+    if (!contentEl.isConnected || contentEl.dataset.webServerRenderToken !== renderToken) return;
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (runningPorts.length === 0) {
+        el.style.display = 'none';
+        return;
+    }
+    const basePath = window.location.pathname + window.location.search;
+    const links = runningPorts.map(port =>
+        `<a href="http://localhost:${port}${basePath}">${port}</a>`
+    ).join(', ');
+    el.innerHTML = `Also running: ${links}`;
+    el.style.display = 'block';
+}
+
 async function setupWebServerStatusPanel(options) {
     const statusIndicator = document.getElementById(options.statusIndicatorId);
     const titleEl = document.getElementById(options.titleId);
@@ -2247,6 +2277,7 @@ async function setupWebServerStatusPanel(options) {
                 <span style="flex: 1;"><a href="http://localhost:${localhostPort}">${webserverLabel}</a> (port ${localhostPort}): <span class="backend-text">${isRunning ? 'Running' : 'Not running'}</span></span>
                 <button class="btn btn-width show-cmd-btn" style="display:none; margin-left:auto;">Show Commands</button>
             </div>
+            <div id="${options.contentId}-also-running" style="display:none; margin-top:4px; font-size:13px; color:var(--text-secondary);"></div>
             <div class="with-ai-backend-cmd" style="display:none; margin-top: 6px;">
                 <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
@@ -2317,6 +2348,10 @@ env\\\\Scripts\\\\activate
     const webserverRow = contentEl.querySelector('[data-backend="webserver"]');
     if (webserverRow) {
         updateBackendCommandForRow(webserverRow, isRunning);
+    }
+
+    if (isLocalOrigin) {
+        updateAlsoRunningPorts(`${options.contentId}-also-running`, localhostPort, renderToken, contentEl);
     }
 
     const desktopLink = contentEl.querySelector('#desktop-installer-link');

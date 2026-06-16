@@ -284,7 +284,7 @@ Notes:
 
 ### Start Arts Engine / Chat Server
 - `start art` — Arts Engine Axum Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
-- `start chat` — see `chat/AGENTS.md` for the full command (`node chat/server.mjs`, port 8888). This starts the chat app and mounts the `sanity/` Next.js site at `/sanity`; first run: `pnpm --prefix chat install` and `bun --cwd sanity install`
+- `start chat` — **ask the user which mode first: webroot or chat repo** (see `chat/AGENTS.md`). Webroot mode = `node chat/server.mjs` from the webroot root (port **3700**; serves the chat app + sibling static repos + the mounted `sanity/` site at `/sanity`). Chat-repo mode = `pnpm --prefix chat dev` (port **3700**; chat app only). In both, the chat app is at the server root — no `/chat` repo prefix. First run: `pnpm --prefix chat install` (and `bun --cwd sanity install` for webroot mode)
 
 ### Start Workflow
 When you type "start workflow", run both steps below from the webroot root folder:
@@ -296,9 +296,9 @@ lsof -ti:8887 > /dev/null 2>&1 || \
     --port 8887 --cpu > workflow/comfy.log 2>&1 &
 ```
 
-**2. Start chat** (Node.js on port 8888 — see `chat/AGENTS.md`):
+**2. Start chat** (Node.js on port 3700 — see `chat/AGENTS.md`):
 ```bash
-lsof -ti:8888 > /dev/null 2>&1 || \
+lsof -ti:3700 > /dev/null 2>&1 || \
   nohup node chat/server.mjs > /tmp/chat-dev.log 2>&1 &
 ```
 
@@ -315,7 +315,7 @@ comfyui-deploy does not auto-load `docker/.env`, so Clerk keys must be sourced e
 Then confirm all are up:
 ```bash
 sleep 6 && curl -s http://localhost:8887/system_stats | head -1 && \
-  curl -s -o /dev/null -w "chat: %{http_code}\n" http://localhost:8888 && \
+  curl -s -o /dev/null -w "chat: %{http_code}\n" http://localhost:3700 && \
   curl -s -o /dev/null -w "deploy: %{http_code}\n" http://localhost:3001
 ```
 
@@ -640,7 +640,7 @@ Complete CRM schema based on SuiteCRM/Salesforce structure:
 The frontend can be served in two different configurations:
 
 1. **Direct Repo Serving**: Web server points directly to the PartnerTools repository root
-   - URLs: `http://localhost:8888/admin/import-data.html`
+   - URLs: `http://localhost:3700/admin/import-data.html`
    - File paths: `preferences/projects/DFC-ActiveProjects.xlsx`
 
 2. **Root Folder Container**: Repository is placed inside the root folder
