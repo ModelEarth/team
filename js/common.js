@@ -546,7 +546,7 @@ function createOSDetectionPanel(containerId) {
                 </div>
             </div>
             <div id="coding-with-right" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: auto; gap: 4px;">
-                <div id="coding-with-os-wrap" style="display: flex; flex-direction: column; align-items: flex-end;">
+                <div id="coding-with-os-wrap" style="display: flex; flex-direction: column; align-items: flex-end; align-self: flex-end;">
                     <select id="os" style="padding: 8px 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); font-size: 14px; min-width: 150px;">
                         <option value="">Select OS...</option>
                         <option value="Mac">Mac</option>
@@ -556,8 +556,8 @@ function createOSDetectionPanel(containerId) {
                     </select>
                     <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
                 </div>
-                <span style="font-size: 12px; line-height:1.45em; text-align:right">
-                    Great terminals: <a href="https://warp.dev/" target="_blank">warp.dev</a> and <a href="https://iterm2.com/" target="_blank">iTerm2</a><br>
+                <span id="terminal-recommendations" style="font-size: 12px; line-height:1.45em; text-align:right">
+                    <span id="terminal-line">Great terminals: <a href="https://warp.dev/" target="_blank">warp.dev</a> and <a href="https://iterm2.com/" target="_blank">iTerm2</a></span><br>
                     Install steps for <a href="/localsite/start/cmds/">Python and NodeJS</a><br>
                     <a href="#deployChanges">How to push/pull changes</a>
                 </span>
@@ -612,15 +612,7 @@ function createOSDetectionPanel(containerId) {
 
                 <span id="cli-subscription-text">Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.</span><br>
 
-                <div id="os-specific-install">
-                    <!-- OS-specific installation instructions will be populated here -->
-                </div>
-                <div id="optional-migrate" style="display: block;">
-                    Optional, for auto-updates run to move from the system directory to your local user directory:
-
-                    <pre><code>claude migrate-installer</code></pre>
-
-                </div>
+                <div id="os-specific-install"></div>
             </div>
 
             <div id="cli-instructions" style="margin-bottom: 16px;">
@@ -937,10 +929,21 @@ function initializeOSDetectionPanel() {
         }
     }
     
+    function updateTerminalRecommendations(selectedOS) {
+        const terminalLine = document.getElementById('terminal-line');
+        if (!terminalLine) return;
+        if (selectedOS === 'PC') {
+            terminalLine.innerHTML = 'Great terminal: <a href="https://warp.dev/" target="_blank">warp.dev</a>';
+        } else {
+            terminalLine.innerHTML = 'Great terminals: <a href="https://warp.dev/" target="_blank">warp.dev</a> and <a href="https://iterm2.com/" target="_blank">iTerm2</a>';
+        }
+    }
+
     // Function to update CLI commands display
     function updateCliCommands() {
         const deployChanges = document.getElementById('deployChanges');
         const selectedOS = osSelect.value;
+        updateTerminalRecommendations(selectedOS);
         const codexChecked = codexCli ? codexCli.checked : false;
         const claudeCodeChecked = claudeCodeCli ? claudeCodeCli.checked : false;
         const geminiChecked = geminiCli ? geminiCli.checked : false;
@@ -995,7 +998,6 @@ function initializeOSDetectionPanel() {
         // Update CLI installation title and text based on selections
         const cliInstallationTitle = document.getElementById('cli-installation-title');
         const cliSubscriptionText = document.getElementById('cli-subscription-text');
-        const optionalMigrate = document.getElementById('optional-migrate');
         const cliTips = document.getElementById('cli-tips');
         const checkedInstallAgents = [];
         if (codexChecked) checkedInstallAgents.push('OpenAI Codex');
@@ -1017,19 +1019,16 @@ function initializeOSDetectionPanel() {
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = 'Get subscriptions: <a href="https://openai.com/api/" target="_blank" rel="noopener noreferrer">OpenAI Codex</a> and <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.';
             }
-            if (optionalMigrate) optionalMigrate.style.display = 'block';
             if (cliTips) cliTips.style.display = 'block';
         } else if (codexChecked) {
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = getCodexSubscriptionText(selectedOS);
             }
-            if (optionalMigrate) optionalMigrate.style.display = 'none';
             if (cliTips) cliTips.style.display = 'none';
         } else if (claudeCodeChecked) {
             if (cliSubscriptionText) {
                 cliSubscriptionText.innerHTML = 'Get yourself a $20/month subscription to <a href="https://claude.com/product/claude-code" target="_blank" rel="noopener noreferrer">Claude Code CLI</a>.';
             }
-            if (optionalMigrate) optionalMigrate.style.display = 'block';
             if (cliTips) cliTips.style.display = 'block';
         }
 
