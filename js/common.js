@@ -556,8 +556,8 @@ function createOSDetectionPanel(containerId) {
                     </select>
                     <div id="os-info" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;"></div>
                 </div>
-                <span class="mac-instructions" style="font-size: 12px; line-height:1.45em; text-align:right">
-                    Recommended terminal: <a href="https://iterm2.com/" target="_blank">iTerm2</a><br>
+                <span style="font-size: 12px; line-height:1.45em; text-align:right">
+                    Great terminals: <a href="https://warp.dev/" target="_blank">warp.dev</a> and <a href="https://iterm2.com/" target="_blank">iTerm2</a><br>
                     Install steps for <a href="/localsite/start/cmds/">Python and NodeJS</a><br>
                     <a href="#deployChanges">How to push/pull changes</a>
                 </span>
@@ -680,27 +680,31 @@ gemini</code></pre></div>
             <hr style="border:none; border-top:1px solid var(--border-light); margin: 0 0 8px 0;">
             <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 0;">
                 <span class="status-indicator error" id="github-cli-indicator"></span>
-                <span style="font-size: 16px; color: var(--text-secondary); flex: 1 1 auto;" id="github-cli-status-text">Github CLI not detected</span>
+                <span style="font-size: 16px; color: var(--text-secondary); flex: 1 1 auto;" id="github-cli-status-text">GitHub CLI not detected</span>
                 <button id="github-cli-card-toggle" class="btn btn-width">Show Commands</button>
             </div>
 
             <div id="githubCLIinstall" style="display: none; margin-top: 12px;">
 
-            In a terminal separate from your Code CLI, check if you have Github CLI installed:
+            In a terminal separate from your Code CLI, check if you have GitHub CLI installed:
             <pre><code>gh auth status</code></pre>
 
             <div class="mac-instructions">
 
-                If needed, install Github CLI using <a href="https://brew.sh/" target="_blank">brew</a>
+                If needed, install GitHub CLI using <a href="https://brew.sh/" target="_blank">brew</a>
 
-                <pre><code>brew reinstall gh</code></pre> 
-
-                choose HTTPS, then run and hit return.
+                <pre><code>brew install gh</code></pre> 
 
                 <pre><code>gh auth login</code></pre>
+
+                - What account do you want to log into? GitHub.com<br>
+                - What is your preferred protocol for Git operations? HTTPS<br>
+                - Authenticate Git with your GitHub credentials? Yes<br>
+                - How would you like to authenticate GitHub CLI? Login with a web browser<br><br>
+
             </div>
             <div class="pc-instructions" style="display: none;">
-                If needed, install Github CLI:<br>
+                If needed, install GitHub CLI:<br>
                 <pre><code>winget install --id GitHub.cli</code></pre>
                 
                 If you don't have winget, check that your terminal is PowerShell (with \`$PSVersionTable\`), download Microsoft's 
@@ -738,7 +742,7 @@ choco install gh -y</code></pre>
         <pre><code id="MyUser2">sudo chown -R [MyUserAcct]:staff /Users/[MyUserAcct]/.config</code></pre>
     </div>
 
-    After fixing the .config ownership, retry the Github CLI command above.<br><br>
+    After fixing the .config ownership, retry the GitHub CLI command above.<br><br>
 
     <b>Tip:</b> Turn off terminal audio alerts under Settings > Profiles > Audible bell<br>
 
@@ -1392,25 +1396,36 @@ npm install -g @openai/codex</code></pre>`;
             }
         }
 
+        function autoOpenIfInitialInstall() {
+            const initialInstallRadio = document.querySelector('input[name="claude-install-status"][value="initial"]');
+            if (initialInstallRadio && initialInstallRadio.checked) {
+                setGithubCliCommandsExpanded(true);
+            }
+        }
+
         async function detectGithubCliStatus() {
             if (!window.shouldAccessLocalhost?.()) {
-                setGithubCliStatus(false, 'Github CLI status unavailable');
+                setGithubCliStatus(false, 'GitHub CLI status unavailable');
+                autoOpenIfInitialInstall();
                 return;
             }
             try {
                 const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
                 if (!response.ok) {
-                    setGithubCliStatus(false, 'Github CLI not detected');
+                    setGithubCliStatus(false, 'GitHub CLI not detected');
+                    autoOpenIfInitialInstall();
                     return;
                 }
                 const data = await response.json();
                 if (data && data.installed) {
-                    setGithubCliStatus(true, 'Github CLI Running');
+                    setGithubCliStatus(true, 'GitHub CLI Running');
                 } else {
-                    setGithubCliStatus(false, 'Github CLI not detected');
+                    setGithubCliStatus(false, 'GitHub CLI not detected');
+                    autoOpenIfInitialInstall();
                 }
             } catch (error) {
-                setGithubCliStatus(false, 'Github CLI not detected');
+                setGithubCliStatus(false, 'GitHub CLI not detected');
+                autoOpenIfInitialInstall();
             }
         }
         

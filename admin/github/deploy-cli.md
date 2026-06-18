@@ -3,6 +3,7 @@
 Update and make commits often. (At least hourly if you are editing code.)
 Append "nopr" if you are not yet ready to send a Pull Request.
 
+<div id="githubCLITarget"></div>
 
 ## Using your AI Coding Agent to push and pull
 

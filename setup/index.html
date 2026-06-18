@@ -103,7 +103,14 @@ waitForElm('#extraRepos').then(() => {
 });
 
 waitForElm('#deployChanges').then(() => {
-    runSetupStep('deploy cli markdown', () => loadMarkdown('../admin/github/deploy-cli.md', 'deployChanges', '_parent', 1, syncDeployCliVisibility));
+    runSetupStep('deploy cli markdown', () => loadMarkdown('../admin/github/deploy-cli.md', 'deployChanges', '_parent', 1, function() {
+        syncDeployCliVisibility();
+        const githubCLICard = document.getElementById('githubCLICard');
+        const githubCLITarget = document.getElementById('githubCLITarget');
+        if (githubCLICard && githubCLITarget) {
+            githubCLITarget.appendChild(githubCLICard);
+        }
+    }));
 });
 
 waitForElm('#deployGitDiv').then(() => {

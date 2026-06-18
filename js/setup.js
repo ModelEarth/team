@@ -1249,7 +1249,7 @@ node chat/server.mjs</code></pre>
         <div id="github-cli-auto-status" style="display:none; margin-top:6px;">
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
                 <span class="status-indicator connected"></span>
-                <span style="flex: 1;">Github CLI is installed</span>
+                <span style="flex: 1;">GitHub CLI is installed</span>
                 <button class="btn btn-secondary btn-width" id="github-cli-show-commands-link" style="margin-left:auto;">Show Commands</button>
             </div>
             <div id="github-cli-inline-commands" style="display:none; margin-top: 6px;"></div>
