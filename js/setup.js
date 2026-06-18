@@ -67,9 +67,22 @@ clone extra repos from [your github account]
     `;
 }
 
+function updateGitAccountHighlight() {
+    const field = document.getElementById('gitAccount');
+    if (!field) return;
+    if (field.value.trim() === '') {
+        field.style.borderColor = 'orange';
+        field.style.boxShadow = '0 0 0 2px rgba(255,165,0,0.3)';
+    } else {
+        field.style.borderColor = '';
+        field.style.boxShadow = '';
+    }
+}
+
 // Function to update git account fields and browser storage
 function updateGitAccountFields() {
     const gitAccount = document.getElementById("gitAccount").value;
+    updateGitAccountHighlight();
     const myWebrootForkName = document.getElementById("myWebrootForkName").value || "webroot";
     
     // Store in localStorage using same cache as localsite - store even if empty to clear cache
@@ -145,7 +158,8 @@ function initializeGitFields() {
     if (myWebrootForkNameField && localStorage.myWebrootForkName) {
         myWebrootForkNameField.value = localStorage.myWebrootForkName;
     }
-    
+    updateGitAccountHighlight();
+
     // Add keypress event listeners for clearing cache on Enter when field is empty
     if (gitAccountField) {
         gitAccountField.addEventListener('keypress', function(e) {
@@ -181,6 +195,7 @@ function initializeGitFields() {
         if (myWebrootForkNameField && localStorage.myWebrootForkName) {
             myWebrootForkNameField.value = localStorage.myWebrootForkName;
         }
+        updateGitAccountHighlight();
         updateWebrootForkLink();
         updateForkReposCommands();
     }, 500);

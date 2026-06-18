@@ -672,9 +672,14 @@ gemini</code></pre></div>
             <hr style="border:none; border-top:1px solid var(--border-light); margin: 0 0 8px 0;">
             <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 0;">
                 <span class="status-indicator error" id="github-cli-indicator"></span>
-                <span style="font-size: 16px; color: var(--text-secondary); flex: 1 1 auto;" id="github-cli-status-text">GitHub CLI not detected</span>
-                <button id="github-cli-card-toggle" class="btn btn-width">Show Commands</button>
+                <span style="font-size: 16px; color: var(--text-secondary);" id="github-cli-status-text">GitHub CLI not detected</span>
+                <label id="github-cli-confirmed-label" style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; white-space: nowrap;">
+                    <input type="checkbox" id="github-cli-confirmed-checkbox" style="margin: 0;">
+                    Installed
+                </label>
+                <button id="github-cli-card-toggle" class="btn btn-width" style="margin-left: auto;">Show Commands</button>
             </div>
+            <div id="github-cli-autodetect-note" style="display: none; font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Auto-detected when Rust is started</div>
 
             <div id="githubCLIinstall" style="display: none; margin-top: 12px;">
 
@@ -1371,9 +1376,39 @@ npm install -g @openai/codex</code></pre>`;
         const githubCliCardToggle = document.getElementById('github-cli-card-toggle');
         const githubCliIndicator = document.getElementById('github-cli-indicator');
         const githubCliStatusText = document.getElementById('github-cli-status-text');
+        const githubCliConfirmedCheckbox = document.getElementById('github-cli-confirmed-checkbox');
         const userComputerInput = document.getElementById('userComputer');
         const savedUserComputer = localStorage.getItem('user-computer-name');
         const githubCliExpanded = localStorage.getItem('github-cli-card-expanded') === 'true';
+        const githubCliConfirmedLabel = document.getElementById('github-cli-confirmed-label');
+        const githubCliAutodetectNote = document.getElementById('github-cli-autodetect-note');
+        const githubCliConfirmed = localStorage.getItem('github-cli-confirmed') === 'true';
+        let rustServerAvailable = false;
+
+        function updateCheckboxVisibility() {
+            const hide = rustServerAvailable;
+            if (githubCliConfirmedLabel) githubCliConfirmedLabel.style.display = hide ? 'none' : '';
+            if (githubCliAutodetectNote) {
+                const confirmed = githubCliConfirmedCheckbox && githubCliConfirmedCheckbox.checked;
+                githubCliAutodetectNote.style.display = (!hide && confirmed) ? 'block' : 'none';
+            }
+        }
+
+        if (githubCliConfirmedCheckbox) {
+            githubCliConfirmedCheckbox.checked = githubCliConfirmed;
+            githubCliConfirmedCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    localStorage.setItem('github-cli-confirmed', 'true');
+                    setGithubCliStatus(true, 'GitHub CLI confirmed');
+                    setGithubCliCommandsExpanded(false);
+                } else {
+                    localStorage.removeItem('github-cli-confirmed');
+                    setGithubCliStatus(false, 'GitHub CLI not detected');
+                    autoOpenIfInitialInstall();
+                }
+                updateCheckboxVisibility();
+            });
+        }
 
         function setGithubCliCommandsExpanded(isExpanded) {
             if (githubInstallDiv) {
@@ -1402,29 +1437,60 @@ npm install -g @openai/codex</code></pre>`;
             }
         }
 
+        function applyConfirmedState() {
+            if (githubCliConfirmedCheckbox) githubCliConfirmedCheckbox.checked = true;
+            setGithubCliStatus(true, 'GitHub CLI confirmed');
+            updateCheckboxVisibility();
+        }
+
         async function detectGithubCliStatus() {
             if (!window.shouldAccessLocalhost?.()) {
-                setGithubCliStatus(false, 'GitHub CLI status unavailable');
-                autoOpenIfInitialInstall();
+                rustServerAvailable = false;
+                if (localStorage.getItem('github-cli-confirmed') === 'true') {
+                    applyConfirmedState();
+                } else {
+                    setGithubCliStatus(false, 'GitHub CLI status unavailable');
+                    autoOpenIfInitialInstall();
+                    updateCheckboxVisibility();
+                }
                 return;
             }
             try {
                 const response = await fetch(`${getApiBase()}/github-cli/status`, { method: 'GET' });
                 if (!response.ok) {
-                    setGithubCliStatus(false, 'GitHub CLI not detected');
-                    autoOpenIfInitialInstall();
+                    rustServerAvailable = false;
+                    if (localStorage.getItem('github-cli-confirmed') === 'true') {
+                        applyConfirmedState();
+                    } else {
+                        setGithubCliStatus(false, 'GitHub CLI not detected');
+                        autoOpenIfInitialInstall();
+                        updateCheckboxVisibility();
+                    }
                     return;
                 }
+                rustServerAvailable = true;
                 const data = await response.json();
                 if (data && data.installed) {
+                    localStorage.setItem('github-cli-confirmed', 'true');
+                    if (githubCliConfirmedCheckbox) githubCliConfirmedCheckbox.checked = true;
                     setGithubCliStatus(true, 'GitHub CLI Running');
+                } else {
+                    localStorage.removeItem('github-cli-confirmed');
+                    if (githubCliConfirmedCheckbox) githubCliConfirmedCheckbox.checked = false;
+                    setGithubCliStatus(false, 'GitHub CLI not detected');
+                    autoOpenIfInitialInstall();
+                }
+                updateCheckboxVisibility();
+            } catch (error) {
+                // Server not running — fall back to localStorage/checkbox state
+                rustServerAvailable = false;
+                if (localStorage.getItem('github-cli-confirmed') === 'true') {
+                    applyConfirmedState();
                 } else {
                     setGithubCliStatus(false, 'GitHub CLI not detected');
                     autoOpenIfInitialInstall();
+                    updateCheckboxVisibility();
                 }
-            } catch (error) {
-                setGithubCliStatus(false, 'GitHub CLI not detected');
-                autoOpenIfInitialInstall();
             }
         }
         
