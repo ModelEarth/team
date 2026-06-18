@@ -1175,7 +1175,7 @@ function initializeOSDetectionPanel() {
     function updateOSSpecificInstall(selectedOS, codexChecked, claudeCodeChecked) {
         const osSpecificInstall = document.getElementById('os-specific-install');
         if (osSpecificInstall) {
-            let installContent = `If you haven't installed npm, node, python, or pip yet, install <a href="/io/coders/python/" target="_blank">node and npm using pyenv and nvm</a>.<br><br>`;
+            let installContent = `If you haven't installed python, npm or node yet, install <a href="/io/coders/python/" target="_blank">uv and nvm (node and npm)</a>.<br><br>`;
 
             // Show installation commands based on selected CLI tools
             if (codexChecked && claudeCodeChecked) {
@@ -1206,11 +1206,10 @@ npm install -g @openai/codex</code></pre>`;
                 if (selectedOS === 'Mac' || selectedOS === 'Linux' || selectedOS === 'Other' || !selectedOS || selectedOS === '') {
                     if (selectedOS === 'PC') installContent += '<br>';
                     const osLabel = (selectedOS === 'Mac' || selectedOS === 'Linux') ? selectedOS : 'Mac/Linux';
-                    installContent += `<strong>For ${osLabel} users:</strong> Install Claude Code CLI manually with npm:<br>
-                    <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>`;
+                    installContent += `<strong>For ${osLabel} users:</strong> Install Claude Code CLI:<br>
+                    <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre>`;
                 }
             }
-
             osSpecificInstall.innerHTML = installContent;
         }
     }

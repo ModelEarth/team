@@ -2289,8 +2289,8 @@ async function setupWebServerStatusPanel(options) {
                     <pre class="quickstart-port-pre quickstart-port-pre-with-stop" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>${stopServerCommand}</code></pre>
                     ${stopBtn}
                 </div>` : ''}
-                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only</div>
-                <pre class="quickstart-port-pre" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>python -m http.server ${localhostPort}</code></pre>
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only on <a href="http://localhost:8887/">localhost:8887</a></div>
+                <pre class="quickstart-port-pre" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>python3 -m http.server ${localhostPort}</code></pre>
                 <div style="color: var(--text-secondary); margin: 0 0 4px 0;">With Server-Side Python and support for <a href="#" id="desktop-installer-link" style="color: inherit; text-decoration: underline; cursor: pointer;">Desktop Installer</a></div>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>nohup ./desktop/install/quickstart.sh --cli --port ${localhostPort} > /dev/null 2>&1 &</code></pre>
                 <div id="quickstart-desktop-installer-details" style="display:none; margin: 0 0 4px 0;">
