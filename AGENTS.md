@@ -553,6 +553,7 @@ The term "stream" will be used for a wide variety of parameter objects, includin
 - **Directory Restrictions**: If the user requests `cd ../`, first check if you are already in the root folder. If so, ignore the request so errors do not appear.
 - **Root Detection**: Use `git rev-parse --show-toplevel` to determine the root folder
 - **Security Boundaries**: Claude Code sessions are restricted to working within the root folder and its subdirectories
+- **OUTSIDE WEBROOT**: Before executing any process that writes or modifies files outside the webroot root folder, state "OUTSIDE WEBROOT" and wait for confirmation.
 
 ## Quick Commands
 
