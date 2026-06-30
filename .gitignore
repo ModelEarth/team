@@ -15,6 +15,7 @@ env/*
 # Logs
 *.log
 logs/
+security_report.md
 
 # Runtime data
 pids
