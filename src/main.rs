@@ -32,6 +32,7 @@ mod oauth;
 mod prompts;
 mod semantic_search;
 mod api_integration;
+mod trade_import;
 use recommendations::RecommendationRequest;
 use oauth::{OAuthConfig, UserSession, OAuthUrlResponse};
 
@@ -3083,6 +3084,11 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                     )
                     .route("/refresh-local", web::post().to(api_integration::refresh_local_file))
                     .route("/save-dataset", web::post().to(api_integration::save_dataset))
+                    .service(
+                        web::scope("/trade")
+                            .route("/insert", web::post().to(trade_import::insert_trade_data))
+                            .route("/schema", web::get().to(trade_import::industry_schema))
+                    )
             )
     })
     .bind((server_host, server_port))?
