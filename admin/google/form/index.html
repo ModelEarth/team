@@ -848,9 +848,16 @@
 
             // Form button only toggles #top-status, not #adminDiv
             if (section === 'form') {
-                if (topStatus) topStatus.style.display = topStatus.style.display === 'none' ? '' : 'none';
+                // #top-status and #rust-status don't always share visibility (e.g. #top-status
+                // stays hidden while #rust-status prompts to start Rust), so toggle them as a
+                // group: hide all of them if any is currently visible, otherwise show all.
                 const googleAuthPanel = document.getElementById('google-auth-panel');
-                if (googleAuthPanel) googleAuthPanel.style.display = topStatus?.style.display === 'none' ? 'none' : '';
+                const rustStatus = document.getElementById('rust-status');
+                const statusPanels = [topStatus, rustStatus].filter(Boolean);
+                const anyVisible = statusPanels.some(el => el.style.display !== 'none');
+                const nextDisplay = anyVisible ? 'none' : '';
+                statusPanels.forEach(el => { el.style.display = nextDisplay; });
+                if (googleAuthPanel) googleAuthPanel.style.display = nextDisplay;
                 adminDiv.style.display = 'none';
                 Object.values(buttons).forEach(btn => btn && btn.classList.remove('active'));
                 buttons['form'].classList.toggle('active');
@@ -858,10 +865,12 @@
                 return;
             }
 
-            // Hide #top-status and #google-auth-panel when opening other sections
+            // Hide #top-status, #google-auth-panel, and #rust-status when opening other sections
             if (topStatus) topStatus.style.display = 'none';
             const googleAuthPanel = document.getElementById('google-auth-panel');
             if (googleAuthPanel) googleAuthPanel.style.display = 'none';
+            const rustStatus = document.getElementById('rust-status');
+            if (rustStatus) rustStatus.style.display = 'none';
             buttons['form']?.classList.remove('active');
 
             const files = {

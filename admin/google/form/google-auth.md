@@ -8,6 +8,8 @@ Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.g
 
 Click the project dropdown at the top of the page. Either select an existing project or click **New Project**, give it a name, and click **Create**.
 
+<span id="google-project-id-note" style="display:none">Current <code>GOOGLE_PROJECT_ID</code> in <code>docker/.env</code>: <strong id="google-project-id-value"></strong></span>
+
 ## 3. Enable the Google Sheets API
 
 Go to **APIs & Services > Library**, search for **Google Sheets API**, and enable it. Then continue to the "Create credentials" step and choose "User data". No other API is needed for Google Sign-In itself.

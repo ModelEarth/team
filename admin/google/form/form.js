@@ -27,6 +27,7 @@ function showTeamAuthModal() {
 let currentUser = null;
 let existingMemberData = null;
 let sheetsConfig = null;
+let cachedGoogleProjectId = null;
 
 // Job title suggestions for autocomplete
 const jobTitleSuggestions = [
@@ -194,26 +195,32 @@ async function checkOAuthConfiguration() {
     let configClientId = null;
     let envClientId = null;
     let hasValidClientId = false;
-    
+    // Whether a backend actually answered /config/env (Rust today; NodeJS is planned as an
+    // additional way to serve these docker/.env values). False means we couldn't check at all,
+    // which is different from checking and finding no GOOGLE_CLIENT_ID.
+    let envCheckAvailable = false;
+
     // Check config.yaml client ID
     if (sheetsConfig && sheetsConfig.OAuth && sheetsConfig.OAuth.clientId) {
         configClientId = sheetsConfig.OAuth.clientId;
         // Check if it's not the default placeholder
-        if (configClientId !== 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID' && 
+        if (configClientId !== 'REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID' &&
             configClientId.includes('.apps.googleusercontent.com')) {
             hasValidClientId = true;
         }
     }
-    
+
     // Check docker/.env file client ID via API
     try {
         const response = await fetch(`${API_BASE}/config/env`);
         if (response.ok) {
+            envCheckAvailable = true;
             const envData = await response.json();
+            cachedGoogleProjectId = envData.google_project_id || null;
             if (envData.google_client_id) {
                 envClientId = envData.google_client_id;
                 // Check if it's not the default placeholder and is a valid format
-                if (envClientId !== 'your-google-client-id.apps.googleusercontent.com' && 
+                if (envClientId !== 'your-google-client-id.apps.googleusercontent.com' &&
                     envClientId.includes('.apps.googleusercontent.com')) {
                     hasValidClientId = true;
                 }
@@ -222,12 +229,12 @@ async function checkOAuthConfiguration() {
     } catch (error) {
         console.warn('Could not check .env configuration:', error);
     }
-    
+
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     // Display warning if no valid client ID found
     if (!hasValidClientId) {
-        showOAuthConfigWarning(configClientId, envClientId);
+        showOAuthConfigWarning(configClientId, envClientId, cachedGoogleProjectId, envCheckAvailable);
         if (!isLocalhost) {
             disableGoogleSignIn();
         }
@@ -261,11 +268,11 @@ async function checkOAuthConfiguration() {
 }
 
 // Display OAuth configuration warning
-function showOAuthConfigWarning(configClientId, envClientId) {
+function showOAuthConfigWarning(configClientId, envClientId, envProjectId, envCheckAvailable) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     let message = '<strong>Google OAuth Client ID Required</strong><br><br>';
-    message += 'The "Sign in with Google" button will not work because no valid Google OAuth Client ID was found.<br><br>';
+    message += 'The "Sign in" button needs to have your GOOGLE_CLIENT_ID added for OAuth.<br><br>';
 
     message += '<strong>Configuration Status:</strong><br>';
 
@@ -291,7 +298,14 @@ function showOAuthConfigWarning(configClientId, envClientId) {
         message += '• docker/.env file: No GOOGLE_CLIENT_ID found<br>';
     }
 
-    message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">show steps</button> <a href="../../../setup" class="btn btn-secondary">start rust</a>';
+    // GOOGLE_PROJECT_ID status (the Google Cloud project that owns the client ID above)
+    if (envProjectId) {
+        message += `• docker/.env file: GOOGLE_PROJECT_ID = "${envProjectId}"<br>`;
+    } else {
+        message += '• docker/.env file: No GOOGLE_PROJECT_ID found<br>';
+    }
+
+    message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">Show Steps</button>';
 
     const authStatus = document.getElementById('auth-status');
     if (authStatus) {
@@ -301,8 +315,49 @@ function showOAuthConfigWarning(configClientId, envClientId) {
     }
 
     if (isLocalhost) {
-        showTopStatus('error', message);
+        if (envCheckAvailable) {
+            showTopStatus('error', message);
+            ensureRustStatusPanel();
+        } else {
+            // No backend answered /config/env, so we can't tell whether GOOGLE_CLIENT_ID is
+            // actually missing — hide the banner, but prompt to start Rust so the check can run.
+            const topStatus = document.getElementById('top-status');
+            if (topStatus) topStatus.style.display = 'none';
+            ensureRustStatusPanel();
+        }
     }
+}
+
+// Create (or reveal) the panel that explains/links how to start the Rust API server
+function ensureRustStatusPanel() {
+    let rustStatus = document.getElementById('rust-status');
+    if (rustStatus) {
+        rustStatus.style.display = '';
+        return rustStatus;
+    }
+
+    rustStatus = document.createElement('div');
+    rustStatus.id = 'rust-status';
+    rustStatus.className = 'alert alert-info';
+    rustStatus.style.marginTop = '12px';
+    rustStatus.innerHTML = '<span>To enable logins, start rust using guidance on <a href="../../../setup" target="_webroot">Webroot team setup</a>.<br><br>' +
+        '<a href="../../../setup" target="_webroot" class="btn btn-secondary">Start Rust</a></span>';
+
+    // Anchor after #top-status when it's present; otherwise fall back to where
+    // showTopStatus() would create it, so the panel still shows up when top-status is hidden.
+    const topStatus = document.getElementById('top-status');
+    if (topStatus && topStatus.parentNode) {
+        topStatus.parentNode.insertBefore(rustStatus, topStatus.nextSibling);
+        return rustStatus;
+    }
+
+    const formSection = document.querySelector('.form-section');
+    if (formSection) {
+        formSection.insertBefore(rustStatus, formSection.firstChild);
+        return rustStatus;
+    }
+
+    return null;
 }
 
 // Disable Google Sign-In button when no valid client ID
@@ -907,6 +962,27 @@ function showTopStatus(type, message) {
 
 }
 
+// Fill in the "current GOOGLE_PROJECT_ID" hint inside a rendered google-auth.md panel
+async function populateGoogleProjectIdNote() {
+    if (cachedGoogleProjectId === null) {
+        try {
+            const response = await fetch(`${API_BASE}/config/env`);
+            if (response.ok) {
+                const envData = await response.json();
+                cachedGoogleProjectId = envData.google_project_id || null;
+            }
+        } catch (error) {
+            console.warn('Could not check .env configuration:', error);
+        }
+    }
+    if (!cachedGoogleProjectId) return;
+    document.querySelectorAll('#google-project-id-note').forEach(function(note) {
+        const valueEl = note.querySelector('#google-project-id-value');
+        if (valueEl) valueEl.textContent = cachedGoogleProjectId;
+        note.style.display = '';
+    });
+}
+
 function toggleGithubAuthSteps(btn) {
     let panel = document.getElementById('google-auth-panel-info');
     if (!panel) {
@@ -916,7 +992,7 @@ function toggleGithubAuthSteps(btn) {
         panel.style.marginTop = '16px';
         const container = btn.parentNode;
         container.parentNode.insertBefore(panel, container.nextSibling);
-        loadMarkdown('google-auth.md', 'google-auth-panel-info', '_parent', 1);
+        loadMarkdown('google-auth.md', 'google-auth-panel-info', '_parent', 1, populateGoogleProjectIdNote);
     } else {
         panel.style.display = panel.style.display === 'none' ? '' : 'none';
     }
@@ -926,19 +1002,22 @@ function toggleGithubAuthSteps(btn) {
 function toggleGoogleAuthSteps(btn) {
     let panel = document.getElementById('google-auth-panel');
     if (!panel) {
+        const topStatus = document.getElementById('top-status');
+        // #top-status is display:flex, so the panel must live inside the message
+        // span (not as a sibling flex item) or it renders beside the button instead of below it.
+        const messageSpan = topStatus && topStatus.querySelector('span');
+        if (!messageSpan) return;
         panel = document.createElement('div');
         panel.id = 'google-auth-panel';
-        panel.className = 'card';
         panel.style.marginTop = '16px';
-        const topStatus = document.getElementById('top-status');
-        if (topStatus && topStatus.parentNode) {
-            topStatus.parentNode.insertBefore(panel, topStatus.nextSibling);
-        }
-        loadMarkdown('google-auth.md', 'google-auth-panel', '_parent', 1);
+        panel.style.paddingTop = '16px';
+        panel.style.borderTop = '1px solid rgba(0, 0, 0, 0.15)';
+        messageSpan.appendChild(panel);
+        loadMarkdown('google-auth.md', 'google-auth-panel', '_parent', 1, populateGoogleProjectIdNote);
     } else {
         panel.style.display = panel.style.display === 'none' ? '' : 'none';
     }
-    if (btn) btn.textContent = (panel.style.display === 'none') ? 'show steps' : 'hide steps';
+    if (btn) btn.textContent = (panel.style.display === 'none') ? 'Show Steps' : 'Hide Steps';
 }
 
 function hideStatus() {

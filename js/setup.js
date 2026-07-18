@@ -2102,6 +2102,20 @@ function relocateRustStatusIndicators(container) {
     }
 }
 
+function moveWebServerSectionAfterAgentCheckboxes(containerId = 'quickstartDiv') {
+    const webServerSection = document.getElementById(containerId);
+    const agentCheckboxesHolder = document.getElementById('agent-checkboxes-holder');
+    if (!webServerSection || !agentCheckboxesHolder || !agentCheckboxesHolder.parentElement) {
+        if (typeof waitForElm === 'function') {
+            waitForElm('#agent-checkboxes-holder').then(() => moveWebServerSectionAfterAgentCheckboxes(containerId));
+        }
+        return;
+    }
+    if (webServerSection.previousElementSibling !== agentCheckboxesHolder) {
+        agentCheckboxesHolder.insertAdjacentElement('afterend', webServerSection);
+    }
+}
+
 function moveCommandsToggleBeforeUseAI(buttonId = 'quickstartDiv-toggle') {
     const agentCheckboxes = document.getElementById('agent-checkboxes');
     if (!agentCheckboxes || !agentCheckboxes.parentElement) {
@@ -2297,6 +2311,10 @@ async function setupWebServerStatusPanel(options) {
                 <p style="color: var(--text-secondary); margin: 0 0 6px 0;"><strong>Using your Code CLI</strong>, start a web server with server-side Python on port ${localhostPort}:</p>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>start server using guidance in team/AGENTS.md</code></pre>
             </div>
+            <div class="always-show-backend-cmd" style="margin-top: 6px;">
+                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only on <a href="http://localhost:8887/">localhost:8887</a></div>
+                <pre class="quickstart-port-pre" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>python3 -m http.server ${localhostPort}</code></pre>
+            </div>
             <div class="no-ai-backend-cmd" style="display:none; margin-top: 6px;">
                 ${stopBtn ? `
                 <div style="color: var(--text-secondary); margin: 0 0 4px 0;">Stop HTTP Server</div>
@@ -2304,8 +2322,6 @@ async function setupWebServerStatusPanel(options) {
                     <pre class="quickstart-port-pre quickstart-port-pre-with-stop" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0;"><code>${stopServerCommand}</code></pre>
                     ${stopBtn}
                 </div>` : ''}
-                <div style="color: var(--text-secondary); margin: 0 0 4px 0;">HTTP Server Only on <a href="http://localhost:8887/">localhost:8887</a></div>
-                <pre class="quickstart-port-pre" style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>python3 -m http.server ${localhostPort}</code></pre>
                 <div style="color: var(--text-secondary); margin: 0 0 4px 0;">With Server-Side Python and support for <a href="#" id="desktop-installer-link" style="color: inherit; text-decoration: underline; cursor: pointer;">Desktop Installer</a></div>
                 <pre style="background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; margin: 0 0 4px 0;"><code>nohup ./desktop/install/quickstart.sh --cli --port ${localhostPort} > /dev/null 2>&1 &</code></pre>
                 <div id="quickstart-desktop-installer-details" style="display:none; margin: 0 0 4px 0;">
@@ -2447,6 +2463,7 @@ function setupQuickstartInstructions(containerId) {
     }
 
     moveGithubCliAutoStatusToQuickstart();
+    moveWebServerSectionAfterAgentCheckboxes(containerId);
     attachQuickstartCliListeners();
 
     const localhostToggle = document.getElementById('localhost-access-toggle');

@@ -643,3 +643,8 @@ pre code {
 .dark .page-tab-line.active {
     background: #3b82f6;
 }
+
+/* Rust-not-started prompt (team/admin/google/form/) — no icon square, just the text */
+#rust-status::before {
+    content: none;
+}
