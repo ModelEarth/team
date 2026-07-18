@@ -29,6 +29,31 @@ let existingMemberData = null;
 let sheetsConfig = null;
 let cachedGoogleProjectId = null;
 
+// API_BASE (from common.js) points at the Rust API on port 8081. NodeJS
+// (the "chat" repo) serves the same docker/.env-backed endpoints on port 3700
+// as a second option — either backend can answer, so we probe both and stick
+// with whichever responds first.
+const NODE_API_BASE = 'http://localhost:3700/api';
+let activeApiBase = null;
+
+// Try each known backend in turn, caching whichever one answers so later
+// calls skip straight to it. Any real HTTP response (even a 4xx business
+// error) counts as "this backend is alive"; only a network failure moves on
+// to the next candidate.
+async function fetchFromBackend(path, options) {
+    const candidates = activeApiBase ? [activeApiBase] : [API_BASE, NODE_API_BASE];
+    for (const base of candidates) {
+        try {
+            const response = await fetch(`${base}${path}`, options);
+            activeApiBase = base;
+            return response;
+        } catch (error) {
+            // Unreachable — try the next candidate.
+        }
+    }
+    return null;
+}
+
 // Job title suggestions for autocomplete
 const jobTitleSuggestions = [
     'Data Scientist / Software Engineer',
@@ -83,8 +108,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadConfiguration() {
     try {
-        const response = await fetch(`${API_BASE}/google/sheets/config`);
-        if (response.ok) {
+        const response = await fetchFromBackend('/google/sheets/config');
+        if (response && response.ok) {
             const configData = await response.json();
             if (configData.success && configData.config) {
                 sheetsConfig = configData.config;
@@ -195,9 +220,9 @@ async function checkOAuthConfiguration() {
     let configClientId = null;
     let envClientId = null;
     let hasValidClientId = false;
-    // Whether a backend actually answered /config/env (Rust today; NodeJS is planned as an
-    // additional way to serve these docker/.env values). False means we couldn't check at all,
-    // which is different from checking and finding no GOOGLE_CLIENT_ID.
+    // Whether a backend actually answered /config/env (Rust on 8081, or NodeJS/chat on
+    // 3700 — see fetchFromBackend). False means we couldn't check at all, which is
+    // different from checking and finding no GOOGLE_CLIENT_ID.
     let envCheckAvailable = false;
 
     // Check config.yaml client ID
@@ -210,10 +235,10 @@ async function checkOAuthConfiguration() {
         }
     }
 
-    // Check docker/.env file client ID via API
+    // Check docker/.env file client ID via API (tries Rust, then NodeJS)
     try {
-        const response = await fetch(`${API_BASE}/config/env`);
-        if (response.ok) {
+        const response = await fetchFromBackend('/config/env');
+        if (response && response.ok) {
             envCheckAvailable = true;
             const envData = await response.json();
             cachedGoogleProjectId = envData.google_project_id || null;
@@ -247,8 +272,8 @@ async function checkOAuthConfiguration() {
 
             // Check Better Auth configuration
             try {
-                const envResponse = await fetch(`${API_BASE}/config/env`);
-                if (envResponse.ok) {
+                const envResponse = await fetchFromBackend('/config/env');
+                if (envResponse && envResponse.ok) {
                     const envData = await envResponse.json();
                     const missing = [];
                     if (!envData.better_auth_secret_present) missing.push('BETTER_AUTH_SECRET');
@@ -340,8 +365,9 @@ function ensureRustStatusPanel() {
     rustStatus.id = 'rust-status';
     rustStatus.className = 'alert alert-info';
     rustStatus.style.marginTop = '12px';
-    rustStatus.innerHTML = '<span>To enable logins, start rust using guidance on <a href="../../../setup" target="_webroot">Webroot team setup</a>.<br><br>' +
-        '<a href="../../../setup" target="_webroot" class="btn btn-secondary">Start Rust</a></span>';
+    rustStatus.innerHTML = '<span>To enable logins, start Rust or NodeJS using guidance on <a href="../../../setup" target="_webroot">Webroot team setup</a>.<br><br>' +
+        '<a href="../../../setup" target="_webroot" class="btn btn-secondary">Start Rust</a> ' +
+        '<button type="button" class="btn btn-secondary" onclick="copyStartNodeCommand(this)">Start NodeJS</button></span>';
 
     // Anchor after #top-status when it's present; otherwise fall back to where
     // showTopStatus() would create it, so the panel still shows up when top-status is hidden.
@@ -358,6 +384,26 @@ function ensureRustStatusPanel() {
     }
 
     return null;
+}
+
+// Copy the command that starts the chat repo's NodeJS server (serves the same
+// docker/.env-backed endpoints as Rust, on port 3700) to the clipboard.
+function copyStartNodeCommand(btn) {
+    const command = 'pnpm --prefix chat dev:webroot';
+    const resetLabel = () => { btn.textContent = 'Start NodeJS'; };
+
+    const showCopied = () => {
+        btn.textContent = 'Command Copied!';
+        setTimeout(resetLabel, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).then(showCopied, () => {
+            window.prompt('Run this command from your webroot folder:', command);
+        });
+    } else {
+        window.prompt('Run this command from your webroot folder:', command);
+    }
 }
 
 // Disable Google Sign-In button when no valid client ID
@@ -555,9 +601,9 @@ function signOut() {
 // Load existing member data from Google Sheets
 async function loadExistingMemberData(email) {
     try {
-        const response = await fetch(`${API_BASE}/google/sheets/member/${encodeURIComponent(email)}`);
-        
-        if (response.ok) {
+        const response = await fetchFromBackend(`/google/sheets/member/${encodeURIComponent(email)}`);
+
+        if (response && response.ok) {
             existingMemberData = await response.json();
             
             if (existingMemberData && existingMemberData.data) {
@@ -781,7 +827,7 @@ async function handleFormSubmission(event) {
         const formData = collectFormData();
         
         // Submit to Google Sheets
-        const response = await fetch(`${API_BASE}/google/sheets/member`, {
+        const response = await fetchFromBackend('/google/sheets/member', {
             method: existingMemberData ? 'PUT' : 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -792,7 +838,11 @@ async function handleFormSubmission(event) {
                 updateExisting: !!existingMemberData
             })
         });
-        
+
+        if (!response) {
+            throw new Error('Could not reach the Rust or NodeJS backend to save registration');
+        }
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to save registration');
@@ -966,8 +1016,8 @@ function showTopStatus(type, message) {
 async function populateGoogleProjectIdNote() {
     if (cachedGoogleProjectId === null) {
         try {
-            const response = await fetch(`${API_BASE}/config/env`);
-            if (response.ok) {
+            const response = await fetchFromBackend('/config/env');
+            if (response && response.ok) {
                 const envData = await response.json();
                 cachedGoogleProjectId = envData.google_project_id || null;
             }
