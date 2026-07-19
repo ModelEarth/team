@@ -54,6 +54,37 @@ async function fetchFromBackend(path, options) {
     return null;
 }
 
+// The one endpoint whose path differs between backends: Rust exposes it at
+// /config/env, while chat's NodeJS route lives at /config/env-vars (chat's
+// .gitignore has a bare `env` pattern for a Python venv folder that would
+// otherwise swallow a folder literally named "env" — see
+// chat/app/api/config/env-vars/route.ts). Every other endpoint below uses the
+// same path on both backends via fetchFromBackend().
+async function fetchConfigEnv() {
+    if (activeApiBase) {
+        const path = activeApiBase === NODE_API_BASE ? '/config/env-vars' : '/config/env';
+        try {
+            return await fetch(`${activeApiBase}${path}`);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    try {
+        return await fetch(`${API_BASE}/config/env`);
+    } catch (error) {
+        // Rust unreachable — fall through to NodeJS.
+    }
+
+    try {
+        const response = await fetch(`${NODE_API_BASE}/config/env-vars`);
+        activeApiBase = NODE_API_BASE;
+        return response;
+    } catch (error) {
+        return null;
+    }
+}
+
 // Job title suggestions for autocomplete
 const jobTitleSuggestions = [
     'Data Scientist / Software Engineer',
@@ -237,7 +268,7 @@ async function checkOAuthConfiguration() {
 
     // Check docker/.env file client ID via API (tries Rust, then NodeJS)
     try {
-        const response = await fetchFromBackend('/config/env');
+        const response = await fetchConfigEnv();
         if (response && response.ok) {
             envCheckAvailable = true;
             const envData = await response.json();
@@ -272,7 +303,7 @@ async function checkOAuthConfiguration() {
 
             // Check Better Auth configuration
             try {
-                const envResponse = await fetchFromBackend('/config/env');
+                const envResponse = await fetchConfigEnv();
                 if (envResponse && envResponse.ok) {
                     const envData = await envResponse.json();
                     const missing = [];
@@ -1016,7 +1047,7 @@ function showTopStatus(type, message) {
 async function populateGoogleProjectIdNote() {
     if (cachedGoogleProjectId === null) {
         try {
-            const response = await fetchFromBackend('/config/env');
+            const response = await fetchConfigEnv();
             if (response && response.ok) {
                 const envData = await response.json();
                 cachedGoogleProjectId = envData.google_project_id || null;
