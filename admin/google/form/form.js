@@ -71,7 +71,9 @@ async function fetchConfigEnv() {
     }
 
     try {
-        return await fetch(`${API_BASE}/config/env`);
+        const response = await fetch(`${API_BASE}/config/env`);
+        activeApiBase = API_BASE;
+        return response;
     } catch (error) {
         // Rust unreachable — fall through to NodeJS.
     }
@@ -83,6 +85,14 @@ async function fetchConfigEnv() {
     } catch (error) {
         return null;
     }
+}
+
+// Human-readable label for whichever backend last actually answered a
+// request, for display in status messages (e.g. "Backend Running: NodeJS").
+function activeBackendLabel() {
+    if (activeApiBase === NODE_API_BASE) return 'NodeJS';
+    if (activeApiBase === API_BASE) return 'Rust';
+    return null;
 }
 
 // Job title suggestions for autocomplete
@@ -327,7 +337,12 @@ async function checkOAuthConfiguration() {
 function showOAuthConfigWarning(configClientId, envClientId, envProjectId, envCheckAvailable) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    let message = '<strong>Google OAuth Client ID Required</strong><br><br>';
+    let message = '<strong>Google OAuth Client ID Required</strong>';
+    const runningBackend = activeBackendLabel();
+    if (envCheckAvailable && runningBackend) {
+        message += ` - Backend Running: ${runningBackend}`;
+    }
+    message += '<br><br>';
     message += 'The "Sign in" button needs to have your GOOGLE_CLIENT_ID added for OAuth.<br><br>';
 
     message += '<strong>Configuration Status:</strong><br>';
@@ -372,31 +387,33 @@ function showOAuthConfigWarning(configClientId, envClientId, envProjectId, envCh
 
     if (isLocalhost) {
         if (envCheckAvailable) {
+            // A backend answered, so the placeholder GOOGLE_CLIENT_ID reading is accurate —
+            // show it, but there's no need to prompt to start a backend that's already running.
             showTopStatus('error', message);
-            ensureRustStatusPanel();
+            hideBackendStatusPanel();
         } else {
             // No backend answered /config/env, so we can't tell whether GOOGLE_CLIENT_ID is
-            // actually missing — hide the banner, but prompt to start Rust so the check can run.
+            // actually missing — hide the banner, but prompt to start one so the check can run.
             const topStatus = document.getElementById('top-status');
             if (topStatus) topStatus.style.display = 'none';
-            ensureRustStatusPanel();
+            ensureBackendStatusPanel();
         }
     }
 }
 
-// Create (or reveal) the panel that explains/links how to start the Rust API server
-function ensureRustStatusPanel() {
-    let rustStatus = document.getElementById('rust-status');
-    if (rustStatus) {
-        rustStatus.style.display = '';
-        return rustStatus;
+// Create (or reveal) the panel that explains/links how to start a backend (Rust or NodeJS)
+function ensureBackendStatusPanel() {
+    let backendStatus = document.getElementById('backend-status');
+    if (backendStatus) {
+        backendStatus.style.display = '';
+        return backendStatus;
     }
 
-    rustStatus = document.createElement('div');
-    rustStatus.id = 'rust-status';
-    rustStatus.className = 'alert alert-info';
-    rustStatus.style.marginTop = '12px';
-    rustStatus.innerHTML = '<span>To enable logins, start Rust or NodeJS using guidance on <a href="../../../setup" target="_webroot">Webroot team setup</a>.<br><br>' +
+    backendStatus = document.createElement('div');
+    backendStatus.id = 'backend-status';
+    backendStatus.className = 'alert alert-info';
+    backendStatus.style.marginTop = '12px';
+    backendStatus.innerHTML = '<span>To enable logins, start Rust or NodeJS using guidance on <a href="../../../setup" target="_webroot">Webroot team setup</a>.<br><br>' +
         '<a href="../../../setup" target="_webroot" class="btn btn-secondary">Start Rust</a> ' +
         '<button type="button" class="btn btn-secondary" onclick="copyStartNodeCommand(this)">Start NodeJS</button></span>';
 
@@ -404,17 +421,23 @@ function ensureRustStatusPanel() {
     // showTopStatus() would create it, so the panel still shows up when top-status is hidden.
     const topStatus = document.getElementById('top-status');
     if (topStatus && topStatus.parentNode) {
-        topStatus.parentNode.insertBefore(rustStatus, topStatus.nextSibling);
-        return rustStatus;
+        topStatus.parentNode.insertBefore(backendStatus, topStatus.nextSibling);
+        return backendStatus;
     }
 
     const formSection = document.querySelector('.form-section');
     if (formSection) {
-        formSection.insertBefore(rustStatus, formSection.firstChild);
-        return rustStatus;
+        formSection.insertBefore(backendStatus, formSection.firstChild);
+        return backendStatus;
     }
 
     return null;
+}
+
+// Hide the "start a backend" panel — there's nothing to prompt once a backend answered.
+function hideBackendStatusPanel() {
+    const backendStatus = document.getElementById('backend-status');
+    if (backendStatus) backendStatus.style.display = 'none';
 }
 
 // Copy the command that starts the chat repo's NodeJS server (serves the same

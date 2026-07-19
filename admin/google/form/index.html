@@ -848,12 +848,12 @@
 
             // Form button only toggles #top-status, not #adminDiv
             if (section === 'form') {
-                // #top-status and #rust-status don't always share visibility (e.g. #top-status
-                // stays hidden while #rust-status prompts to start Rust), so toggle them as a
-                // group: hide all of them if any is currently visible, otherwise show all.
+                // #top-status and #backend-status don't always share visibility (e.g. #top-status
+                // stays hidden while #backend-status prompts to start a backend), so toggle them
+                // as a group: hide all of them if any is currently visible, otherwise show all.
                 const googleAuthPanel = document.getElementById('google-auth-panel');
-                const rustStatus = document.getElementById('rust-status');
-                const statusPanels = [topStatus, rustStatus].filter(Boolean);
+                const backendStatus = document.getElementById('backend-status');
+                const statusPanels = [topStatus, backendStatus].filter(Boolean);
                 const anyVisible = statusPanels.some(el => el.style.display !== 'none');
                 const nextDisplay = anyVisible ? 'none' : '';
                 statusPanels.forEach(el => { el.style.display = nextDisplay; });
@@ -865,12 +865,12 @@
                 return;
             }
 
-            // Hide #top-status, #google-auth-panel, and #rust-status when opening other sections
+            // Hide #top-status, #google-auth-panel, and #backend-status when opening other sections
             if (topStatus) topStatus.style.display = 'none';
             const googleAuthPanel = document.getElementById('google-auth-panel');
             if (googleAuthPanel) googleAuthPanel.style.display = 'none';
-            const rustStatus = document.getElementById('rust-status');
-            if (rustStatus) rustStatus.style.display = 'none';
+            const backendStatus = document.getElementById('backend-status');
+            if (backendStatus) backendStatus.style.display = 'none';
             buttons['form']?.classList.remove('active');
 
             const files = {
