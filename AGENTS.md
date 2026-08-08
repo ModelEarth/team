@@ -484,6 +484,8 @@ When you switch GitHub accounts, the script will:
 - **Create PRs** from the new user's account
 - **Fork repositories** to the new user's account when needed
 
+**Repository-not-found on pull/fetch**: If `git fetch`/`./git.sh pull` fails with "Repository not found" for the active `gh` account (e.g. the repo is private and that account lacks access), run `gh auth status` to see other logged-in accounts. If `ModelEarth` is already among them, switch to it with `gh auth switch --user ModelEarth` and retry — do not log out/log in a new account or prompt for credentials unless `ModelEarth` isn't already authenticated.
+
 ## Submodule Management
 
 This repository contains git submodules configured in `.gitmodules` including:
