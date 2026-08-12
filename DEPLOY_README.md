@@ -129,7 +129,7 @@ Always **load the `.env` first**, then run the scripts in order:
 
 ### User-Set in `.env` (you must provide)
 - Database config: `COMMONS_*`, `EXIOBASE_*`
-- API keys: `GEMINI_API_KEY`, `CLAUDE_API_KEY`
+- API keys: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`
 - Project + billing IDs: `GOOGLE_PROJECT_ID`, `GOOGLE_BILLING_ID`
 - GitHub repo identifiers: `GITHUB_OWNER`, `GITHUB_REPO`
 - Optional OAuth keys (Google, GitHub, LinkedIn, etc.)

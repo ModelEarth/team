@@ -198,7 +198,7 @@ chat/keys/
 3. `LocalStorageManager.getAPIKey/setAPIKey/removeAPIKey` already work generically — no logic change needed beyond type widening
 4. Add a `migrateFromLegacy()` method that runs once on init:
    - Reads `aPro` (JSON), maps env-var keys (e.g. `GEMINI_API_KEY`) to provider IDs (`google`), writes to `settings_api-keys`, removes `aPro`
-   - Reads per-key entries (`gemini_api_key`, `claude_api_key`, etc.), migrates, removes them
+   - Reads per-key entries (`gemini_api_key`, `anthropic_api_key`, etc.), migrates, removes them
 
 ---
 
