@@ -5,7 +5,7 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 ## Development Commands
 
-"push" always invokes the "./git.sh push" command.
+"push" may invoke the "./git.sh push" command, but this is optional — a direct "git push" is also fine.
 
 ## .NET / C#
 
@@ -331,7 +331,7 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 **NEVER add Claude Code attribution or co-authored-by lines to commits**
 
-- Git: only run push/pull via `./git.sh` and only commit/push when the user explicitly asks.
+- Git: push/pull via `./git.sh` is optional — direct `git push`/`git pull` is also fine. Only commit/push when the user explicitly asks.
 
 ### Standard Git Workflow
 
