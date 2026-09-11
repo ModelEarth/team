@@ -2631,7 +2631,7 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
 
     // Build static schema as base (columns)
     for (name, cols) in industry_static_schema().as_object().unwrap_or(&serde_json::Map::new()) {
-        tables.insert(name.clone(), json!({"columns": cols, "row_count": 0, "exists": false}));
+        tables.insert(name.clone(), json!({"columns": cols, "row_count": 0, "exists": false, "count_known": false}));
     }
 
     if let Ok(rows) = col_rows {
@@ -2667,6 +2667,7 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
             let cnt: i64 = row.get("row_count");
             if let Some(entry) = tables.get_mut(&tname) {
                 entry["row_count"] = json!(cnt);
+                entry["count_known"] = json!(true);
             }
         }
     }
