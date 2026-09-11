@@ -3067,6 +3067,7 @@
             <div id="pageControls" class="input-button-group" style="display:flex; width: 100%; align-items: center;">
                 <div class="page-controls-primary">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
+                        <option value="customUrl">Custom</option>
                         <option value="custom">Choose File...</option>
                     </select>
                     <button class="btn btn-primary" id="get-participants">
@@ -11511,28 +11512,79 @@ Column headers: ${dataInfo.headers.join(', ')}`;
         }
         
         
+        // Hosts allowed for the "Custom" (raw URL) list option: github.com and
+        // raw.githubusercontent.com always, plus any host already used by an
+        // existing dropdown entry (i.e. sourced from lists.csv / the feed list).
+        function getApprovedRawUrlHosts() {
+            const hosts = new Set(['github.com', 'raw.githubusercontent.com']);
+            Array.from(fileSelect.options).forEach(function (opt) {
+                const optUrl = opt.getAttribute('data-url');
+                if (!optUrl) return;
+                try { hosts.add(new URL(optUrl).hostname); } catch (e) {}
+            });
+            return hosts;
+        }
+
+        function isApprovedRawUrl(urlStr) {
+            try {
+                const parsed = new URL(urlStr);
+                if (parsed.protocol !== 'https:') return false;
+                return getApprovedRawUrlHosts().has(parsed.hostname);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Loads a raw file URL directly (no file picker) for the "Custom" list
+        // option, reusing the same data pipeline as every other list source.
+        function loadCustomRawUrl(rawUrl) {
+            if (!isApprovedRawUrl(rawUrl)) {
+                appendStatusMessage(
+                    `The "Custom" URL host is not approved. Allowed: github.com, raw.githubusercontent.com, or a host already used by an existing list.`,
+                    'error'
+                );
+                return;
+            }
+            const customUrlOption = Array.from(fileSelect.options).find(option => option.value === 'customUrl');
+            if (customUrlOption) customUrlOption.setAttribute('data-url', rawUrl);
+            selectedFile = rawUrl;
+            getSubsetUsingSnapshot();
+        }
+
         // File selection handling functions
         function handleFileDropdownChange() {
             const value = fileSelect.value;
-            
+
             console.log('DROPDOWN CHANGE: Selected value:', value, '- updating hash');
-            
+
             // Only update hash - let hashchange event handle all processing
             if (value === 'custom') {
                 // Show custom file selection without hash update
                 customFileSection.style.display = 'block';
                 selectedFile = null;
+            } else if (value === 'customUrl') {
+                // No file picker here — the raw URL comes from the "url" hash param.
+                customFileSection.style.display = 'none';
+                updateListHashParam(value);
+                saveFileSelectionToStorage(value, STORAGE_KEY);
+
+                const hashUrl = getHash().url;
+                if (hashUrl) {
+                    loadCustomRawUrl(hashUrl);
+                } else {
+                    appendStatusMessage('Add "&url=" to the address bar hash with a link to the raw file on GitHub (or an already-approved source) to load it here.', 'info');
+                }
             } else {
                 // Hide custom file selection and update hash
                 customFileSection.style.display = 'none';
-                
+
                 // Update hash parameter - hashchange event will handle everything else
                 updateListHashParam(value);
-                
+
                 // Save selection to storage
                 saveFileSelectionToStorage(value, STORAGE_KEY);
             }
-            
+
             // Update contributions button visibility when selection changes
             updateContribsButtonVisibility();
         }
@@ -12764,18 +12816,35 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     
                     // Check if the option exists in the dropdown
                     const targetOption = Array.from(fileSelect.options).find(option => option.value === listParam);
-                    if (targetOption) {
+                    if (listParam === 'custom') {
+                        // Reveal the "Choose File..." picker, same as selecting it manually from the dropdown.
+                        console.log('HASHCHANGE: Revealing Choose File picker');
+                        fileSelect.value = 'custom';
+                        customFileSection.style.display = 'block';
+                        selectedFile = null;
+                    } else if (listParam === 'customUrl') {
+                        // Load the raw file straight from the "url" hash param — no file picker.
+                        console.log('HASHCHANGE: Loading Custom raw URL');
+                        fileSelect.value = 'customUrl';
+                        customFileSection.style.display = 'none';
+                        const hashUrl = getHash().url;
+                        if (hashUrl) {
+                            loadCustomRawUrl(hashUrl);
+                        } else {
+                            appendStatusMessage('Add "&url=" to the address bar hash with a link to the raw file on GitHub (or an already-approved source) to load it here.', 'info');
+                        }
+                    } else if (targetOption) {
                         console.log('HASHCHANGE: Found option for:', listParam);
-                        
+
                         // Update dropdown selection if needed
                         if (listParam !== fileSelect.value) {
                             console.log('HASHCHANGE: Updating dropdown to match hash:', listParam);
                             fileSelect.value = listParam;
                         }
-                        
+
                         // Update selectedFile and load data
                         selectedFile = targetOption.getAttribute('data-url') || listParam;
-                        
+
                         // Load the corresponding data
                         if (listParam === 'all') {
                             console.log('HASHCHANGE: Loading all feeds');
@@ -12910,6 +12979,21 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             } else if (listParam === 'geo') {
                 // Auto-load geo data
                 getSubsetUsingSnapshot();
+            } else if (listParam === 'custom') {
+                // Reveal the "Choose File..." picker, same as selecting it manually from the dropdown.
+                fileSelect.value = 'custom';
+                customFileSection.style.display = 'block';
+                selectedFile = null;
+            } else if (listParam === 'customUrl') {
+                // Load the raw file straight from the "url" hash param — no file picker.
+                fileSelect.value = 'customUrl';
+                customFileSection.style.display = 'none';
+                const hashUrl = getHash().url;
+                if (hashUrl) {
+                    loadCustomRawUrl(hashUrl);
+                } else {
+                    appendStatusMessage('Add "&url=" to the address bar hash with a link to the raw file on GitHub (or an already-approved source) to load it here.', 'info');
+                }
             } else if (!listParam) {
                 // No list parameter - check if should default to geo
                 const shouldDefaultToGeo = isGeoSite();

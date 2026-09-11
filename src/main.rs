@@ -2699,7 +2699,6 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"extension","type":"varchar(100)"}
         ],
         "trade": [
-            {"name":"id","type":"bigserial"},
             {"name":"trade_id","type":"integer"},
             {"name":"year","type":"smallint"},
             {"name":"region1","type":"varchar(10)"},
@@ -2711,7 +2710,6 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"country","type":"varchar(10)"}
         ],
         "trade_factor": [
-            {"name":"id","type":"bigserial"},
             {"name":"trade_id","type":"integer"},
             {"name":"year","type":"smallint"},
             {"name":"country","type":"varchar(10)"},
@@ -2721,7 +2719,6 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"level","type":"numeric"}
         ],
         "interstate": [
-            {"name":"id","type":"bigserial"},
             {"name":"trade_id","type":"integer"},
             {"name":"year","type":"smallint"},
             {"name":"region1","type":"varchar(10)"},
@@ -2734,7 +2731,6 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"economic_multiplier","type":"numeric"}
         ],
         "interstate_factor": [
-            {"name":"id","type":"bigserial"},
             {"name":"interstate_id","type":"varchar(80)"},
             {"name":"trade_id","type":"integer"},
             {"name":"factor_id","type":"integer"},
