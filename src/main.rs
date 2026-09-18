@@ -2428,17 +2428,29 @@ async fn insert_trade_rows(
     flow_type: &str,
     country: &str,
 ) -> Result<usize, String> {
+    // Header-based lookup (not fixed positions): trade.csv no longer carries
+    // a 'year' column (one database per year makes it redundant), and a
+    // fixed-position reader silently misreads every column when a CSV's
+    // layout drifts — the same class of bug found and fixed in
+    // insert_interstate_rows.
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let trade_id_col = col("trade_id", 0);
+    let region1_col = col("region1", 1);
+    let region2_col = col("region2", 2);
+    let industry1_col = col("industry1", 3);
+    let industry2_col = col("industry2", 4);
+    let amount_col = col("amount", 5);
     let mut rows: Vec<(i32, String, String, String, String, f64)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        // trade.csv columns: trade_id, year, region1, region2, industry1, industry2, amount
-        let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
-        let region1 = r.get(2).unwrap_or("").to_string();
-        let region2 = r.get(3).unwrap_or("").to_string();
-        let industry1 = r.get(4).unwrap_or("").to_string();
-        let industry2 = r.get(5).unwrap_or("").to_string();
-        let amount: f64 = r.get(6).unwrap_or("").parse().unwrap_or(0.0);
+        let trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let region1 = r.get(region1_col).unwrap_or("").to_string();
+        let region2 = r.get(region2_col).unwrap_or("").to_string();
+        let industry1 = r.get(industry1_col).unwrap_or("").to_string();
+        let industry2 = r.get(industry2_col).unwrap_or("").to_string();
+        let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
         rows.push((trade_id, region1, region2, industry1, industry2, amount));
     }
     let count = rows.len();
@@ -2465,26 +2477,37 @@ async fn insert_trade_factor_rows(
     flow_type: &str,
     country: &str,
 ) -> Result<usize, String> {
+    // Header-based lookup: trade_factor.csv (trade.py) has always had only
+    // three columns (trade_id, factor_id, level) — a fourth 'coefficient'
+    // column was never produced. The previous fixed-position reader (0,1,2,3)
+    // assumed four columns anyway, so it silently read 'level' into
+    // 'coefficient' and defaulted every 'level' value to 0.0. coefficient is
+    // intentionally left NULL here — it's derivable as trade_factor.level /
+    // trade.amount (see bea/README.md) and was never actually supplied.
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    let mut rows: Vec<(i32, i32, f64, f64)> = Vec::new();
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let trade_id_col = col("trade_id", 0);
+    let factor_id_col = col("factor_id", 1);
+    let level_col = col("level", 2);
+    let mut rows: Vec<(i32, i32, f64)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
-        let factor_id: i32 = r.get(1).unwrap_or("").parse().unwrap_or(0);
-        let coefficient: f64 = r.get(2).unwrap_or("").parse().unwrap_or(0.0);
-        let level: f64 = r.get(3).unwrap_or("").parse().unwrap_or(0.0);
-        rows.push((trade_id, factor_id, coefficient, level));
+        let trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
+        let level: f64 = r.get(level_col).unwrap_or("").parse().unwrap_or(0.0);
+        rows.push((trade_id, factor_id, level));
     }
     let count = rows.len();
     let ft = flow_type.to_string();
     let ct = country.to_string();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO trade_factor (trade_id, country, flow_type, factor_id, coefficient, level) "
+            "INSERT INTO trade_factor (trade_id, country, flow_type, factor_id, level) "
         );
-        qb.push_values(chunk, |mut b, (tid, fid, coef, imp)| {
+        qb.push_values(chunk, |mut b, (tid, fid, imp)| {
             b.push_bind(tid).push_bind(&ct).push_bind(&ft)
-             .push_bind(fid).push_bind(*coef).push_bind(*imp);
+             .push_bind(fid).push_bind(*imp);
         });
         qb.push(" ON CONFLICT (trade_id, country, flow_type, factor_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
