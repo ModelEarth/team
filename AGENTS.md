@@ -5,7 +5,7 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 ## Development Commands
 
-"push" may invoke the "./git.sh push" command, but this is optional — a direct "git push" is also fine.
+See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. Typically not used since agents handle "commit and push" effectively.
 
 ## .NET / C#
 
@@ -327,19 +327,13 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 ## Git Workflow
 
-### IMPORTANT: Git Commit Policy
+### Git Commit Policy
 
 **NEVER add Claude Code attribution or co-authored-by lines to commits**
 
-- Git: push/pull via `./git.sh` is optional — direct `git push`/`git pull` is also fine. Only commit/push when the user explicitly asks.
-
-### Standard Git Workflow
-
-**CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
-
-**When asked to push:**
-1. **Pull first**: `./git.sh pull` - Get latest changes from all repositories
-2. **Push changes**: `./git.sh push` - Push changes to all modified repositories
+- Only commit/push when the user explicitly asks.
+- **CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
+- See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. Typically not used since agents handle "commit and push" effectively.
 
 **Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
 
@@ -353,7 +347,7 @@ git -C <submodule> checkout main
 
 ### Submodule Version Conflicts
 
-When `git.sh safe_submodule_update` detects that a submodule's local commit is older than the remote (origin/main), **do not silently overwrite local work**. Instead:
+When a submodule's local commit is older than the remote (origin/main), **do not silently overwrite local work**. Instead:
 
 1. **Identify the divergence**: Compare the local submodule commit with origin/main to understand what changed on each side.
 2. **Merge, don't replace**: Use your intelligence to merge the remote changes into the local submodule branch:
@@ -371,91 +365,23 @@ When `git.sh safe_submodule_update` detects that a submodule's local commit is o
    - Ensure the HTTP server is running on port 8887 (start it if needed — see Start HTTP Server above)
    - Output the relevant localhost URL, e.g.:
      `http://localhost:8887/<submodule>/<changed-path>/`
-   - Wait for the user to confirm before running `./git.sh push`
+   - Wait for the user to confirm before pushing.
    - If no merge or overwrite occurred (already up to date), proceed with the push without waiting.
-
-When push or pull requests are received, ask the user:
-
-1. Use our easeful Github git.sh script to handle submodules with error handling. (recommended)
-2. Send the request directly to Github
-
-The ./git.sh commands are `./git.sh push` and `./git.sh pull`
-
-**IMPORTANT**: Always navigate to the root folder before running git.sh (see Repository Root Navigation section)
 
 ### Push Reporting Guidelines
 
-- In either push (git.sh or direct), include commit info
+- Include commit info in push reports
 - Keep commit messages clean and focused on the actual changes
 - **ONLY report what was pushed in the current push operation**
 - Do NOT describe or reference previous commits or earlier implementations
 - Focus on the specific files and changes that were just committed
 - Keep push summaries factual and limited to the immediate operation
-- **Do NOT assume a PR was created** when git.sh reports "fork workflow" — if the current account is a collaborator on the target repo, the push succeeds directly without a PR. Only mention a PR if git.sh explicitly confirms one was created.
-
-### Pull / Pull All
-When you type "pull" or "pull all" and choose workflow #1 (direct), run this comprehensive pull workflow that pulls from all parent repos, submodules, and site repos:
-
-```bash
-./git.sh pull
-```
-
-### Push Commands
-When a user says "push [name]" and chooses option 1 (git.sh script):
-
-```bash
-./git.sh push [name] [nopr] [nopull]
-```
-
-**Options:**
-- `nopr` - Skip PR creation on push failures
-- `nopull` - Skip auto-pull before push (use when history has diverged, after git filter-repo, or when you need to force push)
-
-**Clarification:** If the user owns the target repo and direct push is expected to succeed, use plain `./git.sh push` without appending `nopr`. Reserve `nopr` for cases where the user explicitly wants to suppress PR fallback behavior.
-
-**When to use `nopull`:**
-- After using `git filter-repo` to clean git history (histories have diverged)
-- When you need to force push without pulling first
-- When you know the local history is correct and should overwrite remote
-- **Warning**: Only use when you understand the implications of not pulling first
-
-### Claude-Enhanced Commit Messages
-When Claude Code invokes git.sh push operations:
-
-1. **Analyze changes** in each repository before invoking git.sh
-2. **Create specific commit messages** for each repository based on its actual changes
-3. **Pass commit data** via CLAUDE_COMMIT_DATA environment variable in YAML format
-4. **ONLY include valid repositories**: root folder, submodules, and site repos
-
-**YAML format example:**
-```bash
-export CLAUDE_COMMIT_DATA="
-the-repo-name:
-  message: 'Custom message for commit.'
-  files: ['css/file.css']
-"
-```
-
-**Push command examples:**
-```bash
-./git.sh push
-./git.sh push all
-./git.sh push team
-./git.sh push $(basename $(git rev-parse --show-toplevel))
-./git.sh push localsite
-```
 
 #### Commit Message Requirements:
 - **Repository-specific**: Each commit message describes only that repository's changes
 - **No cross-references**: Don't mention other repositories' changes in individual commits
 - **No Claude attribution**: Never include Claude Code credits or co-authored-by lines
 - **Concise and factual**: Focus on what was changed, not implementation details
-
-#### Default Commit Messages (Non-Claude):
-When git.sh is invoked without Claude, default commit messages follow this format:
-- **Single file**: "Updated filename.ext"
-- **Multiple files**: "Updated file1.ext, file2.ext, file3.ext..." (first 3 unique filenames)
-- **Many files**: "Updated file1.ext, file2.ext, file3.ext..." (shows "..." for 4+ files)
 
 ### Quick Commands for Repositories
 - **"push [name] [nopr]"**: Intelligent push with PR fallback - tries submodule → standalone repo → root folder fallback
@@ -467,24 +393,7 @@ When git.sh is invoked without Claude, default commit messages follow this forma
 
 **PR Fallback Behavior**: All push commands automatically create pull requests when direct push fails due to permission restrictions. Add 'nopr' or 'No PR' (case insensitive) at the end of any push command to skip PR creation.
 
-### GitHub Account Management
-The git.sh script automatically detects the current GitHub CLI user and adapts accordingly:
-
-```bash
-gh auth logout                    # Log out of current GitHub account
-gh auth login                     # Log into different GitHub account
-./git.sh auth                     # Refresh git credentials and update all remotes
-```
-
-When you switch GitHub accounts, the script will:
-- **Automatically detect** the new user during pull/push operations
-- **Clear cached git credentials** from previous account
-- **Refresh authentication** to use new GitHub CLI credentials  
-- **Change remote URLs** to point to the new user's forks
-- **Create PRs** from the new user's account
-- **Fork repositories** to the new user's account when needed
-
-**Repository-not-found on pull/fetch**: If `git fetch`/`./git.sh pull` fails with "Repository not found" for the active `gh` account (e.g. the repo is private and that account lacks access), run `gh auth status` to see other logged-in accounts. If `ModelEarth` is already among them, switch to it with `gh auth switch --user ModelEarth` and retry — do not log out/log in a new account or prompt for credentials unless `ModelEarth` isn't already authenticated.
+**Repository-not-found on pull/fetch**: If `git fetch`/pull fails with "Repository not found" for the active `gh` account (e.g. the repo is private and that account lacks access), run `gh auth status` to see other logged-in accounts. If `ModelEarth` is already among them, switch to it with `gh auth switch --user ModelEarth` and retry — do not log out/log in a new account or prompt for credentials unless `ModelEarth` isn't already authenticated.
 
 ## Submodule Management
 
@@ -517,7 +426,7 @@ This repository contains git submodules configured in `.gitmodules` including:
 - **Repository Hierarchy**: `user-fork` → `modelearth` (STOP - do not go higher)
 
 ### Repository Root Navigation
-The CLI session is already pointed to the root folder directory. Do **not** prefix commands with `cd $(git rev-parse --show-toplevel)` — the `$()` substitution triggers unnecessary approval prompts. All `./git.sh` commands can be run directly.
+The CLI session is already pointed to the root folder directory. Do **not** prefix commands with `cd $(git rev-parse --show-toplevel)` — the `$()` substitution triggers unnecessary approval prompts. Run git commands directly from the root folder.
 
 To verify you're in the correct root repository:
 ```bash
