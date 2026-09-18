@@ -2208,53 +2208,65 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
 
     // trade
+    // No bigserial id: (region1, region2, industry1, industry2) is the real
+    // natural key for a flow, so it's the PRIMARY KEY directly. industry1/2
+    // are NOT NULL here (unlike interstate's) because that's required for a
+    // PK column — the app always supplies a value (possibly "") for them,
+    // never a true NULL, so this doesn't reject anything it produces.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade (
-            id        BIGSERIAL     PRIMARY KEY,
             trade_id  INTEGER       NOT NULL,
             region1   VARCHAR(10)   NOT NULL,
             region2   VARCHAR(10)   NOT NULL,
-            industry1 VARCHAR(10),
-            industry2 VARCHAR(10),
+            industry1 VARCHAR(10)   NOT NULL,
+            industry2 VARCHAR(10)   NOT NULL,
             amount    NUMERIC(18,4),
             flow_type VARCHAR(10)   NOT NULL DEFAULT 'unknown',
-            country   VARCHAR(10)   NOT NULL DEFAULT 'unknown'
+            country   VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            PRIMARY KEY (region1, region2, industry1, industry2)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade".to_string());
     try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS flow_type VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS country   VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
-    // Renamed from trade_dedup (trade_id, year, country, flow_type): year is
-    // gone (one database per year) and the true natural key for a flow is
-    // its region/industry pair, which also dedupes the same flow when it's
-    // pulled from two different country-perspective CSV runs (e.g. "imports
-    // to US" and "exports from Canada" both capturing the same CA→US leg).
-    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='trade_region_industry_key') THEN ALTER TABLE trade ADD CONSTRAINT trade_region_industry_key UNIQUE (region1, region2, industry1, industry2); END IF; END $$", &mut steps).await;
 
     // trade_factor
+    // No bigserial id: (trade_id, country, flow_type, factor_id) is unique
+    // per row (all four are NOT NULL) and is the PRIMARY KEY directly.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade_factor (
-            id           BIGSERIAL      PRIMARY KEY,
             trade_id     INTEGER        NOT NULL,
             country      VARCHAR(10)    NOT NULL,
             flow_type    VARCHAR(10)    NOT NULL,
             factor_id    INTEGER        NOT NULL,
             coefficient  NUMERIC(20,10),
-            level NUMERIC(20,6)
+            level NUMERIC(20,6),
+            PRIMARY KEY (trade_id, country, flow_type, factor_id)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade_factor".to_string());
 
     // interstate
-    // state1/state2, not region1/region2: these are US state codes, unlike
-    // trade's Exiobase-style regions.
+    // No bigserial id: interstate_id (already computed per-row in the CSV
+    // pipeline — see bea/main.py) is unique per state-pair flow, so it's the
+    // PRIMARY KEY directly, and the join target for interstate_factor and
+    // interstate_estimate. state1/state2, not region1/region2: these are US
+    // state codes, unlike trade's Exiobase-style regions. Keeps trade_id for
+    // the same reason interstate_factor/interstate_estimate reference this
+    // table instead of duplicating it themselves: the only reliable path
+    // back to the originating international flow (trade.amount,
+    // trade.country, trade.flow_type). interstate.csv is now always
+    // produced (bea/main.py), satellite data available or not, so this row
+    // always exists before interstate_factor/interstate_estimate rows do.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate (
-            id                  BIGSERIAL     PRIMARY KEY,
+            interstate_id       VARCHAR(80)   NOT NULL PRIMARY KEY,
+            trade_id            INTEGER       NOT NULL,
             state1              VARCHAR(10)   NOT NULL,
             state2              VARCHAR(10)   NOT NULL,
             industry1           VARCHAR(10),
             industry2           VARCHAR(10),
+            state_industry_code VARCHAR(30),
             amount              NUMERIC(18,4),
             commodity_code      VARCHAR(30),
             industry_code       VARCHAR(30),
@@ -2262,33 +2274,46 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate".to_string());
+    try_exec(pool, "ALTER TABLE interstate ADD COLUMN IF NOT EXISTS state_industry_code VARCHAR(30)", &mut steps).await;
     // New: interstate previously had no dedup constraint or ON CONFLICT at
-    // all, so reruns could accumulate true duplicates.
+    // all, so reruns could accumulate true duplicates. This is separate from
+    // the interstate_id PRIMARY KEY above — it's the business dedup key.
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='interstate_state_industry_key') THEN ALTER TABLE interstate ADD CONSTRAINT interstate_state_industry_key UNIQUE (state1, state2, industry1, industry2); END IF; END $$", &mut steps).await;
 
     // interstate_factor
-    // Keeps trade_id: it's the only reliable way back to the originating
-    // international flow's exact industry1/industry2 pair. interstate_id's
-    // composite string only embeds a broad industry *category* (used for
-    // state-allocation weighting), not the industry1→industry2 relation,
-    // and interstate itself has no interstate_id column to join through.
+    // No bigserial id: real per-factor rows only (the satellite-data path's
+    // actual output is just interstate_id, factor_id, level, flow_type —
+    // factor_id is never null here), so (interstate_id, factor_id) is a
+    // safe PRIMARY KEY directly. No longer duplicates trade_id/coefficient/
+    // state_industry_code/employment_impact — those either live on
+    // interstate (reachable via the interstate_id FK) or, for the
+    // no-satellite-only fields, on interstate_estimate.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate_factor (
-            id                  BIGSERIAL     PRIMARY KEY,
-            interstate_id       VARCHAR(80)   NOT NULL,
-            trade_id            INTEGER       NOT NULL,
-            factor_id           INTEGER,
-            coefficient         NUMERIC(20,10),
-            state_industry_code VARCHAR(30),
-            level          NUMERIC(20,6),
-            flow_type           VARCHAR(20),
-            employment_impact   NUMERIC(20,10)
+            interstate_id VARCHAR(80) NOT NULL,
+            factor_id     INTEGER     NOT NULL,
+            level         NUMERIC(20,6),
+            flow_type     VARCHAR(20),
+            PRIMARY KEY (interstate_id, factor_id)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
-    // Add factor_id / coefficient columns if table already existed without them
-    try_exec(pool, "ALTER TABLE interstate_factor ADD COLUMN IF NOT EXISTS factor_id INTEGER", &mut steps).await;
-    try_exec(pool, "ALTER TABLE interstate_factor ADD COLUMN IF NOT EXISTS coefficient NUMERIC(20,10)", &mut steps).await;
     steps.push("Ensured table: interstate_factor".to_string());
+
+    // interstate_estimate
+    // One row per interstate flow that had no satellite factor data
+    // available (bea/main.py's no-satellite fallback) — 1-to-(0-or-1) with
+    // interstate. factor_id/coefficient are deliberately excluded: the
+    // source data sets them to fixed placeholders (-1 / 1.0), never
+    // recalculated, so they carry no information and -1 isn't a valid
+    // factor.factor_id anyway.
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS interstate_estimate (
+            interstate_id     VARCHAR(80) NOT NULL PRIMARY KEY,
+            employment_impact NUMERIC(20,10),
+            flow_type         VARCHAR(20)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: interstate_estimate".to_string());
 
     // FK constraints (gracefully skipped if PKs unavailable)
     for sql in &[
@@ -2298,6 +2323,8 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry1') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_interstate') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_ise_interstate') THEN ALTER TABLE interstate_estimate ADD CONSTRAINT fk_ise_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
     ] {
         try_exec(pool, sql, &mut steps).await;
     }
@@ -2313,10 +2340,9 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         "CREATE INDEX IF NOT EXISTS idx_tf_lookup          ON trade_factor (trade_id, country, flow_type)",
         "CREATE INDEX IF NOT EXISTS idx_tf_factor_id       ON trade_factor (factor_id)",
         "CREATE INDEX IF NOT EXISTS idx_tf_country         ON trade_factor (country)",
+        "CREATE INDEX IF NOT EXISTS idx_istate_trade_id    ON interstate (trade_id)",
         "CREATE INDEX IF NOT EXISTS idx_istate_state1      ON interstate (state1)",
         "CREATE INDEX IF NOT EXISTS idx_istate_state2      ON interstate (state2)",
-        "CREATE INDEX IF NOT EXISTS idx_isf_trade_id       ON interstate_factor (trade_id)",
-        "CREATE INDEX IF NOT EXISTS idx_isf_interstate_id  ON interstate_factor (interstate_id)",
         "CREATE INDEX IF NOT EXISTS idx_isf_factor_id      ON interstate_factor (factor_id)",
     ] {
         try_exec(pool, sql, &mut steps).await;
@@ -2396,18 +2422,6 @@ async fn upsert_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize
     Ok(count)
 }
 
-// Shared by insert_trade_rows and insert_interstate_rows: both source CSVs
-// carry region1/region2/industry1/industry2/amount at these same positions
-// (2-6), whatever else surrounds them.
-fn parse_flow_core(r: &csv::StringRecord) -> (String, String, String, String, f64) {
-    let region1 = r.get(2).unwrap_or("").to_string();
-    let region2 = r.get(3).unwrap_or("").to_string();
-    let industry1 = r.get(4).unwrap_or("").to_string();
-    let industry2 = r.get(5).unwrap_or("").to_string();
-    let amount: f64 = r.get(6).unwrap_or("").parse().unwrap_or(0.0);
-    (region1, region2, industry1, industry2, amount)
-}
-
 async fn insert_trade_rows(
     pool: &Pool<Postgres>,
     text: &str,
@@ -2418,8 +2432,13 @@ async fn insert_trade_rows(
     let mut rows: Vec<(i32, String, String, String, String, f64)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
+        // trade.csv columns: trade_id, year, region1, region2, industry1, industry2, amount
         let trade_id: i32 = r.get(0).unwrap_or("").parse().unwrap_or(0);
-        let (region1, region2, industry1, industry2, amount) = parse_flow_core(&r);
+        let region1 = r.get(2).unwrap_or("").to_string();
+        let region2 = r.get(3).unwrap_or("").to_string();
+        let industry1 = r.get(4).unwrap_or("").to_string();
+        let industry2 = r.get(5).unwrap_or("").to_string();
+        let amount: f64 = r.get(6).unwrap_or("").parse().unwrap_or(0.0);
         rows.push((trade_id, region1, region2, industry1, industry2, amount));
     }
     let count = rows.len();
@@ -2467,113 +2486,183 @@ async fn insert_trade_factor_rows(
             b.push_bind(tid).push_bind(&ct).push_bind(&ft)
              .push_bind(fid).push_bind(*coef).push_bind(*imp);
         });
+        qb.push(" ON CONFLICT (trade_id, country, flow_type, factor_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(count)
+}
+
+// Returned by the interstate insert functions instead of a bare row count,
+// since rows with an empty/invalid key (interstate_id, trade_id, factor_id)
+// are now skipped rather than inserted with a placeholder — a caller that
+// only checked `inserted` would otherwise have no way to notice silently
+// dropped rows.
+struct InsertOutcome {
+    inserted: usize,
+    skipped: usize,
 }
 
 async fn insert_interstate_rows(
     pool: &Pool<Postgres>,
     text: &str,
-) -> Result<usize, String> {
+) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    // Detect column names to handle both bea_trade_detail.csv (old) and interstate.csv (new)
+    // Looked up by header name, not fixed position: interstate.csv's layout
+    // (interstate_id, trade_id, year, state1, state2, industry1, industry2,
+    // state_industry_code, amount, commodity_code, industry_code,
+    // economic_multiplier — see bea/main.py) doesn't match trade.csv's, and
+    // older bea_trade_detail.csv exports may omit some columns entirely.
+    // Defaults below match the current interstate.csv column order for
+    // files with no header match.
     let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let commodity_col = headers.iter().position(|h| h == "bea_commodity_code" || h == "commodity_code").unwrap_or(7);
-    let industry_col  = headers.iter().position(|h| h == "bea_industry_code" || h == "industry_code").unwrap_or(8);
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let interstate_id_col = col("interstate_id", 0);
+    let trade_id_col    = col("trade_id", 1);
+    let state1_col      = col("state1", 3);
+    let state2_col      = col("state2", 4);
+    let industry1_col   = col("industry1", 5);
+    let industry2_col   = col("industry2", 6);
+    let state_ind_col   = col("state_industry_code", 7);
+    let amount_col      = col("amount", 8);
+    let commodity_col   = headers.iter().position(|h| h == "bea_commodity_code" || h == "commodity_code").unwrap_or(9);
+    let industry_col    = headers.iter().position(|h| h == "bea_industry_code" || h == "industry_code").unwrap_or(10);
+    let multiplier_col  = col("economic_multiplier", 11);
 
-    let mut rows: Vec<(String, String, String, String, f64, String, String, f64)> = Vec::new();
+    let mut rows: Vec<(String, i32, String, String, String, String, String, f64, String, String, f64)> = Vec::new();
+    let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        // parse_flow_core's 5-tuple is (state1, state2, industry1, industry2, amount) here.
-        let (state1, state2, industry1, industry2, amount) = parse_flow_core(&r);
+        let interstate_id = r.get(interstate_id_col).unwrap_or("").trim().to_string();
+        let trade_id: i32 = match r.get(trade_id_col).unwrap_or("").trim().parse() {
+            Ok(v) if v > 0 => v,
+            _ => { skipped += 1; continue; }
+        };
+        if interstate_id.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let state1 = r.get(state1_col).unwrap_or("").to_string();
+        let state2 = r.get(state2_col).unwrap_or("").to_string();
+        let industry1 = r.get(industry1_col).unwrap_or("").to_string();
+        let industry2 = r.get(industry2_col).unwrap_or("").to_string();
+        let state_industry_code = r.get(state_ind_col).unwrap_or("").to_string();
+        let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
         let commodity_code = r.get(commodity_col).unwrap_or("").to_string();
         let industry_code  = r.get(industry_col).unwrap_or("").to_string();
-        let economic_multiplier: f64 = r.get(9).unwrap_or("").parse().unwrap_or(1.0);
-        rows.push((state1, state2, industry1, industry2, amount, commodity_code, industry_code, economic_multiplier));
+        let economic_multiplier: f64 = r.get(multiplier_col).unwrap_or("").parse().unwrap_or(1.0);
+        rows.push((interstate_id, trade_id, state1, state2, industry1, industry2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier));
     }
-    let count = rows.len();
+    let inserted = rows.len();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate (state1, state2, industry1, industry2, amount, commodity_code, industry_code, economic_multiplier) "
+            "INSERT INTO interstate (interstate_id, trade_id, state1, state2, industry1, industry2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
         );
-        qb.push_values(chunk, |mut b, (s1, s2, i1, i2, amt, cc, ic, em)| {
-            b.push_bind(s1).push_bind(s2)
-             .push_bind(i1).push_bind(i2).push_bind(*amt)
+        qb.push_values(chunk, |mut b, (iid, tid, s1, s2, i1, i2, sic, amt, cc, ic, em)| {
+            b.push_bind(iid).push_bind(tid).push_bind(s1).push_bind(s2)
+             .push_bind(i1).push_bind(i2).push_bind(sic).push_bind(*amt)
              .push_bind(cc).push_bind(ic).push_bind(*em);
         });
         qb.push(" ON CONFLICT (state1, state2, industry1, industry2) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
-    Ok(count)
+    Ok(InsertOutcome { inserted, skipped })
 }
 
+// Real per-factor rows only — interstate_factor.csv (bea/main.py's
+// satellite-data path). factor_id is never null in this file, so it's
+// looked up directly by header name with no legacy fallback.
 async fn insert_interstate_factor_rows(
     pool: &Pool<Postgres>,
     text: &str,
-    _year: i16,
-) -> Result<usize, String> {
+) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
     let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
     let col = |name: &str| headers.iter().position(|h| h == name);
 
-    let idx_iid  = col("interstate_id");
-    let idx_tid  = col("trade_id");
-    let idx_fid  = col("factor_id");
-    let idx_coef = col("coefficient");
-    let idx_sic  = col("state_industry_code");
-    let idx_fv   = col("level");
-    let idx_ft   = col("flow_type");
-    let idx_ei   = col("employment_impact");
-    // Legacy columns (old CSV without interstate_id)
-    let idx_orig = col("origin_state");
-    let idx_dest = col("destination_state");
+    let idx_iid = col("interstate_id");
+    let idx_fid = col("factor_id");
+    let idx_fv  = col("level");
+    let idx_ft  = col("flow_type");
 
-    // (interstate_id, trade_id, factor_id?, coefficient?, state_industry_code, level, flow_type, employment_impact)
-    let mut rows: Vec<(String, i32, Option<i32>, Option<f64>, String, f64, String, f64)> = Vec::new();
-
+    let mut rows: Vec<(String, i32, f64, String)> = Vec::new();
+    let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
 
-        let trade_id: i32 = g(idx_tid).parse().unwrap_or(0);
-        let sic   = g(idx_sic);
-        let fv: f64 = g(idx_fv).parse().unwrap_or(0.0);
-        let ft    = g(idx_ft);
-        let ei: f64 = g(idx_ei).parse().unwrap_or(0.0);
-        let factor_id: Option<i32> = idx_fid.and_then(|i| r.get(i)).and_then(|s| s.parse().ok());
-        let coeff: Option<f64>     = idx_coef.and_then(|i| r.get(i)).and_then(|s| s.parse().ok());
-
-        // interstate_id: prefer direct column; fall back to computing from legacy origin/dest
-        let interstate_id = if let Some(iid) = idx_iid.and_then(|i| r.get(i)).filter(|s| !s.is_empty()) {
-            iid.to_string()
-        } else {
-            let origin = g(idx_orig);
-            let dest   = g(idx_dest);
-            format!("{_year}-US-{origin}-US-{dest}-{sic}")
+        let interstate_id = g(idx_iid).trim().to_string();
+        let factor_id: i32 = match idx_fid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
+            Ok(v) if v > 0 => v,
+            _ => { skipped += 1; continue; }
         };
-
-        rows.push((interstate_id, trade_id, factor_id, coeff, sic, fv, ft, ei));
+        if interstate_id.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let level: f64 = g(idx_fv).parse().unwrap_or(0.0);
+        let flow_type = g(idx_ft);
+        rows.push((interstate_id, factor_id, level, flow_type));
     }
 
-    let count = rows.len();
+    let inserted = rows.len();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate_factor (interstate_id, trade_id, factor_id, coefficient, state_industry_code, level, flow_type, employment_impact) "
+            "INSERT INTO interstate_factor (interstate_id, factor_id, level, flow_type) "
         );
-        qb.push_values(chunk, |mut b, (iid, tid, fid, coef, sic, fv, ft, ei)| {
-            b.push_bind(iid)
-             .push_bind(tid)
-             .push_bind(*fid)
-             .push_bind(*coef)
-             .push_bind(sic)
-             .push_bind(*fv)
-             .push_bind(ft)
-             .push_bind(*ei);
+        qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
+            b.push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
         });
+        qb.push(" ON CONFLICT (interstate_id, factor_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
-    Ok(count)
+    Ok(InsertOutcome { inserted, skipped })
+}
+
+// No-satellite-only rows — interstate_estimate.csv (bea/main.py's fallback
+// path, when no real per-factor breakdown is possible). factor_id and
+// coefficient are deliberately not read here: the source sets them to
+// fixed placeholders (-1 / 1.0) that are never recalculated in this path,
+// so they carry no information.
+async fn insert_interstate_estimate_rows(
+    pool: &Pool<Postgres>,
+    text: &str,
+) -> Result<InsertOutcome, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str| headers.iter().position(|h| h == name);
+
+    let idx_iid = col("interstate_id");
+    let idx_ei  = col("employment_impact");
+    let idx_ft  = col("flow_type");
+
+    let mut rows: Vec<(String, f64, String)> = Vec::new();
+    let mut skipped = 0usize;
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
+
+        let interstate_id = g(idx_iid).trim().to_string();
+        if interstate_id.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let employment_impact: f64 = g(idx_ei).parse().unwrap_or(0.0);
+        let flow_type = g(idx_ft);
+        rows.push((interstate_id, employment_impact, flow_type));
+    }
+
+    let inserted = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO interstate_estimate (interstate_id, employment_impact, flow_type) "
+        );
+        qb.push_values(chunk, |mut b, (iid, ei, ft)| {
+            b.push_bind(iid).push_bind(*ei).push_bind(ft);
+        });
+        qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(InsertOutcome { inserted, skipped })
 }
 
 #[derive(Deserialize)]
@@ -2590,7 +2679,7 @@ async fn db_insert_trade_data(
     let year_str = req.year.trim().to_string();
     let country  = req.country.trim().to_uppercase();
 
-    let year_num: i16 = match year_str.parse() {
+    let _year_num: i16 = match year_str.parse() {
         Ok(y) => y,
         Err(_) => return Ok(HttpResponse::BadRequest().json(json!({
             "success": false, "error": "Invalid year"
@@ -2662,7 +2751,7 @@ async fn db_insert_trade_data(
         match fetch_github_csv(&interstate_url).await {
             Err(e) => errors.push(format!("bea_trade_detail.csv: {e}")),
             Ok(text) => match insert_interstate_rows(&pool, &text).await {
-                Ok(n) => summary.push(json!({"file": "bea_trade_detail.csv → interstate", "rows": n})),
+                Ok(o) => summary.push(json!({"file": "bea_trade_detail.csv → interstate", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("bea_trade_detail.csv insert: {e}")),
             },
         }
@@ -2670,10 +2759,26 @@ async fn db_insert_trade_data(
         let isf_url = format!("{base}/{year_str}/US/domestic/state_trade_flows.csv");
         match fetch_github_csv(&isf_url).await {
             Err(e) => errors.push(format!("state_trade_flows.csv: {e}")),
-            Ok(text) => match insert_interstate_factor_rows(&pool, &text, year_num).await {
-                Ok(n) => summary.push(json!({"file": "state_trade_flows.csv → interstate_factor", "rows": n})),
-                Err(e) => errors.push(format!("state_trade_flows.csv insert: {e}")),
-            },
+            Ok(text) => {
+                // Same URL can hold either shape depending on whether
+                // bea/main.py had satellite factor data for this run: real
+                // per-factor rows (has a factor_id column) go to
+                // interstate_factor, no-satellite summary rows go to
+                // interstate_estimate.
+                let has_factor_id = csv::Reader::from_reader(text.as_bytes())
+                    .headers()
+                    .map(|h| h.iter().any(|c| c == "factor_id"))
+                    .unwrap_or(false);
+                let result = if has_factor_id {
+                    insert_interstate_factor_rows(&pool, &text).await.map(|o| ("interstate_factor", o))
+                } else {
+                    insert_interstate_estimate_rows(&pool, &text).await.map(|o| ("interstate_estimate", o))
+                };
+                match result {
+                    Ok((table, o)) => summary.push(json!({"file": format!("state_trade_flows.csv → {table}"), "rows": o.inserted, "skipped": o.skipped})),
+                    Err(e) => errors.push(format!("state_trade_flows.csv insert: {e}")),
+                }
+            }
         }
     }
 
@@ -2765,8 +2870,10 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
             {"from": "trade_factor", "to": "trade",              "on": "trade_id + country + flow_type"},
             {"from": "trade_factor", "to": "factor",             "on": "factor_id"},
             {"from": "interstate",   "to": "industry",           "on": "industry1 / industry2"},
-            {"from": "interstate_factor", "to": "trade",         "on": "trade_id (US domestic) — for industry1/industry2 lineage"},
-            {"from": "interstate_factor", "to": "factor",        "on": "factor_id"}
+            {"from": "interstate",   "to": "trade",              "on": "trade_id (US domestic)"},
+            {"from": "interstate_factor", "to": "interstate",    "on": "interstate_id"},
+            {"from": "interstate_factor", "to": "factor",        "on": "factor_id"},
+            {"from": "interstate_estimate", "to": "interstate",  "on": "interstate_id — 1-to-(0-or-1), no-satellite rows only"}
         ]
     })))
 }
@@ -2803,10 +2910,13 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"level","type":"numeric"}
         ],
         "interstate": [
+            {"name":"interstate_id","type":"varchar(80)"},
+            {"name":"trade_id","type":"integer"},
             {"name":"state1","type":"varchar(10)"},
             {"name":"state2","type":"varchar(10)"},
             {"name":"industry1","type":"varchar(10)"},
             {"name":"industry2","type":"varchar(10)"},
+            {"name":"state_industry_code","type":"varchar(30)"},
             {"name":"amount","type":"numeric"},
             {"name":"commodity_code","type":"varchar(30)"},
             {"name":"industry_code","type":"varchar(30)"},
@@ -2814,13 +2924,14 @@ fn industry_static_schema() -> serde_json::Value {
         ],
         "interstate_factor": [
             {"name":"interstate_id","type":"varchar(80)"},
-            {"name":"trade_id","type":"integer"},
             {"name":"factor_id","type":"integer"},
-            {"name":"coefficient","type":"numeric"},
-            {"name":"state_industry_code","type":"varchar(30)"},
             {"name":"level","type":"numeric"},
-            {"name":"flow_type","type":"varchar(20)"},
-            {"name":"employment_impact","type":"numeric"}
+            {"name":"flow_type","type":"varchar(20)"}
+        ],
+        "interstate_estimate": [
+            {"name":"interstate_id","type":"varchar(80)"},
+            {"name":"employment_impact","type":"numeric"},
+            {"name":"flow_type","type":"varchar(20)"}
         ]
     })
 }
@@ -3732,7 +3843,7 @@ async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>, connecti
         // Filter tables for EXIOBASE connection - only include valid tables
         if let Some(conn_name) = connection_name {
             if conn_name == "EXIOBASE" {
-                let valid_tables = ["trade", "industry", "factor", "trade_factor", "interstate", "interstate_factor"];
+                let valid_tables = ["trade", "industry", "factor", "trade_factor", "interstate", "interstate_factor", "interstate_estimate"];
                 if !valid_tables.contains(&table_name.as_str()) {
                     continue; // Skip tables not in the valid list
                 }
@@ -3903,6 +4014,7 @@ fn get_table_description(table_name: &str) -> Option<String> {
         "factor" => Some("Environmental and social impact factors".to_string()),
         "interstate" => Some("US BEA state-to-state trade flows".to_string()),
         "interstate_factor" => Some("State-level environmental factor flows".to_string()),
+        "interstate_estimate" => Some("State-level flows with no satellite factor data available".to_string()),
         "trade_factor" => Some("Trade flow with environmental factors".to_string()),
         _ => None,
     }
