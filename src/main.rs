@@ -2236,8 +2236,20 @@ fn quote_ident(ident: &str) -> String {
 }
 
 fn get_exiobase_provision_database_url() -> Result<String, String> {
+    get_exiobase_provision_database_url_for(
+        &std::env::var("EXIOBASE_PROVISION_NAME").unwrap_or_else(|_| "postgres".to_string())
+    )
+}
+
+// Same as get_exiobase_provision_database_url, but against an explicit
+// maintenance database rather than EXIOBASE_PROVISION_NAME — needed for
+// DROP DATABASE, which Postgres refuses on whichever database the
+// connection is currently using (EXIOBASE_PROVISION_NAME is configured as
+// "industrydb" here, so dropping industrydb itself needs a connection to
+// some other database first — the literal "postgres" system database,
+// guaranteed to exist on any Postgres server).
+fn get_exiobase_provision_database_url_for(name: &str) -> Result<String, String> {
     let host = std::env::var("EXIOBASE_PROVISION_HOST").unwrap_or_default();
-    let name = std::env::var("EXIOBASE_PROVISION_NAME").unwrap_or_else(|_| "postgres".to_string());
     let user = std::env::var("EXIOBASE_PROVISION_USER").unwrap_or_default();
     let password = std::env::var("EXIOBASE_PROVISION_PASSWORD").unwrap_or_default();
     let ssl_mode = std::env::var("EXIOBASE_PROVISION_SSL_MODE").unwrap_or_else(|_| "require".to_string());
@@ -2270,6 +2282,60 @@ async fn ensure_year_database_exists(db_name: &str) -> Result<(), String> {
             .await
             .map_err(|e| format!("Failed to create database {db_name}: {e}"))?;
     }
+
+    Ok(())
+}
+
+// Drops db_name via the provisioning connection. db_name must be exactly
+// EXIOBASE_NAME (the shared/base Industry Database) or
+// "{EXIOBASE_NAME}_<4-digit year>" (a per-year database) — checked here,
+// not just by the caller, because this account's Azure Postgres server also
+// hosts completely unrelated databases (e.g. datacommons, plus Azure's own
+// system databases) that must never be reachable through this function
+// regardless of what a future caller passes in.
+async fn drop_exiobase_database(db_name: &str) -> Result<(), String> {
+    let base = std::env::var("EXIOBASE_NAME").unwrap_or_default();
+    if base.is_empty() {
+        return Err("Industry Database not configured — set EXIOBASE_NAME".to_string());
+    }
+    let is_base = db_name == base;
+    let is_year_db = db_name
+        .strip_prefix(&format!("{base}_"))
+        .map(|year| year.len() == 4 && year.chars().all(|c| c.is_ascii_digit()))
+        .unwrap_or(false);
+    if !is_base && !is_year_db {
+        return Err(format!(
+            "Refusing to drop '{db_name}' — not the Industry Database or one of its per-year databases"
+        ));
+    }
+
+    // Always via "postgres", not get_exiobase_provision_database_url()'s
+    // configured EXIOBASE_PROVISION_NAME — Postgres refuses to drop
+    // whichever database the connection is currently on, and
+    // EXIOBASE_PROVISION_NAME is "industrydb" here, so dropping industrydb
+    // itself would otherwise fail with "cannot drop the currently open
+    // database".
+    let url = get_exiobase_provision_database_url_for("postgres")?;
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&url)
+        .await
+        .map_err(|e| format!("Failed to connect for provisioning: {e}"))?;
+
+    // DROP DATABASE fails while other sessions are connected to it —
+    // terminate any first (this app's own pools included, if still open).
+    sqlx::query(
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()"
+    )
+        .bind(db_name)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Failed to terminate connections to {db_name}: {e}"))?;
+
+    sqlx::query(&format!("DROP DATABASE IF EXISTS {}", quote_ident(db_name)))
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Failed to drop database {db_name}: {e}"))?;
 
     Ok(())
 }
@@ -3153,6 +3219,53 @@ async fn db_insert_trade_data(
         "inserted": summary,
         "errors": errors
     })))
+}
+
+#[derive(Deserialize)]
+struct DeleteDatabaseRequest {
+    // Omitted or empty: drops the shared/base Industry Database
+    // (EXIOBASE_NAME). Given: drops that year's database
+    // ({EXIOBASE_NAME}_{year}) instead.
+    year: Option<String>,
+}
+
+// POST /api/db/delete-database — destructive; drops either the base
+// Industry Database (no "year" in the body) or one year's database
+// ({"year": "2019"}). drop_exiobase_database() re-validates the target name
+// itself rather than trusting this handler, since the account this
+// provisions with also has other, unrelated databases on the same server.
+async fn db_delete_exiobase_database(
+    _data: web::Data<Arc<ApiState>>,
+    req: web::Json<DeleteDatabaseRequest>,
+) -> Result<HttpResponse> {
+    let base = std::env::var("EXIOBASE_NAME").unwrap_or_default();
+    if base.is_empty() {
+        return Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false, "error": "Industry Database not configured — set EXIOBASE_NAME"
+        })));
+    }
+
+    let year = req.year.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let db_name = match year {
+        Some(y) if y.len() == 4 && y.chars().all(|c| c.is_ascii_digit()) => format!("{base}_{y}"),
+        Some(y) => return Ok(HttpResponse::BadRequest().json(json!({
+            "success": false, "error": format!("'{y}' is not a 4-digit year")
+        }))),
+        None => base,
+    };
+
+    match drop_exiobase_database(&db_name).await {
+        Ok(()) => Ok(HttpResponse::Ok().json(json!({
+            "success": true,
+            "database": db_name,
+            "message": format!("Dropped database {db_name}")
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false,
+            "database": db_name,
+            "error": e
+        }))),
+    }
 }
 
 // GET /api/db/industry-schema?year=2021 — one database per year (see
@@ -4507,6 +4620,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/query", web::post().to(db_execute_query))
                             .route("/init-industry-tables", web::post().to(db_init_industry_tables))
                             .route("/insert-trade-data", web::post().to(db_insert_trade_data))
+                            .route("/delete-database", web::post().to(db_delete_exiobase_database))
                             .route("/industry-schema", web::get().to(db_get_industry_schema))
                     )
                     .service(
