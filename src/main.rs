@@ -2163,10 +2163,17 @@ async fn connect_to_exiobase_year(year: &str) -> Result<Pool<Postgres>, String> 
 }
 
 async fn fetch_github_csv(url: &str) -> Result<String, String> {
-    reqwest::get(url)
+    let resp = reqwest::get(url)
         .await
-        .map_err(|e| format!("HTTP request failed for {url}: {e}"))?
-        .text()
+        .map_err(|e| format!("HTTP request failed for {url}: {e}"))?;
+    // raw.githubusercontent.com returns 404 with a plain-text body ("404: Not
+    // Found"), not a connection error — .text() alone would treat that body
+    // as valid CSV and silently feed garbage into the CSV parser downstream.
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("{url} returned HTTP {status}"));
+    }
+    resp.text()
         .await
         .map_err(|e| format!("Failed to read response body from {url}: {e}"))
 }
@@ -2329,10 +2336,15 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // the UNIQUE constraint just below) follow the rename automatically.
     try_exec(pool, "ALTER TABLE interstate RENAME COLUMN industry1 TO sector1", &mut steps).await;
     try_exec(pool, "ALTER TABLE interstate RENAME COLUMN industry2 TO sector2", &mut steps).await;
-    // New: interstate previously had no dedup constraint or ON CONFLICT at
-    // all, so reruns could accumulate true duplicates. This is separate from
-    // the interstate_id PRIMARY KEY above — it's the business dedup key.
-    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='interstate_state_industry_key') THEN ALTER TABLE interstate ADD CONSTRAINT interstate_state_industry_key UNIQUE (state1, state2, sector1, sector2); END IF; END $$", &mut steps).await;
+    // Drops a previous attempt at a "business dedup key" on (state1, state2,
+    // sector1, sector2) — proven wrong against real data: state_industry_code
+    // isn't part of that tuple, but genuinely distinct interstate_id rows
+    // (verified 1:1 unique against real 2021 data) differ only by
+    // state_industry_code (~50,000 of 164,064 real rows), so that constraint
+    // silently rejected legitimate rows instead of only true duplicates.
+    // interstate_id (the PRIMARY KEY above) is already the correct, real
+    // dedup key — see insert_interstate_rows' ON CONFLICT (interstate_id).
+    try_exec(pool, "ALTER TABLE interstate DROP CONSTRAINT IF EXISTS interstate_state_industry_key", &mut steps).await;
 
     // interstate_factor
     // No bigserial id: real per-factor rows only (the satellite-data path's
@@ -2741,7 +2753,7 @@ async fn insert_interstate_rows(
              .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
              .push_bind(cc).push_bind(ic).push_bind(*em);
         });
-        qb.push(" ON CONFLICT (state1, state2, sector1, sector2) DO NOTHING");
+        qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(InsertOutcome { inserted, skipped })
@@ -2945,38 +2957,40 @@ async fn db_insert_trade_data(
         }
     }
 
-    // 4. US BEA interstate data (domestic only)
+    // 4. US BEA interstate data (domestic only). interstate.csv/
+    // interstate_factor.csv/interstate_estimate.csv (renamed from
+    // bea_trade_detail.csv/state_trade_flows.csv — see bea/README.md) are
+    // the BEA-Sector-level primary files; the full-detail "-lg" siblings are
+    // gitignored and never published, so never fetched here.
     if country == "US" {
-        let interstate_url = format!("{base}/{year_str}/US/domestic/bea_trade_detail.csv");
+        let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
         match fetch_github_csv(&interstate_url).await {
-            Err(e) => errors.push(format!("bea_trade_detail.csv: {e}")),
+            Err(e) => errors.push(format!("interstate.csv: {e}")),
             Ok(text) => match insert_interstate_rows(&pool, &text).await {
-                Ok(o) => summary.push(json!({"file": "bea_trade_detail.csv → interstate", "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("bea_trade_detail.csv insert: {e}")),
+                Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
+                Err(e) => errors.push(format!("interstate.csv insert: {e}")),
             },
         }
 
-        let isf_url = format!("{base}/{year_str}/US/domestic/state_trade_flows.csv");
+        // Mutually exclusive per bea/main.py run: interstate_factor.csv
+        // (real per-factor rows, satellite data available) or
+        // interstate_estimate.csv (no-satellite fallback) — never both.
+        let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
         match fetch_github_csv(&isf_url).await {
-            Err(e) => errors.push(format!("state_trade_flows.csv: {e}")),
-            Ok(text) => {
-                // Same URL can hold either shape depending on whether
-                // bea/main.py had satellite factor data for this run: real
-                // per-factor rows (has a factor_id column) go to
-                // interstate_factor, no-satellite summary rows go to
-                // interstate_estimate.
-                let has_factor_id = csv::Reader::from_reader(text.as_bytes())
-                    .headers()
-                    .map(|h| h.iter().any(|c| c == "factor_id"))
-                    .unwrap_or(false);
-                let result = if has_factor_id {
-                    insert_interstate_factor_rows(&pool, &text).await.map(|o| ("interstate_factor", o))
-                } else {
-                    insert_interstate_estimate_rows(&pool, &text).await.map(|o| ("interstate_estimate", o))
-                };
-                match result {
-                    Ok((table, o)) => summary.push(json!({"file": format!("state_trade_flows.csv → {table}"), "rows": o.inserted, "skipped": o.skipped})),
-                    Err(e) => errors.push(format!("state_trade_flows.csv insert: {e}")),
+            Ok(text) => match insert_interstate_factor_rows(&pool, &text).await {
+                Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
+                Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
+            },
+            Err(factor_err) => {
+                let ise_url = format!("{base}/{year_str}/US/domestic/interstate_estimate.csv");
+                match fetch_github_csv(&ise_url).await {
+                    Ok(text) => match insert_interstate_estimate_rows(&pool, &text).await {
+                        Ok(o) => summary.push(json!({"file": "interstate_estimate.csv", "rows": o.inserted, "skipped": o.skipped})),
+                        Err(e) => errors.push(format!("interstate_estimate.csv insert: {e}")),
+                    },
+                    Err(estimate_err) => errors.push(format!(
+                        "interstate_factor.csv: {factor_err}; interstate_estimate.csv: {estimate_err}"
+                    )),
                 }
             }
         }
