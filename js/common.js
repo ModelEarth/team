@@ -2271,9 +2271,39 @@ function ensureRustApiStatusPanelStyles() {
                 margin-left: 0;
             }
         }
+        .status-indicator-item[data-connection] {
+            cursor: pointer;
+            border-radius: var(--radius-sm, 6px);
+            transition: background 0.15s ease;
+        }
+        .status-indicator-item[data-connection]:hover {
+            background: var(--bg-tertiary, rgba(0, 0, 0, 0.04));
+        }
     `;
     document.head.appendChild(style);
 }
+
+// Clicking a database status row loads that connection in the Connection
+// Status panel's #database-select (if present on this page) and runs
+// "List All Tables" for it. No-ops on pages that don't have the dropdown
+// (the shared status panel is embedded in more places than just db-admin).
+function selectDatabaseConnectionAndListTables(row) {
+    const connectionName = row?.dataset?.connection;
+    if (!connectionName) return;
+
+    const databaseSelect = document.getElementById('database-select');
+    if (!databaseSelect) return;
+
+    const hasOption = Array.from(databaseSelect.options).some(opt => opt.value === connectionName);
+    if (!hasOption) return;
+
+    databaseSelect.value = connectionName;
+    databaseSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const listAllTablesBtn = document.getElementById('list-all-tables');
+    if (listAllTablesBtn) listAllTablesBtn.click();
+}
+window.selectDatabaseConnectionAndListTables = selectDatabaseConnectionAndListTables;
 
 // Function to create combined Rust API Status and Connection panel
 function createRustApiStatusPanel(containerId, showConfigureLink = true) {
@@ -2330,17 +2360,17 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         </p>
                     </div>
 
-                    <!-- Database Status Items -->
-                    <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                    <!-- Database Status Items - click loads the connection in #database-select and lists its tables -->
+                    <div class="status-indicator-item" data-connection="COMMONS" onclick="selectDatabaseConnectionAndListTables(this)" title="Load Commons Database and list its tables" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
                         <span class="status-indicator error" id="commons-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="commons-db-text">Member database inactive</span>
                     </div>
-                    <div class="status-indicator-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                    <div class="status-indicator-item" data-connection="EXIOBASE" onclick="selectDatabaseConnectionAndListTables(this)" title="Load Industry Database and list its tables" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
                         <span class="status-indicator error" id="exiobase-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="exiobase-db-text">Industry database inactive</span>
                     </div>
                     <!-- Locations Database - hidden by default, shown only when active -->
-                    <div class="status-indicator-item" id="location-db-container" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
+                    <div class="status-indicator-item" id="location-db-container" data-connection="LOCATIONS" onclick="selectDatabaseConnectionAndListTables(this)" title="Load Locations Database and list its tables" style="display: none; align-items: center; gap: 8px; margin-bottom: 16px;">
                         <span class="status-indicator error" id="location-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                     </div>
@@ -2622,7 +2652,10 @@ async function checkExiobaseYearDatabases() {
             row = document.createElement('div');
             row.className = 'status-indicator-item';
             row.dataset.exiobaseYear = year;
+            row.dataset.connection = `EXIOBASE_${year}`;
+            row.title = `Load ${year} Industry Database and list its tables`;
             row.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 16px;';
+            row.addEventListener('click', () => selectDatabaseConnectionAndListTables(row));
             row.innerHTML = `
                 <span class="status-indicator error" id="${indicatorId}"></span>
                 <span style="font-size: 16px; color: var(--text-secondary);" id="${textId}">${year} Industry Database inactive</span>
