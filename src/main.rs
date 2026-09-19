@@ -2184,7 +2184,13 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
 
     // Create tables without FK references first (existing DBs may lack PKs)
 
-    // industry — columns only; PK added separately so existing tables are handled
+    // industry — columns only; PK added separately so existing tables are handled.
+    // Exiobase's own ~200-industry detail only — no cattype column. BEA Sector
+    // codes live in their own `sector` table (23 rows) below, related to
+    // `industry` via `sector_industry` (many-to-many: 16/200 industries
+    // genuinely chain to more than one candidate Sector, so a single
+    // industry.sector_id column would have forced an arbitrary pick — see
+    // PLAN-industry.md).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS industry (
             industry_id VARCHAR(10),
@@ -2194,6 +2200,35 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: industry".to_string());
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='industry_pkey') THEN ALTER TABLE industry ADD PRIMARY KEY (industry_id); END IF; END $$", &mut steps).await;
+
+    // sector — BEA Sector level (~21 categories + Used/Other adjustment
+    // rows), the sector1/sector2 values used by the BEA-Sector-level
+    // primary interstate.csv (see PLAN-industry.md's revision note — trade/
+    // trade_factor stayed at full Exiobase industry detail; only interstate
+    // has the state x state size problem that motivated the Sector split).
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS sector (
+            sector_id VARCHAR(10) NOT NULL PRIMARY KEY,
+            name      TEXT        NOT NULL
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: sector".to_string());
+
+    // sector_industry — the many-to-many relationship itself: which
+    // Exiobase industries chain to which BEA Sector(s), and by what weight
+    // (fraction of that industry's mapped Detail codes landing in that
+    // Sector — the same weighting trade.py/bea/main.py use to split an
+    // ambiguous industry's amount proportionally rather than picking one).
+    // A non-ambiguous industry has exactly one row here with weight 1.0.
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS sector_industry (
+            sector_id   VARCHAR(10)    NOT NULL,
+            industry_id VARCHAR(10)    NOT NULL,
+            weight      NUMERIC(10,6)  NOT NULL,
+            PRIMARY KEY (sector_id, industry_id)
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: sector_industry".to_string());
 
     // factor
     sqlx::query(r#"
@@ -2213,22 +2248,34 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // are NOT NULL here (unlike interstate's) because that's required for a
     // PK column — the app always supplies a value (possibly "") for them,
     // never a true NULL, so this doesn't reject anything it produces.
+    // industry1/2, not sector1/2: trade.csv/trade_factor.csv were never the
+    // file-size problem (measured well under 1.5MB even at full ~200-
+    // industry detail) — only interstate/interstate_factor need the BEA
+    // Sector-level primary/"-lg" split, from the state x state
+    // disaggregation. See PLAN-industry.md's revision note. FK target is
+    // industry(industry_id).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade (
-            trade_id  INTEGER       NOT NULL,
-            region1   VARCHAR(10)   NOT NULL,
-            region2   VARCHAR(10)   NOT NULL,
-            industry1 VARCHAR(10)   NOT NULL,
-            industry2 VARCHAR(10)   NOT NULL,
-            amount    NUMERIC(18,4),
-            flow_type VARCHAR(10)   NOT NULL DEFAULT 'unknown',
-            country   VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            trade_id   INTEGER       NOT NULL,
+            region1    VARCHAR(10)   NOT NULL,
+            region2    VARCHAR(10)   NOT NULL,
+            industry1  VARCHAR(10)   NOT NULL,
+            industry2  VARCHAR(10)   NOT NULL,
+            amount     NUMERIC(18,4),
+            flow_type  VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            country    VARCHAR(10)   NOT NULL DEFAULT 'unknown',
             PRIMARY KEY (region1, region2, industry1, industry2)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade".to_string());
     try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS flow_type VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS country   VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
+    // Renames a pre-existing database's sector1/2 columns back (harmless
+    // no-op — try_exec swallows the error — on a database that never had
+    // sector1/2, i.e. one created fresh, or created before that rename
+    // existed). The PK and any indexes follow the rename automatically.
+    try_exec(pool, "ALTER TABLE trade RENAME COLUMN sector1 TO industry1", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade RENAME COLUMN sector2 TO industry2", &mut steps).await;
 
     // trade_factor
     // No bigserial id: (trade_id, country, flow_type, factor_id) is unique
@@ -2258,14 +2305,16 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // trade.country, trade.flow_type). interstate.csv is now always
     // produced (bea/main.py), satellite data available or not, so this row
     // always exists before interstate_factor/interstate_estimate rows do.
+    // sector1/2, not industry1/2: same reasoning as trade above — this is
+    // the BEA-Sector-level primary output, FK target sector(sector_id).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate (
             interstate_id       VARCHAR(80)   NOT NULL PRIMARY KEY,
             trade_id            INTEGER       NOT NULL,
             state1              VARCHAR(10)   NOT NULL,
             state2              VARCHAR(10)   NOT NULL,
-            industry1           VARCHAR(10),
-            industry2           VARCHAR(10),
+            sector1              VARCHAR(10),
+            sector2              VARCHAR(10),
             state_industry_code VARCHAR(30),
             amount              NUMERIC(18,4),
             commodity_code      VARCHAR(30),
@@ -2275,10 +2324,15 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate".to_string());
     try_exec(pool, "ALTER TABLE interstate ADD COLUMN IF NOT EXISTS state_industry_code VARCHAR(30)", &mut steps).await;
+    // Renames a pre-existing database's old industry1/2 columns (harmless
+    // no-op on a fresh database). Dependent constraints/indexes (including
+    // the UNIQUE constraint just below) follow the rename automatically.
+    try_exec(pool, "ALTER TABLE interstate RENAME COLUMN industry1 TO sector1", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate RENAME COLUMN industry2 TO sector2", &mut steps).await;
     // New: interstate previously had no dedup constraint or ON CONFLICT at
     // all, so reruns could accumulate true duplicates. This is separate from
     // the interstate_id PRIMARY KEY above — it's the business dedup key.
-    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='interstate_state_industry_key') THEN ALTER TABLE interstate ADD CONSTRAINT interstate_state_industry_key UNIQUE (state1, state2, industry1, industry2); END IF; END $$", &mut steps).await;
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='interstate_state_industry_key') THEN ALTER TABLE interstate ADD CONSTRAINT interstate_state_industry_key UNIQUE (state1, state2, sector1, sector2); END IF; END $$", &mut steps).await;
 
     // interstate_factor
     // No bigserial id: real per-factor rows only (the satellite-data path's
@@ -2315,16 +2369,37 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate_estimate".to_string());
 
+    // interstate.sector1/sector2 hold BEA Sector codes (the interstate
+    // primary table is Sector-level — see PLAN-industry.md), so its FK
+    // target moved from industry(industry_id) to sector(sector_id).
+    // trade.industry1/industry2 were reverted back to raw Exiobase industry
+    // codes (trade/trade_factor were never the file-size problem — see
+    // PLAN-industry.md's revision note), so trade's FK targets stay/move
+    // back to industry(industry_id). Drop constraints first —
+    // ADD CONSTRAINT IF NOT EXISTS-by-name wouldn't otherwise touch an
+    // already-initialized database's existing (now-wrong-target) constraint
+    // of the same name.
+    for sql in &[
+        "ALTER TABLE trade DROP CONSTRAINT IF EXISTS fk_trade_sector1",
+        "ALTER TABLE trade DROP CONSTRAINT IF EXISTS fk_trade_sector2",
+        "ALTER TABLE interstate DROP CONSTRAINT IF EXISTS fk_istate_industry1",
+        "ALTER TABLE interstate DROP CONSTRAINT IF EXISTS fk_istate_industry2",
+    ] {
+        try_exec(pool, sql, &mut steps).await;
+    }
+
     // FK constraints (gracefully skipped if PKs unavailable)
     for sql in &[
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry1') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry2') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tf_factor') THEN ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
-        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry1') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
-        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_industry2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_sector1') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_sector1 FOREIGN KEY (sector1) REFERENCES sector(sector_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_sector2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_sector2 FOREIGN KEY (sector2) REFERENCES sector(sector_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_interstate') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_ise_interstate') THEN ALTER TABLE interstate_estimate ADD CONSTRAINT fk_ise_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_si_sector') THEN ALTER TABLE sector_industry ADD CONSTRAINT fk_si_sector FOREIGN KEY (sector_id) REFERENCES sector(sector_id); END IF; END $$",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_si_industry') THEN ALTER TABLE sector_industry ADD CONSTRAINT fk_si_industry FOREIGN KEY (industry_id) REFERENCES industry(industry_id); END IF; END $$",
     ] {
         try_exec(pool, sql, &mut steps).await;
     }
@@ -2399,13 +2474,26 @@ async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, 
 }
 
 async fn upsert_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    // Header-based lookup, not fixed positions — the same class of bug
+    // fixed elsewhere in this file (insert_interstate_rows, insert_trade_rows)
+    // when a CSV's column count/order drifts from what a fixed-position
+    // reader assumed. industry.csv is Exiobase's own ~200-industry detail
+    // only (no cattype column — that was a considered-and-reverted design;
+    // see PLAN-industry.md — BEA Sector codes live in their own `sector`
+    // table, related via `sector_industry`).
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let industry_id_col = col("industry_id", 0);
+    let name_col = col("name", 1);
+    let category_col = col("category", 2);
+
     let mut rows: Vec<(String, String, String)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        let industry_id = r.get(0).unwrap_or("").to_string();
-        let name = r.get(1).unwrap_or("").to_string();
-        let category = r.get(2).unwrap_or("").to_string();
+        let industry_id = r.get(industry_id_col).unwrap_or("").to_string();
+        let name = r.get(name_col).unwrap_or("").to_string();
+        let category = r.get(category_col).unwrap_or("").to_string();
         rows.push((industry_id, name, category));
     }
     let count = rows.len();
@@ -2417,6 +2505,68 @@ async fn upsert_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize
             b.push_bind(iid).push_bind(name).push_bind(cat);
         });
         qb.push(" ON CONFLICT (industry_id) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+async fn upsert_sector_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let sector_id_col = col("sector_id", 0);
+    let name_col = col("name", 1);
+
+    let mut rows: Vec<(String, String)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let sector_id = r.get(sector_id_col).unwrap_or("").to_string();
+        let name = r.get(name_col).unwrap_or("").to_string();
+        rows.push((sector_id, name));
+    }
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO sector (sector_id, name) "
+        );
+        qb.push_values(chunk, |mut b, (sid, name)| {
+            b.push_bind(sid).push_bind(name);
+        });
+        qb.push(" ON CONFLICT (sector_id) DO NOTHING");
+        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
+    }
+    Ok(count)
+}
+
+// The real many-to-many relationship between BEA Sector and Exiobase
+// industry — see PLAN-industry.md. weight is the fraction of that
+// industry's mapped Detail codes landing in that Sector (1.0 for the
+// 184/200 industries with exactly one candidate Sector).
+async fn upsert_sector_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    let mut rdr = csv::Reader::from_reader(text.as_bytes());
+    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
+    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
+    let sector_id_col = col("sector_id", 0);
+    let industry_id_col = col("industry_id", 1);
+    let weight_col = col("weight", 2);
+
+    let mut rows: Vec<(String, String, f64)> = Vec::new();
+    for rec in rdr.records() {
+        let r = rec.map_err(|e| e.to_string())?;
+        let sector_id = r.get(sector_id_col).unwrap_or("").to_string();
+        let industry_id = r.get(industry_id_col).unwrap_or("").to_string();
+        let weight: f64 = r.get(weight_col).unwrap_or("").parse().unwrap_or(0.0);
+        rows.push((sector_id, industry_id, weight));
+    }
+    let count = rows.len();
+    for chunk in rows.chunks(500) {
+        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+            "INSERT INTO sector_industry (sector_id, industry_id, weight) "
+        );
+        qb.push_values(chunk, |mut b, (sid, iid, weight)| {
+            b.push_bind(sid).push_bind(iid).push_bind(*weight);
+        });
+        qb.push(" ON CONFLICT (sector_id, industry_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(count)
@@ -2439,6 +2589,10 @@ async fn insert_trade_rows(
     let trade_id_col = col("trade_id", 0);
     let region1_col = col("region1", 1);
     let region2_col = col("region2", 2);
+    // trade.csv is always full ~200-industry Exiobase detail — trade/
+    // trade_factor were never the file-size problem (see PLAN-industry.md's
+    // revision note), so unlike interstate, there's no separate BEA-Sector-
+    // level primary tier here.
     let industry1_col = col("industry1", 3);
     let industry2_col = col("industry2", 4);
     let amount_col = col("amount", 5);
@@ -2531,20 +2685,22 @@ async fn insert_interstate_rows(
 ) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
     // Looked up by header name, not fixed position: interstate.csv's layout
-    // (interstate_id, trade_id, year, state1, state2, industry1, industry2,
+    // (interstate_id, trade_id, year, state1, state2, sector1, sector2,
     // state_industry_code, amount, commodity_code, industry_code,
     // economic_multiplier — see bea/main.py) doesn't match trade.csv's, and
     // older bea_trade_detail.csv exports may omit some columns entirely.
     // Defaults below match the current interstate.csv column order for
-    // files with no header match.
+    // files with no header match. sector1/sector2 (renamed from industry1/
+    // industry2 — see PLAN-industry.md) hold BEA Sector codes, inserted
+    // into this table's sector1/sector2 columns.
     let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
     let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
     let interstate_id_col = col("interstate_id", 0);
     let trade_id_col    = col("trade_id", 1);
     let state1_col      = col("state1", 3);
     let state2_col      = col("state2", 4);
-    let industry1_col   = col("industry1", 5);
-    let industry2_col   = col("industry2", 6);
+    let sector1_col   = col("sector1", 5);
+    let sector2_col   = col("sector2", 6);
     let state_ind_col   = col("state_industry_code", 7);
     let amount_col      = col("amount", 8);
     let commodity_col   = headers.iter().position(|h| h == "bea_commodity_code" || h == "commodity_code").unwrap_or(9);
@@ -2566,26 +2722,26 @@ async fn insert_interstate_rows(
         }
         let state1 = r.get(state1_col).unwrap_or("").to_string();
         let state2 = r.get(state2_col).unwrap_or("").to_string();
-        let industry1 = r.get(industry1_col).unwrap_or("").to_string();
-        let industry2 = r.get(industry2_col).unwrap_or("").to_string();
+        let sector1 = r.get(sector1_col).unwrap_or("").to_string();
+        let sector2 = r.get(sector2_col).unwrap_or("").to_string();
         let state_industry_code = r.get(state_ind_col).unwrap_or("").to_string();
         let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
         let commodity_code = r.get(commodity_col).unwrap_or("").to_string();
         let industry_code  = r.get(industry_col).unwrap_or("").to_string();
         let economic_multiplier: f64 = r.get(multiplier_col).unwrap_or("").parse().unwrap_or(1.0);
-        rows.push((interstate_id, trade_id, state1, state2, industry1, industry2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier));
+        rows.push((interstate_id, trade_id, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier));
     }
     let inserted = rows.len();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate (interstate_id, trade_id, state1, state2, industry1, industry2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
+            "INSERT INTO interstate (interstate_id, trade_id, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
         );
-        qb.push_values(chunk, |mut b, (iid, tid, s1, s2, i1, i2, sic, amt, cc, ic, em)| {
+        qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
             b.push_bind(iid).push_bind(tid).push_bind(s1).push_bind(s2)
-             .push_bind(i1).push_bind(i2).push_bind(sic).push_bind(*amt)
+             .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
              .push_bind(cc).push_bind(ic).push_bind(*em);
         });
-        qb.push(" ON CONFLICT (state1, state2, industry1, industry2) DO NOTHING");
+        qb.push(" ON CONFLICT (state1, state2, sector1, sector2) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(InsertOutcome { inserted, skipped })
@@ -2747,6 +2903,27 @@ async fn db_insert_trade_data(
         },
     }
 
+    // 2b. sector.csv + sector_industry.csv — see PLAN-industry.md. Not
+    // year-specific data (BEA's Sector classification and its relationship
+    // to Exiobase industries don't change per year), but published
+    // alongside each year's other reference files for now.
+    let sector_url = format!("{base}/{year_str}/sector.csv");
+    match fetch_github_csv(&sector_url).await {
+        Err(e) => errors.push(format!("sector.csv: {e}")),
+        Ok(text) => match upsert_sector_rows(&pool, &text).await {
+            Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
+            Err(e) => errors.push(format!("sector.csv insert: {e}")),
+        },
+    }
+    let sector_industry_url = format!("{base}/{year_str}/sector_industry.csv");
+    match fetch_github_csv(&sector_industry_url).await {
+        Err(e) => errors.push(format!("sector_industry.csv: {e}")),
+        Ok(text) => match upsert_sector_industry_rows(&pool, &text).await {
+            Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
+            Err(e) => errors.push(format!("sector_industry.csv insert: {e}")),
+        },
+    }
+
     // 3. trade.csv + trade_factor.csv for each flow type
     for flow_type in &["domestic", "imports", "exports"] {
         let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
@@ -2892,11 +3069,13 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
             {"from": "trade",        "to": "industry",           "on": "industry1 / industry2"},
             {"from": "trade_factor", "to": "trade",              "on": "trade_id + country + flow_type"},
             {"from": "trade_factor", "to": "factor",             "on": "factor_id"},
-            {"from": "interstate",   "to": "industry",           "on": "industry1 / industry2"},
+            {"from": "interstate",   "to": "sector",             "on": "sector1 / sector2"},
             {"from": "interstate",   "to": "trade",              "on": "trade_id (US domestic)"},
             {"from": "interstate_factor", "to": "interstate",    "on": "interstate_id"},
             {"from": "interstate_factor", "to": "factor",        "on": "factor_id"},
-            {"from": "interstate_estimate", "to": "interstate",  "on": "interstate_id — 1-to-(0-or-1), no-satellite rows only"}
+            {"from": "interstate_estimate", "to": "interstate",  "on": "interstate_id — 1-to-(0-or-1), no-satellite rows only"},
+            {"from": "sector_industry", "to": "sector",          "on": "sector_id"},
+            {"from": "sector_industry", "to": "industry",        "on": "industry_id — many-to-many, 16/200 industries chain to more than one Sector"}
         ]
     })))
 }
@@ -2907,6 +3086,15 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"industry_id","type":"varchar(10)"},
             {"name":"name","type":"text"},
             {"name":"category","type":"varchar(100)"}
+        ],
+        "sector": [
+            {"name":"sector_id","type":"varchar(10)"},
+            {"name":"name","type":"text"}
+        ],
+        "sector_industry": [
+            {"name":"sector_id","type":"varchar(10)"},
+            {"name":"industry_id","type":"varchar(10)"},
+            {"name":"weight","type":"numeric"}
         ],
         "factor": [
             {"name":"factor_id","type":"integer"},
@@ -2937,8 +3125,8 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"trade_id","type":"integer"},
             {"name":"state1","type":"varchar(10)"},
             {"name":"state2","type":"varchar(10)"},
-            {"name":"industry1","type":"varchar(10)"},
-            {"name":"industry2","type":"varchar(10)"},
+            {"name":"sector1","type":"varchar(10)"},
+            {"name":"sector2","type":"varchar(10)"},
             {"name":"state_industry_code","type":"varchar(30)"},
             {"name":"amount","type":"numeric"},
             {"name":"commodity_code","type":"varchar(30)"},
@@ -3866,7 +4054,7 @@ async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>, connecti
         // Filter tables for EXIOBASE connection - only include valid tables
         if let Some(conn_name) = connection_name {
             if conn_name == "EXIOBASE" {
-                let valid_tables = ["trade", "industry", "factor", "trade_factor", "interstate", "interstate_factor", "interstate_estimate"];
+                let valid_tables = ["trade", "industry", "sector", "sector_industry", "factor", "trade_factor", "interstate", "interstate_factor", "interstate_estimate"];
                 if !valid_tables.contains(&table_name.as_str()) {
                     continue; // Skip tables not in the valid list
                 }
@@ -4032,8 +4220,10 @@ fn get_table_description(table_name: &str) -> Option<String> {
         "taggables" => Some("Polymorphic tag relationships".to_string()),
         "roles" => Some("User roles and permissions".to_string()),
         // EXIOBASE tables
-        "trade" => Some("International trade flow data (domestic + imports + exports)".to_string()),
-        "industry" => Some("Industry sector classifications and data".to_string()),
+        "trade" => Some("International trade flow data (domestic + imports + exports), full Exiobase industry detail".to_string()),
+        "industry" => Some("Exiobase's own ~200-industry sector classifications".to_string()),
+        "sector" => Some("BEA Sector classifications (~21 categories + Used/Other)".to_string()),
+        "sector_industry" => Some("Many-to-many relationship between BEA Sector and Exiobase industry, with a weight per pairing".to_string()),
         "factor" => Some("Environmental and social impact factors".to_string()),
         "interstate" => Some("US BEA state-to-state trade flows".to_string()),
         "interstate_factor" => Some("State-level environmental factor flows".to_string()),
