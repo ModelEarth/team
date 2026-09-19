@@ -2143,12 +2143,12 @@ async fn ensure_year_database_exists(db_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-// Ensures {EXIOBASE_NAME}_{year} exists (provisioning it if needed), then
-// connects to it with the regular EXIOBASE_* host/credentials.
-async fn connect_to_exiobase_year(year: &str) -> Result<Pool<Postgres>, String> {
-    let db_name = year_database_name(year)?;
-    ensure_year_database_exists(&db_name).await?;
-
+// Connects to db_name on the regular EXIOBASE_* host/credentials, without
+// provisioning it — shared by connect_to_exiobase_year (which provisions
+// first) and connect_to_exiobase_year_readonly (which doesn't, for
+// read-only schema/browsing requests that shouldn't create a database as a
+// side effect of being viewed).
+async fn connect_to_exiobase_year_db(db_name: &str) -> Result<Pool<Postgres>, String> {
     let host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
     let user = std::env::var("EXIOBASE_USER").unwrap_or_default();
     let password = std::env::var("EXIOBASE_PASSWORD").unwrap_or_default();
@@ -2160,6 +2160,25 @@ async fn connect_to_exiobase_year(year: &str) -> Result<Pool<Postgres>, String> 
         .connect(&url)
         .await
         .map_err(|e| format!("Failed to connect to Industry Database ({db_name}): {e}"))
+}
+
+// Ensures {EXIOBASE_NAME}_{year} exists (provisioning it if needed), then
+// connects to it with the regular EXIOBASE_* host/credentials.
+async fn connect_to_exiobase_year(year: &str) -> Result<Pool<Postgres>, String> {
+    let db_name = year_database_name(year)?;
+    ensure_year_database_exists(&db_name).await?;
+    connect_to_exiobase_year_db(&db_name).await
+}
+
+// Read-only variant for GET/schema-browsing requests: connects to
+// {EXIOBASE_NAME}_{year} if it already exists, but never creates it — a page
+// view (e.g. picking a year in index.html's dropdown) shouldn't provision a
+// new database as a side effect. Returns a clear error naming the year
+// database if it doesn't exist yet (the year needs a real Insert Data run
+// first).
+async fn connect_to_exiobase_year_readonly(year: &str) -> Result<Pool<Postgres>, String> {
+    let db_name = year_database_name(year)?;
+    connect_to_exiobase_year_db(&db_name).await
 }
 
 async fn fetch_github_csv(url: &str) -> Result<String, String> {
@@ -3005,12 +3024,27 @@ async fn db_insert_trade_data(
     })))
 }
 
-// GET /api/db/industry-schema
-async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
-    let pool = match connect_to_exiobase().await {
+// GET /api/db/industry-schema?year=2021 — one database per year (see
+// PLAN-industry.md), so the schema/row-counts shown must come from that
+// year's own database, not a single shared one. year is optional only for
+// backward compatibility with callers that predate per-year databases; it
+// falls back to the shared EXIOBASE_NAME database, which increasingly won't
+// reflect any single year's real data.
+async fn db_get_industry_schema(
+    _data: web::Data<Arc<ApiState>>,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> Result<HttpResponse> {
+    let year = query.get("year").map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+
+    let pool = match &year {
+        Some(y) => connect_to_exiobase_year_readonly(y).await,
+        None => connect_to_exiobase().await,
+    };
+    let pool = match pool {
         Ok(p) => p,
         Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({
             "success": false, "error": e,
+            "year": year,
             "schema": industry_static_schema()
         }))),
     };
@@ -3020,7 +3054,7 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
         SELECT table_name, column_name, data_type, ordinal_position
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name IN ('trade','trade_factor','factor','industry','interstate','interstate_factor')
+          AND table_name IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate')
         ORDER BY table_name, ordinal_position
     "#).fetch_all(&pool).await;
 
@@ -3028,7 +3062,7 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
     let count_rows = sqlx::query(r#"
         SELECT relname AS table_name, n_live_tup AS row_count
         FROM pg_stat_user_tables
-        WHERE relname IN ('trade','trade_factor','factor','industry','interstate','interstate_factor')
+        WHERE relname IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate')
     "#).fetch_all(&pool).await;
 
     let mut tables: HashMap<String, serde_json::Value> = HashMap::new();
@@ -3078,6 +3112,7 @@ async fn db_get_industry_schema(_data: web::Data<Arc<ApiState>>) -> Result<HttpR
 
     Ok(HttpResponse::Ok().json(json!({
         "success": true,
+        "year": year,
         "tables": tables,
         "relationships": [
             {"from": "trade",        "to": "industry",           "on": "industry1 / industry2"},
