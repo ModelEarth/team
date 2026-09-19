@@ -1793,7 +1793,10 @@ async fn get_tables(data: web::Data<Arc<ApiState>>, query: web::Query<std::colle
     let connection_name = query.get("connection");
     let pool = if let Some(connection_name) = connection_name {
         // Get the database URL for this connection
-        let database_url = if let Ok(url) = std::env::var(connection_name) {
+        let database_url = if let Some(url) = resolve_exiobase_year_url(connection_name) {
+            // A per-year Industry Database, e.g. EXIOBASE_2019
+            url
+        } else if let Ok(url) = std::env::var(connection_name) {
             // Direct URL environment variable
             url
         } else {
@@ -2063,6 +2066,81 @@ async fn db_test_exiobase_connection(_data: web::Data<Arc<ApiState>>) -> Result<
     }
 }
 
+// GET /api/db/list-exiobase-years — years with a provisioned
+// "{EXIOBASE_NAME}_{year}" database on the Azure server right now,
+// discovered live (see discover_exiobase_year_databases) rather than from
+// a fixed list, so the status panel and connection dropdown pick up newly
+// added years automatically.
+async fn db_list_exiobase_years(_data: web::Data<Arc<ApiState>>) -> Result<HttpResponse> {
+    let years = discover_exiobase_year_databases().await;
+    Ok(HttpResponse::Ok().json(json!({
+        "success": true,
+        "years": years
+    })))
+}
+
+// Test a specific year's Industry Database connection, e.g. ?year=2019 or
+// ?year=2021 — the same {EXIOBASE_NAME}_{year} databases used elsewhere for
+// per-year industry data (see year_database_name / connect_to_exiobase_year).
+async fn db_test_exiobase_year_connection(
+    _data: web::Data<Arc<ApiState>>,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> Result<HttpResponse> {
+    let year = match query.get("year").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        Some(y) => y,
+        None => return Ok(HttpResponse::BadRequest().json(json!({
+            "success": false,
+            "message": "Missing required year parameter",
+            "active": false,
+            "error": "year query parameter is required, e.g. ?year=2019"
+        }))),
+    };
+
+    // Check if Exiobase environment variables are configured (same base
+    // credentials as the shared Industry Database, just a different name).
+    let exiobase_host = std::env::var("EXIOBASE_HOST").unwrap_or_default();
+    let exiobase_name = std::env::var("EXIOBASE_NAME").unwrap_or_default();
+    let exiobase_user = std::env::var("EXIOBASE_USER").unwrap_or_default();
+    let exiobase_password = std::env::var("EXIOBASE_PASSWORD").unwrap_or_default();
+
+    if exiobase_host.contains("your-server") || exiobase_password == "your_password" ||
+       exiobase_host.is_empty() || exiobase_name.is_empty() || exiobase_user.is_empty() || exiobase_password.is_empty() {
+        return Ok(HttpResponse::Ok().json(json!({
+            "success": false,
+            "message": format!("{year} Industry Database not configured"),
+            "database": format!("{exiobase_name}_{year}"),
+            "active": false,
+            "error": "Database credentials not configured (placeholder values detected)"
+        })));
+    }
+
+    match connect_to_exiobase_year_readonly(&year).await {
+        Ok(pool) => match test_db_connection(&pool).await {
+            Ok(info) => Ok(HttpResponse::Ok().json(json!({
+                "success": true,
+                "message": format!("{year} Industry Database connection successful"),
+                "database": format!("{exiobase_name}_{year}"),
+                "active": true,
+                "info": info
+            }))),
+            Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "message": format!("{year} Industry Database connection failed"),
+                "database": format!("{exiobase_name}_{year}"),
+                "active": false,
+                "error": e.to_string()
+            }))),
+        },
+        Err(e) => Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "message": format!("{year} Industry Database connection failed"),
+            "database": format!("{exiobase_name}_{year}"),
+            "active": false,
+            "error": e
+        }))),
+    }
+}
+
 // ============================================================
 // Industry Database (EXIOBASE) — Trade Data Insert
 // ============================================================
@@ -2096,6 +2174,59 @@ fn year_database_name(year: &str) -> Result<String, String> {
         return Err("Industry Database not configured — set EXIOBASE_NAME".to_string());
     }
     Ok(format!("{base}_{year}"))
+}
+
+// Discovers which "{EXIOBASE_NAME}_{year}" databases actually exist on the
+// Azure server right now, by listing every database and matching the
+// pattern in Rust — no hardcoded list of years, so a newly provisioned year
+// (2019, 2021, or any other) shows up automatically. Returns an empty list
+// on any failure (not configured, unreachable, etc.) so callers can treat
+// "no years found" and "couldn't check" the same way.
+async fn discover_exiobase_year_databases() -> Vec<String> {
+    let base = match std::env::var("EXIOBASE_NAME") {
+        Ok(b) if !b.is_empty() => b,
+        _ => return Vec::new(),
+    };
+    let pool = match connect_to_exiobase().await {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
+    let rows: Vec<(String,)> = match sqlx::query_as(
+        "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"
+    )
+        .fetch_all(&pool)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(_) => return Vec::new(),
+    };
+
+    let prefix = format!("{base}_");
+    rows.into_iter()
+        .filter_map(|(datname,)| {
+            let year = datname.strip_prefix(&prefix)?;
+            (year.len() == 4 && year.chars().all(|c| c.is_ascii_digit())).then(|| year.to_string())
+        })
+        .collect()
+}
+
+// Resolves a connection name like "EXIOBASE_2019" to a full postgres URL
+// using the shared EXIOBASE_* credentials against that year's database
+// ({EXIOBASE_NAME}_{year}) — any 4-digit year, not a fixed list. Returns
+// None for anything else so callers fall through to their normal
+// connection-name lookup (direct env var, or {name}_HOST/etc. components).
+fn resolve_exiobase_year_url(connection_name: &str) -> Option<String> {
+    let year = connection_name.strip_prefix("EXIOBASE_")?;
+    if year.len() != 4 || !year.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let host = std::env::var("EXIOBASE_HOST").ok().filter(|s| !s.is_empty())?;
+    let name = std::env::var("EXIOBASE_NAME").ok().filter(|s| !s.is_empty())?;
+    let user = std::env::var("EXIOBASE_USER").ok().filter(|s| !s.is_empty())?;
+    let password = std::env::var("EXIOBASE_PASSWORD").ok().filter(|s| !s.is_empty())?;
+    let port = std::env::var("EXIOBASE_PORT").unwrap_or_else(|_| "5432".to_string());
+    let ssl_mode = std::env::var("EXIOBASE_SSL_MODE").unwrap_or_else(|_| "require".to_string());
+    Some(format!("postgres://{user}:{password}@{host}:{port}/{name}_{year}?sslmode={ssl_mode}"))
 }
 
 // Quote a Postgres identifier (database name), doubling any embedded `"`,
@@ -3239,11 +3370,14 @@ async fn db_get_table_info(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse> {
     let table_name = path.into_inner();
-    
+
     // Check if a specific connection is requested
     let pool = if let Some(connection_name) = query.get("connection") {
         // Get the database URL for this connection
-        let database_url = if let Ok(url) = std::env::var(connection_name) {
+        let database_url = if let Some(url) = resolve_exiobase_year_url(connection_name) {
+            // A per-year Industry Database, e.g. EXIOBASE_2019
+            url
+        } else if let Ok(url) = std::env::var(connection_name) {
             // Direct URL environment variable
             url
         } else {
@@ -3337,7 +3471,10 @@ async fn db_execute_query(
     // Check if a specific connection is requested
     let pool = if let Some(connection_name) = query.get("connection") {
         // Get the database URL for this connection
-        let database_url = if let Ok(url) = std::env::var(connection_name) {
+        let database_url = if let Some(url) = resolve_exiobase_year_url(connection_name) {
+            // A per-year Industry Database, e.g. EXIOBASE_2019
+            url
+        } else if let Ok(url) = std::env::var(connection_name) {
             // Direct URL environment variable
             url
         } else {
@@ -3445,7 +3582,9 @@ async fn db_get_table_rows(
     };
 
     let pool = if let Some(connection_name) = &req.connection {
-        let database_url = if let Ok(url) = std::env::var(connection_name) {
+        let database_url = if let Some(url) = resolve_exiobase_year_url(connection_name) {
+            url
+        } else if let Ok(url) = std::env::var(connection_name) {
             url
         } else {
             let host_key = format!("{connection_name}_HOST");
@@ -4359,6 +4498,8 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/test-connection", web::get().to(db_test_connection))
                             .route("/test-commons-connection", web::get().to(db_test_commons_connection))
                             .route("/test-exiobase-connection", web::get().to(db_test_exiobase_connection))
+                            .route("/test-exiobase-year-connection", web::get().to(db_test_exiobase_year_connection))
+                            .route("/list-exiobase-years", web::get().to(db_list_exiobase_years))
                             .route("/test-locations-connection", web::get().to(db_test_location_connection))
                             .route("/tables", web::get().to(db_list_tables))
                             .route("/table/{table_name}", web::get().to(db_get_table_info))

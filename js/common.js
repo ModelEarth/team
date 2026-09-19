@@ -2344,6 +2344,9 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
                         <span class="status-indicator error" id="location-db-indicator"></span>
                         <span style="font-size: 16px; color: var(--text-secondary);" id="location-db-text">Locations Database inactive</span>
                     </div>
+                    <!-- Per-year Industry Databases (e.g. 2019, 2021) - discovered live from
+                         the Azure server and populated by checkBackendStatus(), not hardcoded here -->
+                    <div id="exiobase-year-db-list"></div>
                     ${currentPath.includes('/team/admin/sql/panel/') ? `
                     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px;">
                         <button class="btn btn-secondary rust-api-status-button" onclick="recheckRustStatus()" id="reload-status-btn">Recheck Status</button>
@@ -2588,6 +2591,57 @@ async function checkDatabaseConnection(endpoint, indicatorId, textId, activeText
     }
 }
 
+// Discovers per-year Industry Databases (e.g. 2019, 2021) live from the
+// Azure server via /api/db/list-exiobase-years, builds one status row per
+// year found in #exiobase-year-db-list, and checks each one's connection.
+// No year is hardcoded here — a newly provisioned year appears on its own.
+async function checkExiobaseYearDatabases() {
+    const list = document.getElementById('exiobase-year-db-list');
+    if (!list) return [];
+
+    let years = [];
+    try {
+        const response = await fetch(`http://localhost:8081/api/db/list-exiobase-years`);
+        const result = await response.json();
+        years = Array.isArray(result.years) ? result.years : [];
+    } catch (error) {
+        return [];
+    }
+
+    // Drop rows for years no longer present, keep/reuse rows for years still present.
+    list.querySelectorAll('[data-exiobase-year]').forEach(row => {
+        if (!years.includes(row.dataset.exiobaseYear)) row.remove();
+    });
+
+    return Promise.all(years.map(async (year) => {
+        const indicatorId = `exiobase-${year}-db-indicator`;
+        const textId = `exiobase-${year}-db-text`;
+
+        let row = list.querySelector(`[data-exiobase-year="${year}"]`);
+        if (!row) {
+            row = document.createElement('div');
+            row.className = 'status-indicator-item';
+            row.dataset.exiobaseYear = year;
+            row.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 16px;';
+            row.innerHTML = `
+                <span class="status-indicator error" id="${indicatorId}"></span>
+                <span style="font-size: 16px; color: var(--text-secondary);" id="${textId}">${year} Industry Database inactive</span>
+            `;
+            list.appendChild(row);
+        }
+
+        try {
+            const response = await fetch(`http://localhost:8081/api/db/test-exiobase-year-connection?year=${encodeURIComponent(year)}`);
+            const result = await response.json();
+            updateStatusIndicator(indicatorId, textId, result.success, `${year} Industry Database active`, `${year} Industry Database inactive`);
+            return result.success;
+        } catch (error) {
+            updateStatusIndicator(indicatorId, textId, false, `${year} Industry Database active`, `${year} Industry Database inactive`);
+            return false;
+        }
+    }));
+}
+
 // Function to check all backend status (API + databases)
 async function checkBackendStatus() {
     if (!window.shouldAccessLocalhost?.()) return;
@@ -2627,7 +2681,9 @@ async function checkBackendStatus() {
                 if (container) container.style.display = 'none';
                 return false;
             }
-        })()
+        })(),
+        // Per-year Industry Databases (e.g. 2019, 2021) - discovered live, not hardcoded
+        checkExiobaseYearDatabases()
     ]);
 }
 

@@ -14,6 +14,7 @@ class DatabaseAdmin {
 
     async init() {
         await this.loadEnvConfig();
+        await this.loadExiobaseYears();
         this.setupEventListeners();
         this.displayConfig();
         this.addLog('Database Admin initialized');
@@ -37,6 +38,43 @@ class DatabaseAdmin {
             if (configDisplay) {
                 handleApiConnectionError(error, 'config-display');
             }
+        }
+    }
+
+    // Discovers per-year Industry Databases (e.g. EXIOBASE_2019, EXIOBASE_2021)
+    // live from the Azure server and adds them to envConfig.database_connections
+    // so they appear in the dropdown and in displayConfig() — no year is
+    // hardcoded here, a newly provisioned year is picked up automatically.
+    async loadExiobaseYears() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/db/list-exiobase-years`);
+            if (!response.ok) return;
+            const result = await response.json();
+            const years = Array.isArray(result.years) ? result.years : [];
+            if (!years.length) return;
+
+            if (!this.envConfig) this.envConfig = {};
+            if (!Array.isArray(this.envConfig.database_connections)) this.envConfig.database_connections = [];
+
+            const exiobaseConn = this.envConfig.database_connections.find(c => c.name === 'EXIOBASE');
+
+            years.forEach(year => {
+                const name = `EXIOBASE_${year}`;
+                if (this.envConfig.database_connections.some(c => c.name === name)) return;
+                const config = exiobaseConn
+                    ? { ...exiobaseConn.config, database: `${exiobaseConn.config.database}_${year}` }
+                    : { server: '', database: `_${year}`, username: '', port: 5432, ssl: true };
+                this.envConfig.database_connections.push({
+                    name,
+                    display_name: `${year} Industry Database`,
+                    config
+                });
+            });
+
+            this.addLog(`Discovered ${years.length} per-year Industry Database(s): ${years.join(', ')}`);
+            this.populateConnectionDropdown();
+        } catch (error) {
+            this.addLog(`Failed to load per-year Industry Databases: ${error.message}`);
         }
     }
 
@@ -173,6 +211,9 @@ class DatabaseAdmin {
                 endpoint = '/db/test-exiobase-connection';
             } else if (this.selectedConnection === 'LOCATIONS') {
                 endpoint = '/db/test-locations-connection';
+            } else if (/^EXIOBASE_\d{4}$/.test(this.selectedConnection)) {
+                const year = this.selectedConnection.slice('EXIOBASE_'.length);
+                endpoint = `/db/test-exiobase-year-connection?year=${encodeURIComponent(year)}`;
             } else {
                 throw new Error(`Unknown database connection: ${this.selectedConnection}`);
             }
