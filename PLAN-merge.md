@@ -1,12 +1,27 @@
 # Merging per-year Industry Databases into one multi-year `industrydb`
 
 Plan for consolidating `industrydb_2019`, `industrydb_2021`, and future per-year databases into a
-single `industrydb` that holds multiple years, with the actual data movement happening entirely
-inside Azure Postgres — never round-tripping through the Rust app or a local machine. Stage 1
-(per-year load, below) is done for 2019 and 2021; Stage 2 (the actual multi-year merge) is not
-started.
+single `industrydb` that holds multiple years. Two mechanisms exist now (see "Mechanism" below):
+the original `dblink`-based in-Postgres merge (still blocked on Azure), and a working direct-import
+path that bypasses it entirely. Stage 1 (per-year load) is done for 2019 and 2021; Stage 2 (the
+shared `industrydb`) is now populated for 2019 via direct import, with 2021 in progress.
 
 ## Status (2026-09-20, verified against live databases)
+
+**Stage 2 direct import — working, in progress.** `POST /api/db/insert-trade-data` with
+`{"target": "industrydb"}` (implemented in `merge_years.rs`, sharing `insert_trade_rows`/
+`insert_trade_factor_rows`/`insert_interstate_*_rows` with the per-year loader via an
+`Option<i32>` year parameter and, for the two factor tables, an optional factor_id remap map —
+no duplicate parsing code) loads a year's CSVs straight into `industrydb`, adding `year` and
+remapping `factor_id` through `industrydb`'s own `factor` table by `(extension, stressor)` inline
+in Rust, instead of via `dblink`. **2019 verified complete and correct**: every table's row count
+in `industrydb WHERE year=2019` matches `industrydb_2019` exactly (`trade` 358,424, `trade_factor`
+1,449,277, `interstate` 171,136, `interstate_factor` 1,711,360), `trade_id` blocks non-colliding
+(domestic 1–19,043, imports 1,000,000–1,163,654, exports 2,000,000–2,175,725), and the factor_id
+remap produced a clean identity mapping (1–728, zero orphaned `trade_factor` rows) since `factor`
+was empty before this, the first year ever merged. **2021 direct import kicked off, in progress**
+— will verify the remap logic's real behavior once `factor` is non-empty (the actual test of
+new-stressor-gets-fresh-id vs. matching-stressor-reuses-id, not just the identity-mapping case).
 
 **Stage 1 complete for 2019 and 2021.** `trade.csv`/`trade_factor.csv`/`interstate.csv`/
 `interstate_factor.csv` fixed via `exiobase/tradeflow/fix_trade_ids.py`, committed and pushed to
