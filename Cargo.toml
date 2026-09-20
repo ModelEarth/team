@@ -20,11 +20,12 @@ actix-session = { version = "0.9", optional = true }
 actix-web-actors = { version = "4.3", optional = true }
 
 # Database - PostgreSQL
-sqlx = { version = "0.7.4", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+sqlx = { version = "0.7.4", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "rust_decimal"] }
+rust_decimal = "1"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_yaml = "0.9"
 toml = "0.8"
 
@@ -116,6 +117,10 @@ path = "src/main.rs"
 [[bin]]
 name = "test_recommendations"
 path = "src/test_recommendations.rs"
+
+[[bin]]
+name = "truncate_year_tables"
+path = "src/truncate_year_tables.rs"
 
 [features]
 default = ["cli", "api"]

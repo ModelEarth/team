@@ -2187,9 +2187,31 @@ async fn discover_exiobase_year_databases() -> Vec<String> {
         Ok(b) if !b.is_empty() => b,
         _ => return Vec::new(),
     };
-    let pool = match connect_to_exiobase().await {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
+
+    // Connect to "postgres" (guaranteed to exist), not the base EXIOBASE_NAME
+    // database itself (the old approach here) — so this listing survives the
+    // base database being dropped (see db_delete_exiobase_database). That
+    // deletion never touches the per-year databases, but connecting to the
+    // base database to run this query meant losing it made every year
+    // "disappear" from this list too, even though they're untouched. Uses
+    // the regular EXIOBASE_* credentials against "postgres" rather than
+    // EXIOBASE_NAME — same account, just a different, always-present
+    // database name — falling back to provisioning credentials, then to the
+    // base-database connection, for deployments where that's configured
+    // differently.
+    let pool = match connect_to_exiobase_year_db("postgres").await {
+        Ok(p) => Some(p),
+        Err(_) => match get_exiobase_provision_database_url_for("postgres") {
+            Ok(url) => PgPoolOptions::new().max_connections(1).connect(&url).await.ok(),
+            Err(_) => None,
+        },
+    };
+    let pool = match pool {
+        Some(p) => p,
+        None => match connect_to_exiobase().await {
+            Ok(p) => p,
+            Err(_) => return Vec::new(),
+        },
     };
     let rows: Vec<(String,)> = match sqlx::query_as(
         "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"
@@ -2466,17 +2488,20 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
 
     // trade
-    // No bigserial id: (region1, region2, industry1, industry2) is the real
-    // natural key for a flow, so it's the PRIMARY KEY directly. industry1/2
-    // are NOT NULL here (unlike interstate's) because that's required for a
-    // PK column — the app always supplies a value (possibly "") for them,
-    // never a true NULL, so this doesn't reject anything it produces.
-    // industry1/2, not sector1/2: trade.csv/trade_factor.csv were never the
-    // file-size problem (measured well under 1.5MB even at full ~200-
-    // industry detail) — only interstate/interstate_factor need the BEA
-    // Sector-level primary/"-lg" split, from the state x state
-    // disaggregation. See PLAN-industry.md's revision note. FK target is
-    // industry(industry_id).
+    // trade_id is an explicit value the loader computes deterministically
+    // from trade.csv's own (already 1-based, per-file) row index plus a
+    // fixed offset by flow_type — domestic +0, imports +999,999, exports
+    // +1,999,999 (see insert_trade_rows and PLAN-merge.md's two-stage ID
+    // design) — not a database-assigned surrogate. It used to be the CSV's
+    // raw value with no offset, which restarts at 1 for every (country,
+    // flow_type) file and collided once domestic/imports/exports share this
+    // table (confirmed: industrydb_2021 had 309,885 trade rows but only
+    // 146,556 distinct trade_id values before this fix). The real natural
+    // key — (region1, region2, industry1, industry2) — moves to its own
+    // UNIQUE constraint below instead of being the PK, since insert_trade_
+    // rows still needs it as an ON CONFLICT target for dedup. industry1/2
+    // are NOT NULL because the app always supplies a value (possibly ""),
+    // never a true NULL. FK target for industry1/2 is industry(industry_id).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade (
             trade_id   INTEGER       NOT NULL,
@@ -2487,7 +2512,8 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
             amount     NUMERIC(18,4),
             flow_type  VARCHAR(10)   NOT NULL DEFAULT 'unknown',
             country    VARCHAR(10)   NOT NULL DEFAULT 'unknown',
-            PRIMARY KEY (region1, region2, industry1, industry2)
+            PRIMARY KEY (trade_id),
+            CONSTRAINT trade_natural_key UNIQUE (region1, region2, industry1, industry2)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade".to_string());
@@ -2499,10 +2525,22 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // existed). The PK and any indexes follow the rename automatically.
     try_exec(pool, "ALTER TABLE trade RENAME COLUMN sector1 TO industry1", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade RENAME COLUMN sector2 TO industry2", &mut steps).await;
+    // Migrates a pre-existing table (created before this fix) from the old
+    // natural-key PK to trade_id as PK. Only succeeds once trade_id has no
+    // duplicates left — i.e. after the existing CSVs/rows are fixed to the
+    // new offset scheme, per PLAN-merge.md's "Fixing historical trade_id"
+    // step. Expected to SKIP (not fail the whole init) against a table
+    // still holding the old, colliding trade_id values.
+    try_exec(pool, "ALTER TABLE trade DROP CONSTRAINT IF EXISTS trade_pkey", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade ADD CONSTRAINT trade_natural_key UNIQUE (region1, region2, industry1, industry2)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade ADD PRIMARY KEY (trade_id)", &mut steps).await;
 
     // trade_factor
-    // No bigserial id: (trade_id, country, flow_type, factor_id) is unique
-    // per row (all four are NOT NULL) and is the PRIMARY KEY directly.
+    // PK is (trade_id, factor_id) now that trade_id alone is globally unique
+    // within this database (see trade above) — country/flow_type stay as
+    // plain columns (still useful for filtering) but are no longer needed
+    // in the key. Also finally gets a real FK to trade(trade_id), which
+    // wasn't possible before since trade_id wasn't unique on trade.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade_factor (
             trade_id     INTEGER        NOT NULL,
@@ -2511,10 +2549,17 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
             factor_id    INTEGER        NOT NULL,
             coefficient  NUMERIC(20,10),
             level NUMERIC(20,6),
-            PRIMARY KEY (trade_id, country, flow_type, factor_id)
+            PRIMARY KEY (trade_id, factor_id)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade_factor".to_string());
+    // Migrates a pre-existing table's PK the same way as trade above —
+    // expected to SKIP until trade_id values have been regenerated to be
+    // globally unique (a duplicate (trade_id, factor_id) pair would violate
+    // the new, narrower PK otherwise).
+    try_exec(pool, "ALTER TABLE trade_factor DROP CONSTRAINT IF EXISTS trade_factor_pkey", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ADD PRIMARY KEY (trade_id, factor_id)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_trade FOREIGN KEY (trade_id) REFERENCES trade(trade_id)", &mut steps).await;
 
     // interstate
     // No bigserial id: interstate_id (already computed per-row in the CSV
@@ -2530,10 +2575,20 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // always exists before interstate_factor/interstate_estimate rows do.
     // sector1/2, not industry1/2: same reasoning as trade above — this is
     // the BEA-Sector-level primary output, FK target sector(sector_id).
+    // interstate_id is a plain integer now (bea/main.py assigns a 1-based
+    // sequence instead of the old {trade_id}-US-{state1}-US-{state2}-...
+    // composite string — see PLAN-merge.md's two-stage ID design), so no
+    // schema-side collision-avoidance is needed here the way trade_id
+    // needed IDENTITY above: bea/main.py generates it consistently within
+    // one run, so it's inserted as-is. country is new — this table used to
+    // have no way to say which country's interstate data a row belongs to
+    // (BEA/interstate is US-only today, but trade/trade_factor already
+    // carry country, so this catches up to match).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate (
-            interstate_id       VARCHAR(80)   NOT NULL PRIMARY KEY,
+            interstate_id       INTEGER       NOT NULL PRIMARY KEY,
             trade_id            INTEGER       NOT NULL,
+            country             VARCHAR(2)    NOT NULL DEFAULT 'US',
             state1              VARCHAR(10)   NOT NULL,
             state2              VARCHAR(10)   NOT NULL,
             sector1              VARCHAR(10),
@@ -2547,6 +2602,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate".to_string());
     try_exec(pool, "ALTER TABLE interstate ADD COLUMN IF NOT EXISTS state_industry_code VARCHAR(30)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate ADD COLUMN IF NOT EXISTS country VARCHAR(2) NOT NULL DEFAULT 'US'", &mut steps).await;
     // Renames a pre-existing database's old industry1/2 columns (harmless
     // no-op on a fresh database). Dependent constraints/indexes (including
     // the UNIQUE constraint just below) follow the rename automatically.
@@ -2561,6 +2617,22 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // interstate_id (the PRIMARY KEY above) is already the correct, real
     // dedup key — see insert_interstate_rows' ON CONFLICT (interstate_id).
     try_exec(pool, "ALTER TABLE interstate DROP CONSTRAINT IF EXISTS interstate_state_industry_key", &mut steps).await;
+    // Migrates a pre-existing table's interstate_id from VARCHAR to
+    // INTEGER — only succeeds once the table holds no old string-format
+    // ids (see "Regenerating historical trade_id/interstate_id" in
+    // PLAN-merge.md); expected to SKIP against a table still holding the
+    // old {trade_id}-US-... strings, since those aren't valid integers.
+    // The existing fk_isf_interstate (interstate_factor -> interstate) and
+    // fk_ise_interstate (interstate_estimate -> interstate) FKs both have to
+    // come off first — Postgres won't let interstate's type change while
+    // either is in place — and get re-added below (fk_isf_interstate) or
+    // further down near interstate_estimate (fk_ise_interstate) once all
+    // three sides have successfully converted. Missing the second FK here
+    // was the exact bug that silently blocked this ALTER the first time —
+    // confirmed via try_exec's error output, not assumed.
+    try_exec(pool, "ALTER TABLE interstate_factor DROP CONSTRAINT IF EXISTS fk_isf_interstate", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate_estimate DROP CONSTRAINT IF EXISTS fk_ise_interstate", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
 
     // interstate_factor
     // No bigserial id: real per-factor rows only (the satellite-data path's
@@ -2569,10 +2641,12 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // safe PRIMARY KEY directly. No longer duplicates trade_id/coefficient/
     // state_industry_code/employment_impact — those either live on
     // interstate (reachable via the interstate_id FK) or, for the
-    // no-satellite-only fields, on interstate_estimate.
+    // no-satellite-only fields, on interstate_estimate. Now has a real FK
+    // to interstate(interstate_id), possible now that interstate_id is a
+    // plain integer matching interstate's own column type.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate_factor (
-            interstate_id VARCHAR(80) NOT NULL,
+            interstate_id INTEGER     NOT NULL,
             factor_id     INTEGER     NOT NULL,
             level         NUMERIC(20,6),
             flow_type     VARCHAR(20),
@@ -2580,6 +2654,8 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate_factor".to_string());
+    try_exec(pool, "ALTER TABLE interstate_factor ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id)", &mut steps).await;
 
     // interstate_estimate
     // One row per interstate flow that had no satellite factor data
@@ -2590,12 +2666,13 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // factor.factor_id anyway.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate_estimate (
-            interstate_id     VARCHAR(80) NOT NULL PRIMARY KEY,
+            interstate_id     INTEGER NOT NULL PRIMARY KEY,
             employment_impact NUMERIC(20,10),
             flow_type         VARCHAR(20)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate_estimate".to_string());
+    try_exec(pool, "ALTER TABLE interstate_estimate ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
 
     // interstate.sector1/sector2 hold BEA Sector codes (the interstate
     // primary table is Sector-level — see PLAN-industry.md), so its FK
@@ -2800,6 +2877,25 @@ async fn upsert_sector_industry_rows(pool: &Pool<Postgres>, text: &str) -> Resul
     Ok(count)
 }
 
+// Fixed per-flow_type offset applied to trade.csv's own (already 1-based,
+// per-file) trade_id, so the combined domestic+imports+exports trade_id
+// values are unique within one year's database without needing a database-
+// assigned surrogate — see PLAN-merge.md's two-stage ID design (settled
+// 2026-09-20): domestic keeps 1..N unchanged, imports starts at 1,000,000,
+// exports starts at 2,000,000. Deterministic and reversible (subtract the
+// offset back to get the original CSV row index) — no RETURNING, no
+// natural-key lookup, no mapping table: insert_trade_factor_rows computes
+// the identical offset independently from the same flow_type it's already
+// given. Accepted risk: if a single year's imports or exports ever exceeds
+// 999,999 rows, this scheme needs a wider block (see PLAN-merge.md).
+fn trade_id_offset(flow_type: &str) -> i32 {
+    match flow_type {
+        "imports" => 999_999,
+        "exports" => 1_999_999,
+        _ => 0, // domestic, or anything unrecognized
+    }
+}
+
 async fn insert_trade_rows(
     pool: &Pool<Postgres>,
     text: &str,
@@ -2824,10 +2920,12 @@ async fn insert_trade_rows(
     let industry1_col = col("industry1", 3);
     let industry2_col = col("industry2", 4);
     let amount_col = col("amount", 5);
+    let offset = trade_id_offset(flow_type);
     let mut rows: Vec<(i32, String, String, String, String, f64)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        let trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let trade_id = csv_trade_id + offset;
         let region1 = r.get(region1_col).unwrap_or("").to_string();
         let region2 = r.get(region2_col).unwrap_or("").to_string();
         let industry1 = r.get(industry1_col).unwrap_or("").to_string();
@@ -2853,6 +2951,10 @@ async fn insert_trade_rows(
     Ok(count)
 }
 
+// Applies the same trade_id_offset as insert_trade_rows, computed
+// independently from the same flow_type — no mapping table, no dependency
+// on insert_trade_rows having run first, since it's the identical
+// deterministic formula applied to trade_factor.csv's own trade_id column.
 async fn insert_trade_factor_rows(
     pool: &Pool<Postgres>,
     text: &str,
@@ -2872,10 +2974,12 @@ async fn insert_trade_factor_rows(
     let trade_id_col = col("trade_id", 0);
     let factor_id_col = col("factor_id", 1);
     let level_col = col("level", 2);
+    let offset = trade_id_offset(flow_type);
     let mut rows: Vec<(i32, i32, f64)> = Vec::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        let trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
+        let trade_id = csv_trade_id + offset;
         let factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
         let level: f64 = r.get(level_col).unwrap_or("").parse().unwrap_or(0.0);
         rows.push((trade_id, factor_id, level));
@@ -2891,7 +2995,7 @@ async fn insert_trade_factor_rows(
             b.push_bind(tid).push_bind(&ct).push_bind(&ft)
              .push_bind(fid).push_bind(*imp);
         });
-        qb.push(" ON CONFLICT (trade_id, country, flow_type, factor_id) DO NOTHING");
+        qb.push(" ON CONFLICT (trade_id, factor_id) DO NOTHING");
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(count)
@@ -2907,9 +3011,15 @@ struct InsertOutcome {
     skipped: usize,
 }
 
+// interstate.csv's trade_id references trade.py's domestic-flow row index
+// (interstate/BEA processing only ever reads the domestic trade.csv, never
+// imports/exports — confirmed via bea/main.py:152-154's tradeflow=='domestic'
+// gating), and domestic's trade_id_offset is 0 (see insert_trade_rows), so
+// the value needs no translation here — it's already correct as-is.
 async fn insert_interstate_rows(
     pool: &Pool<Postgres>,
     text: &str,
+    country: &str,
 ) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
     // Looked up by header name, not fixed position: interstate.csv's layout
@@ -2935,19 +3045,22 @@ async fn insert_interstate_rows(
     let industry_col    = headers.iter().position(|h| h == "bea_industry_code" || h == "industry_code").unwrap_or(10);
     let multiplier_col  = col("economic_multiplier", 11);
 
-    let mut rows: Vec<(String, i32, String, String, String, String, String, f64, String, String, f64)> = Vec::new();
+    let mut rows: Vec<(i32, i32, String, String, String, String, String, f64, String, String, f64)> = Vec::new();
     let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
-        let interstate_id = r.get(interstate_id_col).unwrap_or("").trim().to_string();
+        // interstate_id is a plain 1-based integer now (bea/main.py assigns
+        // it directly, no longer a {trade_id}-US-... composite string —
+        // see PLAN-merge.md's two-stage ID design), so no remapping is
+        // needed for it, only a type parse.
+        let interstate_id: i32 = match r.get(interstate_id_col).unwrap_or("").trim().parse() {
+            Ok(v) if v > 0 => v,
+            _ => { skipped += 1; continue; }
+        };
         let trade_id: i32 = match r.get(trade_id_col).unwrap_or("").trim().parse() {
             Ok(v) if v > 0 => v,
             _ => { skipped += 1; continue; }
         };
-        if interstate_id.is_empty() {
-            skipped += 1;
-            continue;
-        }
         let state1 = r.get(state1_col).unwrap_or("").to_string();
         let state2 = r.get(state2_col).unwrap_or("").to_string();
         let sector1 = r.get(sector1_col).unwrap_or("").to_string();
@@ -2960,12 +3073,13 @@ async fn insert_interstate_rows(
         rows.push((interstate_id, trade_id, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier));
     }
     let inserted = rows.len();
+    let ct = country.to_string();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate (interstate_id, trade_id, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
+            "INSERT INTO interstate (interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
         );
         qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
-            b.push_bind(iid).push_bind(tid).push_bind(s1).push_bind(s2)
+            b.push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
              .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
              .push_bind(cc).push_bind(ic).push_bind(*em);
         });
@@ -2991,21 +3105,21 @@ async fn insert_interstate_factor_rows(
     let idx_fv  = col("level");
     let idx_ft  = col("flow_type");
 
-    let mut rows: Vec<(String, i32, f64, String)> = Vec::new();
+    let mut rows: Vec<(i32, i32, f64, String)> = Vec::new();
     let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
 
-        let interstate_id = g(idx_iid).trim().to_string();
+        // interstate_id is a plain integer now — see insert_interstate_rows.
+        let interstate_id: i32 = match idx_iid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
+            Ok(v) if v > 0 => v,
+            _ => { skipped += 1; continue; }
+        };
         let factor_id: i32 = match idx_fid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
             Ok(v) if v > 0 => v,
             _ => { skipped += 1; continue; }
         };
-        if interstate_id.is_empty() {
-            skipped += 1;
-            continue;
-        }
         let level: f64 = g(idx_fv).parse().unwrap_or(0.0);
         let flow_type = g(idx_ft);
         rows.push((interstate_id, factor_id, level, flow_type));
@@ -3042,17 +3156,17 @@ async fn insert_interstate_estimate_rows(
     let idx_ei  = col("employment_impact");
     let idx_ft  = col("flow_type");
 
-    let mut rows: Vec<(String, f64, String)> = Vec::new();
+    let mut rows: Vec<(i32, f64, String)> = Vec::new();
     let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
 
-        let interstate_id = g(idx_iid).trim().to_string();
-        if interstate_id.is_empty() {
-            skipped += 1;
-            continue;
-        }
+        // interstate_id is a plain integer now — see insert_interstate_rows.
+        let interstate_id: i32 = match idx_iid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
+            Ok(v) if v > 0 => v,
+            _ => { skipped += 1; continue; }
+        };
         let employment_impact: f64 = g(idx_ei).parse().unwrap_or(0.0);
         let flow_type = g(idx_ft);
         rows.push((interstate_id, employment_impact, flow_type));
@@ -3152,7 +3266,13 @@ async fn db_insert_trade_data(
         },
     }
 
-    // 3. trade.csv + trade_factor.csv for each flow type
+    // 3. trade.csv + trade_factor.csv for each flow type. Captures the
+    // domestic flow's trade_id mapping specifically (insert_trade_rows
+    // returns a fresh one per flow_type) for step 4 below, since interstate
+    // processing only ever reads the domestic trade.csv (see
+    // insert_interstate_rows' doc comment). trade_id_offset (flow_type ->
+    // fixed offset) is applied independently inside insert_trade_rows and
+    // insert_trade_factor_rows — no mapping to thread through here.
     for flow_type in &["domestic", "imports", "exports"] {
         let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
         match fetch_github_csv(&trade_url).await {
@@ -3182,7 +3302,7 @@ async fn db_insert_trade_data(
         let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
         match fetch_github_csv(&interstate_url).await {
             Err(e) => errors.push(format!("interstate.csv: {e}")),
-            Ok(text) => match insert_interstate_rows(&pool, &text).await {
+            Ok(text) => match insert_interstate_rows(&pool, &text, &country).await {
                 Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("interstate.csv insert: {e}")),
             },
@@ -4459,10 +4579,20 @@ async fn execute_safe_query(pool: &Pool<Postgres>, query: &str) -> Result<serde_
                     } else if type_name == "float4" || type_name == "real" {
                         if let Ok(v) = row.try_get::<f32, _>(i) { json!(v) }
                         else { serde_json::Value::Null }
-                    } else if type_name == "float8" || type_name == "double precision"
-                           || type_name == "numeric" || type_name == "decimal" {
+                    } else if type_name == "float8" || type_name == "double precision" {
                         if let Ok(v) = row.try_get::<f64, _>(i) { json!(v) }
                         else { serde_json::Value::Null }
+                    } else if type_name == "numeric" || type_name == "decimal" {
+                        // sqlx refuses to decode Postgres NUMERIC directly into f64 (a real
+                        // type mismatch, not a null) — go through rust_decimal::Decimal first,
+                        // which sqlx supports natively for NUMERIC, then convert to f64 for the
+                        // JSON number (fine for display; full precision isn't needed here).
+                        if let Ok(v) = row.try_get::<sqlx::types::Decimal, _>(i) {
+                            use rust_decimal::prelude::ToPrimitive;
+                            v.to_f64().map(|f| json!(f)).unwrap_or(serde_json::Value::Null)
+                        } else {
+                            serde_json::Value::Null
+                        }
                     } else if type_name == "bool" || type_name == "boolean" {
                         if let Ok(v) = row.try_get::<bool, _>(i) { json!(v) }
                         else { serde_json::Value::Null }
