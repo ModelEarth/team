@@ -69,55 +69,10 @@ implemented in `team/src/merge_years.rs`, wired to `POST /api/db/merge-years/ins
 `ensure_merge_infra` fails at `CREATE EXTENSION IF NOT EXISTS dblink` before either procedure can
 even be created.
 
-### Activating `dblink` on the Azure server — needs someone with Azure (not just Postgres) access
-
-This is an **Azure resource-level change** (via the Portal or `az` CLI logged into the right
-subscription) — the Postgres `azure_pg_admin` login this app uses cannot do it from SQL. Whoever
-has Azure access for `modelearth-postgres-server` needs to:
-
-1. **Confirm which Azure Postgres offering this server is** — the exact `az` command group
-   differs between them. `profile/azure/azure.sh` in this repo calls `az postgres server ...`
-   (not `az postgres flexible-server ...`), which points at the older **Single Server** SKU, but
-   confirm directly rather than trust that:
-   ```bash
-   az postgres server show --name modelearth-postgres-server --resource-group <resource-group>
-   # If that 404s, it's Flexible Server instead:
-   az postgres flexible-server show --name modelearth-postgres-server --resource-group <resource-group>
-   ```
-2. **Add `dblink` to the server's extension allow-list** (`postgres_fdw` too, while at it, in case
-   a future pass prefers it) — the command depends on which of the two above worked:
-   - **Single Server:**
-     ```bash
-     az postgres server configuration set \
-       --resource-group <resource-group> \
-       --server-name modelearth-postgres-server \
-       --name azure.extensions \
-       --value dblink,postgres_fdw
-     ```
-   - **Flexible Server:**
-     ```bash
-     az postgres flexible-server parameter set \
-       --resource-group <resource-group> \
-       --server-name modelearth-postgres-server \
-       --name azure.extensions \
-       --value dblink,postgres_fdw
-     ```
-   - **Portal equivalent:** the server's page → **Settings → Server parameters** (Flexible
-     Server) or **Server parameters** under Single Server's older blade → find `azure.extensions`
-     → add `dblink` (and `postgres_fdw`) to its value → **Save**.
-   - This is a server-wide allow-list, not per-database — setting it once covers `industrydb` and
-     every `industrydb_{year}` database on this same server.
-3. **Restart may be required.** Some Azure Postgres parameters apply immediately; others need a
-   server restart to take effect. If `CREATE EXTENSION dblink` (step 4) still fails right after
-   saving, restart the server and retry.
-4. **Verify**, from any connection to the server (e.g. via the existing `/api/db/query` panel,
-   `SELECT`-only so run this as a raw check rather than through that endpoint):
-   ```sql
-   SHOW azure.extensions;              -- should now list dblink (and postgres_fdw)
-   ```
-   Then hit `POST /api/db/merge-years/inspect` with `{"year":"2019"}` — `ensure_merge_infra`'s
-   `CREATE EXTENSION IF NOT EXISTS dblink` will succeed on its own the next time either endpoint
-   is called; no separate manual `CREATE EXTENSION` step or app redeploy needed.
+**Azure activation steps for `dblink` now live in
+[pipeline/README.md](https://github.com/ModelEarth/pipeline/blob/main/README.md)**, not here —
+that's an Azure infrastructure change (Portal/`az` CLI), not something this SQL-focused plan file
+should own long-term.
 
 ## Schema changes (verified against the live `industrydb_2021` schema, not assumed)
 
