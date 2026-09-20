@@ -24,6 +24,7 @@ use std::sync::mpsc::channel;
 // use hyper_rustls::HttpsConnectorBuilder;
 
 mod import;
+mod merge_years;
 mod gemini_insights;
 mod claude_insights;
 mod unified_insights;
@@ -2285,6 +2286,14 @@ fn get_exiobase_provision_database_url_for(name: &str) -> Result<String, String>
 // creates the given year's database if it doesn't already exist. Requires
 // the EXIOBASE_PROVISION_* login to have CREATEDB privilege.
 async fn ensure_year_database_exists(db_name: &str) -> Result<(), String> {
+    ensure_database_exists(db_name).await
+}
+
+// Same as ensure_year_database_exists, but for any database name — used by
+// merge_years.rs to provision the shared EXIOBASE_NAME database itself
+// (e.g. "industrydb"), which isn't a "{EXIOBASE_NAME}_{year}" name and so
+// never goes through ensure_year_database_exists' year-specific caller.
+pub(crate) async fn ensure_database_exists(db_name: &str) -> Result<(), String> {
     let url = get_exiobase_provision_database_url()?;
     let pool = PgPoolOptions::new()
         .max_connections(1)
@@ -4752,6 +4761,8 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/insert-trade-data", web::post().to(db_insert_trade_data))
                             .route("/delete-database", web::post().to(db_delete_exiobase_database))
                             .route("/industry-schema", web::get().to(db_get_industry_schema))
+                            .route("/merge-years/inspect", web::post().to(merge_years::merge_years_inspect))
+                            .route("/merge-years/run", web::post().to(merge_years::merge_years_run))
                     )
                     .service(
                         web::scope("/import")

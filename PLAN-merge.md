@@ -31,23 +31,43 @@ without it. Kept as an unused one-off utility; safe to delete if not wanted for 
 
 **Not started: Stage 2** (merging both years into the shared `industrydb` — see below).
 
-## Mechanism: `dblink`, not the app layer
+## Mechanism: `dblink`, not the app layer — **blocked, not just unverified**
 
 Postgres procedures can't natively query across databases. `dblink` and `postgres_fdw` are both
-available on the Azure server (confirmed via `pg_available_extensions`; neither is installed in
-any database yet). Recommendation: **`dblink`**, not `postgres_fdw` — `postgres_fdw` requires
-predefining `SERVER`/`USER MAPPING`/`FOREIGN TABLE` objects per source database; `dblink` takes an
-ad-hoc connection string per call, which fits "merge whichever year I tell you to" better than
-pre-declaring a foreign table set per year.
+*known to the server binary* (`pg_available_extensions` lists both — confirmed), but that's not
+the same as being installable. **Actually tried `CREATE EXTENSION dblink` and `CREATE EXTENSION
+postgres_fdw` directly against `industrydb` (2026-09-20) — both fail identically:**
 
-A procedure living in `industrydb` opens a `dblink` connection to `industrydb_2021` (or whichever
-year), runs `INSERT INTO trade SELECT ... FROM dblink('dbname=industrydb_2021 ...', 'SELECT ...')
-AS t(...)`, and the row data never leaves the Postgres server. The Rust side becomes a thin
-wrapper: `CALL merge_exiobase_year_inspect(2021, 'industrydb_2021')` for the dry-run report, then
-`CALL merge_exiobase_year(2021, 'industrydb_2021')` for the real merge.
+```
+extension "dblink" is not allow-listed for "azure_pg_admin" users in Azure Database for PostgreSQL
+extension "postgres_fdw" is not allow-listed for "azure_pg_admin" users in Azure Database for PostgreSQL
+```
 
-`CREATE EXTENSION dblink;` needs to run once in `industrydb` (requires the `azure_pg_admin` role,
-which the provisioning account has).
+`azure_pg_admin` (the role the provisioning account has — confirmed via `pg_has_role`) is **not**
+sufficient on Azure Database for PostgreSQL; extensions also need to be on the server's
+`azure.extensions` allow-list, which is an **Azure infrastructure setting** (Portal, or `az
+postgres flexible-server parameter set --name azure.extensions --value dblink,postgres_fdw`),
+outside what any Postgres role/login can grant itself. `SHOW azure.extensions` on this server
+returns empty — nothing is allow-listed today.
+
+**This blocks the whole "merge lives inside Postgres via dblink" design as written.** Two ways
+forward, not decided yet:
+
+1. **Get `dblink` (or `postgres_fdw`) added to `azure.extensions`** via the Azure Portal or CLI —
+   needs actual Azure subscription/resource access, not just the Postgres login this app uses.
+   Once allow-listed, the schema and two procedures below (already written, unused) work as
+   designed with no changes.
+2. **Move the merge into the Rust app layer instead** — same source/target tables and the same
+   factor-remapping logic, but the row data round-trips through `partner_tools` (reads a page from
+   `industrydb_{year}` over one `sqlx` pool, writes it to `industrydb` over another) instead of
+   `dblink` doing it server-side. Contradicts this plan's original "never round-tripping through
+   the Rust app" preference, but needs no Azure infrastructure change and can run today.
+
+The schema below and the `merge_exiobase_year_inspect`/`merge_exiobase_year` SQL procedures are
+implemented in `team/src/merge_years.rs`, wired to `POST /api/db/merge-years/inspect` and
+`POST /api/db/merge-years/run` — but **unreachable until dblink is allow-listed**, since
+`ensure_merge_infra` fails at `CREATE EXTENSION IF NOT EXISTS dblink` before either procedure can
+even be created.
 
 ## Schema changes (verified against the live `industrydb_2021` schema, not assumed)
 
