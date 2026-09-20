@@ -46,13 +46,95 @@ rather than assumed:
   **2021's non-US files have the current (no-`year`-column) schema and verified-matching amounts —
   safe to load.** 2019's non-US files are **not** safe to load until regenerated with current
   `trade.py`.
-- A second, structural risk independent of the above: `trade_factor`/`interstate_factor` now have a
-  real FK to `trade`/`interstate` (added in Stage 1). If a second country's `trade.csv` row gets
-  skipped by the natural-key conflict, that country's `trade_factor.csv` row for the same physical
-  flow still computes its own (now-orphaned) `trade_id` via the flow_type offset and would violate
-  the FK — this hasn't been hit yet (only one country loaded per year so far) and isn't fixed;
-  loading a second country for the same year needs this addressed first (e.g. remap trade_factor's
-  trade_id through the natural key actually assigned, the same pattern already used for factor_id).
+- A second, more severe structural risk, found while designing the fix below and confirmed against
+  real data: **`trade_id` was never made unique *across* countries, only within one country's own
+  three files.** Every country's `trade.csv` independently restarts its row numbering at 1, so the
+  existing flow_type offset alone doesn't stop two different countries' files from computing the
+  identical `trade_id`. Checked directly: 2019 `CN/domestic/trade.csv` (rows 1–18,698) and
+  `US/domestic/trade.csv` (rows 1–19,043) both get offset 0 and would collide on `trade_id`
+  1–18,698 even though every one of those rows is a genuinely different physical flow (CN↔CN vs.
+  US↔US, not a duplicate). This isn't the natural-key `ON CONFLICT` case — it's a hard
+  `duplicate key value violates unique constraint "trade_pkey"` error on the *primary key itself*,
+  which no `ON CONFLICT` target aimed at the natural key would catch, since Postgres still enforces
+  every other constraint on the row regardless of which one `ON CONFLICT` names.
+
+### Fix design: per-country `trade_id` blocks + skip-before-insert (not yet implemented)
+
+Two independent problems, two independent parts of the fix — both needed, neither one alone is
+enough:
+
+**Part 1 — per-country block, fixes the `trade_id` PK collision.** Add one more tier on top of the
+existing per-flow_type offset (Stage 1) and per-year column (Stage 2):
+
+```
+trade_id = country_block_index * 3,000,000 + flow_type_offset(flow_type) + csv_row_index
+```
+
+- `flow_type_offset` is unchanged (domestic +0, imports +999,999, exports +1,999,999).
+- `country_block_index` is a small integer assigned **the first time a country is loaded into that
+  specific database** (`industrydb_{year}` and `industrydb` each keep their own — trade_id only
+  needs to be unique within a single database, and Stage 2's dblink/direct-import merge carries
+  `trade_id` over unchanged, so the two don't need matching indices for the same country).
+- **Zero migration needed for already-loaded data**: whichever country is loaded first into a given
+  database gets `country_block_index = 0`, reproducing today's exact `trade_id` values
+  (`0 * 3,000,000 = 0`) — US, already loaded everywhere, stays block 0 automatically as long as it's
+  never re-numbered.
+- **Headroom check, not assumed:** Exiobase has exactly 49 regions total (confirmed earlier in this
+  file), so `country_block_index` never exceeds 48. Worst case, 49 countries fully loaded:
+  `48 * 3,000,000 + 1,999,999 + ~999,999` ≈ 51 million — nowhere near `integer`'s ~2.1 billion
+  ceiling. 3,000,000 per country also leaves ~17x headroom over today's real max (175,726, 2019
+  exports) before the per-flow_type sub-block itself would need widening (a pre-existing, separately
+  tracked risk — see "Open questions" below).
+- **New tiny reference table**, one per database (`industrydb_{year}` and `industrydb` each get
+  their own): `country_block (country VARCHAR(10) PRIMARY KEY, block_index INT NOT NULL)`. Assigned
+  atomically so concurrent/repeated calls for the same country don't race:
+  ```sql
+  WITH next_idx AS (SELECT COALESCE(MAX(block_index), -1) + 1 AS idx FROM country_block)
+  INSERT INTO country_block (country, block_index)
+  SELECT $1, next_idx.idx FROM next_idx
+  ON CONFLICT (country) DO UPDATE SET country = country_block.country
+  RETURNING block_index;
+  ```
+  (The `DO UPDATE SET country = country_block.country` is a no-op write purely so `RETURNING` still
+  fires and returns the *existing* row's `block_index` when the country was already assigned one.)
+- `interstate`/`interstate_factor`/`interstate_estimate` need **no change** — gated to `country ==
+  "US"` only, so there's only ever one country's worth of `interstate_id` values, no cross-country
+  collision possible.
+
+**Part 2 — skip-before-insert using `trade.country`, fixes the FK-orphan risk *and* is the cheaper
+check you asked about.** Rather than let a duplicate physical flow reach Postgres and rely on
+`ON CONFLICT` to silently drop it (which is exactly where the FK-orphan risk comes from — the
+*losing* country's `trade_factor.csv` rows would still try to reference a `trade_id` that was never
+inserted), decide **before** parsing whether a row is redundant, using `trade.country`/`flow_type`
+(not `trade_id`) as the lookup key:
+
+1. Before processing a country's files, query `SELECT DISTINCT country, flow_type FROM trade
+   [WHERE year = ?]` once and build a `known: HashSet<(country, flow_type)>`.
+2. For a candidate `trade.csv` row `(region1, region2)`:
+   - if `region1 == region2` (domestic): already known iff `known.contains((region1, "domestic"))`.
+   - otherwise: already known iff `known.contains((region1, "exports"))` **or**
+     `known.contains((region2, "imports"))` — either side's own run would already have captured this
+     exact bilateral flow.
+3. If already known, **don't add the row to the insert batch at all** — record its `csv_trade_id` in
+   a per-flow_type `skipped: HashSet<i32>`.
+4. When parsing the matching `trade_factor.csv` (same flow_type), skip any row whose `trade_id`
+   column is in that same flow_type's `skipped` set — its data is redundant with whatever the
+   already-loaded country contributed for the same physical flow, so nothing is lost, only the
+   duplicate copy.
+5. Keep the existing `ON CONFLICT` clauses on `trade`/`trade_factor` as the safety net underneath
+   this — the pre-filter is an optimization and a way to sidestep the FK-orphan case cleanly, not a
+   replacement for the DB-level guarantee. A country loaded with only a *subset* of flow types (via
+   the new `flow_types` parameter) won't be fully "known" yet, so this still resolves correctly if a
+   later job fills in the missing flow type for that country.
+
+This directly answers what `trade.country` is for here: it's **not** used to relate or pick the
+correct `trade_id` — Part 1's country block keeps `trade_id` globally unique on its own, with no
+lookup needed at insert time. `trade.country` (paired with `flow_type`) is only the key for Part 2's
+"is this already loaded" check, which exists purely to avoid wasted work and the FK-orphan case, not
+to establish uniqueness.
+
+**Not yet implemented** — this section is the design; `country_block`, the block-index lookup, and
+the skip-before-insert filtering aren't in `merge_years.rs`/`main.rs` yet.
 
 **UI/backend support added** (not yet live-verified — see below): `POST /api/db/insert-trade-data`
 now accepts `flow_types: string[]` (default: all three) so a caller can load e.g. only `imports` for
