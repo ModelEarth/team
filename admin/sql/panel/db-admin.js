@@ -176,6 +176,39 @@ class DatabaseAdmin {
         if (clearSendStatusBtn) {
             clearSendStatusBtn.addEventListener('click', () => this.clearSendStatus());
         }
+
+        const sendYearInput = document.getElementById('send-year');
+        if (sendYearInput) {
+            sendYearInput.addEventListener('change', () => this.loadCountriesForYear(sendYearInput.value.trim()));
+            this.loadCountriesForYear(sendYearInput.value.trim());
+        }
+
+        const sendCountriesRefreshBtn = document.getElementById('send-countries-refresh');
+        if (sendCountriesRefreshBtn) {
+            sendCountriesRefreshBtn.addEventListener('click', () => {
+                if (sendYearInput) this.loadCountriesForYear(sendYearInput.value.trim());
+            });
+        }
+
+        const sendCountriesList = document.getElementById('send-countries-list');
+        if (sendCountriesList) {
+            sendCountriesList.addEventListener('change', (e) => {
+                if (e.target.classList.contains('send-country-cb')) {
+                    const country = e.target.dataset.country;
+                    const checked = e.target.checked;
+                    sendCountriesList
+                        .querySelectorAll(`.send-flow-cb[data-country="${country}"]`)
+                        .forEach(cb => { cb.checked = checked; });
+                } else if (e.target.classList.contains('send-flow-cb')) {
+                    const country = e.target.dataset.country;
+                    const flowBoxes = sendCountriesList.querySelectorAll(`.send-flow-cb[data-country="${country}"]`);
+                    const anyChecked = Array.from(flowBoxes).some(cb => cb.checked);
+                    const countryBox = sendCountriesList.querySelector(`.send-country-cb[data-country="${country}"]`);
+                    if (countryBox) countryBox.checked = anyChecked;
+                }
+                this.updateCountriesWarning();
+            });
+        }
     }
 
     displayConfig() {
@@ -538,14 +571,101 @@ class DatabaseAdmin {
     // inserts across all 9 tables); a single fetch() has no built-in
     // timeout, so it's left running rather than polled for completion —
     // only the live row-count status below is polled.
+    // Populates #send-countries-list from trade-data's GitHub directory
+    // listing for the given year (year/{year}/ subfolders are country
+    // codes). US defaults checked (all 3 flow types); every other country
+    // defaults unchecked — see updateCountriesWarning for why loading a
+    // second country isn't just "more of the same data".
+    async loadCountriesForYear(year) {
+        const container = document.getElementById('send-countries-list');
+        if (!container) return;
+
+        if (!/^\d{4}$/.test(String(year))) {
+            container.innerHTML = '<span style="color: var(--text-secondary); font-size:14px;">Enter a valid year first.</span>';
+            return;
+        }
+
+        container.innerHTML = `<span style="color: var(--text-secondary); font-size:14px;">Loading countries for ${year}&hellip;</span>`;
+        try {
+            const res = await fetch(`https://api.github.com/repos/ModelEarth/trade-data/contents/year/${year}`);
+            if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
+            const listing = await res.json();
+            const countries = listing.filter(e => e.type === 'dir').map(e => e.name).sort();
+            if (!countries.length) {
+                container.innerHTML = `<span style="color: var(--text-secondary); font-size:14px;">No countries found for ${year} in trade-data.</span>`;
+                return;
+            }
+            container.innerHTML = countries.map(c => this.renderCountryRow(c)).join('');
+            this.updateCountriesWarning();
+        } catch (error) {
+            container.innerHTML = `<span style="color: var(--accent-red); font-size:14px;">Failed to load country list: ${error.message}</span>`;
+        }
+    }
+
+    renderCountryRow(country) {
+        const checked = country === 'US' ? 'checked' : '';
+        const flow = (name) => `
+            <label style="display:flex; align-items:center; gap:4px; font-size:12px; color: var(--text-secondary); cursor:pointer;">
+                <input type="checkbox" class="send-flow-cb" data-country="${country}" data-flow="${name}" ${checked}> ${name}
+            </label>`;
+        return `
+            <div class="send-country-row" style="display:flex; align-items:center; gap:10px; padding:6px 8px; background: var(--bg-secondary); border-radius:6px; border:1px solid var(--border-light);">
+                <label style="display:flex; align-items:center; gap:6px; font-weight:600; min-width:36px; cursor:pointer;">
+                    <input type="checkbox" class="send-country-cb" data-country="${country}" ${checked}> ${country}
+                </label>
+                ${flow('domestic')}${flow('imports')}${flow('exports')}
+            </div>`;
+    }
+
+    // Known, confirmed issue (not just a theoretical risk): a bilateral
+    // flow like region1=CN,region2=US shows up in both CN's exports file
+    // and US's imports file. For 2021 this is safe — verified 4,702/4,702
+    // shared CN<->US keys have byte-identical amounts (a pure lookup into
+    // Exiobase's country-independent global Z matrix, so trade.py should
+    // always produce this). For 2019, it is NOT safe as-is: the non-US
+    // 2019 files carry a stray "year" column trade.py no longer emits
+    // (confirmed across AU/BR/CN/DE/JP), meaning they were generated by an
+    // older pipeline run, and checked amounts diverge from US's own 2019
+    // data for the same keys (~95% of a 2000-key sample differed, some by
+    // 5-10x) — almost certainly stale or fallback (synthetic) data, not a
+    // duplicate of something already correct. See PLAN-merge.md.
+    updateCountriesWarning() {
+        const container = document.getElementById('send-countries-list');
+        const warning = document.getElementById('send-countries-warning');
+        const yearInput = document.getElementById('send-year');
+        if (!container || !warning) return;
+
+        const selected = Array.from(container.querySelectorAll('.send-country-cb:checked')).map(cb => cb.dataset.country);
+        const year = yearInput ? yearInput.value.trim() : '';
+        const nonUsSelected = selected.filter(c => c !== 'US');
+
+        if (year === '2019' && nonUsSelected.length > 0) {
+            warning.style.display = 'block';
+            warning.innerHTML = `<strong>2019 non-US data is confirmed stale/inconsistent</strong> — ` +
+                `${nonUsSelected.join(', ')} 2019 file(s) were generated by an older pipeline run ` +
+                `(missing schema marker) and their amounts don't match US's own 2019 data for the ` +
+                `same bilateral flows. Regenerate with the current <code>trade.py</code> before ` +
+                `sending 2019 for these countries. See ` +
+                `<a href="https://github.com/ModelEarth/team/blob/main/PLAN-merge.md" target="_blank">PLAN-merge.md</a>.`;
+        } else if (nonUsSelected.length > 0) {
+            warning.style.display = 'block';
+            warning.innerHTML = `<strong>Note:</strong> a bilateral flow (e.g. region1=CN,region2=US) ` +
+                `appears in both countries' files (US's imports and CN's exports). The natural-key ` +
+                `constraint on <code>trade</code> keeps only one copy, so this is safe as long as both ` +
+                `countries' amounts genuinely agree for this year (verified true for 2021) — see ` +
+                `<a href="https://github.com/ModelEarth/team/blob/main/PLAN-merge.md" target="_blank">PLAN-merge.md</a>.`;
+        } else {
+            warning.style.display = 'none';
+        }
+    }
+
     async sendTradeData() {
         const yearInput = document.getElementById('send-year');
-        const countryInput = document.getElementById('send-country');
         const targetSelect = document.getElementById('send-target');
-        if (!yearInput || !countryInput || !targetSelect) return;
+        const countriesContainer = document.getElementById('send-countries-list');
+        if (!yearInput || !targetSelect || !countriesContainer) return;
 
         const year = yearInput.value.trim();
-        const country = (countryInput.value.trim() || 'US').toUpperCase();
         const target = targetSelect.value; // '' = new annual database, 'industrydb' = shared multi-year db
 
         if (!/^\d{4}$/.test(year)) {
@@ -553,15 +673,50 @@ class DatabaseAdmin {
             return;
         }
 
+        // One job per checked country, with only its checked flow types.
+        const jobs = [];
+        countriesContainer.querySelectorAll('.send-country-cb').forEach(cb => {
+            const country = cb.dataset.country;
+            const flowTypes = Array.from(
+                countriesContainer.querySelectorAll(`.send-flow-cb[data-country="${country}"]:checked`)
+            ).map(fb => fb.dataset.flow);
+            if (flowTypes.length > 0) jobs.push({ country, flowTypes });
+        });
+
+        if (jobs.length === 0) {
+            this.showError('Select at least one country (and flow type)', 'send-result');
+            return;
+        }
+
         const destinationLabel = target === 'industrydb'
             ? `the shared multi-year IndustryDB (industrydb, tagged year=${year})`
             : `a new annual database (industrydb_${year})`;
 
+        // ~20 minutes measured for one full US year (all 3 flow types +
+        // interstate); rough per-job estimate scales down for fewer flow
+        // types. Just a guide — actual time varies by country size.
+        const estimateMinutes = jobs.reduce((total, job) => {
+            const interstateBonus = (job.country === 'US' && job.flowTypes.includes('domestic')) ? 4 : 0;
+            return total + 2 + job.flowTypes.length * 6 + interstateBonus;
+        }, 0);
+
+        const nonUsJobs = jobs.filter(j => j.country !== 'US');
+        const staleWarning = (year === '2019' && nonUsJobs.length > 0)
+            ? `\n\n⚠ CONFIRMED STALE DATA: ${nonUsJobs.map(j => j.country).join(', ')} 2019 file(s) are from an ` +
+              `older pipeline run with amounts that don't match US's own 2019 data for shared flows. ` +
+              `Regenerate with current trade.py first — see PLAN-merge.md.`
+            : (nonUsJobs.length > 0
+                ? `\n\nNote: non-US countries share bilateral flows with US's data — verified consistent for 2021, see PLAN-merge.md.`
+                : '');
+
+        const jobList = jobs.map(j => `${j.country} (${j.flowTypes.join(', ')})`).join('\n  ');
         const confirmed = confirm(
-            `Send ${country} ${year} trade data to Azure, into ${destinationLabel}?\n\n` +
-            `This takes about 20 minutes for a full year/country (measured on 2019; varies by ` +
-            `year/country size). The server keeps running even if you close this tab — the ` +
-            `status log below polls live row counts every 10 seconds while it waits.`
+            `Send ${year} trade data to Azure, into ${destinationLabel}?\n\n` +
+            `${jobs.length} job(s), run one after another:\n  ${jobList}\n\n` +
+            `Estimated total time: ~${estimateMinutes} minutes (rough; varies by country size). ` +
+            `The server keeps running each job even if you close this tab — the status log below ` +
+            `polls live row counts every 10 seconds while it waits.` +
+            staleWarning
         );
         if (!confirmed) return;
 
@@ -571,10 +726,9 @@ class DatabaseAdmin {
         if (spinner) spinner.style.display = 'inline-block';
 
         this.clearSendStatus();
-        this.addSendStatus(`Starting ${country} ${year} -> ${destinationLabel}...`);
 
-        // Live row-count polling while the main request runs server-side —
-        // same connection/query shape as this panel's own Test Simple Query.
+        // Live row-count polling while each job runs server-side — same
+        // connection/query shape as this panel's own Test Simple Query.
         const pollConnection = target === 'industrydb' ? 'EXIOBASE' : `EXIOBASE_${year}`;
         const yearFilter = target === 'industrydb' ? ` WHERE year=${parseInt(year, 10)}` : '';
         const pollQuery = `SELECT (SELECT count(*) FROM trade${yearFilter}) AS trade, ` +
@@ -605,32 +759,42 @@ class DatabaseAdmin {
         };
         setTimeout(pollOnce, 10000);
 
-        const body = { year, country };
-        if (target) body.target = target;
+        let anyError = false;
+        for (let i = 0; i < jobs.length; i++) {
+            const job = jobs[i];
+            this.addSendStatus(`Job ${i + 1}/${jobs.length}: ${job.country} (${job.flowTypes.join(', ')}) -> ${destinationLabel}...`);
 
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/db/insert-trade-data`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const result = await response.json();
-            polling = false;
-            if (result.success) {
-                this.addSendStatus(`Done. ${JSON.stringify(result.inserted)}`);
-                this.showSuccess(`${country} ${year} sent to Azure.`, 'send-result');
-            } else {
-                this.addSendStatus(`Completed with errors: ${JSON.stringify(result.errors)}`);
-                this.showError('Completed with errors — see status log below.', 'send-result');
+            const body = { year, country: job.country, flow_types: job.flowTypes };
+            if (target) body.target = target;
+
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/db/insert-trade-data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    this.addSendStatus(`Job ${i + 1}/${jobs.length} (${job.country}) done. ${JSON.stringify(result.inserted)}`);
+                } else {
+                    anyError = true;
+                    this.addSendStatus(`Job ${i + 1}/${jobs.length} (${job.country}) completed with errors: ${JSON.stringify(result.errors)}`);
+                }
+            } catch (error) {
+                anyError = true;
+                this.addSendStatus(`Job ${i + 1}/${jobs.length} (${job.country}) request failed: ${error.message}`);
             }
-        } catch (error) {
-            polling = false;
-            this.addSendStatus(`Request failed: ${error.message}`);
-            this.showError(`Send failed: ${error.message}`, 'send-result');
-        } finally {
-            if (sendBtn) sendBtn.disabled = false;
-            if (spinner) spinner.style.display = 'none';
         }
+
+        polling = false;
+        if (anyError) {
+            this.showError('Completed with errors on at least one job — see status log below.', 'send-result');
+        } else {
+            this.showSuccess(`${jobs.length} job(s) for ${year} sent to Azure.`, 'send-result');
+        }
+
+        if (sendBtn) sendBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
     }
 
     async makeRequest(endpoint, options = {}) {

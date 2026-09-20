@@ -530,15 +530,24 @@
                     <input type="number" id="send-year" value="2023" min="2010" max="2035" style="width: 100px; padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;">
                 </div>
                 <div>
-                    <label for="send-country" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Country:</label>
-                    <input type="text" id="send-country" value="US" maxlength="2" style="width: 70px; padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; text-transform: uppercase;">
-                </div>
-                <div>
                     <label for="send-target" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Destination:</label>
                     <select id="send-target" style="padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; min-width: 300px;">
                         <option value="">New Annual Database (industrydb_&lbrace;year&rbrace;)</option>
                         <option value="industrydb">Add to Shared Multi-Year IndustryDB (industrydb)</option>
                     </select>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary" id="send-countries-refresh">Refresh Country List</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">
+                    Countries &amp; flow types (checking a country checks all three; each flow type can be unchecked individually):
+                </label>
+                <div id="send-countries-warning" class="error-message" style="display: none;"></div>
+                <div id="send-countries-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-md); max-height: 320px; overflow-y: auto;">
+                    <span style="color: var(--text-secondary); font-size: 14px;">Loading countries for this year&hellip;</span>
                 </div>
             </div>
 

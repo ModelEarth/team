@@ -19,9 +19,58 @@ in `industrydb WHERE year=2019` matches `industrydb_2019` exactly (`trade` 358,4
 1,449,277, `interstate` 171,136, `interstate_factor` 1,711,360), `trade_id` blocks non-colliding
 (domestic 1–19,043, imports 1,000,000–1,163,654, exports 2,000,000–2,175,725), and the factor_id
 remap produced a clean identity mapping (1–728, zero orphaned `trade_factor` rows) since `factor`
-was empty before this, the first year ever merged. **2021 direct import kicked off, in progress**
-— will verify the remap logic's real behavior once `factor` is non-empty (the actual test of
-new-stressor-gets-fresh-id vs. matching-stressor-reuses-id, not just the identity-mapping case).
+was empty before this, the first year ever merged. **2021 direct import also verified complete
+and correct**: `trade`/`trade_factor`/`interstate`/`interstate_factor` all match `industrydb_2021`
+exactly, `trade_id` blocks non-colliding (domestic 1–17,135, imports 1,000,000–1,146,555, exports
+2,000,000–2,146,193), and — the real test of the remap, now that `factor` was non-empty — `factor`
+stayed at 728 rows after merging 2021 (every 2021 stressor matched an existing 2019 one by
+`(extension, stressor)`, zero new rows, zero orphaned `trade_factor`/`interstate_factor` rows).
+**Both years fully in `industrydb` now — US only.**
+
+## Multi-country loading — 2019 non-US data confirmed stale; 2021 confirmed safe
+
+Other countries' 2019/2021 CSVs were generated separately (not yet loaded into any database).
+Loading more than one country risks two distinct issues, checked directly against the actual data
+rather than assumed:
+
+- **Bilateral flows appear in two countries' files** — e.g. `region1=CN,region2=US` appears in both
+  CN's `exports` file and US's `imports` file. `trade`'s `UNIQUE(region1,region2,industry1,industry2)`
+  natural key means the second insert is silently skipped, which is fine **only if both countries
+  agree on the amount** — trade.py's extraction is a pure lookup into Exiobase's single global,
+  country-independent Z matrix (`trade.py:464-557`), so it should always agree.
+- **Checked empirically, and the two years disagree:** 2021's shared CN↔US keys are byte-identical
+  between `US/imports` and `CN/exports` (4,702/4,702 exact matches, verified). **2019's are not** —
+  ~95% of a 2,000-key sample differ, some 5-10x. Root cause found: every 2019 non-US country file
+  (checked AU, BR, CN, DE, JP) carries a stray `year` column trade.py no longer emits — they're from
+  an older pipeline run, not the current one, and shouldn't be trusted until regenerated.
+  **2021's non-US files have the current (no-`year`-column) schema and verified-matching amounts —
+  safe to load.** 2019's non-US files are **not** safe to load until regenerated with current
+  `trade.py`.
+- A second, structural risk independent of the above: `trade_factor`/`interstate_factor` now have a
+  real FK to `trade`/`interstate` (added in Stage 1). If a second country's `trade.csv` row gets
+  skipped by the natural-key conflict, that country's `trade_factor.csv` row for the same physical
+  flow still computes its own (now-orphaned) `trade_id` via the flow_type offset and would violate
+  the FK — this hasn't been hit yet (only one country loaded per year so far) and isn't fixed;
+  loading a second country for the same year needs this addressed first (e.g. remap trade_factor's
+  trade_id through the natural key actually assigned, the same pattern already used for factor_id).
+
+**UI/backend support added** (not yet live-verified — see below): `POST /api/db/insert-trade-data`
+now accepts `flow_types: string[]` (default: all three) so a caller can load e.g. only `imports` for
+a country whose other flow types were already covered by a different country's data. The
+`team/admin/sql/panel` "Send Trade Data to Azure" card now lists per-year countries (from
+`trade-data`'s GitHub directory listing) with domestic/imports/exports checkboxes per country, and
+surfaces the 2019 stale-data warning inline before Send is clicked.
+
+**Open issue, not yet root-caused:** live smoke-testing `POST /api/db/insert-trade-data` (both the
+per-year and `target=industrydb` paths, and with the exact original request shape that worked for
+the full 2019/2021 runs) hung indefinitely at the very first step (fetching `factor.csv` from
+GitHub) on 2026-09-20, across multiple clean server restarts. Direct `curl` to the same GitHub URLs
+from the same machine succeeded instantly, so this looks specific to the Rust process's own
+outbound network calls, not GitHub or the network path in general — worth checking for a stuck
+firewall/network-permission prompt for the freshly-rebuilt `partner_tools` binary before assuming a
+code regression (the `flow_types` change was ruled out: the plain original request shape, unchanged
+by this session's edits, hangs identically). **Not yet confirmed working end-to-end after the
+`flow_types` change** — re-verify before relying on it.
 
 **Stage 1 complete for 2019 and 2021.** `trade.csv`/`trade_factor.csv`/`interstate.csv`/
 `interstate_factor.csv` fixed via `exiobase/tradeflow/fix_trade_ids.py`, committed and pushed to

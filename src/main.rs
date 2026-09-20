@@ -2762,7 +2762,12 @@ async fn db_init_industry_tables(_data: web::Data<Arc<ApiState>>) -> Result<Http
 
 // ---- CSV insert helpers ----
 
-async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+// Shared by upsert_factor_rows (per-year database, raw factor_id) and
+// merge_years::upsert_factor_rows_merged (industrydb, remapped by
+// (extension, stressor)) — factor.csv's layout (factor_id, unit, stressor,
+// extension) predates header-based lookup, so both read it the same
+// fixed-position way; only what happens to factor_id afterward differs.
+pub(crate) fn parse_factor_csv(text: &str) -> Result<Vec<(i32, String, String, String)>, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
     let mut rows: Vec<(i32, String, String, String)> = Vec::new();
     for rec in rdr.records() {
@@ -2773,6 +2778,11 @@ async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, 
         let extension = r.get(3).unwrap_or("").to_string();
         rows.push((factor_id, unit, stressor, extension));
     }
+    Ok(rows)
+}
+
+async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
+    let rows = parse_factor_csv(text)?;
     let count = rows.len();
     for chunk in rows.chunks(500) {
         let mut qb = sqlx::QueryBuilder::<Postgres>::new(
@@ -2905,8 +2915,16 @@ fn trade_id_offset(flow_type: &str) -> i32 {
     }
 }
 
+// year: None for the per-year database (industrydb_{year} — trade_id
+// alone is the PK, natural key is unscoped); Some(y) to insert straight
+// into the shared industrydb instead, adding y as a real column and
+// scoping the natural-key conflict target by year — see PLAN-merge.md's
+// Stage 2 and merge_years.rs's direct-import path. Both cases share the
+// same CSV parsing/offset logic; only the INSERT's column list and
+// ON CONFLICT target differ.
 async fn insert_trade_rows(
     pool: &Pool<Postgres>,
+    year: Option<i32>,
     text: &str,
     flow_type: &str,
     country: &str,
@@ -2946,15 +2964,32 @@ async fn insert_trade_rows(
     let ft = flow_type.to_string();
     let ct = country.to_string();
     for chunk in rows.chunks(500) {
-        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO trade (trade_id, region1, region2, industry1, industry2, amount, flow_type, country) "
-        );
-        qb.push_values(chunk, |mut b, (tid, r1, r2, i1, i2, amt)| {
-            b.push_bind(tid).push_bind(r1).push_bind(r2)
-             .push_bind(i1).push_bind(i2).push_bind(*amt as f64)
-             .push_bind(&ft).push_bind(&ct);
-        });
-        qb.push(" ON CONFLICT (region1, region2, industry1, industry2) DO NOTHING");
+        let mut qb = match year {
+            Some(y) => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO trade (year, trade_id, region1, region2, industry1, industry2, amount, flow_type, country) "
+                );
+                qb.push_values(chunk, |mut b, (tid, r1, r2, i1, i2, amt)| {
+                    b.push_bind(y).push_bind(tid).push_bind(r1).push_bind(r2)
+                     .push_bind(i1).push_bind(i2).push_bind(*amt)
+                     .push_bind(&ft).push_bind(&ct);
+                });
+                qb.push(" ON CONFLICT (year, region1, region2, industry1, industry2) DO NOTHING");
+                qb
+            }
+            None => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO trade (trade_id, region1, region2, industry1, industry2, amount, flow_type, country) "
+                );
+                qb.push_values(chunk, |mut b, (tid, r1, r2, i1, i2, amt)| {
+                    b.push_bind(tid).push_bind(r1).push_bind(r2)
+                     .push_bind(i1).push_bind(i2).push_bind(*amt)
+                     .push_bind(&ft).push_bind(&ct);
+                });
+                qb.push(" ON CONFLICT (region1, region2, industry1, industry2) DO NOTHING");
+                qb
+            }
+        };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(count)
@@ -2964,12 +2999,20 @@ async fn insert_trade_rows(
 // independently from the same flow_type — no mapping table, no dependency
 // on insert_trade_rows having run first, since it's the identical
 // deterministic formula applied to trade_factor.csv's own trade_id column.
+// year/factor_map: None/None for the per-year database (factor_id used
+// as-is); Some(y)/Some(map) to insert straight into industrydb, adding y
+// and remapping factor_id through the map merge_years::
+// upsert_factor_rows_merged already built for this year (see
+// PLAN-merge.md's "factor table" section) — a source factor_id missing
+// from the map is skipped rather than inserted with a wrong/guessed id.
 async fn insert_trade_factor_rows(
     pool: &Pool<Postgres>,
+    year: Option<i32>,
     text: &str,
     flow_type: &str,
     country: &str,
-) -> Result<usize, String> {
+    factor_map: Option<&std::collections::HashMap<i32, i32>>,
+) -> Result<InsertOutcome, String> {
     // Header-based lookup: trade_factor.csv (trade.py) has always had only
     // three columns (trade_id, factor_id, level) — a fourth 'coefficient'
     // column was never produced. The previous fixed-position reader (0,1,2,3)
@@ -2985,29 +3028,53 @@ async fn insert_trade_factor_rows(
     let level_col = col("level", 2);
     let offset = trade_id_offset(flow_type);
     let mut rows: Vec<(i32, i32, f64)> = Vec::new();
+    let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
         let trade_id = csv_trade_id + offset;
-        let factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
+        let csv_factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
+        let factor_id = match factor_map {
+            Some(map) => match map.get(&csv_factor_id) {
+                Some(&fid) => fid,
+                None => { skipped += 1; continue; }
+            },
+            None => csv_factor_id,
+        };
         let level: f64 = r.get(level_col).unwrap_or("").parse().unwrap_or(0.0);
         rows.push((trade_id, factor_id, level));
     }
-    let count = rows.len();
+    let inserted = rows.len();
     let ft = flow_type.to_string();
     let ct = country.to_string();
     for chunk in rows.chunks(500) {
-        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO trade_factor (trade_id, country, flow_type, factor_id, level) "
-        );
-        qb.push_values(chunk, |mut b, (tid, fid, imp)| {
-            b.push_bind(tid).push_bind(&ct).push_bind(&ft)
-             .push_bind(fid).push_bind(*imp);
-        });
-        qb.push(" ON CONFLICT (trade_id, factor_id) DO NOTHING");
+        let mut qb = match year {
+            Some(y) => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO trade_factor (year, trade_id, country, flow_type, factor_id, level) "
+                );
+                qb.push_values(chunk, |mut b, (tid, fid, imp)| {
+                    b.push_bind(y).push_bind(tid).push_bind(&ct).push_bind(&ft)
+                     .push_bind(fid).push_bind(*imp);
+                });
+                qb.push(" ON CONFLICT (year, trade_id, factor_id) DO NOTHING");
+                qb
+            }
+            None => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO trade_factor (trade_id, country, flow_type, factor_id, level) "
+                );
+                qb.push_values(chunk, |mut b, (tid, fid, imp)| {
+                    b.push_bind(tid).push_bind(&ct).push_bind(&ft)
+                     .push_bind(fid).push_bind(*imp);
+                });
+                qb.push(" ON CONFLICT (trade_id, factor_id) DO NOTHING");
+                qb
+            }
+        };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
-    Ok(count)
+    Ok(InsertOutcome { inserted, skipped })
 }
 
 // Returned by the interstate insert functions instead of a bare row count,
@@ -3027,6 +3094,7 @@ struct InsertOutcome {
 // the value needs no translation here — it's already correct as-is.
 async fn insert_interstate_rows(
     pool: &Pool<Postgres>,
+    year: Option<i32>,
     text: &str,
     country: &str,
 ) -> Result<InsertOutcome, String> {
@@ -3084,26 +3152,47 @@ async fn insert_interstate_rows(
     let inserted = rows.len();
     let ct = country.to_string();
     for chunk in rows.chunks(500) {
-        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate (interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
-        );
-        qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
-            b.push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
-             .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
-             .push_bind(cc).push_bind(ic).push_bind(*em);
-        });
-        qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
+        let mut qb = match year {
+            Some(y) => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate (year, interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
+                );
+                qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
+                    b.push_bind(y).push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
+                     .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
+                     .push_bind(cc).push_bind(ic).push_bind(*em);
+                });
+                qb.push(" ON CONFLICT (year, interstate_id) DO NOTHING");
+                qb
+            }
+            None => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate (interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
+                );
+                qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
+                    b.push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
+                     .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
+                     .push_bind(cc).push_bind(ic).push_bind(*em);
+                });
+                qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
+                qb
+            }
+        };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(InsertOutcome { inserted, skipped })
 }
 
+// year/factor_map: None/None for the per-year database; Some(y)/Some(map)
+// for the direct-to-industrydb path — see insert_trade_factor_rows.
 // Real per-factor rows only — interstate_factor.csv (bea/main.py's
 // satellite-data path). factor_id is never null in this file, so it's
 // looked up directly by header name with no legacy fallback.
 async fn insert_interstate_factor_rows(
     pool: &Pool<Postgres>,
+    year: Option<i32>,
     text: &str,
+    factor_map: Option<&std::collections::HashMap<i32, i32>>,
 ) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
     let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
@@ -3125,9 +3214,16 @@ async fn insert_interstate_factor_rows(
             Ok(v) if v > 0 => v,
             _ => { skipped += 1; continue; }
         };
-        let factor_id: i32 = match idx_fid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
+        let csv_factor_id: i32 = match idx_fid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
             Ok(v) if v > 0 => v,
             _ => { skipped += 1; continue; }
+        };
+        let factor_id = match factor_map {
+            Some(map) => match map.get(&csv_factor_id) {
+                Some(&fid) => fid,
+                None => { skipped += 1; continue; }
+            },
+            None => csv_factor_id,
         };
         let level: f64 = g(idx_fv).parse().unwrap_or(0.0);
         let flow_type = g(idx_ft);
@@ -3136,13 +3232,28 @@ async fn insert_interstate_factor_rows(
 
     let inserted = rows.len();
     for chunk in rows.chunks(500) {
-        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate_factor (interstate_id, factor_id, level, flow_type) "
-        );
-        qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
-            b.push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
-        });
-        qb.push(" ON CONFLICT (interstate_id, factor_id) DO NOTHING");
+        let mut qb = match year {
+            Some(y) => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate_factor (year, interstate_id, factor_id, level, flow_type) "
+                );
+                qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
+                    b.push_bind(y).push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
+                });
+                qb.push(" ON CONFLICT (year, interstate_id, factor_id) DO NOTHING");
+                qb
+            }
+            None => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate_factor (interstate_id, factor_id, level, flow_type) "
+                );
+                qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
+                    b.push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
+                });
+                qb.push(" ON CONFLICT (interstate_id, factor_id) DO NOTHING");
+                qb
+            }
+        };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(InsertOutcome { inserted, skipped })
@@ -3152,9 +3263,11 @@ async fn insert_interstate_factor_rows(
 // path, when no real per-factor breakdown is possible). factor_id and
 // coefficient are deliberately not read here: the source sets them to
 // fixed placeholders (-1 / 1.0) that are never recalculated in this path,
-// so they carry no information.
+// so they carry no information. year: None for the per-year database,
+// Some(y) for the direct-to-industrydb path.
 async fn insert_interstate_estimate_rows(
     pool: &Pool<Postgres>,
+    year: Option<i32>,
     text: &str,
 ) -> Result<InsertOutcome, String> {
     let mut rdr = csv::Reader::from_reader(text.as_bytes());
@@ -3183,13 +3296,28 @@ async fn insert_interstate_estimate_rows(
 
     let inserted = rows.len();
     for chunk in rows.chunks(500) {
-        let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-            "INSERT INTO interstate_estimate (interstate_id, employment_impact, flow_type) "
-        );
-        qb.push_values(chunk, |mut b, (iid, ei, ft)| {
-            b.push_bind(iid).push_bind(*ei).push_bind(ft);
-        });
-        qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
+        let mut qb = match year {
+            Some(y) => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate_estimate (year, interstate_id, employment_impact, flow_type) "
+                );
+                qb.push_values(chunk, |mut b, (iid, ei, ft)| {
+                    b.push_bind(y).push_bind(iid).push_bind(*ei).push_bind(ft);
+                });
+                qb.push(" ON CONFLICT (year, interstate_id) DO NOTHING");
+                qb
+            }
+            None => {
+                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
+                    "INSERT INTO interstate_estimate (interstate_id, employment_impact, flow_type) "
+                );
+                qb.push_values(chunk, |mut b, (iid, ei, ft)| {
+                    b.push_bind(iid).push_bind(*ei).push_bind(ft);
+                });
+                qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
+                qb
+            }
+        };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(InsertOutcome { inserted, skipped })
@@ -3199,7 +3327,23 @@ async fn insert_interstate_estimate_rows(
 struct InsertTradeDataRequest {
     year: String,
     country: String,
+    // "industrydb" pushes straight into the shared, multi-year database
+    // (industrydb) with a real `year` column on the 4 flow tables — the
+    // Stage 2 destination from PLAN-merge.md — instead of the normal
+    // per-year industrydb_{year}. Anything else (including omitted)
+    // keeps the existing per-year behavior.
+    #[serde(default)]
+    target: Option<String>,
+    // Which of domestic/imports/exports to load — omitted or empty means
+    // all three (the original, only behavior). Added for multi-country
+    // loads, where a caller may want e.g. only "imports" for a country
+    // already covered by another country's "exports" — see the FK-
+    // violation risk noted below interstate's gating.
+    #[serde(default)]
+    flow_types: Option<Vec<String>>,
 }
+
+const ALL_FLOW_TYPES: [&str; 3] = ["domestic", "imports", "exports"];
 
 // POST /api/db/insert-trade-data
 async fn db_insert_trade_data(
@@ -3215,6 +3359,15 @@ async fn db_insert_trade_data(
             "success": false, "error": "Invalid year"
         }))),
     };
+
+    let flow_types: Vec<String> = match &req.flow_types {
+        Some(v) if !v.is_empty() => v.clone(),
+        _ => ALL_FLOW_TYPES.iter().map(|s| s.to_string()).collect(),
+    };
+
+    if req.target.as_deref() == Some("industrydb") {
+        return merge_years::insert_trade_data_direct(year_str, country, flow_types).await;
+    }
 
     let pool = match connect_to_exiobase_year(&year_str).await {
         Ok(p) => p,
@@ -3282,11 +3435,11 @@ async fn db_insert_trade_data(
     // insert_interstate_rows' doc comment). trade_id_offset (flow_type ->
     // fixed offset) is applied independently inside insert_trade_rows and
     // insert_trade_factor_rows — no mapping to thread through here.
-    for flow_type in &["domestic", "imports", "exports"] {
+    for flow_type in &flow_types {
         let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
         match fetch_github_csv(&trade_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
-            Ok(text) => match insert_trade_rows(&pool, &text, flow_type, &country).await {
+            Ok(text) => match insert_trade_rows(&pool, None, &text, flow_type, &country).await {
                 Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n})),
                 Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
             },
@@ -3295,8 +3448,8 @@ async fn db_insert_trade_data(
         let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
         match fetch_github_csv(&tf_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
-            Ok(text) => match insert_trade_factor_rows(&pool, &text, flow_type, &country).await {
-                Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": n})),
+            Ok(text) => match insert_trade_factor_rows(&pool, None, &text, flow_type, &country, None).await {
+                Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
             },
         }
@@ -3306,12 +3459,17 @@ async fn db_insert_trade_data(
     // interstate_factor.csv/interstate_estimate.csv (renamed from
     // bea_trade_detail.csv/state_trade_flows.csv — see bea/README.md) are
     // the BEA-Sector-level primary files; the full-detail "-lg" siblings are
-    // gitignored and never published, so never fetched here.
-    if country == "US" {
+    // gitignored and never published, so never fetched here. Also gated on
+    // "domestic" being one of the selected flow_types: interstate.csv's
+    // trade_id references that same domestic trade.csv's rows (see
+    // insert_interstate_rows' doc comment) — loading interstate without
+    // domestic would try to FK-reference trade_id values that were never
+    // inserted.
+    if country == "US" && flow_types.iter().any(|f| f == "domestic") {
         let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
         match fetch_github_csv(&interstate_url).await {
             Err(e) => errors.push(format!("interstate.csv: {e}")),
-            Ok(text) => match insert_interstate_rows(&pool, &text, &country).await {
+            Ok(text) => match insert_interstate_rows(&pool, None, &text, &country).await {
                 Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("interstate.csv insert: {e}")),
             },
@@ -3322,14 +3480,14 @@ async fn db_insert_trade_data(
         // interstate_estimate.csv (no-satellite fallback) — never both.
         let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
         match fetch_github_csv(&isf_url).await {
-            Ok(text) => match insert_interstate_factor_rows(&pool, &text).await {
+            Ok(text) => match insert_interstate_factor_rows(&pool, None, &text, None).await {
                 Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
             },
             Err(factor_err) => {
                 let ise_url = format!("{base}/{year_str}/US/domestic/interstate_estimate.csv");
                 match fetch_github_csv(&ise_url).await {
-                    Ok(text) => match insert_interstate_estimate_rows(&pool, &text).await {
+                    Ok(text) => match insert_interstate_estimate_rows(&pool, None, &text).await {
                         Ok(o) => summary.push(json!({"file": "interstate_estimate.csv", "rows": o.inserted, "skipped": o.skipped})),
                         Err(e) => errors.push(format!("interstate_estimate.csv insert: {e}")),
                     },
@@ -3345,6 +3503,7 @@ async fn db_insert_trade_data(
         "success": errors.is_empty(),
         "year": year_str,
         "country": country,
+        "flow_types": flow_types,
         "inserted": summary,
         "errors": errors
     })))
