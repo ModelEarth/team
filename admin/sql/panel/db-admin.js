@@ -166,6 +166,16 @@ class DatabaseAdmin {
         if (testQueryBtn) {
             testQueryBtn.addEventListener('click', () => this.testSimpleQuery());
         }
+
+        const sendTradeDataBtn = document.getElementById('send-trade-data');
+        if (sendTradeDataBtn) {
+            sendTradeDataBtn.addEventListener('click', () => this.sendTradeData());
+        }
+
+        const clearSendStatusBtn = document.getElementById('clear-send-status');
+        if (clearSendStatusBtn) {
+            clearSendStatusBtn.addEventListener('click', () => this.clearSendStatus());
+        }
     }
 
     displayConfig() {
@@ -489,6 +499,137 @@ class DatabaseAdmin {
                 this.showError(`Query failed: ${error.message}`, 'quick-actions-result');
             }
             this.addLog(`❌ Query failed: ${error.message}`);
+        }
+    }
+
+    // Separate status thread for the long-running "Send Trade Data to
+    // Azure" action, kept out of the main #log-output so a 20-minute
+    // send doesn't get buried under whatever else the user clicks
+    // meanwhile. Shares the same .log-output CSS class (dark terminal
+    // box, same font size) rather than its own styling.
+    addSendStatus(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        if (!this._sendStatusLog) this._sendStatusLog = [];
+        this._sendStatusLog.push(`[${timestamp}] ${message}`);
+        const el = document.getElementById('send-status-output');
+        if (el) {
+            el.style.display = 'block';
+            el.textContent = this._sendStatusLog.join('\n');
+            el.scrollTop = el.scrollHeight;
+        }
+    }
+
+    clearSendStatus() {
+        this._sendStatusLog = [];
+        const el = document.getElementById('send-status-output');
+        if (el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+        const result = document.getElementById('send-result');
+        if (result) result.innerHTML = '';
+    }
+
+    // POST /api/db/insert-trade-data — either into a new annual database
+    // (industrydb_{year}, target omitted) or straight into the shared
+    // multi-year industrydb (target: "industrydb", adds a real year
+    // column — see PLAN-merge.md's Stage 2 direct-import path). Measured
+    // ~20 minutes for a full US year end to end (CSV fetch + chunked
+    // inserts across all 9 tables); a single fetch() has no built-in
+    // timeout, so it's left running rather than polled for completion —
+    // only the live row-count status below is polled.
+    async sendTradeData() {
+        const yearInput = document.getElementById('send-year');
+        const countryInput = document.getElementById('send-country');
+        const targetSelect = document.getElementById('send-target');
+        if (!yearInput || !countryInput || !targetSelect) return;
+
+        const year = yearInput.value.trim();
+        const country = (countryInput.value.trim() || 'US').toUpperCase();
+        const target = targetSelect.value; // '' = new annual database, 'industrydb' = shared multi-year db
+
+        if (!/^\d{4}$/.test(year)) {
+            this.showError('Enter a valid 4-digit year', 'send-result');
+            return;
+        }
+
+        const destinationLabel = target === 'industrydb'
+            ? `the shared multi-year IndustryDB (industrydb, tagged year=${year})`
+            : `a new annual database (industrydb_${year})`;
+
+        const confirmed = confirm(
+            `Send ${country} ${year} trade data to Azure, into ${destinationLabel}?\n\n` +
+            `This takes about 20 minutes for a full year/country (measured on 2019; varies by ` +
+            `year/country size). The server keeps running even if you close this tab — the ` +
+            `status log below polls live row counts every 10 seconds while it waits.`
+        );
+        if (!confirmed) return;
+
+        const sendBtn = document.getElementById('send-trade-data');
+        const spinner = document.getElementById('send-spinner');
+        if (sendBtn) sendBtn.disabled = true;
+        if (spinner) spinner.style.display = 'inline-block';
+
+        this.clearSendStatus();
+        this.addSendStatus(`Starting ${country} ${year} -> ${destinationLabel}...`);
+
+        // Live row-count polling while the main request runs server-side —
+        // same connection/query shape as this panel's own Test Simple Query.
+        const pollConnection = target === 'industrydb' ? 'EXIOBASE' : `EXIOBASE_${year}`;
+        const yearFilter = target === 'industrydb' ? ` WHERE year=${parseInt(year, 10)}` : '';
+        const pollQuery = `SELECT (SELECT count(*) FROM trade${yearFilter}) AS trade, ` +
+            `(SELECT count(*) FROM trade_factor${yearFilter}) AS trade_factor, ` +
+            `(SELECT count(*) FROM interstate${yearFilter}) AS interstate, ` +
+            `(SELECT count(*) FROM interstate_factor${yearFilter}) AS interstate_factor`;
+
+        let polling = true;
+        const pollOnce = async () => {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/db/query?connection=${pollConnection}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: pollQuery })
+                });
+                const data = await res.json();
+                if (data.success && data.data && data.data[0]) {
+                    const c = data.data[0];
+                    this.addSendStatus(
+                        `trade=${c.trade ?? 0}  trade_factor=${c.trade_factor ?? 0}  ` +
+                        `interstate=${c.interstate ?? 0}  interstate_factor=${c.interstate_factor ?? 0}`
+                    );
+                }
+            } catch (e) {
+                // Transient poll failures aren't fatal — the main request is still running.
+            }
+            if (polling) setTimeout(pollOnce, 10000);
+        };
+        setTimeout(pollOnce, 10000);
+
+        const body = { year, country };
+        if (target) body.target = target;
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/db/insert-trade-data`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const result = await response.json();
+            polling = false;
+            if (result.success) {
+                this.addSendStatus(`Done. ${JSON.stringify(result.inserted)}`);
+                this.showSuccess(`${country} ${year} sent to Azure.`, 'send-result');
+            } else {
+                this.addSendStatus(`Completed with errors: ${JSON.stringify(result.errors)}`);
+                this.showError('Completed with errors — see status log below.', 'send-result');
+            }
+        } catch (error) {
+            polling = false;
+            this.addSendStatus(`Request failed: ${error.message}`);
+            this.showError(`Send failed: ${error.message}`, 'send-result');
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+            if (spinner) spinner.style.display = 'none';
         }
     }
 
