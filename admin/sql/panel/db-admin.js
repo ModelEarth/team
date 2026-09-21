@@ -966,8 +966,6 @@ class DatabaseAdmin {
                 requestAnimationFrame(() => {
                     const loaderMsg = container.querySelector('.tabulator-loader-msg')
                         || document.querySelector('.tabulator-loader-msg');
-                    const allLoaders = [...document.querySelectorAll('[class*="load"]')].map(el => el.className).join(' | ');
-                    alert('loaderMsg: ' + (loaderMsg ? 'FOUND: ' + loaderMsg.textContent : 'NOT FOUND') + '\nAll loader classes: ' + (allLoaders || 'none'));
                     if (loaderMsg) loaderMsg.textContent = `Loading${countSuffix}…`;
                 });
 
