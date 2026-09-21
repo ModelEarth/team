@@ -2656,15 +2656,20 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
             industry1  VARCHAR(10)   NOT NULL,
             industry2  VARCHAR(10)   NOT NULL,
             amount     NUMERIC(18,4),
-            flow_type  VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            flow_type  VARCHAR(20)   NOT NULL DEFAULT 'unknown',
             country    VARCHAR(10)   NOT NULL DEFAULT 'unknown',
             PRIMARY KEY (trade_id),
             CONSTRAINT trade_natural_key UNIQUE (region1, region2, industry1, industry2)
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: trade".to_string());
-    try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS flow_type VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS flow_type VARCHAR(20) NOT NULL DEFAULT 'unknown'", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade ADD COLUMN IF NOT EXISTS country   VARCHAR(10) NOT NULL DEFAULT 'unknown'", &mut steps).await;
+    // Widens a pre-existing table's flow_type from VARCHAR(10) (safe no-op
+    // once already widened) -- comprehensive mode's two-way domestic/
+    // international split needs 13 chars, wider than the curated pipeline's
+    // domestic/imports/exports values that originally sized this column.
+    try_exec(pool, "ALTER TABLE trade ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
     // Renames a pre-existing database's sector1/2 columns back (harmless
     // no-op — try_exec swallows the error — on a database that never had
     // sector1/2, i.e. one created fresh, or created before that rename
@@ -2691,7 +2696,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         CREATE TABLE IF NOT EXISTS trade_factor (
             trade_id     INTEGER        NOT NULL,
             country      VARCHAR(10)    NOT NULL,
-            flow_type    VARCHAR(10)    NOT NULL,
+            flow_type    VARCHAR(20)    NOT NULL,
             factor_id    INTEGER        NOT NULL,
             coefficient  NUMERIC(20,10),
             level NUMERIC(20,6),
@@ -2706,6 +2711,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     try_exec(pool, "ALTER TABLE trade_factor DROP CONSTRAINT IF EXISTS trade_factor_pkey", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade_factor ADD PRIMARY KEY (trade_id, factor_id)", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_trade FOREIGN KEY (trade_id) REFERENCES trade(trade_id)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
 
     // interstate
     // No bigserial id: interstate_id (already computed per-row in the CSV
@@ -3972,13 +3978,13 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"industry1","type":"varchar(10)"},
             {"name":"industry2","type":"varchar(10)"},
             {"name":"amount","type":"numeric"},
-            {"name":"flow_type","type":"varchar(10)"},
+            {"name":"flow_type","type":"varchar(20)"},
             {"name":"country","type":"varchar(10)"}
         ],
         "trade_factor": [
             {"name":"trade_id","type":"integer"},
             {"name":"country","type":"varchar(10)"},
-            {"name":"flow_type","type":"varchar(10)"},
+            {"name":"flow_type","type":"varchar(20)"},
             {"name":"factor_id","type":"integer"},
             {"name":"coefficient","type":"numeric"},
             {"name":"level","type":"numeric"}

@@ -207,7 +207,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
             industry1  VARCHAR(10)   NOT NULL,
             industry2  VARCHAR(10)   NOT NULL,
             amount     NUMERIC(18,4),
-            flow_type  VARCHAR(10)   NOT NULL DEFAULT 'unknown',
+            flow_type  VARCHAR(20)   NOT NULL DEFAULT 'unknown',
             country    VARCHAR(10)   NOT NULL DEFAULT 'unknown',
             PRIMARY KEY (year, trade_id),
             CONSTRAINT trade_natural_key UNIQUE (year, region1, region2, industry1, industry2),
@@ -241,7 +241,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
             year        SMALLINT     NOT NULL,
             trade_id    INTEGER      NOT NULL,
             country     VARCHAR(10)  NOT NULL,
-            flow_type   VARCHAR(10)  NOT NULL,
+            flow_type   VARCHAR(20)  NOT NULL,
             factor_id   INTEGER      NOT NULL,
             coefficient NUMERIC(20,10),
             level       NUMERIC(20,6),
@@ -254,6 +254,13 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
+
+    // Widens a pre-existing trade/trade_factor from VARCHAR(10) (safe no-op
+    // once already widened) -- comprehensive mode's two-way domestic/
+    // international split needs 13 chars, wider than the curated pipeline's
+    // domestic/imports/exports values that originally sized this column.
+    try_exec(pool, "ALTER TABLE trade ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
 
     sqlx::query(
         r#"
@@ -640,14 +647,14 @@ BEGIN
   INSERT INTO trade (year, trade_id, region1, region2, industry1, industry2, amount, flow_type, country)
   SELECT p_year, trade_id, region1, region2, industry1, industry2, amount, flow_type, country
   FROM dblink(p_conninfo, 'SELECT trade_id, region1, region2, industry1, industry2, amount, flow_type, country FROM trade')
-    AS s(trade_id integer, region1 varchar(10), region2 varchar(10), industry1 varchar(10), industry2 varchar(10), amount numeric(18,4), flow_type varchar(10), country varchar(10))
+    AS s(trade_id integer, region1 varchar(10), region2 varchar(10), industry1 varchar(10), industry2 varchar(10), amount numeric(18,4), flow_type varchar(20), country varchar(10))
   ON CONFLICT (year, trade_id) DO NOTHING;
   GET DIAGNOSTICS v_trade = ROW_COUNT;
 
   INSERT INTO trade_factor (year, trade_id, country, flow_type, factor_id, coefficient, level)
   SELECT p_year, s.trade_id, s.country, s.flow_type, m.dst_factor_id, s.coefficient, s.level
   FROM dblink(p_conninfo, 'SELECT trade_id, country, flow_type, factor_id, coefficient, level FROM trade_factor')
-    AS s(trade_id integer, country varchar(10), flow_type varchar(10), factor_id integer, coefficient numeric(20,10), level numeric(20,6))
+    AS s(trade_id integer, country varchar(10), flow_type varchar(20), factor_id integer, coefficient numeric(20,10), level numeric(20,6))
   JOIN tmp_factor_map m ON m.src_factor_id = s.factor_id
   ON CONFLICT (year, trade_id, factor_id) DO NOTHING;
   GET DIAGNOSTICS v_trade_factor = ROW_COUNT;
