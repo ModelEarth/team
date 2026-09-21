@@ -590,7 +590,18 @@ class DatabaseAdmin {
             const res = await fetch(`https://api.github.com/repos/ModelEarth/trade-data/contents/year/${year}`);
             if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
             const listing = await res.json();
-            const countries = listing.filter(e => e.type === 'dir').map(e => e.name).sort();
+            // Real Exiobase region codes are always 2-letter (ISO country
+            // codes, or the 5 "rest of world" aggregates WA/WE/WF/WL/WM) —
+            // this excludes non-region folders that occasionally end up in a
+            // year's directory (e.g. a "default" folder from a run where no
+            // --country was passed to the pipeline; confirmed present in
+            // trade-data's year/2023, its own bea-report.md literally says
+            // "Country: default"). US always sorts first — see sendTradeData
+            // for why (it's the reference country other regions' shared
+            // bilateral flows are checked/kept against).
+            const countries = listing.filter(e => e.type === 'dir' && /^[A-Z]{2}$/.test(e.name))
+                .map(e => e.name)
+                .sort((a, b) => (a === 'US' ? -1 : b === 'US' ? 1 : a.localeCompare(b)));
             if (!countries.length) {
                 container.innerHTML = `<span style="color: var(--text-secondary); font-size:14px;">No countries found for ${year} in trade-data.</span>`;
                 return;
@@ -687,6 +698,22 @@ class DatabaseAdmin {
             this.showError('Select at least one country (and flow type)', 'send-result');
             return;
         }
+
+        // US always runs first, explicitly — not just relying on the country
+        // list's render order (loadCountriesForYear already sorts US first,
+        // but this guarantees it even if jobs are ever built another way).
+        // Reasons this matters: (1) it's the reference country every other
+        // region's shared bilateral flows get checked/kept against — trade's
+        // natural-key ON CONFLICT and the skip-before-insert filter both let
+        // whichever country loads first "win" a shared flow, so US winning
+        // matches how 2021's cross-country amounts were actually verified
+        // (US vs. each other country, not the reverse); (2) region.country
+        // gets block_index 1 for whichever country is first assigned one in
+        // a fresh database — keeping that consistently US across years,
+        // even though nothing requires it for correctness, avoids a
+        // different country's trade_id landing on the historically
+        // "unshifted" 1/1,000,000/2,000,000 range instead.
+        jobs.sort((a, b) => (a.country === 'US' ? -1 : b.country === 'US' ? 1 : 0));
 
         const destinationLabel = target === 'industrydb'
             ? `the shared multi-year IndustryDB (industrydb, tagged year=${year})`

@@ -218,6 +218,21 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
+    // trade.country -> region.country: added as a separate ALTER, not
+    // inlined into the CREATE TABLE above, since that CREATE TABLE
+    // IF NOT EXISTS is a no-op against the trade table that already exists
+    // here from the 2019/2021 direct-import merges — an inline CONSTRAINT
+    // would never actually apply to it. Expected to SKIP the first time
+    // this runs (existing 'US' trade rows predate the region table), then
+    // self-heal on a later call once region has a 'US' row (same pattern as
+    // main.rs's per-year databases).
+    try_exec(
+        pool,
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_region') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_region FOREIGN KEY (country) REFERENCES region(country); END IF; END $$",
+        &mut steps,
+    )
+    .await;
+
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS trade_factor (

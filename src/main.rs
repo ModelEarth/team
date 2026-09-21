@@ -2744,6 +2744,16 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     for sql in &[
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry1') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry2') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
+        // trade.country -> region.country: region rows are always created
+        // (get_or_assign_country_block) before any trade row referencing
+        // that country is inserted (see db_insert_trade_data), so this holds
+        // for every future insert. Expected to SKIP the first time this runs
+        // against an already-populated pre-region database (trade.country
+        // values with no matching region row yet, e.g. existing 'US' data in
+        // industrydb_2019/industrydb_2021) — self-heals on a later init once
+        // that country's region row exists, same pattern as the historical
+        // trade_id PK migration above.
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_region') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_region FOREIGN KEY (country) REFERENCES region(country); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tf_factor') THEN ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_sector1') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_sector1 FOREIGN KEY (sector1) REFERENCES sector(sector_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_sector2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_sector2 FOREIGN KEY (sector2) REFERENCES sector(sector_id); END IF; END $$",
@@ -3820,6 +3830,7 @@ async fn db_get_industry_schema(
         "tables": tables,
         "relationships": [
             {"from": "trade",        "to": "industry",           "on": "industry1 / industry2"},
+            {"from": "trade",        "to": "region",             "on": "country"},
             {"from": "trade_factor", "to": "trade",              "on": "trade_id + country + flow_type"},
             {"from": "trade_factor", "to": "factor",             "on": "factor_id"},
             {"from": "interstate",   "to": "sector",             "on": "sector1 / sector2"},
