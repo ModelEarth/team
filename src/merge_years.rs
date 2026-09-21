@@ -158,7 +158,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS factor (
-            factor_id INTEGER NOT NULL PRIMARY KEY,
+            factor_id SMALLINT NOT NULL PRIMARY KEY,
             extension VARCHAR(100),
             stressor  TEXT,
             unit      VARCHAR(50),
@@ -183,7 +183,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
         r#"
         CREATE TABLE IF NOT EXISTS region (
             country     VARCHAR(10) NOT NULL PRIMARY KEY,
-            block_index INTEGER     NOT NULL
+            block_index SMALLINT    NOT NULL
         )
         "#,
     )
@@ -191,6 +191,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
     try_exec(pool, "ALTER TABLE region ADD COLUMN IF NOT EXISTS name VARCHAR(100)", &mut steps).await;
+    try_exec(pool, "ALTER TABLE region ALTER COLUMN block_index TYPE SMALLINT", &mut steps).await;
 
     // trade/trade_factor/interstate/interstate_factor/interstate_estimate:
     // year added to the PK on top of Stage 1's per-year trade_id/
@@ -242,7 +243,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
             trade_id    INTEGER      NOT NULL,
             country     VARCHAR(10)  NOT NULL,
             flow_type   VARCHAR(20)  NOT NULL,
-            factor_id   INTEGER      NOT NULL,
+            factor_id   SMALLINT     NOT NULL,
             coefficient NUMERIC(20,10),
             level       NUMERIC(20,6),
             PRIMARY KEY (year, trade_id, factor_id),
@@ -261,6 +262,21 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     // domestic/imports/exports values that originally sized this column.
     try_exec(pool, "ALTER TABLE trade ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
     try_exec(pool, "ALTER TABLE trade_factor ALTER COLUMN flow_type TYPE VARCHAR(20)", &mut steps).await;
+
+    // Narrows factor_id from INTEGER to SMALLINT (safe no-op once already
+    // narrowed) -- factor has under 1,000 rows (728 as of 2018's Exiobase
+    // extraction), well within SMALLINT's +/-32,767 range versus INTEGER's
+    // 4 bytes. fk_tf_factor is dropped first and re-added after: unlike
+    // main.rs's year-database schema (which adds this FK via a separate
+    // idempotent block later), this table declares it inline in CREATE
+    // TABLE, so on an already-initialized database (where CREATE TABLE IF
+    // NOT EXISTS is a no-op) it has to be re-added explicitly here.
+    // interstate_factor's fk_isf_factor is handled the same way further
+    // down, right after its own factor_id column is narrowed.
+    try_exec(pool, "ALTER TABLE trade_factor DROP CONSTRAINT IF EXISTS fk_tf_factor", &mut steps).await;
+    try_exec(pool, "ALTER TABLE factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tf_factor') THEN ALTER TABLE trade_factor ADD CONSTRAINT fk_tf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$", &mut steps).await;
 
     sqlx::query(
         r#"
@@ -294,7 +310,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS interstate_factor (
             year          SMALLINT NOT NULL,
             interstate_id INTEGER  NOT NULL,
-            factor_id     INTEGER  NOT NULL,
+            factor_id     SMALLINT NOT NULL,
             level         NUMERIC(20,6),
             flow_type     VARCHAR(20),
             PRIMARY KEY (year, interstate_id, factor_id),
@@ -306,6 +322,11 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
+
+    // Same factor_id narrowing as trade_factor above -- see that comment.
+    try_exec(pool, "ALTER TABLE interstate_factor DROP CONSTRAINT IF EXISTS fk_isf_factor", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate_factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$", &mut steps).await;
 
     // Empty in both 2019 and 2021 today (no satellite-factor gaps yet), but
     // structurally the same per-year concern as interstate_factor — needs
@@ -790,8 +811,15 @@ pub async fn merge_years_run(
 async fn upsert_factor_rows_merged(pool: &Pool<Postgres>, text: &str) -> Result<HashMap<i32, i32>, String> {
     let src_rows = parse_factor_csv(text)?; // (factor_id, unit, stressor, extension)
 
+    // factor_id::integer: factor.factor_id is SMALLINT on disk (well under
+    // 1,000 rows), but every factor_id in Rust stays i32 (the CSV-parsed,
+    // src_factor_id/dst_factor_id-mapped value) -- casting here at the one
+    // decode site keeps that boundary, instead of threading i16 through
+    // factor_id_map/new_rows/etc. sqlx's Decode<i32> only accepts int4 on
+    // the wire, so this cast isn't optional -- decoding a real int2 into it
+    // errors at runtime.
     let existing: Vec<(i32, String, String)> =
-        sqlx::query_as("SELECT factor_id, extension, stressor FROM factor")
+        sqlx::query_as("SELECT factor_id::integer, extension, stressor FROM factor")
             .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;

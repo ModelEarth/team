@@ -2600,7 +2600,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // factor
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS factor (
-            factor_id   INTEGER,
+            factor_id   SMALLINT,
             unit        VARCHAR(50),
             stressor    TEXT,
             extension   VARCHAR(100)
@@ -2623,7 +2623,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS region (
             country     VARCHAR(10) NOT NULL PRIMARY KEY,
-            block_index INTEGER     NOT NULL
+            block_index SMALLINT    NOT NULL
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: region".to_string());
@@ -2697,7 +2697,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
             trade_id     INTEGER        NOT NULL,
             country      VARCHAR(10)    NOT NULL,
             flow_type    VARCHAR(20)    NOT NULL,
-            factor_id    INTEGER        NOT NULL,
+            factor_id    SMALLINT       NOT NULL,
             coefficient  NUMERIC(20,10),
             level NUMERIC(20,6),
             PRIMARY KEY (trade_id, factor_id)
@@ -2799,7 +2799,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate_factor (
             interstate_id INTEGER     NOT NULL,
-            factor_id     INTEGER     NOT NULL,
+            factor_id     SMALLINT    NOT NULL,
             level         NUMERIC(20,6),
             flow_type     VARCHAR(20),
             PRIMARY KEY (interstate_id, factor_id)
@@ -2825,6 +2825,27 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: interstate_estimate".to_string());
     try_exec(pool, "ALTER TABLE interstate_estimate ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
+
+    // Narrows factor_id/block_index from INTEGER to SMALLINT (safe no-op
+    // once already narrowed) -- factor has under 1,000 rows (728 as of
+    // 2018's Exiobase extraction) and region.block_index maxes out around
+    // 49 (one per Exiobase region), both well within SMALLINT's +/-32,767
+    // range, versus INTEGER's 4 bytes each. FKs referencing factor(factor_id)
+    // are dropped first and re-added by the "FK constraints" block just
+    // below (already idempotent) -- same reason as interstate_id's
+    // VARCHAR->INTEGER migration above: Postgres won't shrink a column's
+    // type while an FK depends on it. region.block_index has no dependent
+    // FK, so it's narrowed directly with no drop/re-add needed.
+    for sql in &[
+        "ALTER TABLE trade_factor DROP CONSTRAINT IF EXISTS fk_tf_factor",
+        "ALTER TABLE interstate_factor DROP CONSTRAINT IF EXISTS fk_isf_factor",
+    ] {
+        try_exec(pool, sql, &mut steps).await;
+    }
+    try_exec(pool, "ALTER TABLE factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "ALTER TABLE trade_factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "ALTER TABLE interstate_factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
+    try_exec(pool, "ALTER TABLE region ALTER COLUMN block_index TYPE SMALLINT", &mut steps).await;
 
     // interstate.sector1/sector2 hold BEA Sector codes (the interstate
     // primary table is Sector-level — see PLAN-industry.md), so its FK
