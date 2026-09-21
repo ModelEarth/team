@@ -27,7 +27,7 @@ stayed at 728 rows after merging 2021 (every 2021 stressor matched an existing 2
 `(extension, stressor)`, zero new rows, zero orphaned `trade_factor`/`interstate_factor` rows).
 **Both years fully in `industrydb` now — US only.**
 
-## Multi-country loading — 2019 non-US data confirmed stale; 2021 confirmed safe
+## Multi-country loading — 2019 non-US data being regenerated; 2021 confirmed safe
 
 Other countries' 2019/2021 CSVs were generated separately (not yet loaded into any database).
 Loading more than one country risks two distinct issues, checked directly against the actual data
@@ -44,8 +44,9 @@ rather than assumed:
   (checked AU, BR, CN, DE, JP) carries a stray `year` column trade.py no longer emits — they're from
   an older pipeline run, not the current one, and shouldn't be trusted until regenerated.
   **2021's non-US files have the current (no-`year`-column) schema and verified-matching amounts —
-  safe to load.** 2019's non-US files are **not** safe to load until regenerated with current
-  `trade.py`.
+  safe to load.** **2019 is currently being reprocessed with current `trade.py`** to fix this — don't
+  load 2019 non-US data until that finishes and the new files are confirmed to have the current
+  schema (no stray `year` column) and matching amounts, the same way 2021 was checked above.
 - A second, more severe structural risk, found while designing the fix below and confirmed against
   real data: **`trade_id` was never made unique *across* countries, only within one country's own
   three files.** Every country's `trade.csv` independently restarts its row numbering at 1, so the
