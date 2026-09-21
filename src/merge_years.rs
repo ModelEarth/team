@@ -34,10 +34,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    ensure_database_exists, fetch_github_csv, get_or_assign_country_block,
-    insert_interstate_estimate_rows, insert_interstate_factor_rows, insert_interstate_rows,
-    insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec, upsert_industry_rows,
-    upsert_sector_industry_rows, upsert_sector_rows, year_database_name, ApiState,
+    connect_to_exiobase_year, ensure_database_exists, fetch_github_csv, get_or_assign_country_block,
+    init_industry_tables_in_pool, insert_interstate_estimate_rows, insert_interstate_factor_rows,
+    insert_interstate_rows, insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec,
+    upsert_factor_rows, upsert_industry_rows, upsert_sector_industry_rows, upsert_sector_rows,
+    year_database_name, ApiState,
 };
 
 #[derive(Deserialize)]
@@ -328,6 +329,150 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
         .map_err(|e| format!("Failed to create merge_exiobase_year: {e}"))?;
 
     Ok(())
+}
+
+// Exiobase's own region order (49 total), confirmed by reading unit.txt/
+// Z.txt directly out of a downloaded IOT_*_pxp.zip — see
+// PLAN-comprehensive.md's "Confirmed: Exiobase's regions have a fixed,
+// discoverable order". Used only to seed `region.block_index` 1-49 below;
+// comprehensive's own `trade_id` values never depend on block_index (see
+// PLAN-comprehensive.md's "Trade ID scheme").
+const COMPREHENSIVE_REGIONS: [&str; 49] = [
+    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR",
+    "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO",
+    "SE", "SI", "SK", "GB", "US", "JP", "CN", "CA", "KR", "BR", "IN", "MX",
+    "RU", "AU", "CH", "TR", "TW", "NO", "ID", "ZA", "WA", "WL", "WE", "WF",
+    "WM",
+];
+
+// POST /api/db/comprehensive/push-reference-tables
+//
+// Preflight step for trade_comprehensive.py (PLAN-comprehensive.md). Two
+// targets, picked by `target` (mirrors InsertTradeDataRequest's own
+// `target` field on /api/db/insert-trade-data):
+//
+//   - default (target omitted, or anything other than "industrydb"): the
+//     per-year database `{EXIOBASE_NAME}_{year}` -- the same convention
+//     already used for industrydb_2019/2021/2023 (year_database_name/
+//     connect_to_exiobase_year/init_industry_tables_in_pool in main.rs).
+//     Creates that database first if it doesn't exist yet (via
+//     ensure_year_database_exists, using EXIOBASE_PROVISION_* credentials --
+//     the regular EXIOBASE_USER doesn't have CREATEDB). No factor_id remap:
+//     a from-scratch per-year database has nothing to remap against.
+//   - target: "industrydb": the shared multi-year database, with `year` as
+//     a real column on trade/trade_factor -- ensure_merge_infra's schema,
+//     factor upserted via upsert_factor_rows_merged (remaps incoming
+//     factor_id by (extension, stressor) against whatever's already in
+//     industrydb; factor_id_map echoes that old->new remap so the caller
+//     can immediately write a local factor.csv with industrydb's real ids).
+//
+// Either way, region seeding and industry/sector/sector_industry upserts
+// are the same idempotent calls; only the trade/trade_factor destination and
+// factor-table upsert differ. The large trade/trade_factor push itself
+// bypasses this endpoint entirely -- Python writes those directly via
+// psycopg2 (see PLAN-comprehensive.md) -- so this endpoint only ever sees a
+// few hundred KB of CSV text per call.
+#[derive(Deserialize)]
+pub struct PushReferenceTablesRequest {
+    pub year: String,
+    #[serde(default)]
+    pub target: Option<String>,
+    pub factor_csv: Option<String>,
+    pub industry_csv: Option<String>,
+    pub sector_csv: Option<String>,
+    pub sector_industry_csv: Option<String>,
+}
+
+pub async fn comprehensive_push_reference_tables(
+    _data: web::Data<Arc<ApiState>>,
+    req: web::Json<PushReferenceTablesRequest>,
+) -> Result<HttpResponse> {
+    let use_shared = req.target.as_deref() == Some("industrydb");
+
+    let (pool, target_name) = if use_shared {
+        let pool = match connect_to_industrydb().await {
+            Ok(p) => p,
+            Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({"success": false, "error": e}))),
+        };
+        if let Err(e) = ensure_merge_infra(&pool).await {
+            return Ok(HttpResponse::InternalServerError()
+                .json(json!({"success": false, "error": format!("Schema/procedure setup failed: {e}")})));
+        }
+        (pool, "industrydb".to_string())
+    } else {
+        let db_name = match year_database_name(&req.year) {
+            Ok(n) => n,
+            Err(e) => return Ok(HttpResponse::BadRequest().json(json!({"success": false, "error": e}))),
+        };
+        let pool = match connect_to_exiobase_year(&req.year).await {
+            Ok(p) => p,
+            Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({"success": false, "error": e}))),
+        };
+        if let Err(e) = init_industry_tables_in_pool(&pool).await {
+            return Ok(HttpResponse::InternalServerError()
+                .json(json!({"success": false, "error": format!("Schema setup failed: {e}")})));
+        }
+        (pool, db_name)
+    };
+
+    for (i, code) in COMPREHENSIVE_REGIONS.iter().enumerate() {
+        let block_index = (i + 1) as i32;
+        let _ = sqlx::query(
+            "INSERT INTO region (country, block_index) VALUES ($1, $2) ON CONFLICT (country) DO NOTHING",
+        )
+        .bind(code)
+        .bind(block_index)
+        .execute(&pool)
+        .await;
+    }
+
+    let mut summary: Vec<serde_json::Value> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    let mut factor_id_map: HashMap<i32, i32> = HashMap::new();
+
+    if let Some(text) = req.factor_csv.as_deref() {
+        if use_shared {
+            match upsert_factor_rows_merged(&pool, text).await {
+                Ok(map) => {
+                    summary.push(json!({"file": "factor.csv", "rows": map.len()}));
+                    factor_id_map = map;
+                }
+                Err(e) => errors.push(format!("factor.csv: {e}")),
+            }
+        } else {
+            match upsert_factor_rows(&pool, text).await {
+                Ok(n) => summary.push(json!({"file": "factor.csv", "rows": n})),
+                Err(e) => errors.push(format!("factor.csv: {e}")),
+            }
+        }
+    }
+    if let Some(text) = req.industry_csv.as_deref() {
+        match upsert_industry_rows(&pool, text).await {
+            Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
+            Err(e) => errors.push(format!("industry.csv: {e}")),
+        }
+    }
+    if let Some(text) = req.sector_csv.as_deref() {
+        match upsert_sector_rows(&pool, text).await {
+            Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
+            Err(e) => errors.push(format!("sector.csv: {e}")),
+        }
+    }
+    if let Some(text) = req.sector_industry_csv.as_deref() {
+        match upsert_sector_industry_rows(&pool, text).await {
+            Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
+            Err(e) => errors.push(format!("sector_industry.csv: {e}")),
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(json!({
+        "success": errors.is_empty(),
+        "target": target_name,
+        "region_seeded": COMPREHENSIVE_REGIONS.len(),
+        "inserted": summary,
+        "errors": errors,
+        "factor_id_map": factor_id_map,
+    })))
 }
 
 // Read-only pre-merge report — see PLAN-merge.md's "Pre-merge inspection"

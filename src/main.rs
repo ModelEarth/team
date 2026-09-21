@@ -5204,6 +5204,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/industry-schema", web::get().to(db_get_industry_schema))
                             .route("/merge-years/inspect", web::post().to(merge_years::merge_years_inspect))
                             .route("/merge-years/run", web::post().to(merge_years::merge_years_run))
+                            .route("/comprehensive/push-reference-tables", web::post().to(merge_years::comprehensive_push_reference_tables))
                     )
                     .service(
                         web::scope("/import")
