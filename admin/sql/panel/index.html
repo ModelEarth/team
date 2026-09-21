@@ -541,22 +541,28 @@
                 </div>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">
-                    Countries &amp; flow types (checking a country checks all three; each flow type can be unchecked individually):
-                </label>
-                <div id="send-countries-warning" class="error-message" style="display: none;"></div>
-                <div id="send-countries-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-md); max-height: 320px; overflow-y: auto;">
-                    <span style="color: var(--text-secondary); font-size: 14px;">Loading countries for this year&hellip;</span>
-                </div>
-            </div>
+            <div id="send-year-size-status" style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);"></div>
 
-            <div class="actions">
-                <button class="btn btn-primary" id="send-trade-data">
-                    <span class="loading-spinner" id="send-spinner" style="display: none;"></span>
-                    Send to Azure
-                </button>
-                <button class="btn btn-secondary" id="clear-send-status">Clear Status</button>
+            <div id="send-comprehensive-notice" class="error-message" style="display: none; margin-bottom: 16px;"></div>
+
+            <div id="send-countries-and-actions">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">
+                        Countries &amp; flow types (checking a country checks all three; each flow type can be unchecked individually):
+                    </label>
+                    <div id="send-countries-warning" class="error-message" style="display: none;"></div>
+                    <div id="send-countries-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-md); max-height: 320px; overflow-y: auto;">
+                        <span style="color: var(--text-secondary); font-size: 14px;">Loading countries for this year&hellip;</span>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" id="send-trade-data">
+                        <span class="loading-spinner" id="send-spinner" style="display: none;"></span>
+                        Send to Azure
+                    </button>
+                    <button class="btn btn-secondary" id="clear-send-status">Clear Status</button>
+                </div>
             </div>
 
             <div id="send-result"></div>

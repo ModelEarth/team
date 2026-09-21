@@ -2627,6 +2627,11 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: region".to_string());
+    // name is nullable: get_or_assign_country_block (the old per-country
+    // loader) inserts a region row knowing only the country code, not its
+    // display name -- only comprehensive_push_reference_tables's full-49
+    // seed (merge_years.rs) supplies one.
+    try_exec(pool, "ALTER TABLE region ADD COLUMN IF NOT EXISTS name VARCHAR(100)", &mut steps).await;
 
     // trade
     // trade_id is an explicit value the loader computes deterministically

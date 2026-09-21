@@ -190,6 +190,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
+    try_exec(pool, "ALTER TABLE region ADD COLUMN IF NOT EXISTS name VARCHAR(100)", &mut steps).await;
 
     // trade/trade_factor/interstate/interstate_factor/interstate_estimate:
     // year added to the PK on top of Stage 1's per-year trade_id/
@@ -334,15 +335,27 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
 // Exiobase's own region order (49 total), confirmed by reading unit.txt/
 // Z.txt directly out of a downloaded IOT_*_pxp.zip — see
 // PLAN-comprehensive.md's "Confirmed: Exiobase's regions have a fixed,
-// discoverable order". Used only to seed `region.block_index` 1-49 below;
-// comprehensive's own `trade_id` values never depend on block_index (see
-// PLAN-comprehensive.md's "Trade ID scheme").
-const COMPREHENSIVE_REGIONS: [&str; 49] = [
-    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR",
-    "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO",
-    "SE", "SI", "SK", "GB", "US", "JP", "CN", "CA", "KR", "BR", "IN", "MX",
-    "RU", "AU", "CH", "TR", "TW", "NO", "ID", "ZA", "WA", "WL", "WE", "WF",
-    "WM",
+// discoverable order". Order is used only to seed `region.block_index`
+// 1-49 below; comprehensive's own `trade_id` values never depend on
+// block_index (see PLAN-comprehensive.md's "Trade ID scheme"). Names match
+// profile/impacts/exiobase/exio-country-names.csv (not read from that file
+// at runtime -- this Rust binary shouldn't depend on a sibling repo being
+// checked out -- just kept in sync with it by hand).
+const COMPREHENSIVE_REGIONS: [(&str, &str); 49] = [
+    ("AT", "Austria"), ("BE", "Belgium"), ("BG", "Bulgaria"), ("CY", "Cyprus"),
+    ("CZ", "Czech Republic"), ("DE", "Germany"), ("DK", "Denmark"), ("EE", "Estonia"),
+    ("ES", "Spain"), ("FI", "Finland"), ("FR", "France"), ("GR", "Greece"),
+    ("HR", "Croatia"), ("HU", "Hungary"), ("IE", "Ireland"), ("IT", "Italy"),
+    ("LT", "Lithuania"), ("LU", "Luxembourg"), ("LV", "Latvia"), ("MT", "Malta"),
+    ("NL", "Netherlands"), ("PL", "Poland"), ("PT", "Portugal"), ("RO", "Romania"),
+    ("SE", "Sweden"), ("SI", "Slovenia"), ("SK", "Slovakia"), ("GB", "United Kingdom"),
+    ("US", "United States"), ("JP", "Japan"), ("CN", "China"), ("CA", "Canada"),
+    ("KR", "South Korea"), ("BR", "Brazil"), ("IN", "India"), ("MX", "Mexico"),
+    ("RU", "Russia"), ("AU", "Australia"), ("CH", "Switzerland"), ("TR", "Turkey"),
+    ("TW", "Taiwan"), ("NO", "Norway"), ("ID", "Indonesia"), ("ZA", "South Africa"),
+    ("WA", "Rest of World, Asia and Pacific"), ("WL", "Rest of World, America"),
+    ("WE", "Rest of World, Europe"), ("WF", "Rest of World, Africa"),
+    ("WM", "Rest of World, Middle East"),
 ];
 
 // POST /api/db/comprehensive/push-reference-tables
@@ -415,13 +428,15 @@ pub async fn comprehensive_push_reference_tables(
         (pool, db_name)
     };
 
-    for (i, code) in COMPREHENSIVE_REGIONS.iter().enumerate() {
+    for (i, (code, name)) in COMPREHENSIVE_REGIONS.iter().enumerate() {
         let block_index = (i + 1) as i32;
         let _ = sqlx::query(
-            "INSERT INTO region (country, block_index) VALUES ($1, $2) ON CONFLICT (country) DO NOTHING",
+            "INSERT INTO region (country, block_index, name) VALUES ($1, $2, $3) \
+             ON CONFLICT (country) DO UPDATE SET name = EXCLUDED.name",
         )
         .bind(code)
         .bind(block_index)
+        .bind(name)
         .execute(&pool)
         .await;
     }

@@ -1,4 +1,23 @@
 // Database Admin JavaScript
+
+// A year's per-year database (industrydb_{year}) counts as "comprehensive"
+// once its on-disk size passes this many MB. NOT gated on region/country
+// coverage in the `region` table or on distinct trade.region2 values --
+// comprehensive_push_reference_tables seeds `region` with all 49 Exiobase
+// codes on database init regardless of how much trade data actually gets
+// loaded, and even a single country's own exports touch most/all of the
+// other 48 regions as trade.region2, so either would already read as
+// "49 regions" long before the database is actually comprehensive.
+// Chosen from real measured per-year database sizes: EXIOBASE_2023 (14
+// countries, old per-country loader) is 779MB, EXIOBASE_2019/2021 (1
+// country, US) are 416-441MB each -- so this needs real headroom above
+// today's largest partial load. No real 49-region comprehensive push has
+// completed yet to measure directly; 1500MB is an estimate extrapolated
+// from comprehensive's own measured per-region row density (see
+// PLAN-comprehensive.md) -- recalibrate this from the first real
+// comprehensive run's actual industrydb_{year} size once one completes.
+const COMPREHENSIVE_SIZE_MB_THRESHOLD = 1500;
+
 class DatabaseAdmin {
     constructor() {
         // Use config from settings.js if available, otherwise fallback
@@ -179,14 +198,14 @@ class DatabaseAdmin {
 
         const sendYearInput = document.getElementById('send-year');
         if (sendYearInput) {
-            sendYearInput.addEventListener('change', () => this.loadCountriesForYear(sendYearInput.value.trim()));
-            this.loadCountriesForYear(sendYearInput.value.trim());
+            sendYearInput.addEventListener('change', () => this.checkYearDatabaseStatus(sendYearInput.value.trim()));
+            this.checkYearDatabaseStatus(sendYearInput.value.trim());
         }
 
         const sendCountriesRefreshBtn = document.getElementById('send-countries-refresh');
         if (sendCountriesRefreshBtn) {
             sendCountriesRefreshBtn.addEventListener('click', () => {
-                if (sendYearInput) this.loadCountriesForYear(sendYearInput.value.trim());
+                if (sendYearInput) this.checkYearDatabaseStatus(sendYearInput.value.trim());
             });
         }
 
@@ -561,6 +580,64 @@ class DatabaseAdmin {
         }
         const result = document.getElementById('send-result');
         if (result) result.innerHTML = '';
+    }
+
+    // Gate for the whole "Countries & flow types" + Send/Clear section: a
+    // year whose industrydb_{year} was already loaded via comprehensive
+    // mode (exiobase/tradeflow's trade_comprehensive.py, all 49 Exiobase
+    // regions) has nothing left for this incremental per-country panel to
+    // usefully add, so this hides it and explains why instead. Runs on
+    // year change/blur and on the Refresh Country List click, before
+    // loadCountriesForYear's GitHub fetch (skipped entirely once a year is
+    // detected comprehensive, since there'd be nothing to check). See
+    // COMPREHENSIVE_SIZE_MB_THRESHOLD's comment for why this checks size,
+    // not region/country coverage.
+    async checkYearDatabaseStatus(year) {
+        const statusEl = document.getElementById('send-year-size-status');
+        const noticeEl = document.getElementById('send-comprehensive-notice');
+        const sectionEl = document.getElementById('send-countries-and-actions');
+        if (!statusEl || !noticeEl || !sectionEl) return;
+
+        if (!/^\d{4}$/.test(String(year))) {
+            statusEl.textContent = '';
+            noticeEl.style.display = 'none';
+            sectionEl.style.display = '';
+            return;
+        }
+
+        statusEl.textContent = 'Loading database instance size…';
+        noticeEl.style.display = 'none';
+
+        const connection = `EXIOBASE_${year}`;
+        let sizeResult;
+        try {
+            const res = await fetch(`${this.apiBaseUrl}/db/database-size?connection=${encodeURIComponent(connection)}`);
+            sizeResult = await res.json();
+        } catch (error) {
+            sizeResult = { success: false };
+        }
+
+        if (!sizeResult || !sizeResult.success) {
+            // No industrydb_{year} yet (nothing to compare against) --
+            // never blocks the panel; a brand-new year always starts here.
+            statusEl.textContent = `${year} Database Instance: not created yet (will be created on first send).`;
+            sectionEl.style.display = '';
+            return;
+        }
+
+        const sizeMb = sizeResult.bytes / (1024 * 1024);
+        statusEl.textContent = `${year} Database Instance size: ${sizeMb.toFixed(1)} MB`;
+
+        const isComprehensive = sizeMb >= COMPREHENSIVE_SIZE_MB_THRESHOLD;
+        if (isComprehensive) {
+            noticeEl.style.display = 'block';
+            noticeEl.innerHTML = `The year ${year} is already comprehensive, so there's no need to send trade data to Azure.`;
+            sectionEl.style.display = 'none';
+        } else {
+            noticeEl.style.display = 'none';
+            sectionEl.style.display = '';
+            this.loadCountriesForYear(year);
+        }
     }
 
     // POST /api/db/insert-trade-data — either into a new annual database
