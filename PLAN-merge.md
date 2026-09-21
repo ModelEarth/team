@@ -153,8 +153,30 @@ lookup needed at insert time. `trade.country` (paired with `flow_type`) is only 
 "is this already loaded" check, which exists purely to avoid wasted work and the FK-orphan case, not
 to establish uniqueness.
 
-**Implemented (2026-09-20), not yet live-verified against a real second country.** Both parts are
-in `main.rs`/`merge_years.rs` now:
+**Implemented and live-verified (2026-09-20)** against a real, brand-new `industrydb_2023` (not a
+mock or a single extra country — the full real Exiobase 2023 lineup, `US` plus 13 more:
+`AU, BR, CA, CN, DE, FR, GB, IN, IT, JP, KR, RU, WM`, US loaded first as designed; a 15th folder,
+`default`, was found in `trade-data`'s `year/2023` and correctly excluded — its own `bea-report.md`
+literally says `Country: default`, i.e. leftover output from a run with no `--country` given, not a
+real region). Checked directly against the live database after all 14 loads, not assumed:
+
+- `region`: exactly 14 rows, `block_index` 1–14 in load order (`US`→1, `AU`→2, ... `WM`→14).
+- `trade`: 3,145,241 rows, **3,145,241 distinct `trade_id` values — zero collisions** across all 14
+  countries.
+- Every country's domestic range starts exactly on its block boundary (`AU`→3,000,000, `BR`→6,000,000,
+  ... `WM`→39,000,000), confirming the domestic `-1` compensation (see `trade_id_base` below) works
+  correctly against real data, not just the hand-checked arithmetic from earlier in this file.
+- `trade.country` → `region.country`: zero FK violations (see the new FK below).
+- `trade_factor.trade_id` → `trade.trade_id`: zero orphaned rows.
+- Skip-before-insert worked as designed: each later country's skip counts grew (WM, loaded last
+  against 13 already-loaded countries, skipped 71,961/18,698/49,630/16,086 rows across its 4 files) —
+  confirms shared bilateral flows are being recognized and skipped, not silently duplicated or
+  dropped as orphans.
+- `interstate`/`interstate_factor` stayed empty for 2023, as expected — 2023 has no BEA layer
+  published yet (`interstate.csv`/`interstate_factor.csv`/`interstate_estimate.csv` all 404 for every
+  country), unrelated to this work.
+
+Both parts are in `main.rs`/`merge_years.rs`:
 
 - `region` table added to `init_industry_tables_in_pool` (per-year databases) and
   `ensure_merge_infra` (`industrydb` — one table shared across every year merged in, since
@@ -182,12 +204,12 @@ in `main.rs`/`merge_years.rs` now:
   `merge_years.rs`) build `known` once per job (`SELECT DISTINCT country, flow_type FROM trade`,
   scoped by `WHERE year = $1` in the `industrydb` case) and assign `country_block_index` once,
   before the `flow_types` loop — not per flow_type.
+- `trade.country` → `region.country`: a real FK, added via a guarded `ALTER TABLE` (not inlined into
+  `CREATE TABLE`, since `trade` already existed in every database loaded so far) — gracefully skips
+  the first time it runs against a database whose existing `trade.country` values predate `region`
+  (e.g. 2019/2021's already-loaded `US` data), then self-heals once that country's `region` row
+  exists, same pattern as the historical `trade_id` PK migration elsewhere in this file.
 - `cargo build` is clean (same 24 pre-existing warnings as before this change, no new ones).
-
-**Not yet done:** an actual live test loading a second country (e.g. CN) into either an
-`industrydb_{year}` or `industrydb` alongside US, to confirm block assignment, the skip filter, and
-the resulting `trade_id` ranges all behave as designed against real data — blocked on the unresolved
-live-request hang noted below.
 
 **UI/backend support added** (not yet live-verified — see below): `POST /api/db/insert-trade-data`
 now accepts `flow_types: string[]` (default: all three) so a caller can load e.g. only `imports` for
@@ -213,11 +235,11 @@ and a 60s overall `timeout`, so a stalled connection now surfaces as a normal, b
 of hanging the request forever. Verified with a temporary `#[tokio::test]` calling
 `fetch_github_csv` directly against the real 2019 `factor.csv` URL — returned in 0.29s, 57,519 bytes
 (test removed after confirming; it's network-dependent and doesn't belong in the permanent suite).
-This confirms the fetch itself works correctly today; it doesn't retroactively prove what caused the
-original stall, only that any future stall will now fail fast and visibly instead of hanging
-silently. **Still not yet confirmed working end-to-end against the live Azure databases** — the
-timeout fix removes the failure mode that blocked testing, but a real `insert-trade-data` run (per-year
-and `target=industrydb`, including the new `region`/`flow_types` logic) hasn't been re-attempted yet.
+
+**Confirmed working end-to-end (2026-09-20)**: the full 14-country 2023 `insert-trade-data` run
+above (see "Fix design" section) ran to completion with no hangs at all, across 14 sequential
+requests each fetching 10 files from GitHub — the fix holds under real, repeated use, not just the
+single-file smoke test.
 
 **Stage 1 complete for 2019 and 2021.** `trade.csv`/`trade_factor.csv`/`interstate.csv`/
 `interstate_factor.csv` fixed via `exiobase/tradeflow/fix_trade_ids.py`, committed and pushed to
@@ -512,12 +534,11 @@ override flag if someone wants to proceed past warnings.
 
 ## Open questions / risks to keep visible, not resolve silently
 
-- **Per-country `trade_id` blocks + skip-before-insert are implemented but not yet live-tested
-  against a real second country** — see "Fix design" above. Until that's verified, don't load any
-  non-US country into a real `industrydb_{year}` or `industrydb`.
-- **The 1,000,000-wide per-flow_type block is an accepted risk, not a proven-safe ceiling** — a
-  14-country rollout (already the default in `main.py`) or a larger future Exiobase industry count
-  could push a single year's `imports`/`exports` past 999,999 rows. If that happens, the fix is
+- **The 1,000,000-wide per-flow_type block is an accepted risk, not a proven-safe ceiling** — the
+  real 14-country 2023 load (see "Fix design" above) confirms today's actual max is still
+  comfortable (`DE` exports, 182,075 rows, the largest single-country/flow_type count seen across
+  all 14 countries), but a larger future Exiobase industry count could still push a single year's
+  `imports`/`exports` past 999,999 rows for some country. If that happens, the fix is
   widening the block (e.g. to 2,000,000+), not switching column types — `integer` has room, it's
   the block-width choice that would need revisiting.
 - 2019 and 2021 need their `trade.csv`/`trade_factor.csv`/`interstate.csv`/`interstate_factor.csv`
