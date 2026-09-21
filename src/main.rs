@@ -2962,15 +2962,19 @@ pub(crate) async fn get_or_assign_country_block(pool: &Pool<Postgres>, country: 
 
 // Combines Part 1's per-country block with the existing per-flow_type
 // offset — the full trade_id formula from PLAN-merge.md:
-// country_block_index * 3,000,000 + flow_type_offset(flow_type) +
+// (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type) +
 // csv_row_index (the csv_row_index/csv_trade_id part is added by the
-// caller). 3,000,000 per country leaves ~17x headroom over today's real max
-// (175,726, 2019 exports) before the per-flow_type sub-block itself would
-// need widening — a pre-existing, separately tracked risk (see
-// PLAN-merge.md's "Open questions" section), not something this widening
-// introduces.
+// caller). The "- 1" is deliberate: region.block_index starts at 1 (see
+// get_or_assign_country_block), but the *first* country loaded should still
+// contribute 0 to trade_id — not 3,000,000 — so it reproduces today's
+// unshifted values exactly, restoring the zero-migration property the
+// original 0-based design had. 3,000,000 per country leaves ~17x headroom
+// over today's real max (175,726, 2019 exports) before the per-flow_type
+// sub-block itself would need widening — a pre-existing, separately tracked
+// risk (see PLAN-merge.md's "Open questions" section), not something this
+// widening introduces.
 fn trade_id_base(country_block_index: i32, flow_type: &str) -> i32 {
-    country_block_index * 3_000_000 + trade_id_offset(flow_type)
+    (country_block_index - 1) * 3_000_000 + trade_id_offset(flow_type)
 }
 
 // Part 2 of PLAN-merge.md's multi-country fix: decides, before a trade.csv
