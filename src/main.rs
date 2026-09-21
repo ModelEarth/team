@@ -2716,15 +2716,13 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // interstate
     // No bigserial id: interstate_id (already computed per-row in the CSV
     // pipeline — see bea/main.py) is unique per state-pair flow, so it's the
-    // PRIMARY KEY directly, and the join target for interstate_factor and
-    // interstate_estimate. state1/state2, not region1/region2: these are US
-    // state codes, unlike trade's Exiobase-style regions. Keeps trade_id for
-    // the same reason interstate_factor/interstate_estimate reference this
-    // table instead of duplicating it themselves: the only reliable path
-    // back to the originating international flow (trade.amount,
-    // trade.country, trade.flow_type). interstate.csv is now always
-    // produced (bea/main.py), satellite data available or not, so this row
-    // always exists before interstate_factor/interstate_estimate rows do.
+    // PRIMARY KEY directly, and the join target for interstate_factor.
+    // state1/state2, not region1/region2: these are US state codes, unlike
+    // trade's Exiobase-style regions. Keeps trade_id for the same reason
+    // interstate_factor references this table instead of duplicating it
+    // itself: the only reliable path back to the originating international
+    // flow (trade.amount, trade.country, trade.flow_type). interstate.csv
+    // is now always produced (bea/main.py) before interstate_factor rows.
     // sector1/2, not industry1/2: same reasoning as trade above — this is
     // the BEA-Sector-level primary output, FK target sector(sector_id).
     // interstate_id is a plain integer now (bea/main.py assigns a 1-based
@@ -2774,28 +2772,20 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // ids (see "Regenerating historical trade_id/interstate_id" in
     // PLAN-merge.md); expected to SKIP against a table still holding the
     // old {trade_id}-US-... strings, since those aren't valid integers.
-    // The existing fk_isf_interstate (interstate_factor -> interstate) and
-    // fk_ise_interstate (interstate_estimate -> interstate) FKs both have to
-    // come off first — Postgres won't let interstate's type change while
-    // either is in place — and get re-added below (fk_isf_interstate) or
-    // further down near interstate_estimate (fk_ise_interstate) once all
-    // three sides have successfully converted. Missing the second FK here
-    // was the exact bug that silently blocked this ALTER the first time —
-    // confirmed via try_exec's error output, not assumed.
+    // fk_isf_interstate (interstate_factor -> interstate) has to come off
+    // first — Postgres won't let interstate's type change while it's in
+    // place — and gets re-added below once both sides have successfully
+    // converted.
     try_exec(pool, "ALTER TABLE interstate_factor DROP CONSTRAINT IF EXISTS fk_isf_interstate", &mut steps).await;
-    try_exec(pool, "ALTER TABLE interstate_estimate DROP CONSTRAINT IF EXISTS fk_ise_interstate", &mut steps).await;
     try_exec(pool, "ALTER TABLE interstate ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
 
     // interstate_factor
     // No bigserial id: real per-factor rows only (the satellite-data path's
     // actual output is just interstate_id, factor_id, level, flow_type —
     // factor_id is never null here), so (interstate_id, factor_id) is a
-    // safe PRIMARY KEY directly. No longer duplicates trade_id/coefficient/
-    // state_industry_code/employment_impact — those either live on
-    // interstate (reachable via the interstate_id FK) or, for the
-    // no-satellite-only fields, on interstate_estimate. Now has a real FK
-    // to interstate(interstate_id), possible now that interstate_id is a
-    // plain integer matching interstate's own column type.
+    // safe PRIMARY KEY directly. Now has a real FK to interstate
+    // (interstate_id), possible now that interstate_id is a plain integer
+    // matching interstate's own column type.
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS interstate_factor (
             interstate_id INTEGER     NOT NULL,
@@ -2809,22 +2799,12 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     try_exec(pool, "ALTER TABLE interstate_factor ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
     try_exec(pool, "ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id)", &mut steps).await;
 
-    // interstate_estimate
-    // One row per interstate flow that had no satellite factor data
-    // available (bea/main.py's no-satellite fallback) — 1-to-(0-or-1) with
-    // interstate. factor_id/coefficient are deliberately excluded: the
-    // source data sets them to fixed placeholders (-1 / 1.0), never
-    // recalculated, so they carry no information and -1 isn't a valid
-    // factor.factor_id anyway.
-    sqlx::query(r#"
-        CREATE TABLE IF NOT EXISTS interstate_estimate (
-            interstate_id     INTEGER NOT NULL PRIMARY KEY,
-            employment_impact NUMERIC(20,10),
-            flow_type         VARCHAR(20)
-        )
-    "#).execute(pool).await.map_err(|e| e.to_string())?;
-    steps.push("Ensured table: interstate_estimate".to_string());
-    try_exec(pool, "ALTER TABLE interstate_estimate ALTER COLUMN interstate_id TYPE INTEGER USING interstate_id::integer", &mut steps).await;
+    // interstate_estimate is retired -- it held one row per interstate flow
+    // with no satellite factor data available (bea/main.py's no-satellite
+    // fallback), but real satellite data has been available for every run
+    // so far, so it has been permanently empty in every database. Dropped
+    // outright rather than left as a dead CREATE TABLE IF NOT EXISTS.
+    try_exec(pool, "DROP TABLE IF EXISTS interstate_estimate", &mut steps).await;
 
     // Narrows factor_id/block_index from INTEGER to SMALLINT (safe no-op
     // once already narrowed) -- factor has under 1,000 rows (728 as of
@@ -2885,7 +2865,6 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_istate_sector2') THEN ALTER TABLE interstate ADD CONSTRAINT fk_istate_sector2 FOREIGN KEY (sector2) REFERENCES sector(sector_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_interstate') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
-        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_ise_interstate') THEN ALTER TABLE interstate_estimate ADD CONSTRAINT fk_ise_interstate FOREIGN KEY (interstate_id) REFERENCES interstate(interstate_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_si_sector') THEN ALTER TABLE sector_industry ADD CONSTRAINT fk_si_sector FOREIGN KEY (sector_id) REFERENCES sector(sector_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_si_industry') THEN ALTER TABLE sector_industry ADD CONSTRAINT fk_si_industry FOREIGN KEY (industry_id) REFERENCES industry(industry_id); END IF; END $$",
     ] {
@@ -3540,70 +3519,6 @@ async fn insert_interstate_factor_rows(
     Ok(InsertOutcome { inserted, skipped })
 }
 
-// No-satellite-only rows — interstate_estimate.csv (bea/main.py's fallback
-// path, when no real per-factor breakdown is possible). factor_id and
-// coefficient are deliberately not read here: the source sets them to
-// fixed placeholders (-1 / 1.0) that are never recalculated in this path,
-// so they carry no information. year: None for the per-year database,
-// Some(y) for the direct-to-industrydb path.
-async fn insert_interstate_estimate_rows(
-    pool: &Pool<Postgres>,
-    year: Option<i32>,
-    text: &str,
-) -> Result<InsertOutcome, String> {
-    let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let col = |name: &str| headers.iter().position(|h| h == name);
-
-    let idx_iid = col("interstate_id");
-    let idx_ei  = col("employment_impact");
-    let idx_ft  = col("flow_type");
-
-    let mut rows: Vec<(i32, f64, String)> = Vec::new();
-    let mut skipped = 0usize;
-    for rec in rdr.records() {
-        let r = rec.map_err(|e| e.to_string())?;
-        let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
-
-        // interstate_id is a plain integer now — see insert_interstate_rows.
-        let interstate_id: i32 = match idx_iid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
-            Ok(v) if v > 0 => v,
-            _ => { skipped += 1; continue; }
-        };
-        let employment_impact: f64 = g(idx_ei).parse().unwrap_or(0.0);
-        let flow_type = g(idx_ft);
-        rows.push((interstate_id, employment_impact, flow_type));
-    }
-
-    let inserted = rows.len();
-    for chunk in rows.chunks(500) {
-        let mut qb = match year {
-            Some(y) => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate_estimate (year, interstate_id, employment_impact, flow_type) "
-                );
-                qb.push_values(chunk, |mut b, (iid, ei, ft)| {
-                    b.push_bind(y).push_bind(iid).push_bind(*ei).push_bind(ft);
-                });
-                qb.push(" ON CONFLICT (year, interstate_id) DO NOTHING");
-                qb
-            }
-            None => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate_estimate (interstate_id, employment_impact, flow_type) "
-                );
-                qb.push_values(chunk, |mut b, (iid, ei, ft)| {
-                    b.push_bind(iid).push_bind(*ei).push_bind(ft);
-                });
-                qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
-                qb
-            }
-        };
-        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
-    }
-    Ok(InsertOutcome { inserted, skipped })
-}
-
 #[derive(Deserialize)]
 struct InsertTradeDataRequest {
     year: String,
@@ -3764,12 +3679,12 @@ async fn db_insert_trade_data(
     }
 
     // 4. US BEA interstate data (domestic only). interstate.csv/
-    // interstate_factor.csv/interstate_estimate.csv (renamed from
-    // bea_trade_detail.csv/state_trade_flows.csv — see bea/README.md) are
-    // the BEA-Sector-level primary files; the full-detail "-lg" siblings are
-    // gitignored and never published, so never fetched here. Also gated on
-    // "domestic" being one of the selected flow_types: interstate.csv's
-    // trade_id references that same domestic trade.csv's rows (see
+    // interstate_factor.csv (renamed from bea_trade_detail.csv/
+    // state_trade_flows.csv — see bea/README.md) are the BEA-Sector-level
+    // primary files; the full-detail "-lg" siblings are gitignored and
+    // never published, so never fetched here. Also gated on "domestic"
+    // being one of the selected flow_types: interstate.csv's trade_id
+    // references that same domestic trade.csv's rows (see
     // insert_interstate_rows' doc comment) — loading interstate without
     // domestic would try to FK-reference trade_id values that were never
     // inserted.
@@ -3783,27 +3698,13 @@ async fn db_insert_trade_data(
             },
         }
 
-        // Mutually exclusive per bea/main.py run: interstate_factor.csv
-        // (real per-factor rows, satellite data available) or
-        // interstate_estimate.csv (no-satellite fallback) — never both.
         let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
         match fetch_github_csv(&isf_url).await {
+            Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
             Ok(text) => match insert_interstate_factor_rows(&pool, None, &text, None).await {
                 Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
             },
-            Err(factor_err) => {
-                let ise_url = format!("{base}/{year_str}/US/domestic/interstate_estimate.csv");
-                match fetch_github_csv(&ise_url).await {
-                    Ok(text) => match insert_interstate_estimate_rows(&pool, None, &text).await {
-                        Ok(o) => summary.push(json!({"file": "interstate_estimate.csv", "rows": o.inserted, "skipped": o.skipped})),
-                        Err(e) => errors.push(format!("interstate_estimate.csv insert: {e}")),
-                    },
-                    Err(estimate_err) => errors.push(format!(
-                        "interstate_factor.csv: {factor_err}; interstate_estimate.csv: {estimate_err}"
-                    )),
-                }
-            }
         }
     }
 
@@ -3894,7 +3795,7 @@ async fn db_get_industry_schema(
         SELECT table_name, column_name, data_type, ordinal_position
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate','region')
+          AND table_name IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','region')
         ORDER BY table_name, ordinal_position
     "#).fetch_all(&pool).await;
 
@@ -3902,7 +3803,7 @@ async fn db_get_industry_schema(
     let count_rows = sqlx::query(r#"
         SELECT relname AS table_name, n_live_tup AS row_count
         FROM pg_stat_user_tables
-        WHERE relname IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate','region')
+        WHERE relname IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','region')
     "#).fetch_all(&pool).await;
 
     let mut tables: HashMap<String, serde_json::Value> = HashMap::new();
@@ -3963,7 +3864,6 @@ async fn db_get_industry_schema(
             {"from": "interstate",   "to": "trade",              "on": "trade_id (US domestic)"},
             {"from": "interstate_factor", "to": "interstate",    "on": "interstate_id"},
             {"from": "interstate_factor", "to": "factor",        "on": "factor_id"},
-            {"from": "interstate_estimate", "to": "interstate",  "on": "interstate_id — 1-to-(0-or-1), no-satellite rows only"},
             {"from": "sector_industry", "to": "sector",          "on": "sector_id"},
             {"from": "sector_industry", "to": "industry",        "on": "industry_id — many-to-many, 16/200 industries chain to more than one Sector"}
         ]
@@ -3987,7 +3887,7 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"weight","type":"numeric"}
         ],
         "factor": [
-            {"name":"factor_id","type":"integer"},
+            {"name":"factor_id","type":"smallint"},
             {"name":"unit","type":"varchar(50)"},
             {"name":"stressor","type":"text"},
             {"name":"extension","type":"varchar(100)"}
@@ -4006,7 +3906,7 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"trade_id","type":"integer"},
             {"name":"country","type":"varchar(10)"},
             {"name":"flow_type","type":"varchar(20)"},
-            {"name":"factor_id","type":"integer"},
+            {"name":"factor_id","type":"smallint"},
             {"name":"coefficient","type":"numeric"},
             {"name":"level","type":"numeric"}
         ],
@@ -4025,18 +3925,13 @@ fn industry_static_schema() -> serde_json::Value {
         ],
         "interstate_factor": [
             {"name":"interstate_id","type":"varchar(80)"},
-            {"name":"factor_id","type":"integer"},
+            {"name":"factor_id","type":"smallint"},
             {"name":"level","type":"numeric"},
-            {"name":"flow_type","type":"varchar(20)"}
-        ],
-        "interstate_estimate": [
-            {"name":"interstate_id","type":"varchar(80)"},
-            {"name":"employment_impact","type":"numeric"},
             {"name":"flow_type","type":"varchar(20)"}
         ],
         "region": [
             {"name":"country","type":"varchar(10)"},
-            {"name":"block_index","type":"integer"}
+            {"name":"block_index","type":"smallint"}
         ]
     })
 }
@@ -4956,7 +4851,7 @@ async fn get_database_tables(pool: &Pool<Postgres>, limit: Option<i32>, connecti
         // Filter tables for EXIOBASE connection - only include valid tables
         if let Some(conn_name) = connection_name {
             if conn_name == "EXIOBASE" {
-                let valid_tables = ["trade", "industry", "sector", "sector_industry", "factor", "trade_factor", "interstate", "interstate_factor", "interstate_estimate"];
+                let valid_tables = ["trade", "industry", "sector", "sector_industry", "factor", "trade_factor", "interstate", "interstate_factor"];
                 if !valid_tables.contains(&table_name.as_str()) {
                     continue; // Skip tables not in the valid list
                 }
@@ -5139,7 +5034,6 @@ fn get_table_description(table_name: &str) -> Option<String> {
         "factor" => Some("Environmental and social impact factors".to_string()),
         "interstate" => Some("US BEA state-to-state trade flows".to_string()),
         "interstate_factor" => Some("State-level environmental factor flows".to_string()),
-        "interstate_estimate" => Some("State-level flows with no satellite factor data available".to_string()),
         "trade_factor" => Some("Trade flow with environmental factors".to_string()),
         _ => None,
     }

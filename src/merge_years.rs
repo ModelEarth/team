@@ -35,7 +35,7 @@ use std::sync::Arc;
 
 use crate::{
     connect_to_exiobase_year, ensure_database_exists, fetch_github_csv, get_or_assign_country_block,
-    init_industry_tables_in_pool, insert_interstate_estimate_rows, insert_interstate_factor_rows,
+    init_industry_tables_in_pool, insert_interstate_factor_rows,
     insert_interstate_rows, insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec,
     upsert_factor_rows, upsert_industry_rows, upsert_sector_industry_rows, upsert_sector_rows,
     year_database_name, ApiState,
@@ -193,7 +193,7 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     try_exec(pool, "ALTER TABLE region ADD COLUMN IF NOT EXISTS name VARCHAR(100)", &mut steps).await;
     try_exec(pool, "ALTER TABLE region ALTER COLUMN block_index TYPE SMALLINT", &mut steps).await;
 
-    // trade/trade_factor/interstate/interstate_factor/interstate_estimate:
+    // trade/trade_factor/interstate/interstate_factor:
     // year added to the PK on top of Stage 1's per-year trade_id/
     // interstate_id (see PLAN-merge.md's two-stage ID design) — Stage 1
     // already made those unique *within* one year; year makes them unique
@@ -328,25 +328,12 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     try_exec(pool, "ALTER TABLE interstate_factor ALTER COLUMN factor_id TYPE SMALLINT", &mut steps).await;
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_isf_factor') THEN ALTER TABLE interstate_factor ADD CONSTRAINT fk_isf_factor FOREIGN KEY (factor_id) REFERENCES factor(factor_id); END IF; END $$", &mut steps).await;
 
-    // Empty in both 2019 and 2021 today (no satellite-factor gaps yet), but
-    // structurally the same per-year concern as interstate_factor — needs
-    // `year` in its PK for the same reason, even though PLAN-merge.md's
-    // Stage 2 section only calls out the other 4 tables by name.
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS interstate_estimate (
-            year              SMALLINT NOT NULL,
-            interstate_id     INTEGER  NOT NULL,
-            employment_impact NUMERIC(20,10),
-            flow_type         VARCHAR(20),
-            PRIMARY KEY (year, interstate_id),
-            CONSTRAINT fk_ise_interstate FOREIGN KEY (year, interstate_id) REFERENCES interstate(year, interstate_id)
-        )
-        "#,
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    // interstate_estimate is retired -- it held one row per interstate flow
+    // with no satellite factor data available (bea/main.py's no-satellite
+    // fallback), but real satellite data has been available for every run
+    // so far, so it has been permanently empty in every database. Dropped
+    // outright rather than left as a dead CREATE TABLE IF NOT EXISTS.
+    try_exec(pool, "DROP TABLE IF EXISTS interstate_estimate", &mut steps).await;
 
     sqlx::query(INSPECT_PROC_SQL)
         .execute(pool)
@@ -623,7 +610,6 @@ DECLARE
   v_trade_factor int;
   v_interstate int;
   v_interstate_factor int;
-  v_interstate_estimate int;
 BEGIN
   DROP TABLE IF EXISTS tmp_factor_src;
   CREATE TEMP TABLE tmp_factor_src AS
@@ -695,13 +681,6 @@ BEGIN
   ON CONFLICT (year, interstate_id, factor_id) DO NOTHING;
   GET DIAGNOSTICS v_interstate_factor = ROW_COUNT;
 
-  INSERT INTO interstate_estimate (year, interstate_id, employment_impact, flow_type)
-  SELECT p_year, interstate_id, employment_impact, flow_type
-  FROM dblink(p_conninfo, 'SELECT interstate_id, employment_impact, flow_type FROM interstate_estimate')
-    AS s(interstate_id integer, employment_impact numeric(20,10), flow_type varchar(20))
-  ON CONFLICT (year, interstate_id) DO NOTHING;
-  GET DIAGNOSTICS v_interstate_estimate = ROW_COUNT;
-
   DROP TABLE IF EXISTS tmp_factor_src;
   DROP TABLE IF EXISTS tmp_factor_map;
 
@@ -715,8 +694,7 @@ BEGIN
       'trade', v_trade,
       'trade_factor', v_trade_factor,
       'interstate', v_interstate,
-      'interstate_factor', v_interstate_factor,
-      'interstate_estimate', v_interstate_estimate
+      'interstate_factor', v_interstate_factor
     )
   );
 END;
@@ -982,11 +960,10 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
         }
     }
 
-    // 4. US BEA interstate data (domestic only) — same mutually-exclusive
-    // interstate_factor/interstate_estimate logic as the per-year loader.
-    // Gated on "domestic" being selected — see db_insert_trade_data's
-    // matching comment (interstate.csv's trade_id references the domestic
-    // trade.csv's rows; loading it without domestic would FK-violate).
+    // 4. US BEA interstate data (domestic only). Gated on "domestic" being
+    // selected — see db_insert_trade_data's matching comment (interstate.csv's
+    // trade_id references the domestic trade.csv's rows; loading it without
+    // domestic would FK-violate).
     if country == "US" && flow_types.iter().any(|f| f == "domestic") {
         let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
         match fetch_github_csv(&interstate_url).await {
@@ -999,22 +976,11 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
 
         let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
         match fetch_github_csv(&isf_url).await {
+            Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
             Ok(text) => match insert_interstate_factor_rows(&pool, Some(year_num), &text, Some(&factor_map)).await {
                 Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
             },
-            Err(factor_err) => {
-                let ise_url = format!("{base}/{year_str}/US/domestic/interstate_estimate.csv");
-                match fetch_github_csv(&ise_url).await {
-                    Ok(text) => match insert_interstate_estimate_rows(&pool, Some(year_num), &text).await {
-                        Ok(o) => summary.push(json!({"file": "interstate_estimate.csv", "rows": o.inserted, "skipped": o.skipped})),
-                        Err(e) => errors.push(format!("interstate_estimate.csv insert: {e}")),
-                    },
-                    Err(estimate_err) => errors.push(format!(
-                        "interstate_factor.csv: {factor_err}; interstate_estimate.csv: {estimate_err}"
-                    )),
-                }
-            }
         }
     }
 

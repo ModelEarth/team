@@ -1,5 +1,5 @@
-// One-off utility: clears trade/trade_factor/interstate/interstate_factor/
-// interstate_estimate in one or more per-year Industry Databases, so the
+// One-off utility: clears trade/trade_factor/interstate/interstate_factor
+// in one or more per-year Industry Databases, so the
 // loader (db_insert_trade_data) can reload them from the fixed CSVs without
 // every row being skipped by ON CONFLICT DO NOTHING on an unchanged natural
 // key -- see PLAN-merge.md's "Fixing historical trade_id/interstate_id".
@@ -34,7 +34,7 @@ async fn main() {
             .await
             .expect("connect failed");
 
-        for table in ["interstate_factor, interstate_estimate, interstate", "trade_factor, trade"] {
+        for table in ["interstate_factor, interstate", "trade_factor, trade"] {
             match sqlx::query(&format!("TRUNCATE TABLE {table}")).execute(&pool).await {
                 Ok(_) => println!("  Truncated {table}"),
                 Err(e) => println!("  SKIP {table}: {e}"),
