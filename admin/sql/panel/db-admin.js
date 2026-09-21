@@ -942,7 +942,7 @@ class DatabaseAdmin {
     setLoading(buttonId, isLoading) {
         const button = document.getElementById(buttonId);
         let spinnerId;
-        
+
         if (buttonId.includes('connection')) {
             spinnerId = 'connection-spinner';
         } else if (buttonId === 'list-10-tables') {
@@ -952,9 +952,9 @@ class DatabaseAdmin {
         } else {
             spinnerId = 'tables-spinner'; // fallback
         }
-        
+
         const spinner = document.getElementById(spinnerId);
-        
+
         if (button) {
             if (isLoading) {
                 button.disabled = true;
@@ -963,6 +963,17 @@ class DatabaseAdmin {
                 button.disabled = false;
                 if (spinner) spinner.style.display = 'none';
             }
+        }
+
+        // Mirror "List All Tables"' spinner onto the Database Tables card
+        // itself, where the results actually land -- so it's visible even
+        // when that button has scrolled out of view. Hidden the same way
+        // the button's own spinner is: setLoading(..., false) runs in
+        // listTables()'s `finally`, after displayTables()/showError() has
+        // already populated the card.
+        if (buttonId === 'list-all-tables') {
+            const panelSpinner = document.getElementById('tables-panel-spinner');
+            if (panelSpinner) panelSpinner.style.display = isLoading ? 'inline-block' : 'none';
         }
     }
 
