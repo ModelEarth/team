@@ -2142,6 +2142,100 @@ async fn db_test_exiobase_year_connection(
     }
 }
 
+// Resolves a Pool<Postgres> for a `connection` name the same way
+// get_tables/db_get_table_info/db_execute_query each do inline: a per-year
+// Industry Database (EXIOBASE_{year}), a direct *_URL env var, or
+// {PREFIX}_HOST/PORT/NAME/USER/PASSWORD component env vars. None (or an
+// unset value) falls back to default_pool (the app's own default
+// connection). Factored out here rather than duplicated a fourth time for
+// db_get_database_size below — the existing three call sites are left as
+// they were, not touched by this.
+async fn resolve_connection_pool(
+    connection_name: Option<&str>,
+    default_pool: Option<&Pool<Postgres>>,
+) -> Result<Pool<Postgres>, String> {
+    let connection_name = match connection_name {
+        Some(name) if !name.is_empty() => name,
+        _ => {
+            return default_pool.cloned().ok_or_else(|| {
+                "Database not available. Server started without database connection.".to_string()
+            })
+        }
+    };
+
+    let database_url = if let Some(url) = resolve_exiobase_year_url(connection_name) {
+        url
+    } else if let Ok(url) = std::env::var(connection_name) {
+        url
+    } else {
+        let host_key = format!("{connection_name}_HOST");
+        let port_key = format!("{connection_name}_PORT");
+        let name_key = format!("{connection_name}_NAME");
+        let user_key = format!("{connection_name}_USER");
+        let password_key = format!("{connection_name}_PASSWORD");
+        let ssl_key = format!("{connection_name}_SSL_MODE");
+
+        if let (Ok(host), Ok(port), Ok(name), Ok(user), Ok(password)) = (
+            std::env::var(&host_key),
+            std::env::var(&port_key),
+            std::env::var(&name_key),
+            std::env::var(&user_key),
+            std::env::var(&password_key),
+        ) {
+            let ssl_mode = std::env::var(&ssl_key).unwrap_or_else(|_| "require".to_string());
+            format!("postgres://{user}:{password}@{host}:{port}/{name}?sslmode={ssl_mode}")
+        } else {
+            return Err(format!(
+                "Connection '{connection_name}' not found in environment variables"
+            ));
+        }
+    };
+
+    sqlx::postgres::PgPool::connect(&database_url)
+        .await
+        .map_err(|e| format!("Failed to connect to {connection_name}: {e}"))
+}
+
+// GET /api/db/database-size?connection=EXIOBASE_2019 (or COMMONS, EXIOBASE,
+// LOCATIONS, etc. — omit for the default connection) — on-disk size of that
+// connection's current database, for the status panel's database list.
+// Queried lazily/separately from the list itself (see loadDatabaseSizes in
+// common.js) so a slow pg_database_size call never delays showing which
+// databases are up.
+async fn db_get_database_size(
+    data: web::Data<Arc<ApiState>>,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> Result<HttpResponse> {
+    let connection_name = query.get("connection").map(|s| s.as_str());
+    let pool = match resolve_connection_pool(connection_name, data.db.as_ref()).await {
+        Ok(p) => p,
+        Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({
+            "success": false, "error": e
+        }))),
+    };
+
+    match sqlx::query(
+        "SELECT pg_database_size(current_database()) AS bytes, \
+                pg_size_pretty(pg_database_size(current_database())) AS pretty"
+    )
+        .fetch_one(&pool)
+        .await
+    {
+        Ok(row) => {
+            let bytes: i64 = row.get("bytes");
+            let pretty: String = row.get("pretty");
+            Ok(HttpResponse::Ok().json(json!({
+                "success": true,
+                "bytes": bytes,
+                "pretty": pretty
+            })))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false, "error": e.to_string()
+        }))),
+    }
+}
+
 // ============================================================
 // Industry Database (EXIOBASE) — Trade Data Insert
 // ============================================================
@@ -5098,6 +5192,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/test-exiobase-connection", web::get().to(db_test_exiobase_connection))
                             .route("/test-exiobase-year-connection", web::get().to(db_test_exiobase_year_connection))
                             .route("/list-exiobase-years", web::get().to(db_list_exiobase_years))
+                            .route("/database-size", web::get().to(db_get_database_size))
                             .route("/test-locations-connection", web::get().to(db_test_location_connection))
                             .route("/tables", web::get().to(db_list_tables))
                             .route("/table/{table_name}", web::get().to(db_get_table_info))

@@ -2302,6 +2302,11 @@ function selectDatabaseConnectionAndListTables(row) {
 
     const listAllTablesBtn = document.getElementById('list-all-tables');
     if (listAllTablesBtn) listAllTablesBtn.click();
+
+    // Jump to the card holding #tables-list -- a no-op on pages that don't
+    // have it (this function is shared across several pages).
+    const tablesCard = document.getElementById('database-tables-card');
+    if (tablesCard) tablesCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 window.selectDatabaseConnectionAndListTables = selectDatabaseConnectionAndListTables;
 
@@ -2718,6 +2723,40 @@ async function checkBackendStatus() {
         // Per-year Industry Databases (e.g. 2019, 2021) - discovered live, not hardcoded
         checkExiobaseYearDatabases()
     ]);
+
+    // Database sizes are fetched separately, after the active/inactive list
+    // above has already rendered -- not awaited, so a slow pg_database_size
+    // call never delays showing which databases are up.
+    loadDatabaseSizes();
+}
+
+// Appends each active database's on-disk size next to its status text.
+// Called after the main connection checks (see checkBackendStatus) so the
+// list itself appears immediately; sizes fill in afterward as each request
+// completes. Skips inactive/unreachable connections -- querying those would
+// just time out for no benefit.
+async function loadDatabaseSizes() {
+    const items = document.querySelectorAll('#backend-status-indicators .status-indicator-item[data-connection]');
+    await Promise.all(Array.from(items).map(async (item) => {
+        const indicator = item.querySelector('.status-indicator');
+        if (!indicator || !indicator.classList.contains('connected')) return;
+
+        const connection = item.dataset.connection;
+        let sizeEl = item.querySelector('.db-size-info');
+        if (!sizeEl) {
+            sizeEl = document.createElement('span');
+            sizeEl.className = 'db-size-info';
+            sizeEl.style.cssText = 'font-size: 13px; color: var(--text-secondary); margin-left: 2px;';
+            item.appendChild(sizeEl);
+        }
+        try {
+            const response = await fetch(`http://localhost:8081/api/db/database-size?connection=${encodeURIComponent(connection)}`);
+            const result = await response.json();
+            sizeEl.textContent = result.success ? `(${result.pretty})` : '';
+        } catch (error) {
+            sizeEl.textContent = '';
+        }
+    }));
 }
 
 // Function to check individual database connections (legacy function for compatibility)
