@@ -3537,9 +3537,45 @@ struct InsertTradeDataRequest {
     // violation risk noted below interstate's gating.
     #[serde(default)]
     flow_types: Option<Vec<String>>,
+    // "local" reads CSVs straight off this machine's disk instead of
+    // fetching them from GitHub -- team and trade-data are sibling repos
+    // under the same webroot checkout, so a comprehensive-mode-style local
+    // Python run's output is already sitting right next to this process,
+    // with no need to commit/push it to trade-data first. Anything else
+    // (including omitted) keeps the existing GitHub-fetch behavior, which
+    // remains the only option for a team server that isn't colocated with
+    // a trade-data checkout (e.g. a deployed/cloud instance).
+    #[serde(default)]
+    source: Option<String>,
 }
 
 const ALL_FLOW_TYPES: [&str; 3] = ["domestic", "imports", "exports"];
+
+// Base path/URL for CSVs read by db_insert_trade_data/insert_trade_data_direct
+// -- either this machine's local trade-data checkout (source: "local") or
+// GitHub's raw content host (the default). Every call site below builds a
+// relative path off whichever this returns and reads it through
+// read_csv_source, so the two sources are interchangeable everywhere a CSV
+// gets fetched.
+fn csv_source_base(local: bool) -> &'static str {
+    if local {
+        "../trade-data/year"
+    } else {
+        "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year"
+    }
+}
+
+// Reads one CSV from whichever source csv_source_base(local) points at --
+// this machine's disk (a plain file read, relative to team's own working
+// directory) or a GitHub raw URL (the existing fetch_github_csv path).
+async fn read_csv_source(base: &str, local: bool, relative_path: &str) -> Result<String, String> {
+    if local {
+        let path = format!("{base}/{relative_path}");
+        tokio::fs::read_to_string(&path).await.map_err(|e| format!("{path}: {e}"))
+    } else {
+        fetch_github_csv(&format!("{base}/{relative_path}")).await
+    }
+}
 
 // POST /api/db/insert-trade-data
 async fn db_insert_trade_data(
@@ -3561,8 +3597,10 @@ async fn db_insert_trade_data(
         _ => ALL_FLOW_TYPES.iter().map(|s| s.to_string()).collect(),
     };
 
+    let use_local = req.source.as_deref() == Some("local");
+
     if req.target.as_deref() == Some("industrydb") {
-        return merge_years::insert_trade_data_direct(year_str, country, flow_types).await;
+        return merge_years::insert_trade_data_direct(year_str, country, flow_types, use_local).await;
     }
 
     let pool = match connect_to_exiobase_year(&year_str).await {
@@ -3602,13 +3640,12 @@ async fn db_insert_trade_data(
             .into_iter()
             .collect();
 
-    let base = "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year";
+    let base = csv_source_base(use_local);
     let mut summary: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
     // 1. factor.csv
-    let factor_url = format!("{base}/{year_str}/factor.csv");
-    match fetch_github_csv(&factor_url).await {
+    match read_csv_source(base, use_local, &format!("{year_str}/factor.csv")).await {
         Err(e) => errors.push(format!("factor.csv: {e}")),
         Ok(text) => match upsert_factor_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "factor.csv", "rows": n})),
@@ -3617,8 +3654,7 @@ async fn db_insert_trade_data(
     }
 
     // 2. industry.csv
-    let industry_url = format!("{base}/{year_str}/industry.csv");
-    match fetch_github_csv(&industry_url).await {
+    match read_csv_source(base, use_local, &format!("{year_str}/industry.csv")).await {
         Err(e) => errors.push(format!("industry.csv: {e}")),
         Ok(text) => match upsert_industry_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
@@ -3630,16 +3666,14 @@ async fn db_insert_trade_data(
     // year-specific data (BEA's Sector classification and its relationship
     // to Exiobase industries don't change per year), but published
     // alongside each year's other reference files for now.
-    let sector_url = format!("{base}/{year_str}/sector.csv");
-    match fetch_github_csv(&sector_url).await {
+    match read_csv_source(base, use_local, &format!("{year_str}/sector.csv")).await {
         Err(e) => errors.push(format!("sector.csv: {e}")),
         Ok(text) => match upsert_sector_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
             Err(e) => errors.push(format!("sector.csv insert: {e}")),
         },
     }
-    let sector_industry_url = format!("{base}/{year_str}/sector_industry.csv");
-    match fetch_github_csv(&sector_industry_url).await {
+    match read_csv_source(base, use_local, &format!("{year_str}/sector_industry.csv")).await {
         Err(e) => errors.push(format!("sector_industry.csv: {e}")),
         Ok(text) => match upsert_sector_industry_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
@@ -3655,9 +3689,8 @@ async fn db_insert_trade_data(
     // fixed offset) is applied independently inside insert_trade_rows and
     // insert_trade_factor_rows — no mapping to thread through here.
     for flow_type in &flow_types {
-        let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
         let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
-        match fetch_github_csv(&trade_url).await {
+        match read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade.csv")).await {
             Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
             Ok(text) => match insert_trade_rows(&pool, None, &text, flow_type, &country, country_block_index, &known).await {
                 Ok((n, skipped_ids)) => {
@@ -3668,8 +3701,7 @@ async fn db_insert_trade_data(
             },
         }
 
-        let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
-        match fetch_github_csv(&tf_url).await {
+        match read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade_factor.csv")).await {
             Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
             Ok(text) => match insert_trade_factor_rows(&pool, None, &text, flow_type, &country, country_block_index, None, &skipped_csv_trade_ids).await {
                 Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
@@ -3689,8 +3721,7 @@ async fn db_insert_trade_data(
     // domestic would try to FK-reference trade_id values that were never
     // inserted.
     if country == "US" && flow_types.iter().any(|f| f == "domestic") {
-        let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
-        match fetch_github_csv(&interstate_url).await {
+        match read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate.csv")).await {
             Err(e) => errors.push(format!("interstate.csv: {e}")),
             Ok(text) => match insert_interstate_rows(&pool, None, &text, &country).await {
                 Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
@@ -3698,8 +3729,7 @@ async fn db_insert_trade_data(
             },
         }
 
-        let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
-        match fetch_github_csv(&isf_url).await {
+        match read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate_factor.csv")).await {
             Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
             Ok(text) => match insert_interstate_factor_rows(&pool, None, &text, None).await {
                 Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),

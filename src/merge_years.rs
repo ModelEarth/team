@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    connect_to_exiobase_year, ensure_database_exists, fetch_github_csv, get_or_assign_country_block,
+    connect_to_exiobase_year, ensure_database_exists, get_or_assign_country_block,
     init_industry_tables_in_pool, insert_interstate_factor_rows,
     insert_interstate_rows, insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec,
     upsert_factor_rows, upsert_industry_rows, upsert_sector_industry_rows, upsert_sector_rows,
@@ -846,7 +846,7 @@ async fn upsert_factor_rows_merged(pool: &Pool<Postgres>, text: &str) -> Result<
 // database and the (currently Azure-blocked) dblink merge step entirely.
 // Safe to re-run for the same year: every insert here is
 // `ON CONFLICT ... DO NOTHING`.
-pub async fn insert_trade_data_direct(year_str: String, country: String, flow_types: Vec<String>) -> Result<HttpResponse> {
+pub async fn insert_trade_data_direct(year_str: String, country: String, flow_types: Vec<String>, use_local: bool) -> Result<HttpResponse> {
     let year_num: i32 = match year_str.parse() {
         Ok(y) => y,
         Err(_) => {
@@ -886,15 +886,14 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
             .into_iter()
             .collect();
 
-    let base = "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year";
+    let base = crate::csv_source_base(use_local);
     let mut summary: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
     // 1. factor.csv — builds this year's src -> dst factor_id map first;
     // every later step that touches factor_id depends on it.
     let mut factor_map: HashMap<i32, i32> = HashMap::new();
-    let factor_url = format!("{base}/{year_str}/factor.csv");
-    match fetch_github_csv(&factor_url).await {
+    match crate::read_csv_source(base, use_local, &format!("{year_str}/factor.csv")).await {
         Err(e) => errors.push(format!("factor.csv: {e}")),
         Ok(text) => match upsert_factor_rows_merged(&pool, &text).await {
             Ok(m) => {
@@ -909,24 +908,21 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
     // no remap; the existing per-year upsert functions work unchanged
     // against industrydb since these tables have the identical schema
     // either way.
-    let industry_url = format!("{base}/{year_str}/industry.csv");
-    match fetch_github_csv(&industry_url).await {
+    match crate::read_csv_source(base, use_local, &format!("{year_str}/industry.csv")).await {
         Err(e) => errors.push(format!("industry.csv: {e}")),
         Ok(text) => match upsert_industry_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
             Err(e) => errors.push(format!("industry.csv insert: {e}")),
         },
     }
-    let sector_url = format!("{base}/{year_str}/sector.csv");
-    match fetch_github_csv(&sector_url).await {
+    match crate::read_csv_source(base, use_local, &format!("{year_str}/sector.csv")).await {
         Err(e) => errors.push(format!("sector.csv: {e}")),
         Ok(text) => match upsert_sector_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
             Err(e) => errors.push(format!("sector.csv insert: {e}")),
         },
     }
-    let sector_industry_url = format!("{base}/{year_str}/sector_industry.csv");
-    match fetch_github_csv(&sector_industry_url).await {
+    match crate::read_csv_source(base, use_local, &format!("{year_str}/sector_industry.csv")).await {
         Err(e) => errors.push(format!("sector_industry.csv: {e}")),
         Ok(text) => match upsert_sector_industry_rows(&pool, &text).await {
             Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
@@ -937,9 +933,8 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
     // 3. trade.csv + trade_factor.csv per flow type — same functions as
     // the per-year loader, with year/factor_map now Some(...).
     for flow_type in &flow_types {
-        let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
         let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
-        match fetch_github_csv(&trade_url).await {
+        match crate::read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade.csv")).await {
             Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
             Ok(text) => match insert_trade_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, &known).await {
                 Ok((n, skipped_ids)) => {
@@ -950,8 +945,7 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
             },
         }
 
-        let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
-        match fetch_github_csv(&tf_url).await {
+        match crate::read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade_factor.csv")).await {
             Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
             Ok(text) => match insert_trade_factor_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, Some(&factor_map), &skipped_csv_trade_ids).await {
                 Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
@@ -965,8 +959,7 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
     // trade_id references the domestic trade.csv's rows; loading it without
     // domestic would FK-violate).
     if country == "US" && flow_types.iter().any(|f| f == "domestic") {
-        let interstate_url = format!("{base}/{year_str}/US/domestic/interstate.csv");
-        match fetch_github_csv(&interstate_url).await {
+        match crate::read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate.csv")).await {
             Err(e) => errors.push(format!("interstate.csv: {e}")),
             Ok(text) => match insert_interstate_rows(&pool, Some(year_num), &text, &country).await {
                 Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
@@ -974,8 +967,7 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
             },
         }
 
-        let isf_url = format!("{base}/{year_str}/US/domestic/interstate_factor.csv");
-        match fetch_github_csv(&isf_url).await {
+        match crate::read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate_factor.csv")).await {
             Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
             Ok(text) => match insert_interstate_factor_rows(&pool, Some(year_num), &text, Some(&factor_map)).await {
                 Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
