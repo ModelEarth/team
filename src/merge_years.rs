@@ -34,9 +34,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    ensure_database_exists, fetch_github_csv, insert_interstate_estimate_rows,
-    insert_interstate_factor_rows, insert_interstate_rows, insert_trade_factor_rows,
-    insert_trade_rows, parse_factor_csv, try_exec, upsert_industry_rows,
+    ensure_database_exists, fetch_github_csv, get_or_assign_country_block,
+    insert_interstate_estimate_rows, insert_interstate_factor_rows, insert_interstate_rows,
+    insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec, upsert_industry_rows,
     upsert_sector_industry_rows, upsert_sector_rows, year_database_name, ApiState,
 };
 
@@ -162,6 +162,26 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
             stressor  TEXT,
             unit      VARCHAR(50),
             CONSTRAINT factor_extension_stressor_key UNIQUE (extension, stressor)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    // country_block — Part 1 of PLAN-merge.md's multi-country fix, same
+    // table/logic as the per-year databases' (see
+    // init_industry_tables_in_pool in main.rs): one block_index per country,
+    // shared across every year merged into this database (block_index
+    // depends only on country, never on year — trade_id's PK here is
+    // (year, trade_id), so distinct years never need distinct blocks for the
+    // same country; only countries sharing the same year ever need to avoid
+    // colliding, and distinct block_indexes already guarantee that).
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS country_block (
+            country     VARCHAR(10) NOT NULL PRIMARY KEY,
+            block_index INTEGER     NOT NULL
         )
         "#,
     )
@@ -654,6 +674,29 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
             .json(json!({"success": false, "error": format!("Schema/procedure setup failed: {e}")})));
     }
 
+    // Part 1 of the multi-country fix (PLAN-merge.md): assign (or reuse)
+    // this country's block index in industrydb before computing any
+    // trade_id — shared across every year merged here (see
+    // ensure_merge_infra's country_block comment).
+    let country_block_index = match get_or_assign_country_block(&pool, &country).await {
+        Ok(idx) => idx,
+        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({"success": false, "error": e}))),
+    };
+
+    // Part 2: which (country, flow_type) pairs already have trade rows for
+    // *this year* in industrydb — scoped by year here (unlike the per-year
+    // databases, industrydb holds every year in one trade table) — so a
+    // bilateral flow another country's file already contributed for this
+    // year gets skipped before it's even parsed.
+    let known: std::collections::HashSet<(String, String)> =
+        sqlx::query_as::<_, (String, String)>("SELECT DISTINCT country, flow_type FROM trade WHERE year = $1")
+            .bind(year_num)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+
     let base = "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year";
     let mut summary: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
@@ -706,10 +749,14 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
     // the per-year loader, with year/factor_map now Some(...).
     for flow_type in &flow_types {
         let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
+        let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
         match fetch_github_csv(&trade_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
-            Ok(text) => match insert_trade_rows(&pool, Some(year_num), &text, flow_type, &country).await {
-                Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n})),
+            Ok(text) => match insert_trade_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, &known).await {
+                Ok((n, skipped_ids)) => {
+                    summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n, "skipped_duplicate": skipped_ids.len()}));
+                    skipped_csv_trade_ids = skipped_ids;
+                }
                 Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
             },
         }
@@ -717,7 +764,7 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
         let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
         match fetch_github_csv(&tf_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
-            Ok(text) => match insert_trade_factor_rows(&pool, Some(year_num), &text, flow_type, &country, Some(&factor_map)).await {
+            Ok(text) => match insert_trade_factor_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, Some(&factor_map), &skipped_csv_trade_ids).await {
                 Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
             },

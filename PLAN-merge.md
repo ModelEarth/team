@@ -58,7 +58,7 @@ rather than assumed:
   which no `ON CONFLICT` target aimed at the natural key would catch, since Postgres still enforces
   every other constraint on the row regardless of which one `ON CONFLICT` names.
 
-### Fix design: per-country `trade_id` blocks + skip-before-insert (not yet implemented)
+### Fix design: per-country `trade_id` blocks + skip-before-insert (implemented, not yet live-verified)
 
 Two independent problems, two independent parts of the fix — both needed, neither one alone is
 enough:
@@ -133,8 +133,36 @@ lookup needed at insert time. `trade.country` (paired with `flow_type`) is only 
 "is this already loaded" check, which exists purely to avoid wasted work and the FK-orphan case, not
 to establish uniqueness.
 
-**Not yet implemented** — this section is the design; `country_block`, the block-index lookup, and
-the skip-before-insert filtering aren't in `merge_years.rs`/`main.rs` yet.
+**Implemented (2026-09-20), not yet live-verified against a real second country.** Both parts are
+in `main.rs`/`merge_years.rs` now:
+
+- `country_block` table added to `init_industry_tables_in_pool` (per-year databases) and
+  `ensure_merge_infra` (`industrydb` — one table shared across every year merged in, since
+  `block_index` depends only on `country`, never on `year`; `industrydb`'s `trade` PK is
+  `(year, trade_id)`, so distinct years never need distinct blocks for the same country).
+- `get_or_assign_country_block(pool, country)` — the atomic UPSERT+RETURNING from the design above,
+  unchanged. `pub(crate)` in `main.rs`, used from both `main.rs` and `merge_years.rs`.
+- `trade_id_base(country_block_index, flow_type)` — combines the block with the existing
+  `trade_id_offset`; replaces the old bare `trade_id_offset(flow_type)` call in
+  `insert_trade_rows`/`insert_trade_factor_rows`.
+- `trade_row_already_known(region1, region2, known)` — Part 2's skip check, exactly as designed
+  (domestic checked against `(region1, "domestic")`; cross-region checked against
+  `(region1, "exports")` **or** `(region2, "imports")`).
+- `insert_trade_rows` now takes `country_block_index: i32` and `known: &HashSet<(String,String)>`,
+  and returns `(usize, HashSet<i32>)` instead of a bare `usize` — the second element is the set of
+  skipped rows' own `csv_trade_id` values, for `insert_trade_factor_rows` to filter its matching
+  `trade_factor.csv` by. `insert_trade_factor_rows` now also takes `country_block_index` and
+  `skipped_csv_trade_ids: &HashSet<i32>`.
+- Both call sites (`db_insert_trade_data` in `main.rs`, `insert_trade_data_direct` in
+  `merge_years.rs`) build `known` once per job (`SELECT DISTINCT country, flow_type FROM trade`,
+  scoped by `WHERE year = $1` in the `industrydb` case) and assign `country_block_index` once,
+  before the `flow_types` loop — not per flow_type.
+- `cargo build` is clean (same 24 pre-existing warnings as before this change, no new ones).
+
+**Not yet done:** an actual live test loading a second country (e.g. CN) into either an
+`industrydb_{year}` or `industrydb` alongside US, to confirm block assignment, the skip filter, and
+the resulting `trade_id` ranges all behave as designed against real data — blocked on the unresolved
+live-request hang noted below.
 
 **UI/backend support added** (not yet live-verified — see below): `POST /api/db/insert-trade-data`
 now accepts `flow_types: string[]` (default: all three) so a caller can load e.g. only `imports` for
@@ -447,6 +475,9 @@ override flag if someone wants to proceed past warnings.
 
 ## Open questions / risks to keep visible, not resolve silently
 
+- **Per-country `trade_id` blocks + skip-before-insert are implemented but not yet live-tested
+  against a real second country** — see "Fix design" above. Until that's verified, don't load any
+  non-US country into a real `industrydb_{year}` or `industrydb`.
 - **The 1,000,000-wide per-flow_type block is an accepted risk, not a proven-safe ceiling** — a
   14-country rollout (already the default in `main.py`) or a larger future Exiobase industry count
   could push a single year's `imports`/`exports` past 999,999 rows. If that happens, the fix is

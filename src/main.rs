@@ -2496,6 +2496,24 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     steps.push("Ensured table: factor".to_string());
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
 
+    // country_block — Part 1 of the multi-country fix (PLAN-merge.md's "Fix
+    // design: per-country trade_id blocks + skip-before-insert"): each
+    // country loaded into *this* database gets a small integer block_index,
+    // assigned the first time it's loaded (get_or_assign_country_block), so
+    // trade_id (block_index * 3,000,000 + flow_type_offset + csv_row_index)
+    // stays globally unique across countries within one database — not just
+    // within one country's own three files as before. Whichever country
+    // loads first gets block_index 0, reproducing today's exact trade_id
+    // values (0 * 3,000,000 = 0) with zero migration needed for
+    // already-loaded (US-only) data.
+    sqlx::query(r#"
+        CREATE TABLE IF NOT EXISTS country_block (
+            country     VARCHAR(10) NOT NULL PRIMARY KEY,
+            block_index INTEGER     NOT NULL
+        )
+    "#).execute(pool).await.map_err(|e| e.to_string())?;
+    steps.push("Ensured table: country_block".to_string());
+
     // trade
     // trade_id is an explicit value the loader computes deterministically
     // from trade.csv's own (already 1-based, per-file) row index plus a
@@ -2915,6 +2933,63 @@ fn trade_id_offset(flow_type: &str) -> i32 {
     }
 }
 
+// Assigns (or returns the existing) small integer block index for a country
+// within one database — Part 1 of PLAN-merge.md's multi-country fix.
+// Atomic UPSERT+RETURNING so concurrent/repeated calls for the same country
+// never race or disagree: the first call for a given country inserts and
+// returns the next available index; every later call for that same country
+// hits the ON CONFLICT branch (a no-op write, purely so RETURNING still
+// fires) and gets back the same value it got the first time. Headroom
+// checked against Exiobase's real 49-region ceiling in PLAN-merge.md — 48 is
+// the highest index that can ever be assigned.
+pub(crate) async fn get_or_assign_country_block(pool: &Pool<Postgres>, country: &str) -> Result<i32, String> {
+    sqlx::query_scalar(
+        r#"
+        WITH next_idx AS (SELECT COALESCE(MAX(block_index), -1) + 1 AS idx FROM country_block)
+        INSERT INTO country_block (country, block_index)
+        SELECT $1, next_idx.idx FROM next_idx
+        ON CONFLICT (country) DO UPDATE SET country = country_block.country
+        RETURNING block_index
+        "#,
+    )
+    .bind(country)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to assign country_block for {country}: {e}"))
+}
+
+// Combines Part 1's per-country block with the existing per-flow_type
+// offset — the full trade_id formula from PLAN-merge.md:
+// country_block_index * 3,000,000 + flow_type_offset(flow_type) +
+// csv_row_index (the csv_row_index/csv_trade_id part is added by the
+// caller). 3,000,000 per country leaves ~17x headroom over today's real max
+// (175,726, 2019 exports) before the per-flow_type sub-block itself would
+// need widening — a pre-existing, separately tracked risk (see
+// PLAN-merge.md's "Open questions" section), not something this widening
+// introduces.
+fn trade_id_base(country_block_index: i32, flow_type: &str) -> i32 {
+    country_block_index * 3_000_000 + trade_id_offset(flow_type)
+}
+
+// Part 2 of PLAN-merge.md's multi-country fix: decides, before a trade.csv
+// row is even parsed further, whether another country's file already
+// contributed this exact physical bilateral flow — checked by
+// trade.country/flow_type (via `known`, built once per job from
+// `SELECT DISTINCT country, flow_type FROM trade`), not trade_id, since
+// trade_id is now only unique per country block rather than globally.
+// domestic rows (region1 == region2) only ever appear in one country's own
+// file, so they're checked against that same country/domestic pair;
+// cross-region rows can be contributed by either side's run, so both
+// possible sources are checked.
+fn trade_row_already_known(region1: &str, region2: &str, known: &std::collections::HashSet<(String, String)>) -> bool {
+    if region1 == region2 {
+        known.contains(&(region1.to_string(), "domestic".to_string()))
+    } else {
+        known.contains(&(region1.to_string(), "exports".to_string()))
+            || known.contains(&(region2.to_string(), "imports".to_string()))
+    }
+}
+
 // year: None for the per-year database (industrydb_{year} — trade_id
 // alone is the PK, natural key is unscoped); Some(y) to insert straight
 // into the shared industrydb instead, adding y as a real column and
@@ -2928,7 +3003,9 @@ async fn insert_trade_rows(
     text: &str,
     flow_type: &str,
     country: &str,
-) -> Result<usize, String> {
+    country_block_index: i32,
+    known: &std::collections::HashSet<(String, String)>,
+) -> Result<(usize, std::collections::HashSet<i32>), String> {
     // Header-based lookup (not fixed positions): trade.csv no longer carries
     // a 'year' column (one database per year makes it redundant), and a
     // fixed-position reader silently misreads every column when a CSV's
@@ -2947,14 +3024,21 @@ async fn insert_trade_rows(
     let industry1_col = col("industry1", 3);
     let industry2_col = col("industry2", 4);
     let amount_col = col("amount", 5);
-    let offset = trade_id_offset(flow_type);
+    let base = trade_id_base(country_block_index, flow_type);
     let mut rows: Vec<(i32, String, String, String, String, f64)> = Vec::new();
+    let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
-        let trade_id = csv_trade_id + offset;
         let region1 = r.get(region1_col).unwrap_or("").to_string();
         let region2 = r.get(region2_col).unwrap_or("").to_string();
+
+        if trade_row_already_known(&region1, &region2, known) {
+            skipped_csv_trade_ids.insert(csv_trade_id);
+            continue;
+        }
+
+        let trade_id = csv_trade_id + base;
         let industry1 = r.get(industry1_col).unwrap_or("").to_string();
         let industry2 = r.get(industry2_col).unwrap_or("").to_string();
         let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
@@ -2992,7 +3076,7 @@ async fn insert_trade_rows(
         };
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
-    Ok(count)
+    Ok((count, skipped_csv_trade_ids))
 }
 
 // Applies the same trade_id_offset as insert_trade_rows, computed
@@ -3005,13 +3089,23 @@ async fn insert_trade_rows(
 // upsert_factor_rows_merged already built for this year (see
 // PLAN-merge.md's "factor table" section) — a source factor_id missing
 // from the map is skipped rather than inserted with a wrong/guessed id.
+// country_block_index: same value insert_trade_rows used for this
+// country/database, so the two compute the identical trade_id independently
+// (see trade_id_base). skipped_csv_trade_ids: the set insert_trade_rows
+// returned for this same flow_type's trade.csv — a trade_factor.csv row
+// referencing one of those csv_trade_ids is redundant with whatever the
+// already-loaded country contributed for the same physical flow (Part 2 of
+// PLAN-merge.md's fix), so it's skipped here too rather than left to
+// FK-orphan against a trade_id that was never inserted.
 async fn insert_trade_factor_rows(
     pool: &Pool<Postgres>,
     year: Option<i32>,
     text: &str,
     flow_type: &str,
     country: &str,
+    country_block_index: i32,
     factor_map: Option<&std::collections::HashMap<i32, i32>>,
+    skipped_csv_trade_ids: &std::collections::HashSet<i32>,
 ) -> Result<InsertOutcome, String> {
     // Header-based lookup: trade_factor.csv (trade.py) has always had only
     // three columns (trade_id, factor_id, level) — a fourth 'coefficient'
@@ -3026,13 +3120,17 @@ async fn insert_trade_factor_rows(
     let trade_id_col = col("trade_id", 0);
     let factor_id_col = col("factor_id", 1);
     let level_col = col("level", 2);
-    let offset = trade_id_offset(flow_type);
+    let base = trade_id_base(country_block_index, flow_type);
     let mut rows: Vec<(i32, i32, f64)> = Vec::new();
     let mut skipped = 0usize;
     for rec in rdr.records() {
         let r = rec.map_err(|e| e.to_string())?;
         let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
-        let trade_id = csv_trade_id + offset;
+        if skipped_csv_trade_ids.contains(&csv_trade_id) {
+            skipped += 1;
+            continue;
+        }
+        let trade_id = csv_trade_id + base;
         let csv_factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
         let factor_id = match factor_map {
             Some(map) => match map.get(&csv_factor_id) {
@@ -3383,6 +3481,29 @@ async fn db_insert_trade_data(
         })));
     }
 
+    // Part 1 of the multi-country fix (PLAN-merge.md): assign (or reuse)
+    // this country's block index in *this* database before computing any
+    // trade_id — whichever country loads first here keeps block 0, matching
+    // today's values exactly.
+    let country_block_index = match get_or_assign_country_block(&pool, &country).await {
+        Ok(idx) => idx,
+        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({
+            "success": false, "error": e
+        }))),
+    };
+
+    // Part 2: which (country, flow_type) pairs already have trade rows in
+    // this database, so a bilateral flow another country's file already
+    // contributed gets skipped before it's even parsed — see
+    // trade_row_already_known and PLAN-merge.md.
+    let known: std::collections::HashSet<(String, String)> =
+        sqlx::query_as::<_, (String, String)>("SELECT DISTINCT country, flow_type FROM trade")
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+
     let base = "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year";
     let mut summary: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
@@ -3437,10 +3558,14 @@ async fn db_insert_trade_data(
     // insert_trade_factor_rows — no mapping to thread through here.
     for flow_type in &flow_types {
         let trade_url = format!("{base}/{year_str}/{country}/{flow_type}/trade.csv");
+        let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
         match fetch_github_csv(&trade_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
-            Ok(text) => match insert_trade_rows(&pool, None, &text, flow_type, &country).await {
-                Ok(n) => summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n})),
+            Ok(text) => match insert_trade_rows(&pool, None, &text, flow_type, &country, country_block_index, &known).await {
+                Ok((n, skipped_ids)) => {
+                    summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n, "skipped_duplicate": skipped_ids.len()}));
+                    skipped_csv_trade_ids = skipped_ids;
+                }
                 Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
             },
         }
@@ -3448,7 +3573,7 @@ async fn db_insert_trade_data(
         let tf_url = format!("{base}/{year_str}/{country}/{flow_type}/trade_factor.csv");
         match fetch_github_csv(&tf_url).await {
             Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
-            Ok(text) => match insert_trade_factor_rows(&pool, None, &text, flow_type, &country, None).await {
+            Ok(text) => match insert_trade_factor_rows(&pool, None, &text, flow_type, &country, country_block_index, None, &skipped_csv_trade_ids).await {
                 Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
                 Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
             },
