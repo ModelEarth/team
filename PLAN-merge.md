@@ -67,10 +67,21 @@ enough:
 existing per-flow_type offset (Stage 1) and per-year column (Stage 2):
 
 ```
-trade_id = (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type) + csv_row_index
+trade_id = (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type, country_block_index)
+           + csv_row_index
 ```
 
-- `flow_type_offset` is unchanged (domestic +0, imports +999,999, exports +1,999,999).
+- `flow_type_offset`'s base values are unchanged (domestic +0, imports +999,999, exports +1,999,999),
+  **plus one new case**: domestic gets an extra `-1` for every block after the first
+  (`country_block_index > 1`). Reason: `csv_row_index` (`trade.csv`'s own row number) is 1-based, so
+  whatever offset a flow_type uses, its block's first `trade_id` actually lands one *past* the offset,
+  not on it. imports/exports's offsets (999,999/1,999,999) are already one less than the round number
+  they're meant to start on, so this was never visible for them — block 2's imports still starts
+  exactly on `4,000,000` with no special-casing. Domestic's offset is a flat `0`, which is exactly
+  right for block 1 (needed there — its `trade_id` must stay byte-identical to what's already in
+  production, i.e. `trade_id == csv row`, unshifted), but leaves every later block's domestic starting
+  one past its round boundary (block 2: `3,000,001` instead of `3,000,000`) unless it gets the same
+  `-1` compensation imports/exports already carry.
 - `country_block_index` is a small integer assigned **the first time a country is loaded into that
   specific database** (`industrydb_{year}` and `industrydb` each keep their own — trade_id only
   needs to be unique within a single database, and Stage 2's dblink/direct-import merge carries
@@ -153,9 +164,12 @@ in `main.rs`/`merge_years.rs` now:
 - `get_or_assign_country_block(pool, country)` — the atomic UPSERT+RETURNING from the design above,
   unchanged. `pub(crate)` in `main.rs`, used from both `main.rs` and `merge_years.rs`.
 - `trade_id_base(country_block_index, flow_type)` — `(country_block_index - 1) * 3,000,000 +
-  trade_id_offset(flow_type)`; replaces the old bare `trade_id_offset(flow_type)` call in
-  `insert_trade_rows`/`insert_trade_factor_rows`. The `- 1` converts `region.block_index`'s 1-based
-  numbering back to a 0-based contribution, so the first country loaded still contributes 0.
+  trade_id_offset(flow_type)`, with one adjustment: subtracts an extra `1` from domestic's offset
+  when `country_block_index > 1`, so every block after the first still starts its domestic range on a
+  round number (`3,000,000`, `6,000,000`, ...) instead of one past it — imports/exports need no such
+  adjustment, since their offsets already carry it. Replaces the old bare `trade_id_offset(flow_type)`
+  call in `insert_trade_rows`/`insert_trade_factor_rows`. The base `- 1` converts `region.block_index`'s
+  1-based numbering back to a 0-based contribution, so the first country loaded still contributes 0.
 - `trade_row_already_known(region1, region2, known)` — Part 2's skip check, exactly as designed
   (domestic checked against `(region1, "domestic")`; cross-region checked against
   `(region1, "exports")` **or** `(region2, "imports")`).

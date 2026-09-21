@@ -2962,19 +2962,41 @@ pub(crate) async fn get_or_assign_country_block(pool: &Pool<Postgres>, country: 
 
 // Combines Part 1's per-country block with the existing per-flow_type
 // offset — the full trade_id formula from PLAN-merge.md:
-// (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type) +
-// csv_row_index (the csv_row_index/csv_trade_id part is added by the
-// caller). The "- 1" is deliberate: region.block_index starts at 1 (see
-// get_or_assign_country_block), but the *first* country loaded should still
-// contribute 0 to trade_id — not 3,000,000 — so it reproduces today's
-// unshifted values exactly, restoring the zero-migration property the
-// original 0-based design had. 3,000,000 per country leaves ~17x headroom
-// over today's real max (175,726, 2019 exports) before the per-flow_type
-// sub-block itself would need widening — a pre-existing, separately tracked
-// risk (see PLAN-merge.md's "Open questions" section), not something this
-// widening introduces.
+// (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type,
+// country_block_index) + csv_row_index (the csv_row_index/csv_trade_id part
+// is added by the caller). The "- 1" is deliberate: region.block_index
+// starts at 1 (see get_or_assign_country_block), but the *first* country
+// loaded should still contribute 0 to trade_id — not 3,000,000 — so it
+// reproduces today's unshifted values exactly, restoring the zero-migration
+// property the original 0-based design had. 3,000,000 per country leaves
+// ~17x headroom over today's real max (175,726, 2019 exports) before the
+// per-flow_type sub-block itself would need widening — a pre-existing,
+// separately tracked risk (see PLAN-merge.md's "Open questions" section),
+// not something this widening introduces.
+//
+// domestic's offset needs its own "-1" compensation for every block after
+// the first, and only after the first: imports/exports's offsets
+// (999,999/1,999,999) are already one less than the round number they're
+// meant to land on, since csv_trade_id's own "+1" (trade.csv is 1-based)
+// gets added back on top — that's why imports/exports already start every
+// block on a round number (e.g. block 2: 3,999,999 + 1 = 4,000,000) with no
+// special-casing needed. domestic's offset is a flat 0, which is exactly
+// right for block 1 (its trade_id must stay byte-identical to what's
+// already in production — trade_id == csv row, unshifted, per the
+// two-stage ID design), but leaves every later block's domestic starting
+// one *past* its round boundary (e.g. block 2: 3,000,000 + 1 = 3,000,001)
+// unless it gets the same "-1" compensation imports/exports already have.
 fn trade_id_base(country_block_index: i32, flow_type: &str) -> i32 {
-    (country_block_index - 1) * 3_000_000 + trade_id_offset(flow_type)
+    let block_base = (country_block_index - 1) * 3_000_000;
+    let mut flow_offset = trade_id_offset(flow_type);
+    // imports/exports already have this compensation baked into their
+    // constant offset (999,999/1,999,999); domestic's is a flat 0, correct
+    // only for block 1 (production compatibility) — every later block needs
+    // the same "-1" imports/exports already carry.
+    if country_block_index > 1 && flow_type != "imports" && flow_type != "exports" {
+        flow_offset -= 1;
+    }
+    block_base + flow_offset
 }
 
 // Part 2 of PLAN-merge.md's multi-country fix: decides, before a trade.csv
