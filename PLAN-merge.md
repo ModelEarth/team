@@ -196,16 +196,28 @@ a country whose other flow types were already covered by a different country's d
 `trade-data`'s GitHub directory listing) with domestic/imports/exports checkboxes per country, and
 surfaces the 2019 stale-data warning inline before Send is clicked.
 
-**Open issue, not yet root-caused:** live smoke-testing `POST /api/db/insert-trade-data` (both the
-per-year and `target=industrydb` paths, and with the exact original request shape that worked for
-the full 2019/2021 runs) hung indefinitely at the very first step (fetching `factor.csv` from
-GitHub) on 2026-09-20, across multiple clean server restarts. Direct `curl` to the same GitHub URLs
-from the same machine succeeded instantly, so this looks specific to the Rust process's own
-outbound network calls, not GitHub or the network path in general — worth checking for a stuck
-firewall/network-permission prompt for the freshly-rebuilt `partner_tools` binary before assuming a
-code regression (the `flow_types` change was ruled out: the plain original request shape, unchanged
-by this session's edits, hangs identically). **Not yet confirmed working end-to-end after the
-`flow_types` change** — re-verify before relying on it.
+**Root cause found and fixed (2026-09-20):** `fetch_github_csv` used the bare `reqwest::get(url)`
+convenience call, which builds a client with **no timeout at all** — different from every other
+GitHub/HTTP fetch in this codebase, which already builds an explicit client with `.timeout(...)`.
+If the TCP connect or TLS handshake to GitHub ever stalls (dropped packets with no RST, not a normal
+connection-refused error), that call waits forever with no error — exactly matching the symptom
+(hung indefinitely at the very first step, fetching `factor.csv`, across clean restarts, for both
+the per-year and `target=industrydb` paths, and for the exact unmodified original request shape —
+`fetch_github_csv` predates this session's `flow_types`/`region` changes entirely, so this bug was
+already latent, not introduced by them). `curl` to the same URL from the same machine succeeding
+instantly is also consistent with this: curl has its own default timeout/retry behavior that
+`reqwest::get()` simply doesn't.
+
+**Fix**: `fetch_github_csv` now builds an explicit `reqwest::Client` with a 15s `connect_timeout`
+and a 60s overall `timeout`, so a stalled connection now surfaces as a normal, bounded error instead
+of hanging the request forever. Verified with a temporary `#[tokio::test]` calling
+`fetch_github_csv` directly against the real 2019 `factor.csv` URL — returned in 0.29s, 57,519 bytes
+(test removed after confirming; it's network-dependent and doesn't belong in the permanent suite).
+This confirms the fetch itself works correctly today; it doesn't retroactively prove what caused the
+original stall, only that any future stall will now fail fast and visibly instead of hanging
+silently. **Still not yet confirmed working end-to-end against the live Azure databases** — the
+timeout fix removes the failure mode that blocked testing, but a real `insert-trade-data` run (per-year
+and `target=industrydb`, including the new `region`/`flow_types` logic) hasn't been re-attempted yet.
 
 **Stage 1 complete for 2019 and 2021.** `trade.csv`/`trade_factor.csv`/`interstate.csv`/
 `interstate_factor.csv` fixed via `exiobase/tradeflow/fix_trade_ids.py`, committed and pushed to

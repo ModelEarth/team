@@ -2409,8 +2409,27 @@ async fn connect_to_exiobase_year_readonly(year: &str) -> Result<Pool<Postgres>,
     connect_to_exiobase_year_db(&db_name).await
 }
 
+// Uses an explicit client with real timeouts — reqwest::get()'s bare
+// convenience call (what this used to be) builds a client with no timeout
+// at all, so a stalled connect/TLS handshake (dropped packets, no RST — not
+// a normal connection-refused error) hangs this call forever with no error
+// ever surfacing. That's the root cause found for the 2026-09-20 hang
+// documented in PLAN-merge.md: every insert-trade-data run hung
+// indefinitely at this exact first call, across clean restarts, even with
+// curl succeeding instantly against the same URL from the same machine —
+// curl has its own default timeout/retry behavior that reqwest::get()
+// simply doesn't. connect_timeout catches a stalled handshake specifically;
+// the overall timeout covers a connection that succeeds but then stalls
+// mid-response.
 async fn fetch_github_csv(url: &str) -> Result<String, String> {
-    let resp = reqwest::get(url)
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let resp = client
+        .get(url)
+        .send()
         .await
         .map_err(|e| format!("HTTP request failed for {url}: {e}"))?;
     // raw.githubusercontent.com returns 404 with a plain-text body ("404: Not
@@ -3739,7 +3758,7 @@ async fn db_get_industry_schema(
         SELECT table_name, column_name, data_type, ordinal_position
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate')
+          AND table_name IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate','region')
         ORDER BY table_name, ordinal_position
     "#).fetch_all(&pool).await;
 
@@ -3747,7 +3766,7 @@ async fn db_get_industry_schema(
     let count_rows = sqlx::query(r#"
         SELECT relname AS table_name, n_live_tup AS row_count
         FROM pg_stat_user_tables
-        WHERE relname IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate')
+        WHERE relname IN ('trade','trade_factor','factor','industry','sector','sector_industry','interstate','interstate_factor','interstate_estimate','region')
     "#).fetch_all(&pool).await;
 
     let mut tables: HashMap<String, serde_json::Value> = HashMap::new();
@@ -3877,6 +3896,10 @@ fn industry_static_schema() -> serde_json::Value {
             {"name":"interstate_id","type":"varchar(80)"},
             {"name":"employment_impact","type":"numeric"},
             {"name":"flow_type","type":"varchar(20)"}
+        ],
+        "region": [
+            {"name":"country","type":"varchar(10)"},
+            {"name":"block_index","type":"integer"}
         ]
     })
 }
