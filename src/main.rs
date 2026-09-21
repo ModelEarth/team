@@ -2496,23 +2496,24 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     steps.push("Ensured table: factor".to_string());
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
 
-    // country_block — Part 1 of the multi-country fix (PLAN-merge.md's "Fix
+    // region — Part 1 of the multi-country fix (PLAN-merge.md's "Fix
     // design: per-country trade_id blocks + skip-before-insert"): each
     // country loaded into *this* database gets a small integer block_index,
     // assigned the first time it's loaded (get_or_assign_country_block), so
     // trade_id (block_index * 3,000,000 + flow_type_offset + csv_row_index)
     // stays globally unique across countries within one database — not just
-    // within one country's own three files as before. Whichever country
-    // loads first gets block_index 0, reproducing today's exact trade_id
-    // values (0 * 3,000,000 = 0) with zero migration needed for
-    // already-loaded (US-only) data.
+    // within one country's own three files as before. Indices start at 1
+    // (0 is reserved, never assigned) — whichever country loads first gets
+    // block_index 1, so its trade_id starts at 3,000,000 + flow_type_offset,
+    // not today's unshifted values; see PLAN-merge.md for what this means
+    // for already-loaded (US-only) data.
     sqlx::query(r#"
-        CREATE TABLE IF NOT EXISTS country_block (
+        CREATE TABLE IF NOT EXISTS region (
             country     VARCHAR(10) NOT NULL PRIMARY KEY,
             block_index INTEGER     NOT NULL
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
-    steps.push("Ensured table: country_block".to_string());
+    steps.push("Ensured table: region".to_string());
 
     // trade
     // trade_id is an explicit value the loader computes deterministically
@@ -2934,28 +2935,29 @@ fn trade_id_offset(flow_type: &str) -> i32 {
 }
 
 // Assigns (or returns the existing) small integer block index for a country
-// within one database — Part 1 of PLAN-merge.md's multi-country fix.
-// Atomic UPSERT+RETURNING so concurrent/repeated calls for the same country
-// never race or disagree: the first call for a given country inserts and
-// returns the next available index; every later call for that same country
-// hits the ON CONFLICT branch (a no-op write, purely so RETURNING still
-// fires) and gets back the same value it got the first time. Headroom
-// checked against Exiobase's real 49-region ceiling in PLAN-merge.md — 48 is
-// the highest index that can ever be assigned.
+// within one database, from the `region` table — Part 1 of PLAN-merge.md's
+// multi-country fix. Atomic UPSERT+RETURNING so concurrent/repeated calls
+// for the same country never race or disagree: the first call for a given
+// country inserts and returns the next available index; every later call
+// for that same country hits the ON CONFLICT branch (a no-op write, purely
+// so RETURNING still fires) and gets back the same value it got the first
+// time. Indices start at 1 — COALESCE's default of 0 means the first-ever
+// row gets 0 + 1 = 1, never 0 — see PLAN-merge.md for the country-count
+// headroom this leaves under i32::MAX.
 pub(crate) async fn get_or_assign_country_block(pool: &Pool<Postgres>, country: &str) -> Result<i32, String> {
     sqlx::query_scalar(
         r#"
-        WITH next_idx AS (SELECT COALESCE(MAX(block_index), -1) + 1 AS idx FROM country_block)
-        INSERT INTO country_block (country, block_index)
+        WITH next_idx AS (SELECT COALESCE(MAX(block_index), 0) + 1 AS idx FROM region)
+        INSERT INTO region (country, block_index)
         SELECT $1, next_idx.idx FROM next_idx
-        ON CONFLICT (country) DO UPDATE SET country = country_block.country
+        ON CONFLICT (country) DO UPDATE SET country = region.country
         RETURNING block_index
         "#,
     )
     .bind(country)
     .fetch_one(pool)
     .await
-    .map_err(|e| format!("Failed to assign country_block for {country}: {e}"))
+    .map_err(|e| format!("Failed to assign region block for {country}: {e}"))
 }
 
 // Combines Part 1's per-country block with the existing per-flow_type

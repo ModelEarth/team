@@ -75,28 +75,43 @@ trade_id = country_block_index * 3,000,000 + flow_type_offset(flow_type) + csv_r
   specific database** (`industrydb_{year}` and `industrydb` each keep their own — trade_id only
   needs to be unique within a single database, and Stage 2's dblink/direct-import merge carries
   `trade_id` over unchanged, so the two don't need matching indices for the same country).
-- **Zero migration needed for already-loaded data**: whichever country is loaded first into a given
-  database gets `country_block_index = 0`, reproducing today's exact `trade_id` values
-  (`0 * 3,000,000 = 0`) — US, already loaded everywhere, stays block 0 automatically as long as it's
-  never re-numbered.
+  **Indices start at 1, not 0** — index 0 is reserved and never assigned, so the first country loaded
+  into a given database gets `country_block_index = 1`, not 0.
+- **No longer zero-migration for already-loaded data** (this was true of the original 0-based design;
+  no longer true once indices start at 1). A country's first-ever load now computes `trade_id`
+  starting at `1 * 3,000,000 = 3,000,000` plus the flow_type offset, not the unshifted values
+  `trade.py`'s raw CSV row index plus flow_type offset alone produces. Already-loaded US data in
+  `industrydb_2019`/`industrydb_2021`/`industrydb` (`trade_id` ranges starting at 1/1,000,000/
+  2,000,000 today) does **not** match what a fresh load would now assign US. Before loading any
+  additional country into an already-populated database, either: (a) explicitly seed
+  `INSERT INTO region (country, block_index) VALUES ('US', 1)` and shift US's existing
+  `trade`/`trade_factor` rows' `trade_id` by `+3,000,000` to match, or (b) accept that US keeps its
+  current unshifted values and the *next* country loaded starts at index 2 instead of 1 (skip
+  registering US in `region` at all — nothing currently forces index 1 to mean "US" specifically).
+  `interstate_id` is unaffected either way — it's never offset by the country block (interstate is
+  gated to `country == "US"` only). **Not yet done** — tracked in "Open questions" below.
 - **Headroom check, not assumed:** Exiobase has exactly 49 regions total (confirmed earlier in this
-  file), so `country_block_index` never exceeds 48. Worst case, 49 countries fully loaded:
-  `48 * 3,000,000 + 1,999,999 + ~999,999` ≈ 51 million — nowhere near `integer`'s ~2.1 billion
-  ceiling. 3,000,000 per country also leaves ~17x headroom over today's real max (175,726, 2019
-  exports) before the per-flow_type sub-block itself would need widening (a pre-existing, separately
-  tracked risk — see "Open questions" below).
+  file). With indices starting at 1, the highest usable index is unchanged in absolute terms
+  (`floor((i32::MAX + 1) / 3,000,000) - 1 = 714`, same ceiling as the 0-based scheme), but index 0 is
+  never used, so the *count* of countries the scheme supports is one fewer: **714 countries**, not
+  715 — still ~14.6x the 49 that will ever actually be loaded. Worst case, 49 countries fully loaded
+  (indices 1–49): `49 * 3,000,000 + 1,999,999 + ~999,999` ≈ 150 million — nowhere near `integer`'s
+  ~2.1 billion ceiling. 3,000,000 per country also leaves ~17x headroom over today's real max
+  (175,726, 2019 exports) before the per-flow_type sub-block itself would need widening (a
+  pre-existing, separately tracked risk — see "Open questions" below).
 - **New tiny reference table**, one per database (`industrydb_{year}` and `industrydb` each get
-  their own): `country_block (country VARCHAR(10) PRIMARY KEY, block_index INT NOT NULL)`. Assigned
-  atomically so concurrent/repeated calls for the same country don't race:
+  their own), named `region`: `region (country VARCHAR(10) PRIMARY KEY, block_index INT NOT NULL)`.
+  Assigned atomically so concurrent/repeated calls for the same country don't race:
   ```sql
-  WITH next_idx AS (SELECT COALESCE(MAX(block_index), -1) + 1 AS idx FROM country_block)
-  INSERT INTO country_block (country, block_index)
+  WITH next_idx AS (SELECT COALESCE(MAX(block_index), 0) + 1 AS idx FROM region)
+  INSERT INTO region (country, block_index)
   SELECT $1, next_idx.idx FROM next_idx
-  ON CONFLICT (country) DO UPDATE SET country = country_block.country
+  ON CONFLICT (country) DO UPDATE SET country = region.country
   RETURNING block_index;
   ```
-  (The `DO UPDATE SET country = country_block.country` is a no-op write purely so `RETURNING` still
-  fires and returns the *existing* row's `block_index` when the country was already assigned one.)
+  (The `COALESCE(..., 0) + 1` is what makes the first-ever row get `1`, not `0`. The
+  `DO UPDATE SET country = region.country` is a no-op write purely so `RETURNING` still fires and
+  returns the *existing* row's `block_index` when the country was already assigned one.)
 - `interstate`/`interstate_factor`/`interstate_estimate` need **no change** — gated to `country ==
   "US"` only, so there's only ever one country's worth of `interstate_id` values, no cross-country
   collision possible.
@@ -136,10 +151,11 @@ to establish uniqueness.
 **Implemented (2026-09-20), not yet live-verified against a real second country.** Both parts are
 in `main.rs`/`merge_years.rs` now:
 
-- `country_block` table added to `init_industry_tables_in_pool` (per-year databases) and
+- `region` table added to `init_industry_tables_in_pool` (per-year databases) and
   `ensure_merge_infra` (`industrydb` — one table shared across every year merged in, since
   `block_index` depends only on `country`, never on `year`; `industrydb`'s `trade` PK is
-  `(year, trade_id)`, so distinct years never need distinct blocks for the same country).
+  `(year, trade_id)`, so distinct years never need distinct blocks for the same country). Indices
+  start at 1 (0 reserved, never assigned).
 - `get_or_assign_country_block(pool, country)` — the atomic UPSERT+RETURNING from the design above,
   unchanged. `pub(crate)` in `main.rs`, used from both `main.rs` and `merge_years.rs`.
 - `trade_id_base(country_block_index, flow_type)` — combines the block with the existing
@@ -478,6 +494,10 @@ override flag if someone wants to proceed past warnings.
 - **Per-country `trade_id` blocks + skip-before-insert are implemented but not yet live-tested
   against a real second country** — see "Fix design" above. Until that's verified, don't load any
   non-US country into a real `industrydb_{year}` or `industrydb`.
+- **`region`'s 1-based indexing means already-loaded US data no longer has a `country_block_index`
+  matching what a fresh load would assign it** — decide and carry out one of the two options in the
+  "No longer zero-migration" bullet above (seed+shift, or accept index 1 goes to the next country
+  instead of US) before loading a second country into any already-populated database.
 - **The 1,000,000-wide per-flow_type block is an accepted risk, not a proven-safe ceiling** — a
   14-country rollout (already the default in `main.py`) or a larger future Exiobase industry count
   could push a single year's `imports`/`exports` past 999,999 rows. If that happens, the fix is

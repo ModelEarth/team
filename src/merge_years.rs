@@ -169,17 +169,18 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
-    // country_block — Part 1 of PLAN-merge.md's multi-country fix, same
-    // table/logic as the per-year databases' (see
-    // init_industry_tables_in_pool in main.rs): one block_index per country,
-    // shared across every year merged into this database (block_index
-    // depends only on country, never on year — trade_id's PK here is
-    // (year, trade_id), so distinct years never need distinct blocks for the
-    // same country; only countries sharing the same year ever need to avoid
-    // colliding, and distinct block_indexes already guarantee that).
+    // region — Part 1 of PLAN-merge.md's multi-country fix, same table/logic
+    // as the per-year databases' (see init_industry_tables_in_pool in
+    // main.rs): one block_index per country, shared across every year merged
+    // into this database (block_index depends only on country, never on
+    // year — trade_id's PK here is (year, trade_id), so distinct years never
+    // need distinct blocks for the same country; only countries sharing the
+    // same year ever need to avoid colliding, and distinct block_indexes
+    // already guarantee that). Indices start at 1 — see
+    // get_or_assign_country_block in main.rs.
     sqlx::query(
         r#"
-        CREATE TABLE IF NOT EXISTS country_block (
+        CREATE TABLE IF NOT EXISTS region (
             country     VARCHAR(10) NOT NULL PRIMARY KEY,
             block_index INTEGER     NOT NULL
         )
@@ -677,7 +678,7 @@ pub async fn insert_trade_data_direct(year_str: String, country: String, flow_ty
     // Part 1 of the multi-country fix (PLAN-merge.md): assign (or reuse)
     // this country's block index in industrydb before computing any
     // trade_id — shared across every year merged here (see
-    // ensure_merge_infra's country_block comment).
+    // ensure_merge_infra's region comment).
     let country_block_index = match get_or_assign_country_block(&pool, &country).await {
         Ok(idx) => idx,
         Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({"success": false, "error": e}))),
