@@ -351,7 +351,7 @@ body {
     padding: 0 12px 22px;
 }
 .listings-margin-left {
-    margin-left: 46px;
+    margin-left: 50px;
 }
 .city-search-expanded-note {
     font-size: 0.85rem;
@@ -539,6 +539,67 @@ body {
 }
 .dark .listings-scroll-container {
     background: #333;
+}
+
+/* A-Z jump rail, positioned to the left of .listings-scroll-container in the
+   50px margin already reserved by .listings-margin-left (no gap between them). */
+.alphabet-rail {
+    position: absolute;
+    left: 0;
+    width: 50px;
+    padding-left: 12px;
+    padding-right: 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    z-index: 2;
+}
+.alphabet-rail::-webkit-scrollbar {
+    display: none;
+}
+.alphabet-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.alphabet-letter:hover {
+    background: #e5e5e5;
+    color: #333;
+}
+.alphabet-letter.active {
+    background: #333;
+    color: #fff;
+}
+.alphabet-letter.alphabet-all {
+    padding: 4px 0 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e5e5e5;
+    border-radius: 0;
+}
+.alphabet-letter.alphabet-all .material-icons {
+    font-size: 16px;
+    line-height: 1;
+}
+.dark .alphabet-letter {
+    color: #999;
+}
+.dark .alphabet-letter:hover {
+    background: #4a4a4a;
+    color: #ddd;
+}
+.dark .alphabet-letter.active {
+    background: #6db3f2;
+    color: #1a1a1a;
+}
+.dark .alphabet-letter.alphabet-all {
+    border-bottom-color: #555;
 }
 
 .listing-card {
@@ -984,7 +1045,6 @@ body {
 /* From location.css */
 .locationDetails {
   margin-top: 16px;
-  margin-bottom: 32px;
   padding: 24px;
   background: #f8fafc;
   border-radius: 16px;

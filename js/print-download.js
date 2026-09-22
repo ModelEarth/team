@@ -8,11 +8,13 @@ class PrintDownloadWidget {
                 .print-download-container {
                     position: relative;
                     display: inline-block;
+                    vertical-align: middle;
                     margin: 0 5px;
                 }
                 
                 .print-download-icon {
                     display: inline-block;
+                    vertical-align: middle;
                     width: 32px;
                     height: 32px;
                     padding: 6px;
@@ -28,18 +30,24 @@ class PrintDownloadWidget {
                     width: 18px;
                     height: 18px;
                 }
-                
+
+                .print-download-icon .material-icons {
+                    font-size: 18px;
+                    line-height: 1;
+                    user-select: none;
+                }
+
                 .print-download-icon:hover {
                     background: #e5e5e5;
                     color: #666;
                 }
-                
+
                 .dark .print-download-icon {
                     background: #3a3a3a;
                     border-color: #555;
                     color: #888;
                 }
-                
+
                 .dark .print-download-icon:hover {
                     background: #4a4a4a;
                     color: #aaa;
@@ -140,6 +148,93 @@ class PrintDownloadWidget {
         }
     }
     
+    static createLinkIcon(containerId, options = {}) {
+        this.createPrintDownloadIcons();
+
+        const linkIcon = `
+            <div class="print-download-container">
+                <a class="print-download-icon local" href="/explore/film/iframe-content.html" target="_blank" rel="noopener" title="View Film" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                </a>
+            </div>
+        `;
+
+        return linkIcon;
+    }
+
+    static createDarkModeToggle(containerId) {
+        this.createPrintDownloadIcons();
+
+        const darkModeToggle = `
+            <div class="print-download-container">
+                <div id="dark-mode-toggle-${containerId}" class="print-download-icon" title="Toggle dark mode">
+                    <i class="material-icons">light_mode</i>
+                </div>
+            </div>
+        `;
+
+        return darkModeToggle;
+    }
+
+    // Mirrors the dark mode toggle process used in cms/themes/index.html so the
+    // toggle stays in sync with the sitelook cookie whether or not the widget is embedded.
+    static isDarkModeActive() {
+        if (document.body.classList.contains('dark')) {
+            return true;
+        }
+        if (typeof Cookies === 'undefined') {
+            return false;
+        }
+        const sitelook = Cookies.get('sitelook') || 'default';
+        if (sitelook === 'dark') {
+            return true;
+        }
+        if (sitelook === 'computer') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        if (sitelook === 'default') {
+            return Cookies.get('modelsite') === 'dreamstudio'
+                || location.host.indexOf('dreamstudio') >= 0
+                || location.host.indexOf('planet.live') >= 0;
+        }
+        return false;
+    }
+
+    static updateDarkModeIcon(iconEl) {
+        if (!iconEl) return;
+        const isDark = this.isDarkModeActive();
+        iconEl.textContent = isDark ? 'dark_mode' : 'light_mode';
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    }
+
+    static setupDarkModeToggle(containerId) {
+        const toggle = document.getElementById(`dark-mode-toggle-${containerId}`);
+        if (!toggle || toggle.dataset.bound === 'true') return;
+        toggle.dataset.bound = 'true';
+
+        const icon = toggle.querySelector('.material-icons');
+        this.updateDarkModeIcon(icon);
+
+        if (typeof waitForElm === 'function') {
+            waitForElm('#bodyloaded').then(() => this.updateDarkModeIcon(icon));
+        }
+
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newLook = document.body.classList.contains('dark') ? 'default' : 'dark';
+            if (typeof Cookies !== 'undefined') Cookies.set('sitelook', newLook);
+            if (typeof setSitelook === 'function') setSitelook(newLook);
+            this.updateDarkModeIcon(icon);
+        });
+
+        new MutationObserver(() => {
+            this.updateDarkModeIcon(icon);
+        }).observe(document.body, { attributeFilter: ['class'] });
+    }
+
     static createPrintIcon(containerId, options = {}) {
         this.createPrintDownloadIcons();
         
@@ -440,11 +535,14 @@ class PrintDownloadWidget {
             return;
         }
         
+        const linkIcon = this.createLinkIcon(containerId, options);
         const printIcon = this.createPrintIcon(containerId, options);
         const downloadIcon = this.createDownloadIcon(containerId, data, options);
-        
-        target.insertAdjacentHTML('beforeend', printIcon + downloadIcon);
+        const darkModeToggle = this.createDarkModeToggle(containerId);
+
+        target.insertAdjacentHTML('beforeend', linkIcon + printIcon + downloadIcon + darkModeToggle);
         this.setupPrintDownloadHandlers(containerId, data, options);
+        this.setupDarkModeToggle(containerId);
     }
     
     // Update data for existing handlers without recreating icons

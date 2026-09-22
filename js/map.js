@@ -6398,7 +6398,7 @@ Do not include any explanation or additional text.`;
                         ${this.config?.mapInfo ? `<div class="info">${this.config.mapInfo}</div>` : ''}
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <div id="map-print-download-icons" style="padding-top:12px"></div>
+                        <div id="map-print-download-icons" style="padding-top:18px"></div>
                     </div>
                 </div>`
 
@@ -6585,6 +6585,7 @@ Do not include any explanation or additional text.`;
             }
             this.setupPrintDownloadIcons();
             this.setupPanelMenuToggles();
+            this.setupAlphabetRail();
         //}, 0);
 
         this.updateExpandListButtonText();
@@ -7241,7 +7242,46 @@ Do not include any explanation or additional text.`;
             );
         }
     }
-    
+
+    // Rebuilds the A-Z jump rail to the left of .listings-scroll-container on every render
+    // (the container's innerHTML is fully replaced each render, so the rail is rebuilt fresh
+    // rather than persisted). Uses the shared applyAlphabetFilterToListingsGrid() DOM filter
+    // defined near the top of this file.
+    setupAlphabetRail() {
+        const widgetDetails = document.getElementById('widgetDetails');
+        const listingsContainer = document.querySelector('.listings-scroll-container');
+        if (!widgetDetails || !listingsContainer) return;
+
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const rail = document.createElement('div');
+        rail.id = 'alphabetRail';
+        rail.className = 'alphabet-rail';
+        rail.innerHTML = `
+            <div class="alphabet-letter alphabet-all" data-letter="" title="Show all listings">
+                <i class="material-icons">format_list_bulleted</i>
+            </div>
+            ${letters.map(letter => `<div class="alphabet-letter" data-letter="${letter.toLowerCase()}" title="Jump to ${letter}">${letter}</div>`).join('')}
+        `;
+        widgetDetails.insertBefore(rail, listingsContainer);
+
+        const controls = document.getElementById('widgetDetailsControls');
+        const bottom = document.getElementById('widgetDetailsBottom');
+        rail.style.top = (controls ? controls.offsetHeight : 0) + 'px';
+        rail.style.bottom = (bottom ? bottom.offsetHeight : 0) + 'px';
+
+        rail.querySelectorAll('.alphabet-letter').forEach((letterEl) => {
+            letterEl.addEventListener('click', () => {
+                const wasActive = letterEl.classList.contains('active');
+                rail.querySelectorAll('.alphabet-letter').forEach((el) => el.classList.remove('active'));
+                const letter = wasActive ? '' : (letterEl.dataset.letter || '');
+                if (letter) {
+                    letterEl.classList.add('active');
+                }
+                applyAlphabetFilterToListingsGrid(letter);
+            });
+        });
+    }
+
     storeDataInDOM(data) {
         // Store data in DOM as base64 encoded JSON to handle quotes and special characters
         const dataElement = document.getElementById('widget-stored-data') || document.createElement('div');
