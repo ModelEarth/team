@@ -90,7 +90,7 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 .dark .search-input {
-    background-color: #888;
+    background-color: #2a2a2a;
     color: #fff;
 }
 .dark .search-input::placeholder {
@@ -1537,6 +1537,16 @@ body {
   background: #5a8f38;
 }
 
+.listing-images-btn.view-details-btn {
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: normal;
+}
+
+.listing-images-btn.view-details-btn:hover {
+  background: #cbd5f5;
+}
+
 .dark .locationDetails {
   background: #1e293b;
   border: none;
@@ -1588,6 +1598,15 @@ body {
 }
 
 .dark .location-more-toggle:hover {
+  background: #2a3750;
+}
+
+.dark .listing-images-btn.view-details-btn {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark .listing-images-btn.view-details-btn:hover {
   background: #2a3750;
 }
 

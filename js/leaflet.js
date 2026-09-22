@@ -805,7 +805,7 @@ class LeafletMapManager {
         
         if (listingHashId) {
             content += `<div class="popup-actions">
-                <button class="view-details-btn location-btn" data-listing-id="${this.escapeHtml(listingHashId)}">View Details</button>
+                <button class="view-details-btn location-btn" data-listing-id="${this.escapeHtml(listingHashId)}">Details</button>
             </div>`;
         }
         content += '</div>';

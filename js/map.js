@@ -4533,7 +4533,7 @@ Do not include any explanation or additional text.`;
         const evenMoreCount = metaRows.unfilteredRows.length;
 
         const viewDetailsButton = options.showViewDetailsButton
-            ? `<button class="view-details-btn location-btn" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">View Details</button>`
+            ? `<button class="view-details-btn location-btn" data-listing-index="${options.listingIndex}" data-listing-id="${options.listingHashId}">Details</button>`
             : '';
         const imageCount = Number(options.galleryImageCount || 0);
         const imageCountButton = options.showImageCountButton && imageCount > 0
