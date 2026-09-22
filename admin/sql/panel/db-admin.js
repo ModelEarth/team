@@ -230,32 +230,44 @@ class DatabaseAdmin {
         }
     }
 
+    // Reflects the selected connection's actual database name next to the
+    // "Database Tables" card title (e.g. "Database Tables - industrydb_2023").
+    updateTablesCardTitle(databaseName) {
+        const el = document.getElementById('tables-card-db-name');
+        if (!el) return;
+        el.textContent = databaseName ? ` - ${databaseName}` : '';
+    }
+
     displayConfig() {
         const configDisplay = document.getElementById('config-display');
         if (!configDisplay) {
             // Element doesn't exist on this page, skip config display
             return;
         }
-        
+
         // Show selected connection from .env config
         if (this.envConfig && this.envConfig.database_connections) {
             const selectedConn = this.envConfig.database_connections.find(conn => conn.name === this.selectedConnection);
             if (selectedConn) {
                 const config = selectedConn.config;
                 configDisplay.innerHTML = `<div class="config-item"><strong>Source:</strong> .env file</div><div class="config-item"><strong>Connection:</strong> ${selectedConn.display_name}</div><div class="config-item"><strong>Server:</strong> ${config.server}</div><div class="config-item"><strong>Database:</strong> ${config.database}</div><div class="config-item"><strong>Username:</strong> ${config.username}</div><div class="config-item"><strong>Port:</strong> ${config.port}</div><div class="config-item"><strong>SSL:</strong> ${config.ssl ? 'Enabled' : 'Disabled'}</div><div class="config-item"><strong>API Endpoint:</strong> ${this.apiBaseUrl}</div>`;
+                this.updateTablesCardTitle(config.database);
                 return;
             }
         }
-        
+
         // Fallback to default database config
         if (this.envConfig && this.envConfig.database) {
             const config = this.envConfig.database;
             configDisplay.innerHTML = `<div class="config-item"><strong>Source:</strong> .env file</div><div class="config-item"><strong>Server:</strong> ${config.server}</div><div class="config-item"><strong>Database:</strong> ${config.database}</div><div class="config-item"><strong>Username:</strong> ${config.username}</div><div class="config-item"><strong>Port:</strong> ${config.port}</div><div class="config-item"><strong>SSL:</strong> ${config.ssl ? 'Enabled' : 'Disabled'}</div><div class="config-item"><strong>API Endpoint:</strong> ${this.apiBaseUrl}</div>`;
+            this.updateTablesCardTitle(config.database);
         } else if (typeof CONFIG !== 'undefined' && CONFIG.DATABASE) {
             const config = CONFIG.DATABASE;
             configDisplay.innerHTML = `<div class="config-item"><strong>Source:</strong> settings.js</div><div class="config-item"><strong>Server:</strong> ${config.SERVER}</div><div class="config-item"><strong>Database:</strong> ${config.DATABASE}</div><div class="config-item"><strong>Username:</strong> ${config.USERNAME}</div><div class="config-item"><strong>Port:</strong> ${config.PORT}</div><div class="config-item"><strong>SSL:</strong> ${config.SSL ? 'Enabled' : 'Disabled'}</div><div class="config-item"><strong>Connection:</strong> ${config.CONNECTION_INFO}</div><div class="config-item"><strong>API Endpoint:</strong> ${this.apiBaseUrl}</div>`;
+            this.updateTablesCardTitle(config.DATABASE);
         } else {
             configDisplay.innerHTML = `<div class="config-error"><strong>⚠️ Configuration not loaded</strong><br>Neither .env nor settings.js configuration found.<br><br><strong>API URL:</strong> ${this.apiBaseUrl}</div>`;
+            this.updateTablesCardTitle('');
         }
     }
 
