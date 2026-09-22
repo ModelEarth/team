@@ -401,11 +401,23 @@ class PrintDownloadWidget {
         const printStyles = document.createElement('style');
         printStyles.setAttribute('media', 'print');
         
+        // Marker colors (.marker-pin, .marker-dot, .marker-dot-tiny in leaflet.js) are plain
+        // background colors, which browsers strip by default when printing unless told to
+        // keep them exactly - without this the map pins print as an empty white teardrop.
+        const preserveMarkerColorsCSS = `
+            #widgetmapWrapper, #widgetmapWrapper * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+        `;
+
         switch (printType) {
             case 'map':
                 if (options.showMap) {
                     printStyles.textContent = `
                         @media print {
+                            ${preserveMarkerColorsCSS}
                             body * { visibility: hidden; }
                             #widgetmapWrapper, #widgetmapWrapper * { visibility: visible; }
                             #widgetmapWrapper { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; }
@@ -419,14 +431,30 @@ class PrintDownloadWidget {
                     @media print {
                         body * { visibility: hidden; }
                         .listings-grid, .listings-grid *, .tabulator, .tabulator * { visibility: visible; }
-                        .listings-grid, .tabulator { position: absolute; left: 0; top: 0; width: 100% !important; }
+                        .listings-scroll-container {
+                            overflow: visible !important;
+                            max-height: none !important;
+                        }
                         .search-container, .widgetHeader, nav, .print-download-container { display: none !important; }
+                        /* .right-column holds #pageGallery/#pageMap; visibility:hidden alone keeps
+                           its layout box, leaving a large blank area next to the list. */
+                        .right-column { display: none !important; }
+                        #widgetDetailsParent { flex: 1 1 100% !important; width: 100% !important; }
+                        #alphabetRail { display: none !important; }
+                        .listings-margin-left { margin-left: 0 !important; }
+                        .listing-card {
+                            border: none !important;
+                            border-radius: 0 !important;
+                            box-shadow: none !important;
+                            border-bottom: 1px solid #e5e5e5 !important;
+                        }
                     }
                 `;
                 break;
             case 'content':
                 printStyles.textContent = `
                     @media print {
+                        ${preserveMarkerColorsCSS}
                         .search-container, .widgetHeader nav, .print-download-container { display: none !important; }
                         body { font-size: 12pt; line-height: 1.4; }
                     }

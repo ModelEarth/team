@@ -27,7 +27,7 @@ body {
 }
 
 .widgetHeader h1 {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 8px;
 }
@@ -44,6 +44,9 @@ body {
 }
 .dark #widgetDetailsControls {
     background: #333;
+}
+.dark #widgetDetails a:not(.btn):link, .dark #widgetDetails a:not(.btn):visited {
+    color: #acb;
 }
 .search-container {
     display: flex;
