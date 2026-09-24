@@ -1,30 +1,28 @@
 // Stage 2 of PLAN-merge.md: merging per-year Industry Databases
 // (industrydb_2019, industrydb_2021, and future industrydb_{year}) into
 // the shared, multi-year `industrydb` (EXIOBASE_NAME itself — not a
-// per-year database). Two ways in:
+// per-year database), via a **`dblink`-based merge** of an already-loaded
+// per-year database — `POST /api/db/merge-years/inspect` (read-only
+// dry-run) and `POST /api/db/merge-years/run` (the real merge). Data
+// movement happens entirely inside Azure Postgres; row data never
+// round-trips through this Rust process. **Currently blocked** — see
+// PLAN-merge.md and pipeline/README.md — `dblink` isn't allow-listed on
+// the Azure server yet, so `ensure_merge_infra` fails before either
+// procedure exists.
 //
-// 1. **`dblink`-based merge** of an already-loaded per-year database —
-//    `POST /api/db/merge-years/inspect` (read-only dry-run) and
-//    `POST /api/db/merge-years/run` (the real merge). Data movement happens
-//    entirely inside Azure Postgres; row data never round-trips through
-//    this Rust process. **Currently blocked** — see PLAN-merge.md and
-//    pipeline/README.md — `dblink` isn't allow-listed on the Azure server
-//    yet, so `ensure_merge_infra` fails before either procedure exists.
-// 2. **Direct import**, bypassing the per-year database and the `dblink`
-//    step entirely: `POST /api/db/insert-trade-data` with
-//    `{"target": "industrydb"}` fetches the same year's CSVs from GitHub
-//    (same as the normal per-year loader) but inserts straight into the
-//    shared `industrydb`, adding the `year` column and remapping
-//    `factor_id` through `industrydb`'s own `factor` table as it goes —
-//    the same logic `merge_exiobase_year` would apply, just done in Rust
-//    instead of via `dblink`. Works today; no Azure change needed.
+// A second way in, direct HTTP import bypassing both the per-year database
+// and the `dblink` step (`insert_trade_data_direct`, reusing the old
+// per-country block trade_id scheme), was removed 2026-09-24 — trade_id is
+// now a plain sequential value assigned once by trade_comprehensive.py, in
+// Exiobase's own fixed region order (see PLAN-comprehensive.md's "Trade ID
+// scheme"), which already supports `COMPREHENSIVE.target: industrydb` as a
+// destination directly, with no HTTP round trip needed. That's the current
+// way to get a year into the shared industrydb.
 //
-// Direct import reuses the same insert_trade_rows/insert_trade_factor_rows/
-// insert_interstate_*_rows functions the per-year loader uses (in
-// main.rs) — they take an `Option<i32>` year (None there, Some(y) here)
-// and, for the two factor tables, an optional factor_id remap map, rather
-// than this module keeping its own duplicate copies of that CSV-parsing
-// logic.
+// This module also holds comprehensive mode's reference-table seeding
+// (`comprehensive_push_reference_tables`, called from trade_comprehensive.py
+// via the Rust API) — unrelated to the merge/dblink machinery above, but
+// living here since it shares the same region/factor table setup code.
 
 use actix_web::{web, HttpResponse, Result};
 use serde::Deserialize;
@@ -34,9 +32,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    connect_to_exiobase_year, ensure_database_exists, get_or_assign_country_block,
-    init_industry_tables_in_pool, insert_interstate_factor_rows,
-    insert_interstate_rows, insert_trade_factor_rows, insert_trade_rows, parse_factor_csv, try_exec,
+    connect_to_exiobase_year, ensure_database_exists,
+    init_industry_tables_in_pool, parse_factor_csv, try_exec,
     upsert_factor_rows, upsert_industry_rows, upsert_sector_industry_rows, upsert_sector_rows,
     year_database_name, ApiState,
 };
@@ -170,15 +167,11 @@ async fn ensure_merge_infra(pool: &Pool<Postgres>) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
-    // region — Part 1 of PLAN-merge.md's multi-country fix, same table/logic
-    // as the per-year databases' (see init_industry_tables_in_pool in
-    // main.rs): one block_index per country, shared across every year merged
-    // into this database (block_index depends only on country, never on
-    // year — trade_id's PK here is (year, trade_id), so distinct years never
-    // need distinct blocks for the same country; only countries sharing the
-    // same year ever need to avoid colliding, and distinct block_indexes
-    // already guarantee that). Indices start at 1 — see
-    // get_or_assign_country_block in main.rs.
+    // region — same table as the per-year databases' (see
+    // init_industry_tables_in_pool in main.rs). block_index is now a purely
+    // static reference field (comprehensive mode seeds all 49 up front, in
+    // Exiobase's own fixed order) — nothing computes trade_id from it; see
+    // PLAN-comprehensive.md's "Trade ID scheme" section.
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS region (
@@ -376,8 +369,7 @@ const COMPREHENSIVE_REGIONS: [(&str, &str); 49] = [
 // POST /api/db/comprehensive/push-reference-tables
 //
 // Preflight step for trade_comprehensive.py (PLAN-comprehensive.md). Two
-// targets, picked by `target` (mirrors InsertTradeDataRequest's own
-// `target` field on /api/db/insert-trade-data):
+// targets, picked by `target` (matches COMPREHENSIVE.target in config.yaml):
 //
 //   - default (target omitted, or anything other than "industrydb"): the
 //     per-year database `{EXIOBASE_NAME}_{year}` -- the same convention
@@ -837,152 +829,3 @@ async fn upsert_factor_rows_merged(pool: &Pool<Postgres>, text: &str) -> Result<
     Ok(map)
 }
 
-// Called from db_insert_trade_data when the request body has
-// `"target": "industrydb"` — same GitHub CSV sources as the normal
-// per-year loader, but writes straight into the shared industrydb with
-// the year column and factor_id remapping applied inline (via the same
-// insert_* functions main.rs's per-year loader uses, just called with
-// Some(year)/Some(factor_map) instead of None), skipping the per-year
-// database and the (currently Azure-blocked) dblink merge step entirely.
-// Safe to re-run for the same year: every insert here is
-// `ON CONFLICT ... DO NOTHING`.
-pub async fn insert_trade_data_direct(year_str: String, country: String, flow_types: Vec<String>, use_local: bool) -> Result<HttpResponse> {
-    let year_num: i32 = match year_str.parse() {
-        Ok(y) => y,
-        Err(_) => {
-            return Ok(HttpResponse::BadRequest().json(json!({"success": false, "error": "Invalid year"})))
-        }
-    };
-
-    let pool = match connect_to_industrydb().await {
-        Ok(p) => p,
-        Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({"success": false, "error": e}))),
-    };
-    if let Err(e) = ensure_merge_infra(&pool).await {
-        return Ok(HttpResponse::InternalServerError()
-            .json(json!({"success": false, "error": format!("Schema/procedure setup failed: {e}")})));
-    }
-
-    // Part 1 of the multi-country fix (PLAN-merge.md): assign (or reuse)
-    // this country's block index in industrydb before computing any
-    // trade_id — shared across every year merged here (see
-    // ensure_merge_infra's region comment).
-    let country_block_index = match get_or_assign_country_block(&pool, &country).await {
-        Ok(idx) => idx,
-        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({"success": false, "error": e}))),
-    };
-
-    // Part 2: which (country, flow_type) pairs already have trade rows for
-    // *this year* in industrydb — scoped by year here (unlike the per-year
-    // databases, industrydb holds every year in one trade table) — so a
-    // bilateral flow another country's file already contributed for this
-    // year gets skipped before it's even parsed.
-    let known: std::collections::HashSet<(String, String)> =
-        sqlx::query_as::<_, (String, String)>("SELECT DISTINCT country, flow_type FROM trade WHERE year = $1")
-            .bind(year_num)
-            .fetch_all(&pool)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
-
-    let base = crate::csv_source_base(use_local);
-    let mut summary: Vec<serde_json::Value> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
-
-    // 1. factor.csv — builds this year's src -> dst factor_id map first;
-    // every later step that touches factor_id depends on it.
-    let mut factor_map: HashMap<i32, i32> = HashMap::new();
-    match crate::read_csv_source(base, use_local, &format!("{year_str}/factor.csv")).await {
-        Err(e) => errors.push(format!("factor.csv: {e}")),
-        Ok(text) => match upsert_factor_rows_merged(&pool, &text).await {
-            Ok(m) => {
-                summary.push(json!({"file": "factor.csv", "rows": m.len()}));
-                factor_map = m;
-            }
-            Err(e) => errors.push(format!("factor.csv insert: {e}")),
-        },
-    }
-
-    // 2. industry.csv, sector.csv, sector_industry.csv — no year column,
-    // no remap; the existing per-year upsert functions work unchanged
-    // against industrydb since these tables have the identical schema
-    // either way.
-    match crate::read_csv_source(base, use_local, &format!("{year_str}/industry.csv")).await {
-        Err(e) => errors.push(format!("industry.csv: {e}")),
-        Ok(text) => match upsert_industry_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
-            Err(e) => errors.push(format!("industry.csv insert: {e}")),
-        },
-    }
-    match crate::read_csv_source(base, use_local, &format!("{year_str}/sector.csv")).await {
-        Err(e) => errors.push(format!("sector.csv: {e}")),
-        Ok(text) => match upsert_sector_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
-            Err(e) => errors.push(format!("sector.csv insert: {e}")),
-        },
-    }
-    match crate::read_csv_source(base, use_local, &format!("{year_str}/sector_industry.csv")).await {
-        Err(e) => errors.push(format!("sector_industry.csv: {e}")),
-        Ok(text) => match upsert_sector_industry_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
-            Err(e) => errors.push(format!("sector_industry.csv insert: {e}")),
-        },
-    }
-
-    // 3. trade.csv + trade_factor.csv per flow type — same functions as
-    // the per-year loader, with year/factor_map now Some(...).
-    for flow_type in &flow_types {
-        let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
-        match crate::read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade.csv")).await {
-            Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
-            Ok(text) => match insert_trade_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, &known).await {
-                Ok((n, skipped_ids)) => {
-                    summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n, "skipped_duplicate": skipped_ids.len()}));
-                    skipped_csv_trade_ids = skipped_ids;
-                }
-                Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
-            },
-        }
-
-        match crate::read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade_factor.csv")).await {
-            Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
-            Ok(text) => match insert_trade_factor_rows(&pool, Some(year_num), &text, flow_type, &country, country_block_index, Some(&factor_map), &skipped_csv_trade_ids).await {
-                Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
-            },
-        }
-    }
-
-    // 4. US BEA interstate data (domestic only). Gated on "domestic" being
-    // selected — see db_insert_trade_data's matching comment (interstate.csv's
-    // trade_id references the domestic trade.csv's rows; loading it without
-    // domestic would FK-violate).
-    if country == "US" && flow_types.iter().any(|f| f == "domestic") {
-        match crate::read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate.csv")).await {
-            Err(e) => errors.push(format!("interstate.csv: {e}")),
-            Ok(text) => match insert_interstate_rows(&pool, Some(year_num), &text, &country).await {
-                Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("interstate.csv insert: {e}")),
-            },
-        }
-
-        match crate::read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate_factor.csv")).await {
-            Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
-            Ok(text) => match insert_interstate_factor_rows(&pool, Some(year_num), &text, Some(&factor_map)).await {
-                Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
-            },
-        }
-    }
-
-    Ok(HttpResponse::Ok().json(json!({
-        "success": errors.is_empty(),
-        "target": "industrydb",
-        "year": year_str,
-        "country": country,
-        "flow_types": flow_types,
-        "inserted": summary,
-        "errors": errors
-    })))
-}

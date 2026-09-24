@@ -1,8 +1,9 @@
 // One-off utility: clears trade/trade_factor/interstate/interstate_factor
-// in one or more per-year Industry Databases, so the
-// loader (db_insert_trade_data) can reload them from the fixed CSVs without
-// every row being skipped by ON CONFLICT DO NOTHING on an unchanged natural
-// key -- see PLAN-merge.md's "Fixing historical trade_id/interstate_id".
+// in one or more per-year Industry Databases, so trade_comprehensive.py can
+// reload them with the current plain-sequential trade_id scheme without old
+// rows (from the retired per-country block scheme) lingering alongside the
+// new ones -- see PLAN-comprehensive.md's "Known gap: comprehensive push
+// never truncates existing tables first".
 // Not wired into the API. Run directly:
 //   cargo run --bin truncate_year_tables -- 2019 2021
 use sqlx::postgres::PgPoolOptions;

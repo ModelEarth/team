@@ -517,61 +517,6 @@
             <div id="quick-actions-result"></div>
         </div>
 
-        <div class="card">
-            <h2 class="card-title">Send Trade Data to Azure</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">
-                Loads a year/country's CSVs from
-                <a href="https://github.com/ModelEarth/trade-data" target="_blank">trade-data</a>
-                into the Exiobase Industry Database on Azure — either its own new annual database,
-                or added into the shared multi-year <code>industrydb</code> (see
-                <a href="https://github.com/ModelEarth/team/blob/main/PLAN-merge.md" target="_blank">PLAN-merge.md</a>).
-            </p>
-
-            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-end;">
-                <div>
-                    <label for="send-year" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Year:</label>
-                    <input type="number" id="send-year" value="2023" min="2010" max="2035" style="width: 100px; padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;">
-                </div>
-                <div>
-                    <label for="send-target" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Destination:</label>
-                    <select id="send-target" style="padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; min-width: 300px;">
-                        <option value="">New Annual Database (industrydb_&lbrace;year&rbrace;)</option>
-                        <option value="industrydb">Add to Shared Multi-Year IndustryDB (industrydb)</option>
-                    </select>
-                </div>
-                <div>
-                    <button type="button" class="btn btn-secondary" id="send-countries-refresh">Refresh Country List</button>
-                </div>
-            </div>
-
-            <div id="send-year-size-status" style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);"></div>
-
-            <div id="send-comprehensive-notice" class="error-message" style="display: none; margin-bottom: 16px;"></div>
-
-            <div id="send-countries-and-actions">
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">
-                        Countries &amp; flow types (checking a country checks all three; each flow type can be unchecked individually):
-                    </label>
-                    <div id="send-countries-warning" class="error-message" style="display: none;"></div>
-                    <div id="send-countries-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-md); max-height: 320px; overflow-y: auto;">
-                        <span style="color: var(--text-secondary); font-size: 14px;">Loading countries for this year&hellip;</span>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button class="btn btn-primary" id="send-trade-data">
-                        <span class="loading-spinner" id="send-spinner" style="display: none;"></span>
-                        Send to Azure
-                    </button>
-                    <button class="btn btn-secondary" id="clear-send-status">Clear Status</button>
-                </div>
-            </div>
-
-            <div id="send-result"></div>
-            <div id="send-status-output" class="log-output" style="display: none;"></div>
-        </div>
-
         <div id="readmeDiv" class="card readme-content" style="display: none;">
             <p style="color: var(--text-secondary); font-style: italic;">
                 Loading README.md documentation...

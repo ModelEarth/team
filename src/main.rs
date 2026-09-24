@@ -2503,41 +2503,6 @@ async fn connect_to_exiobase_year_readonly(year: &str) -> Result<Pool<Postgres>,
     connect_to_exiobase_year_db(&db_name).await
 }
 
-// Uses an explicit client with real timeouts — reqwest::get()'s bare
-// convenience call (what this used to be) builds a client with no timeout
-// at all, so a stalled connect/TLS handshake (dropped packets, no RST — not
-// a normal connection-refused error) hangs this call forever with no error
-// ever surfacing. That's the root cause found for the 2026-09-20 hang
-// documented in PLAN-merge.md: every insert-trade-data run hung
-// indefinitely at this exact first call, across clean restarts, even with
-// curl succeeding instantly against the same URL from the same machine —
-// curl has its own default timeout/retry behavior that reqwest::get()
-// simply doesn't. connect_timeout catches a stalled handshake specifically;
-// the overall timeout covers a connection that succeeds but then stalls
-// mid-response.
-async fn fetch_github_csv(url: &str) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(15))
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
-    let resp = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| format!("HTTP request failed for {url}: {e}"))?;
-    // raw.githubusercontent.com returns 404 with a plain-text body ("404: Not
-    // Found"), not a connection error — .text() alone would treat that body
-    // as valid CSV and silently feed garbage into the CSV parser downstream.
-    let status = resp.status();
-    if !status.is_success() {
-        return Err(format!("{url} returned HTTP {status}"));
-    }
-    resp.text()
-        .await
-        .map_err(|e| format!("Failed to read response body from {url}: {e}"))
-}
-
 // Run SQL, log result but don't propagate errors (graceful degradation for existing DBs)
 async fn try_exec(pool: &Pool<Postgres>, sql: &str, steps: &mut Vec<String>) {
     match sqlx::query(sql).execute(pool).await {
@@ -2609,17 +2574,15 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     steps.push("Ensured table: factor".to_string());
     try_exec(pool, "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='factor_pkey') THEN ALTER TABLE factor ADD PRIMARY KEY (factor_id); END IF; END $$", &mut steps).await;
 
-    // region — Part 1 of the multi-country fix (PLAN-merge.md's "Fix
-    // design: per-country trade_id blocks + skip-before-insert"): each
-    // country loaded into *this* database gets a small integer block_index,
-    // assigned the first time it's loaded (get_or_assign_country_block), so
-    // trade_id (block_index * 3,000,000 + flow_type_offset + csv_row_index)
-    // stays globally unique across countries within one database — not just
-    // within one country's own three files as before. Indices start at 1
-    // (0 is reserved, never assigned) — whichever country loads first gets
-    // block_index 1, so its trade_id starts at 3,000,000 + flow_type_offset,
-    // not today's unshifted values; see PLAN-merge.md for what this means
-    // for already-loaded (US-only) data.
+    // region — block_index is now a purely static reference field: every
+    // comprehensive-mode database is seeded with all 49 Exiobase regions
+    // up front, in Exiobase's own fixed order (see merge_years.rs's
+    // comprehensive_push_reference_tables), and nothing computes trade_id
+    // from it any more. It's a historical leftover from the old per-country
+    // block scheme (removed 2026-09-24 -- see PLAN-comprehensive.md's
+    // "Trade ID scheme" section for why trade_id is a plain sequential
+    // value now, assigned once per comprehensive run by
+    // trade_comprehensive.py, not computed here at insert time).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS region (
             country     VARCHAR(10) NOT NULL PRIMARY KEY,
@@ -2627,27 +2590,20 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
         )
     "#).execute(pool).await.map_err(|e| e.to_string())?;
     steps.push("Ensured table: region".to_string());
-    // name is nullable: get_or_assign_country_block (the old per-country
-    // loader) inserts a region row knowing only the country code, not its
-    // display name -- only comprehensive_push_reference_tables's full-49
-    // seed (merge_years.rs) supplies one.
+    // name is nullable: only comprehensive_push_reference_tables's full-49
+    // seed (merge_years.rs) supplies a display name.
     try_exec(pool, "ALTER TABLE region ADD COLUMN IF NOT EXISTS name VARCHAR(100)", &mut steps).await;
 
     // trade
-    // trade_id is an explicit value the loader computes deterministically
-    // from trade.csv's own (already 1-based, per-file) row index plus a
-    // fixed offset by flow_type — domestic +0, imports +999,999, exports
-    // +1,999,999 (see insert_trade_rows and PLAN-merge.md's two-stage ID
-    // design) — not a database-assigned surrogate. It used to be the CSV's
-    // raw value with no offset, which restarts at 1 for every (country,
-    // flow_type) file and collided once domestic/imports/exports share this
-    // table (confirmed: industrydb_2021 had 309,885 trade rows but only
-    // 146,556 distinct trade_id values before this fix). The real natural
-    // key — (region1, region2, industry1, industry2) — moves to its own
-    // UNIQUE constraint below instead of being the PK, since insert_trade_
-    // rows still needs it as an ON CONFLICT target for dedup. industry1/2
-    // are NOT NULL because the app always supplies a value (possibly ""),
-    // never a true NULL. FK target for industry1/2 is industry(industry_id).
+    // trade_id is a plain sequential value assigned once, in Exiobase's own
+    // fixed region order, by trade_comprehensive.py (see
+    // PLAN-comprehensive.md's "Trade ID scheme" section) -- not computed or
+    // offset here. The real natural key — (region1, region2, industry1,
+    // industry2) — still gets its own UNIQUE constraint below (a resumed/
+    // retried comprehensive push relies on it as an ON CONFLICT target).
+    // industry1/2 are NOT NULL because the app always supplies a value
+    // (possibly ""), never a true NULL. FK target for industry1/2 is
+    // industry(industry_id).
     sqlx::query(r#"
         CREATE TABLE IF NOT EXISTS trade (
             trade_id   INTEGER       NOT NULL,
@@ -2765,7 +2721,7 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     // state_industry_code (~50,000 of 164,064 real rows), so that constraint
     // silently rejected legitimate rows instead of only true duplicates.
     // interstate_id (the PRIMARY KEY above) is already the correct, real
-    // dedup key — see insert_interstate_rows' ON CONFLICT (interstate_id).
+    // dedup key — see industrydb.py's push_interstate_rows' ON CONFLICT (interstate_id).
     try_exec(pool, "ALTER TABLE interstate DROP CONSTRAINT IF EXISTS interstate_state_industry_key", &mut steps).await;
     // Migrates a pre-existing table's interstate_id from VARCHAR to
     // INTEGER — only succeeds once the table holds no old string-format
@@ -2850,12 +2806,12 @@ async fn init_industry_tables_in_pool(pool: &Pool<Postgres>) -> Result<Vec<Strin
     for sql in &[
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry1') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry1 FOREIGN KEY (industry1) REFERENCES industry(industry_id); END IF; END $$",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_trade_industry2') THEN ALTER TABLE trade ADD CONSTRAINT fk_trade_industry2 FOREIGN KEY (industry2) REFERENCES industry(industry_id); END IF; END $$",
-        // trade.country -> region.country: region rows are always created
-        // (get_or_assign_country_block) before any trade row referencing
-        // that country is inserted (see db_insert_trade_data), so this holds
-        // for every future insert. Expected to SKIP the first time this runs
-        // against an already-populated pre-region database (trade.country
-        // values with no matching region row yet, e.g. existing 'US' data in
+        // trade.country -> region.country: comprehensive mode always seeds
+        // all 49 region rows (comprehensive_push_reference_tables) before
+        // any trade row is inserted, so this holds for every future insert.
+        // Expected to SKIP the first time this runs against an
+        // already-populated pre-region database (trade.country values with
+        // no matching region row yet, e.g. existing 'US' data in
         // industrydb_2019/industrydb_2021) — self-heals on a later init once
         // that country's region row exists, same pattern as the historical
         // trade_id PK migration above.
@@ -2951,10 +2907,9 @@ async fn upsert_factor_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, 
 }
 
 async fn upsert_industry_rows(pool: &Pool<Postgres>, text: &str) -> Result<usize, String> {
-    // Header-based lookup, not fixed positions — the same class of bug
-    // fixed elsewhere in this file (insert_interstate_rows, insert_trade_rows)
-    // when a CSV's column count/order drifts from what a fixed-position
-    // reader assumed. industry.csv is Exiobase's own ~200-industry detail
+    // Header-based lookup, not fixed positions — avoids silently misreading
+    // columns when a CSV's column count/order drifts from what a
+    // fixed-position reader assumed. industry.csv is Exiobase's own ~200-industry detail
     // only (no cattype column — that was a considered-and-reverted design;
     // see PLAN-industry.md — BEA Sector codes live in their own `sector`
     // table, related via `sector_industry`).
@@ -3047,705 +3002,6 @@ async fn upsert_sector_industry_rows(pool: &Pool<Postgres>, text: &str) -> Resul
         qb.build().execute(pool).await.map_err(|e| e.to_string())?;
     }
     Ok(count)
-}
-
-// Fixed per-flow_type offset applied to trade.csv's own (already 1-based,
-// per-file) trade_id, so the combined domestic+imports+exports trade_id
-// values are unique within one year's database without needing a database-
-// assigned surrogate — see PLAN-merge.md's two-stage ID design (settled
-// 2026-09-20): domestic keeps 1..N unchanged, imports starts at 1,000,000,
-// exports starts at 2,000,000. Deterministic and reversible (subtract the
-// offset back to get the original CSV row index) — no RETURNING, no
-// natural-key lookup, no mapping table: insert_trade_factor_rows computes
-// the identical offset independently from the same flow_type it's already
-// given. Accepted risk: if a single year's imports or exports ever exceeds
-// 999,999 rows, this scheme needs a wider block (see PLAN-merge.md).
-fn trade_id_offset(flow_type: &str) -> i32 {
-    match flow_type {
-        "imports" => 999_999,
-        "exports" => 1_999_999,
-        _ => 0, // domestic, or anything unrecognized
-    }
-}
-
-// Assigns (or returns the existing) small integer block index for a country
-// within one database, from the `region` table — Part 1 of PLAN-merge.md's
-// multi-country fix. Atomic UPSERT+RETURNING so concurrent/repeated calls
-// for the same country never race or disagree: the first call for a given
-// country inserts and returns the next available index; every later call
-// for that same country hits the ON CONFLICT branch (a no-op write, purely
-// so RETURNING still fires) and gets back the same value it got the first
-// time. Indices start at 1 — COALESCE's default of 0 means the first-ever
-// row gets 0 + 1 = 1, never 0 — see PLAN-merge.md for the country-count
-// headroom this leaves under i32::MAX.
-pub(crate) async fn get_or_assign_country_block(pool: &Pool<Postgres>, country: &str) -> Result<i32, String> {
-    sqlx::query_scalar(
-        r#"
-        WITH next_idx AS (SELECT COALESCE(MAX(block_index), 0) + 1 AS idx FROM region)
-        INSERT INTO region (country, block_index)
-        SELECT $1, next_idx.idx FROM next_idx
-        ON CONFLICT (country) DO UPDATE SET country = region.country
-        RETURNING block_index
-        "#,
-    )
-    .bind(country)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| format!("Failed to assign region block for {country}: {e}"))
-}
-
-// Combines Part 1's per-country block with the existing per-flow_type
-// offset — the full trade_id formula from PLAN-merge.md:
-// (country_block_index - 1) * 3,000,000 + flow_type_offset(flow_type,
-// country_block_index) + csv_row_index (the csv_row_index/csv_trade_id part
-// is added by the caller). The "- 1" is deliberate: region.block_index
-// starts at 1 (see get_or_assign_country_block), but the *first* country
-// loaded should still contribute 0 to trade_id — not 3,000,000 — so it
-// reproduces today's unshifted values exactly, restoring the zero-migration
-// property the original 0-based design had. 3,000,000 per country leaves
-// ~17x headroom over today's real max (175,726, 2019 exports) before the
-// per-flow_type sub-block itself would need widening — a pre-existing,
-// separately tracked risk (see PLAN-merge.md's "Open questions" section),
-// not something this widening introduces.
-//
-// domestic's offset needs its own "-1" compensation for every block after
-// the first, and only after the first: imports/exports's offsets
-// (999,999/1,999,999) are already one less than the round number they're
-// meant to land on, since csv_trade_id's own "+1" (trade.csv is 1-based)
-// gets added back on top — that's why imports/exports already start every
-// block on a round number (e.g. block 2: 3,999,999 + 1 = 4,000,000) with no
-// special-casing needed. domestic's offset is a flat 0, which is exactly
-// right for block 1 (its trade_id must stay byte-identical to what's
-// already in production — trade_id == csv row, unshifted, per the
-// two-stage ID design), but leaves every later block's domestic starting
-// one *past* its round boundary (e.g. block 2: 3,000,000 + 1 = 3,000,001)
-// unless it gets the same "-1" compensation imports/exports already have.
-fn trade_id_base(country_block_index: i32, flow_type: &str) -> i32 {
-    let block_base = (country_block_index - 1) * 3_000_000;
-    let mut flow_offset = trade_id_offset(flow_type);
-    // imports/exports already have this compensation baked into their
-    // constant offset (999,999/1,999,999); domestic's is a flat 0, correct
-    // only for block 1 (production compatibility) — every later block needs
-    // the same "-1" imports/exports already carry.
-    if country_block_index > 1 && flow_type != "imports" && flow_type != "exports" {
-        flow_offset -= 1;
-    }
-    block_base + flow_offset
-}
-
-// Part 2 of PLAN-merge.md's multi-country fix: decides, before a trade.csv
-// row is even parsed further, whether another country's file already
-// contributed this exact physical bilateral flow — checked by
-// trade.country/flow_type (via `known`, built once per job from
-// `SELECT DISTINCT country, flow_type FROM trade`), not trade_id, since
-// trade_id is now only unique per country block rather than globally.
-// domestic rows (region1 == region2) only ever appear in one country's own
-// file, so they're checked against that same country/domestic pair;
-// cross-region rows can be contributed by either side's run, so both
-// possible sources are checked.
-fn trade_row_already_known(region1: &str, region2: &str, known: &std::collections::HashSet<(String, String)>) -> bool {
-    if region1 == region2 {
-        known.contains(&(region1.to_string(), "domestic".to_string()))
-    } else {
-        known.contains(&(region1.to_string(), "exports".to_string()))
-            || known.contains(&(region2.to_string(), "imports".to_string()))
-    }
-}
-
-// year: None for the per-year database (industrydb_{year} — trade_id
-// alone is the PK, natural key is unscoped); Some(y) to insert straight
-// into the shared industrydb instead, adding y as a real column and
-// scoping the natural-key conflict target by year — see PLAN-merge.md's
-// Stage 2 and merge_years.rs's direct-import path. Both cases share the
-// same CSV parsing/offset logic; only the INSERT's column list and
-// ON CONFLICT target differ.
-async fn insert_trade_rows(
-    pool: &Pool<Postgres>,
-    year: Option<i32>,
-    text: &str,
-    flow_type: &str,
-    country: &str,
-    country_block_index: i32,
-    known: &std::collections::HashSet<(String, String)>,
-) -> Result<(usize, std::collections::HashSet<i32>), String> {
-    // Header-based lookup (not fixed positions): trade.csv no longer carries
-    // a 'year' column (one database per year makes it redundant), and a
-    // fixed-position reader silently misreads every column when a CSV's
-    // layout drifts — the same class of bug found and fixed in
-    // insert_interstate_rows.
-    let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
-    let trade_id_col = col("trade_id", 0);
-    let region1_col = col("region1", 1);
-    let region2_col = col("region2", 2);
-    // trade.csv is always full ~200-industry Exiobase detail — trade/
-    // trade_factor were never the file-size problem (see PLAN-industry.md's
-    // revision note), so unlike interstate, there's no separate BEA-Sector-
-    // level primary tier here.
-    let industry1_col = col("industry1", 3);
-    let industry2_col = col("industry2", 4);
-    let amount_col = col("amount", 5);
-    let base = trade_id_base(country_block_index, flow_type);
-    let mut rows: Vec<(i32, String, String, String, String, f64)> = Vec::new();
-    let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
-    for rec in rdr.records() {
-        let r = rec.map_err(|e| e.to_string())?;
-        let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
-        let region1 = r.get(region1_col).unwrap_or("").to_string();
-        let region2 = r.get(region2_col).unwrap_or("").to_string();
-
-        if trade_row_already_known(&region1, &region2, known) {
-            skipped_csv_trade_ids.insert(csv_trade_id);
-            continue;
-        }
-
-        let trade_id = csv_trade_id + base;
-        let industry1 = r.get(industry1_col).unwrap_or("").to_string();
-        let industry2 = r.get(industry2_col).unwrap_or("").to_string();
-        let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
-        rows.push((trade_id, region1, region2, industry1, industry2, amount));
-    }
-    let count = rows.len();
-    let ft = flow_type.to_string();
-    let ct = country.to_string();
-    for chunk in rows.chunks(500) {
-        let mut qb = match year {
-            Some(y) => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO trade (year, trade_id, region1, region2, industry1, industry2, amount, flow_type, country) "
-                );
-                qb.push_values(chunk, |mut b, (tid, r1, r2, i1, i2, amt)| {
-                    b.push_bind(y).push_bind(tid).push_bind(r1).push_bind(r2)
-                     .push_bind(i1).push_bind(i2).push_bind(*amt)
-                     .push_bind(&ft).push_bind(&ct);
-                });
-                qb.push(" ON CONFLICT (year, region1, region2, industry1, industry2) DO NOTHING");
-                qb
-            }
-            None => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO trade (trade_id, region1, region2, industry1, industry2, amount, flow_type, country) "
-                );
-                qb.push_values(chunk, |mut b, (tid, r1, r2, i1, i2, amt)| {
-                    b.push_bind(tid).push_bind(r1).push_bind(r2)
-                     .push_bind(i1).push_bind(i2).push_bind(*amt)
-                     .push_bind(&ft).push_bind(&ct);
-                });
-                qb.push(" ON CONFLICT (region1, region2, industry1, industry2) DO NOTHING");
-                qb
-            }
-        };
-        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
-    }
-    Ok((count, skipped_csv_trade_ids))
-}
-
-// Applies the same trade_id_offset as insert_trade_rows, computed
-// independently from the same flow_type — no mapping table, no dependency
-// on insert_trade_rows having run first, since it's the identical
-// deterministic formula applied to trade_factor.csv's own trade_id column.
-// year/factor_map: None/None for the per-year database (factor_id used
-// as-is); Some(y)/Some(map) to insert straight into industrydb, adding y
-// and remapping factor_id through the map merge_years::
-// upsert_factor_rows_merged already built for this year (see
-// PLAN-merge.md's "factor table" section) — a source factor_id missing
-// from the map is skipped rather than inserted with a wrong/guessed id.
-// country_block_index: same value insert_trade_rows used for this
-// country/database, so the two compute the identical trade_id independently
-// (see trade_id_base). skipped_csv_trade_ids: the set insert_trade_rows
-// returned for this same flow_type's trade.csv — a trade_factor.csv row
-// referencing one of those csv_trade_ids is redundant with whatever the
-// already-loaded country contributed for the same physical flow (Part 2 of
-// PLAN-merge.md's fix), so it's skipped here too rather than left to
-// FK-orphan against a trade_id that was never inserted.
-async fn insert_trade_factor_rows(
-    pool: &Pool<Postgres>,
-    year: Option<i32>,
-    text: &str,
-    flow_type: &str,
-    country: &str,
-    country_block_index: i32,
-    factor_map: Option<&std::collections::HashMap<i32, i32>>,
-    skipped_csv_trade_ids: &std::collections::HashSet<i32>,
-) -> Result<InsertOutcome, String> {
-    // Header-based lookup: trade_factor.csv (trade.py) has always had only
-    // three columns (trade_id, factor_id, level) — a fourth 'coefficient'
-    // column was never produced. The previous fixed-position reader (0,1,2,3)
-    // assumed four columns anyway, so it silently read 'level' into
-    // 'coefficient' and defaulted every 'level' value to 0.0. coefficient is
-    // intentionally left NULL here — it's derivable as trade_factor.level /
-    // trade.amount (see bea/README.md) and was never actually supplied.
-    let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
-    let trade_id_col = col("trade_id", 0);
-    let factor_id_col = col("factor_id", 1);
-    let level_col = col("level", 2);
-    let base = trade_id_base(country_block_index, flow_type);
-    let mut rows: Vec<(i32, i32, f64)> = Vec::new();
-    let mut skipped = 0usize;
-    for rec in rdr.records() {
-        let r = rec.map_err(|e| e.to_string())?;
-        let csv_trade_id: i32 = r.get(trade_id_col).unwrap_or("").parse().unwrap_or(0);
-        if skipped_csv_trade_ids.contains(&csv_trade_id) {
-            skipped += 1;
-            continue;
-        }
-        let trade_id = csv_trade_id + base;
-        let csv_factor_id: i32 = r.get(factor_id_col).unwrap_or("").parse().unwrap_or(0);
-        let factor_id = match factor_map {
-            Some(map) => match map.get(&csv_factor_id) {
-                Some(&fid) => fid,
-                None => { skipped += 1; continue; }
-            },
-            None => csv_factor_id,
-        };
-        let level: f64 = r.get(level_col).unwrap_or("").parse().unwrap_or(0.0);
-        rows.push((trade_id, factor_id, level));
-    }
-    let inserted = rows.len();
-    let ft = flow_type.to_string();
-    let ct = country.to_string();
-    for chunk in rows.chunks(500) {
-        let mut qb = match year {
-            Some(y) => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO trade_factor (year, trade_id, country, flow_type, factor_id, level) "
-                );
-                qb.push_values(chunk, |mut b, (tid, fid, imp)| {
-                    b.push_bind(y).push_bind(tid).push_bind(&ct).push_bind(&ft)
-                     .push_bind(fid).push_bind(*imp);
-                });
-                qb.push(" ON CONFLICT (year, trade_id, factor_id) DO NOTHING");
-                qb
-            }
-            None => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO trade_factor (trade_id, country, flow_type, factor_id, level) "
-                );
-                qb.push_values(chunk, |mut b, (tid, fid, imp)| {
-                    b.push_bind(tid).push_bind(&ct).push_bind(&ft)
-                     .push_bind(fid).push_bind(*imp);
-                });
-                qb.push(" ON CONFLICT (trade_id, factor_id) DO NOTHING");
-                qb
-            }
-        };
-        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
-    }
-    Ok(InsertOutcome { inserted, skipped })
-}
-
-// Returned by the interstate insert functions instead of a bare row count,
-// since rows with an empty/invalid key (interstate_id, trade_id, factor_id)
-// are now skipped rather than inserted with a placeholder — a caller that
-// only checked `inserted` would otherwise have no way to notice silently
-// dropped rows.
-struct InsertOutcome {
-    inserted: usize,
-    skipped: usize,
-}
-
-// interstate.csv's trade_id references trade.py's domestic-flow row index
-// (interstate/BEA processing only ever reads the domestic trade.csv, never
-// imports/exports — confirmed via bea/main.py:152-154's tradeflow=='domestic'
-// gating), and domestic's trade_id_offset is 0 (see insert_trade_rows), so
-// the value needs no translation here — it's already correct as-is.
-async fn insert_interstate_rows(
-    pool: &Pool<Postgres>,
-    year: Option<i32>,
-    text: &str,
-    country: &str,
-) -> Result<InsertOutcome, String> {
-    let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    // Looked up by header name, not fixed position: interstate.csv's layout
-    // (interstate_id, trade_id, year, state1, state2, sector1, sector2,
-    // state_industry_code, amount, commodity_code, industry_code,
-    // economic_multiplier — see bea/main.py) doesn't match trade.csv's, and
-    // older bea_trade_detail.csv exports may omit some columns entirely.
-    // Defaults below match the current interstate.csv column order for
-    // files with no header match. sector1/sector2 (renamed from industry1/
-    // industry2 — see PLAN-industry.md) hold BEA Sector codes, inserted
-    // into this table's sector1/sector2 columns.
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let col = |name: &str, default: usize| headers.iter().position(|h| h == name).unwrap_or(default);
-    let interstate_id_col = col("interstate_id", 0);
-    let trade_id_col    = col("trade_id", 1);
-    let state1_col      = col("state1", 3);
-    let state2_col      = col("state2", 4);
-    let sector1_col   = col("sector1", 5);
-    let sector2_col   = col("sector2", 6);
-    let state_ind_col   = col("state_industry_code", 7);
-    let amount_col      = col("amount", 8);
-    let commodity_col   = headers.iter().position(|h| h == "bea_commodity_code" || h == "commodity_code").unwrap_or(9);
-    let industry_col    = headers.iter().position(|h| h == "bea_industry_code" || h == "industry_code").unwrap_or(10);
-    let multiplier_col  = col("economic_multiplier", 11);
-
-    let mut rows: Vec<(i32, i32, String, String, String, String, String, f64, String, String, f64)> = Vec::new();
-    let mut skipped = 0usize;
-    for rec in rdr.records() {
-        let r = rec.map_err(|e| e.to_string())?;
-        // interstate_id is a plain 1-based integer now (bea/main.py assigns
-        // it directly, no longer a {trade_id}-US-... composite string —
-        // see PLAN-merge.md's two-stage ID design), so no remapping is
-        // needed for it, only a type parse.
-        let interstate_id: i32 = match r.get(interstate_id_col).unwrap_or("").trim().parse() {
-            Ok(v) if v > 0 => v,
-            _ => { skipped += 1; continue; }
-        };
-        let trade_id: i32 = match r.get(trade_id_col).unwrap_or("").trim().parse() {
-            Ok(v) if v > 0 => v,
-            _ => { skipped += 1; continue; }
-        };
-        let state1 = r.get(state1_col).unwrap_or("").to_string();
-        let state2 = r.get(state2_col).unwrap_or("").to_string();
-        let sector1 = r.get(sector1_col).unwrap_or("").to_string();
-        let sector2 = r.get(sector2_col).unwrap_or("").to_string();
-        let state_industry_code = r.get(state_ind_col).unwrap_or("").to_string();
-        let amount: f64 = r.get(amount_col).unwrap_or("").parse().unwrap_or(0.0);
-        let commodity_code = r.get(commodity_col).unwrap_or("").to_string();
-        let industry_code  = r.get(industry_col).unwrap_or("").to_string();
-        let economic_multiplier: f64 = r.get(multiplier_col).unwrap_or("").parse().unwrap_or(1.0);
-        rows.push((interstate_id, trade_id, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier));
-    }
-    let inserted = rows.len();
-    let ct = country.to_string();
-    for chunk in rows.chunks(500) {
-        let mut qb = match year {
-            Some(y) => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate (year, interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
-                );
-                qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
-                    b.push_bind(y).push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
-                     .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
-                     .push_bind(cc).push_bind(ic).push_bind(*em);
-                });
-                qb.push(" ON CONFLICT (year, interstate_id) DO NOTHING");
-                qb
-            }
-            None => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate (interstate_id, trade_id, country, state1, state2, sector1, sector2, state_industry_code, amount, commodity_code, industry_code, economic_multiplier) "
-                );
-                qb.push_values(chunk, |mut b, (iid, tid, s1, s2, sec1, sec2, sic, amt, cc, ic, em)| {
-                    b.push_bind(iid).push_bind(tid).push_bind(&ct).push_bind(s1).push_bind(s2)
-                     .push_bind(sec1).push_bind(sec2).push_bind(sic).push_bind(*amt)
-                     .push_bind(cc).push_bind(ic).push_bind(*em);
-                });
-                qb.push(" ON CONFLICT (interstate_id) DO NOTHING");
-                qb
-            }
-        };
-        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
-    }
-    Ok(InsertOutcome { inserted, skipped })
-}
-
-// year/factor_map: None/None for the per-year database; Some(y)/Some(map)
-// for the direct-to-industrydb path — see insert_trade_factor_rows.
-// Real per-factor rows only — interstate_factor.csv (bea/main.py's
-// satellite-data path). factor_id is never null in this file, so it's
-// looked up directly by header name with no legacy fallback.
-async fn insert_interstate_factor_rows(
-    pool: &Pool<Postgres>,
-    year: Option<i32>,
-    text: &str,
-    factor_map: Option<&std::collections::HashMap<i32, i32>>,
-) -> Result<InsertOutcome, String> {
-    let mut rdr = csv::Reader::from_reader(text.as_bytes());
-    let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
-    let col = |name: &str| headers.iter().position(|h| h == name);
-
-    let idx_iid = col("interstate_id");
-    let idx_fid = col("factor_id");
-    let idx_fv  = col("level");
-    let idx_ft  = col("flow_type");
-
-    let mut rows: Vec<(i32, i32, f64, String)> = Vec::new();
-    let mut skipped = 0usize;
-    for rec in rdr.records() {
-        let r = rec.map_err(|e| e.to_string())?;
-        let g = |i: Option<usize>| i.and_then(|i| r.get(i)).unwrap_or("").to_string();
-
-        // interstate_id is a plain integer now — see insert_interstate_rows.
-        let interstate_id: i32 = match idx_iid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
-            Ok(v) if v > 0 => v,
-            _ => { skipped += 1; continue; }
-        };
-        let csv_factor_id: i32 = match idx_fid.and_then(|i| r.get(i)).unwrap_or("").trim().parse() {
-            Ok(v) if v > 0 => v,
-            _ => { skipped += 1; continue; }
-        };
-        let factor_id = match factor_map {
-            Some(map) => match map.get(&csv_factor_id) {
-                Some(&fid) => fid,
-                None => { skipped += 1; continue; }
-            },
-            None => csv_factor_id,
-        };
-        let level: f64 = g(idx_fv).parse().unwrap_or(0.0);
-        let flow_type = g(idx_ft);
-        rows.push((interstate_id, factor_id, level, flow_type));
-    }
-
-    let inserted = rows.len();
-    for chunk in rows.chunks(500) {
-        let mut qb = match year {
-            Some(y) => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate_factor (year, interstate_id, factor_id, level, flow_type) "
-                );
-                qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
-                    b.push_bind(y).push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
-                });
-                qb.push(" ON CONFLICT (year, interstate_id, factor_id) DO NOTHING");
-                qb
-            }
-            None => {
-                let mut qb = sqlx::QueryBuilder::<Postgres>::new(
-                    "INSERT INTO interstate_factor (interstate_id, factor_id, level, flow_type) "
-                );
-                qb.push_values(chunk, |mut b, (iid, fid, lvl, ft)| {
-                    b.push_bind(iid).push_bind(fid).push_bind(*lvl).push_bind(ft);
-                });
-                qb.push(" ON CONFLICT (interstate_id, factor_id) DO NOTHING");
-                qb
-            }
-        };
-        qb.build().execute(pool).await.map_err(|e| e.to_string())?;
-    }
-    Ok(InsertOutcome { inserted, skipped })
-}
-
-#[derive(Deserialize)]
-struct InsertTradeDataRequest {
-    year: String,
-    country: String,
-    // "industrydb" pushes straight into the shared, multi-year database
-    // (industrydb) with a real `year` column on the 4 flow tables — the
-    // Stage 2 destination from PLAN-merge.md — instead of the normal
-    // per-year industrydb_{year}. Anything else (including omitted)
-    // keeps the existing per-year behavior.
-    #[serde(default)]
-    target: Option<String>,
-    // Which of domestic/imports/exports to load — omitted or empty means
-    // all three (the original, only behavior). Added for multi-country
-    // loads, where a caller may want e.g. only "imports" for a country
-    // already covered by another country's "exports" — see the FK-
-    // violation risk noted below interstate's gating.
-    #[serde(default)]
-    flow_types: Option<Vec<String>>,
-    // "local" reads CSVs straight off this machine's disk instead of
-    // fetching them from GitHub -- team and trade-data are sibling repos
-    // under the same webroot checkout, so a comprehensive-mode-style local
-    // Python run's output is already sitting right next to this process,
-    // with no need to commit/push it to trade-data first. Anything else
-    // (including omitted) keeps the existing GitHub-fetch behavior, which
-    // remains the only option for a team server that isn't colocated with
-    // a trade-data checkout (e.g. a deployed/cloud instance).
-    #[serde(default)]
-    source: Option<String>,
-}
-
-const ALL_FLOW_TYPES: [&str; 3] = ["domestic", "imports", "exports"];
-
-// Base path/URL for CSVs read by db_insert_trade_data/insert_trade_data_direct
-// -- either this machine's local trade-data checkout (source: "local") or
-// GitHub's raw content host (the default). Every call site below builds a
-// relative path off whichever this returns and reads it through
-// read_csv_source, so the two sources are interchangeable everywhere a CSV
-// gets fetched.
-fn csv_source_base(local: bool) -> &'static str {
-    if local {
-        "../trade-data/year"
-    } else {
-        "https://raw.githubusercontent.com/ModelEarth/trade-data/refs/heads/main/year"
-    }
-}
-
-// Reads one CSV from whichever source csv_source_base(local) points at --
-// this machine's disk (a plain file read, relative to team's own working
-// directory) or a GitHub raw URL (the existing fetch_github_csv path).
-async fn read_csv_source(base: &str, local: bool, relative_path: &str) -> Result<String, String> {
-    if local {
-        let path = format!("{base}/{relative_path}");
-        tokio::fs::read_to_string(&path).await.map_err(|e| format!("{path}: {e}"))
-    } else {
-        fetch_github_csv(&format!("{base}/{relative_path}")).await
-    }
-}
-
-// POST /api/db/insert-trade-data
-async fn db_insert_trade_data(
-    _data: web::Data<Arc<ApiState>>,
-    req: web::Json<InsertTradeDataRequest>,
-) -> Result<HttpResponse> {
-    let year_str = req.year.trim().to_string();
-    let country  = req.country.trim().to_uppercase();
-
-    let _year_num: i16 = match year_str.parse() {
-        Ok(y) => y,
-        Err(_) => return Ok(HttpResponse::BadRequest().json(json!({
-            "success": false, "error": "Invalid year"
-        }))),
-    };
-
-    let flow_types: Vec<String> = match &req.flow_types {
-        Some(v) if !v.is_empty() => v.clone(),
-        _ => ALL_FLOW_TYPES.iter().map(|s| s.to_string()).collect(),
-    };
-
-    let use_local = req.source.as_deref() == Some("local");
-
-    if req.target.as_deref() == Some("industrydb") {
-        return merge_years::insert_trade_data_direct(year_str, country, flow_types, use_local).await;
-    }
-
-    let pool = match connect_to_exiobase_year(&year_str).await {
-        Ok(p) => p,
-        Err(e) => return Ok(HttpResponse::ServiceUnavailable().json(json!({
-            "success": false, "error": e
-        }))),
-    };
-
-    // Ensure tables exist
-    if let Err(e) = init_industry_tables_in_pool(&pool).await {
-        return Ok(HttpResponse::InternalServerError().json(json!({
-            "success": false, "error": format!("Table init failed: {e}")
-        })));
-    }
-
-    // Part 1 of the multi-country fix (PLAN-merge.md): assign (or reuse)
-    // this country's block index in *this* database before computing any
-    // trade_id — whichever country loads first here keeps block 0, matching
-    // today's values exactly.
-    let country_block_index = match get_or_assign_country_block(&pool, &country).await {
-        Ok(idx) => idx,
-        Err(e) => return Ok(HttpResponse::InternalServerError().json(json!({
-            "success": false, "error": e
-        }))),
-    };
-
-    // Part 2: which (country, flow_type) pairs already have trade rows in
-    // this database, so a bilateral flow another country's file already
-    // contributed gets skipped before it's even parsed — see
-    // trade_row_already_known and PLAN-merge.md.
-    let known: std::collections::HashSet<(String, String)> =
-        sqlx::query_as::<_, (String, String)>("SELECT DISTINCT country, flow_type FROM trade")
-            .fetch_all(&pool)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
-
-    let base = csv_source_base(use_local);
-    let mut summary: Vec<serde_json::Value> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
-
-    // 1. factor.csv
-    match read_csv_source(base, use_local, &format!("{year_str}/factor.csv")).await {
-        Err(e) => errors.push(format!("factor.csv: {e}")),
-        Ok(text) => match upsert_factor_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "factor.csv", "rows": n})),
-            Err(e) => errors.push(format!("factor.csv insert: {e}")),
-        },
-    }
-
-    // 2. industry.csv
-    match read_csv_source(base, use_local, &format!("{year_str}/industry.csv")).await {
-        Err(e) => errors.push(format!("industry.csv: {e}")),
-        Ok(text) => match upsert_industry_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "industry.csv", "rows": n})),
-            Err(e) => errors.push(format!("industry.csv insert: {e}")),
-        },
-    }
-
-    // 2b. sector.csv + sector_industry.csv — see PLAN-industry.md. Not
-    // year-specific data (BEA's Sector classification and its relationship
-    // to Exiobase industries don't change per year), but published
-    // alongside each year's other reference files for now.
-    match read_csv_source(base, use_local, &format!("{year_str}/sector.csv")).await {
-        Err(e) => errors.push(format!("sector.csv: {e}")),
-        Ok(text) => match upsert_sector_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "sector.csv", "rows": n})),
-            Err(e) => errors.push(format!("sector.csv insert: {e}")),
-        },
-    }
-    match read_csv_source(base, use_local, &format!("{year_str}/sector_industry.csv")).await {
-        Err(e) => errors.push(format!("sector_industry.csv: {e}")),
-        Ok(text) => match upsert_sector_industry_rows(&pool, &text).await {
-            Ok(n) => summary.push(json!({"file": "sector_industry.csv", "rows": n})),
-            Err(e) => errors.push(format!("sector_industry.csv insert: {e}")),
-        },
-    }
-
-    // 3. trade.csv + trade_factor.csv for each flow type. Captures the
-    // domestic flow's trade_id mapping specifically (insert_trade_rows
-    // returns a fresh one per flow_type) for step 4 below, since interstate
-    // processing only ever reads the domestic trade.csv (see
-    // insert_interstate_rows' doc comment). trade_id_offset (flow_type ->
-    // fixed offset) is applied independently inside insert_trade_rows and
-    // insert_trade_factor_rows — no mapping to thread through here.
-    for flow_type in &flow_types {
-        let mut skipped_csv_trade_ids: std::collections::HashSet<i32> = std::collections::HashSet::new();
-        match read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade.csv")).await {
-            Err(e) => errors.push(format!("{flow_type}/trade.csv: {e}")),
-            Ok(text) => match insert_trade_rows(&pool, None, &text, flow_type, &country, country_block_index, &known).await {
-                Ok((n, skipped_ids)) => {
-                    summary.push(json!({"file": format!("{flow_type}/trade.csv"), "rows": n, "skipped_duplicate": skipped_ids.len()}));
-                    skipped_csv_trade_ids = skipped_ids;
-                }
-                Err(e) => errors.push(format!("{flow_type}/trade.csv insert: {e}")),
-            },
-        }
-
-        match read_csv_source(base, use_local, &format!("{year_str}/{country}/{flow_type}/trade_factor.csv")).await {
-            Err(e) => errors.push(format!("{flow_type}/trade_factor.csv: {e}")),
-            Ok(text) => match insert_trade_factor_rows(&pool, None, &text, flow_type, &country, country_block_index, None, &skipped_csv_trade_ids).await {
-                Ok(o) => summary.push(json!({"file": format!("{flow_type}/trade_factor.csv"), "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("{flow_type}/trade_factor.csv insert: {e}")),
-            },
-        }
-    }
-
-    // 4. US BEA interstate data (domestic only). interstate.csv/
-    // interstate_factor.csv (renamed from bea_trade_detail.csv/
-    // state_trade_flows.csv — see bea/README.md) are the BEA-Sector-level
-    // primary files; the full-detail "-lg" siblings are gitignored and
-    // never published, so never fetched here. Also gated on "domestic"
-    // being one of the selected flow_types: interstate.csv's trade_id
-    // references that same domestic trade.csv's rows (see
-    // insert_interstate_rows' doc comment) — loading interstate without
-    // domestic would try to FK-reference trade_id values that were never
-    // inserted.
-    if country == "US" && flow_types.iter().any(|f| f == "domestic") {
-        match read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate.csv")).await {
-            Err(e) => errors.push(format!("interstate.csv: {e}")),
-            Ok(text) => match insert_interstate_rows(&pool, None, &text, &country).await {
-                Ok(o) => summary.push(json!({"file": "interstate.csv", "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("interstate.csv insert: {e}")),
-            },
-        }
-
-        match read_csv_source(base, use_local, &format!("{year_str}/US/domestic/interstate_factor.csv")).await {
-            Err(e) => errors.push(format!("interstate_factor.csv: {e}")),
-            Ok(text) => match insert_interstate_factor_rows(&pool, None, &text, None).await {
-                Ok(o) => summary.push(json!({"file": "interstate_factor.csv", "rows": o.inserted, "skipped": o.skipped})),
-                Err(e) => errors.push(format!("interstate_factor.csv insert: {e}")),
-            },
-        }
-    }
-
-    Ok(HttpResponse::Ok().json(json!({
-        "success": errors.is_empty(),
-        "year": year_str,
-        "country": country,
-        "flow_types": flow_types,
-        "inserted": summary,
-        "errors": errors
-    })))
 }
 
 #[derive(Deserialize)]
@@ -5155,7 +4411,6 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/table-rows", web::post().to(db_get_table_rows))
                             .route("/query", web::post().to(db_execute_query))
                             .route("/init-industry-tables", web::post().to(db_init_industry_tables))
-                            .route("/insert-trade-data", web::post().to(db_insert_trade_data))
                             .route("/delete-database", web::post().to(db_delete_exiobase_database))
                             .route("/industry-schema", web::get().to(db_get_industry_schema))
                             .route("/merge-years/inspect", web::post().to(merge_years::merge_years_inspect))
