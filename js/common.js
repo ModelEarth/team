@@ -2752,7 +2752,12 @@ async function loadDatabaseSizes() {
         try {
             const response = await fetch(`http://localhost:8081/api/db/database-size?connection=${encodeURIComponent(connection)}`);
             const result = await response.json();
-            sizeEl.textContent = result.success ? `(${result.pretty})` : '';
+            // Decimal MB (bytes / 1,000,000) rather than the Rust API's
+            // `pretty` field (Postgres's own pg_size_pretty, which is
+            // binary/1024-based and switches to "kB" under ~1 MiB) -- keeps
+            // every database's size in the same, consistently-decimal unit
+            // instead of some showing "kB" and others "MB".
+            sizeEl.textContent = result.success ? `(${Math.round(result.bytes / 1_000_000)} MB)` : '';
         } catch (error) {
             sizeEl.textContent = '';
         }
