@@ -5,10 +5,10 @@
 // per-year database — `POST /api/db/merge-years/inspect` (read-only
 // dry-run) and `POST /api/db/merge-years/run` (the real merge). Data
 // movement happens entirely inside Azure Postgres; row data never
-// round-trips through this Rust process. **Currently blocked** — see
-// PLAN-merge.md and pipeline/README.md — `dblink` isn't allow-listed on
-// the Azure server yet, so `ensure_merge_infra` fails before either
-// procedure exists.
+// round-trips through this Rust process. `dblink` is allow-listed on the
+// Azure server (see pipeline/azure/dblink.md) — `ensure_merge_infra` runs
+// `CREATE EXTENSION IF NOT EXISTS dblink` against `industrydb` on every
+// call, so no manual setup is needed per year database.
 //
 // A second way in, direct HTTP import bypassing both the per-year database
 // and the `dblink` step (`insert_trade_data_direct`, reusing the old
