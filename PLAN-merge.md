@@ -532,22 +532,3 @@ override flag if someone wants to proceed past warnings.
 - New frontend: a "Merge Years" panel section in `team/admin/sql/panel/index.html`, with its own
   JS file (e.g. `merge-years.js`), not folded into `db-admin.js`. Shows the inspection report
   first; the actual merge action is gated on inspection having run.
-
-## Open questions / risks to keep visible, not resolve silently
-
-- **The 1,000,000-wide per-flow_type block is an accepted risk, not a proven-safe ceiling** — the
-  real 14-country 2023 load (see "Fix design" above) confirms today's actual max is still
-  comfortable (`DE` exports, 182,075 rows, the largest single-country/flow_type count seen across
-  all 14 countries), but a larger future Exiobase industry count could still push a single year's
-  `imports`/`exports` past 999,999 rows for some country. If that happens, the fix is
-  widening the block (e.g. to 2,000,000+), not switching column types — `integer` has room, it's
-  the block-width choice that would need revisiting.
-- 2019 and 2021 need their `trade.csv`/`trade_factor.csv`/`interstate.csv`/`interstate_factor.csv`
-  fixed (offset arithmetic / fresh `interstate_id` sequence) and re-loaded before any Stage 2
-  merge — a Python cleanup script, not a full `trade.py`/`bea/main.py` re-run (see above).
-- Stage 2's `year` column removes the cross-year numeric-overflow risk the earlier
-  multiplicative-offset design had — there's no year ceiling to track anymore, since `year` is a
-  plain column value with no arithmetic relationship to `trade_id`/`interstate_id`.
-- This plan only covers merging existing/future per-year databases into a shared `industrydb`. It
-  does not change `tradeflow/main.py`'s own per-year-database pipeline — future years keep landing
-  in their own `industrydb_{year}` first, then get merged in on the same terms.
