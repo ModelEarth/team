@@ -33,6 +33,7 @@ mod oauth;
 mod prompts;
 mod semantic_search;
 mod api_integration;
+mod env_paths;
 use recommendations::RecommendationRequest;
 use oauth::{OAuthConfig, UserSession, OAuthUrlResponse};
 
@@ -53,9 +54,13 @@ type SharedConfig = Arc<Mutex<Config>>;
 
 impl Config {
     fn from_env() -> anyhow::Result<Self> {
-        // Try to load from .env file in docker directory
-        dotenv::from_path("../docker/.env").ok();
-        
+        // Load the external .env file resolved via CloudRoot/automation/paths.yaml
+        if let Some(env_path) = env_paths::resolve_env_file_path() {
+            dotenv::from_path(&env_path).ok();
+        } else {
+            log::warn!("Could not resolve env_file from paths.yaml; continuing without it");
+        }
+
         // Also check for a config.toml file
         if let Ok(config_str) = std::fs::read_to_string("config.toml") {
             toml::from_str(&config_str).context("Failed to parse config.toml")
@@ -85,8 +90,10 @@ impl Config {
     fn reload() -> anyhow::Result<Self> {
         log::info!("Reloading configuration from .env file");
 
-        // Force reload of .env file from docker directory by reading it directly and setting env vars
-        if let Ok(env_content) = std::fs::read_to_string("../docker/.env") {
+        // Force reload of the external .env file by reading it directly and setting env vars
+        let env_content = env_paths::resolve_env_file_path()
+            .and_then(|p| std::fs::read_to_string(p).ok());
+        if let Some(env_content) = env_content {
             for line in env_content.lines() {
                 let line = line.trim();
                 if line.is_empty() || line.starts_with('#') {
@@ -199,19 +206,22 @@ struct ApiState {
     config: SharedConfig,
 }
 
-// Function to start watching .env file for changes
+// Function to start watching the external .env file for changes
 fn start_env_watcher(config: SharedConfig) -> anyhow::Result<()> {
     use notify::{Event, EventKind};
-    
+
     let (tx, rx) = channel();
     let mut watcher = RecommendedWatcher::new(tx, NotifyConfig::default())?;
-    
-    // Watch the .env file in docker directory
-    let env_path = Path::new("../docker/.env");
-    if env_path.exists() {
-        watcher.watch(env_path, RecursiveMode::NonRecursive)?;
-        log::info!("Started watching .env file for changes");
-        
+
+    // Watch the .env file resolved via CloudRoot/automation/paths.yaml
+    let env_path = env_paths::resolve_env_file_path();
+    let watch_target = env_path.and_then(|p| p.file_name().map(|n| (p.clone(), n.to_os_string())));
+
+    if let Some((env_path, env_file_name)) = watch_target {
+      if env_path.exists() {
+        watcher.watch(&env_path, RecursiveMode::NonRecursive)?;
+        log::info!("Started watching .env file for changes: {}", env_path.display());
+
         // Spawn a background thread to handle file change events
         let config_clone = config.clone();
         tokio::spawn(async move {
@@ -221,12 +231,12 @@ fn start_env_watcher(config: SharedConfig) -> anyhow::Result<()> {
                         match event {
                             Ok(Event { kind: EventKind::Modify(_), paths, .. }) |
                             Ok(Event { kind: EventKind::Create(_), paths, .. }) => {
-                                if paths.iter().any(|path| path.file_name() == Some(std::ffi::OsStr::new(".env"))) {
+                                if paths.iter().any(|path| path.file_name() == Some(env_file_name.as_os_str())) {
                                     log::info!(".env file changed, reloading configuration...");
-                                    
+
                                     // Add a small delay to ensure file write is complete
                                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                                    
+
                                     match Config::reload() {
                                         Ok(new_config) => {
                                             if let Ok(mut config_guard) = config_clone.lock() {
@@ -243,7 +253,7 @@ fn start_env_watcher(config: SharedConfig) -> anyhow::Result<()> {
                                 }
                             }
                             Ok(Event { kind: EventKind::Remove(_), paths, .. }) => {
-                                if paths.iter().any(|path| path.file_name() == Some(std::ffi::OsStr::new(".env"))) {
+                                if paths.iter().any(|path| path.file_name() == Some(env_file_name.as_os_str())) {
                                     log::warn!(".env file was removed");
                                 }
                             }
@@ -257,13 +267,16 @@ fn start_env_watcher(config: SharedConfig) -> anyhow::Result<()> {
                 }
             }
         });
-        
+
         // Keep the watcher alive by storing it
         std::mem::forget(watcher);
+      } else {
+        log::warn!("No .env file found to watch at {}", env_path.display());
+      }
     } else {
-        log::warn!("No .env file found to watch");
+        log::warn!("Could not resolve env_file from paths.yaml; not watching for changes");
     }
-    
+
     Ok(())
 }
 
@@ -466,7 +479,7 @@ struct SaveCsvRequest {
     content: String,
 }
 
-// GitHub token endpoint - returns token from docker/.env if available
+// GitHub token endpoint - returns token from the external .env file if available
 async fn get_github_token() -> Result<HttpResponse> {
     // Read GITHUB_PERSONAL_ACCESS_TOKEN from environment
     let token = std::env::var("GITHUB_PERSONAL_ACCESS_TOKEN").ok();
@@ -782,17 +795,25 @@ async fn stop_webroot_server() -> Result<HttpResponse> {
     }
 }
 
-// Save environment configuration to .env file
+// Save environment configuration to the external .env file
 async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpResponse> {
     use std::fs::OpenOptions;
     use std::io::{BufRead, BufReader, Write};
 
-    let env_path = "../docker/.env";
+    let env_path = match env_paths::resolve_env_file_path() {
+        Some(p) => p,
+        None => {
+            return Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": "Could not resolve env_file from CloudRoot/automation/paths.yaml"
+            })));
+        }
+    };
     let mut env_lines = Vec::new();
     let mut updated_keys = std::collections::HashSet::<String>::new();
 
-    // Read existing .env file from docker directory if it exists
-    if let Ok(file) = std::fs::File::open(env_path) {
+    // Read the existing external .env file if it exists
+    if let Ok(file) = std::fs::File::open(&env_path) {
         let reader = BufReader::new(file);
         for line in reader.lines().map_while(Result::ok) {
             env_lines.push(line);
@@ -839,12 +860,12 @@ async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpRes
     update_env_var(&mut env_lines, &mut updated_keys, "GOOGLE_BILLING_ID", &req.google_billing_id);
     update_env_var(&mut env_lines, &mut updated_keys, "GOOGLE_SERVICE_KEY", &req.google_service_key);
     
-    // Write back to .env file
+    // Write back to the external .env file
     match OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(env_path)
+        .open(&env_path)
     {
         Ok(mut file) => {
             for line in env_lines {
@@ -884,20 +905,30 @@ async fn save_env_config(req: web::Json<SaveEnvConfigRequest>) -> Result<HttpRes
     }
 }
 
-// Create .env file from .env.example content
+// Create the external .env file from .env.example content
 async fn create_env_config(req: web::Json<CreateEnvConfigRequest>) -> Result<HttpResponse> {
     use std::fs;
 
-    // Check if .env file already exists in docker directory
-    if std::path::Path::new("../docker/.env").exists() {
+    let env_path = match env_paths::resolve_env_file_path() {
+        Some(p) => p,
+        None => {
+            return Ok(HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": "Could not resolve env_file from CloudRoot/automation/paths.yaml"
+            })));
+        }
+    };
+
+    // Check if the external .env file already exists
+    if env_path.exists() {
         return Ok(HttpResponse::BadRequest().json(json!({
             "success": false,
             "error": ".env file already exists"
         })));
     }
 
-    // Write the content to .env file in docker directory
-    match fs::write("../docker/.env", &req.content) {
+    // Write the content to the external .env file
+    match fs::write(&env_path, &req.content) {
         Ok(_) => {
             Ok(HttpResponse::Ok().json(json!({
                 "success": true,

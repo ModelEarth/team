@@ -1207,10 +1207,10 @@ Do not include any explanation or additional text.`;
             // Track if we need to save changes to the CSV
             let coordinatesAdded = mergedCount > 0;
 
-            // Handle unmatched values with LLM geocoding (only during "Refresh Locally")
+            // Handle unmatched values with LLM geocoding (only during "Cognito Pull")
             const isRefreshingLocally = config._isRefreshingLocally === true;
 
-            // During "Refresh Locally", also check for rows with incomplete coordinates (either lat or lon is empty)
+            // During "Cognito Pull", also check for rows with incomplete coordinates (either lat or lon is empty)
             if (isRefreshingLocally) {
                 primaryData.forEach(row => {
                     const lat = row.Latitude || row.LATITUDE || row.latitude;
@@ -1302,7 +1302,7 @@ Do not include any explanation or additional text.`;
                 console.log(`✅ All ${primaryData.length} rows have coordinates`);
             }
 
-            // Save updated coordinates back to CSV only during "Refresh Locally" operations
+            // Save updated coordinates back to CSV only during "Cognito Pull" operations
             if (coordinatesAdded && isRefreshingLocally && config.dataset && !config.dataset.startsWith('http')) {
                 debugAlert('💾 Saving updated coordinates to CSV file...');
                 await this.saveUpdatedDataset(primaryData, config.dataset);
@@ -1600,22 +1600,26 @@ Do not include any explanation or additional text.`;
         }
         const spinner = document.getElementById('refreshLocalSpinner');
         if (spinner) spinner.style.display = 'inline-block';
+        let localFilePath;
         try {
             // Get the API URL (prefer dataset_via_api, fall back to dataset_api_slow)
             const apiUrl = this.config?.dataset_via_api || this.config?.dataset_api_slow;
-            const localFilePath = this.config?.dataset;
+            localFilePath = this.config?.dataset;
 
             if (!apiUrl) {
                 this.displayDebugMessage('❌ No API URL configured', 'error');
+                this.updateRefreshLocalStatus('No API URL configured', 'error');
                 return;
             }
 
             if (!localFilePath || localFilePath.startsWith('http')) {
                 this.displayDebugMessage('❌ No local file path configured or path is not local', 'error');
+                this.updateRefreshLocalStatus('No local file path configured', 'error');
                 return;
             }
 
             this.displayDebugMessage('🔄 Fetching data from API and saving to local file...', 'info');
+            this.updateRefreshLocalStatus('Fetching from Cognito API', 'info');
 
             // Get the fields to omit from dataset_omit config
             const omitFields = this.config?.dataset_omit
@@ -1667,6 +1671,7 @@ Do not include any explanation or additional text.`;
             const result = await response.json();
             const entriesCount = result.data?.entries_count || 0;
             this.displayDebugMessage(`✅ Successfully refreshed local file: ${localFilePath} (${entriesCount} entries)`, 'success');
+            this.updateRefreshLocalStatus('Preserving existing Lat/Lon values', 'info');
 
             // Mark that we're refreshing locally to enable LLM geocoding
             if (this.config) {
@@ -1675,6 +1680,7 @@ Do not include any explanation or additional text.`;
 
             // Reload list and map without destroying the map container
             this.isDatasetChanging = true;
+            this.updateRefreshLocalStatus(`Updating ${localFilePath}`, 'info');
             await this.loadShowData();
             this.updateListingsDisplay();
             this.isDatasetChanging = false;
@@ -1686,6 +1692,8 @@ Do not include any explanation or additional text.`;
             if (this.config) {
                 this.config._isRefreshingLocally = false;
             }
+
+            this.updateRefreshLocalStatus(`Done — ${entriesCount} entries saved to ${localFilePath}`, 'success');
 
             // Show timing breakdown on localhost
             if (window.location.hostname === 'localhost' && result.data?.timings) {
@@ -1701,6 +1709,7 @@ Do not include any explanation or additional text.`;
                 alert(`Could not connect to local Rust server. File path: ${filePath}`);
             }
             this.displayDebugMessage(`❌ Failed to refresh local data: ${error.message}`, 'error');
+            this.updateRefreshLocalStatus(`Failed to refresh ${localFilePath || 'local file'}: ${error.message}`, 'error');
         } finally {
             if (spinner) spinner.style.display = 'none';
         }
@@ -1832,6 +1841,19 @@ Do not include any explanation or additional text.`;
                 }
             }
         }
+    }
+
+    updateRefreshLocalStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('refreshLocalStatus');
+        if (!statusDiv) return;
+        const colors = {
+            'success': 'var(--color-success)',
+            'error': 'var(--color-danger)',
+            'info': 'var(--text-secondary)'
+        };
+        statusDiv.style.color = colors[type] || colors.info;
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
     }
 
     showDebugCard() {
@@ -6390,6 +6412,10 @@ Do not include any explanation or additional text.`;
         
             const mapGallerySection = this.renderMapGallerySection();
             const viewSourceLink = this.renderViewSourceLink();
+            const showRefreshLocal = window.location.hostname === 'localhost' &&
+                (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
+                this.config?.dataset &&
+                !this.config.dataset.startsWith('http');
             let localwidgetHeader = `
                 <!-- Header -->
                 <div id="listwidgetHeader" class="widgetHeader" style="position:relative; display:flex; justify-content:space-between; align-items:flex-start;">
@@ -6466,16 +6492,16 @@ Do not include any explanation or additional text.`;
                                 <button id="summarize-toggle" class="btn btn-sm" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                                     ${this.getCurrentHash().summarize === 'true' ? 'Unsummarize' : 'Summarize'}
                                 </button>
-                                ${ (window.location.hostname === 'localhost' &&
-                                    (this.config?.dataset_api_slow || this.config?.dataset_via_api) &&
-                                    this.config?.dataset &&
-                                    !this.config.dataset.startsWith('http')) ? `
+                                ${ showRefreshLocal ? `
                                 <button id="refreshLocalBtn" class="btn btn-sm" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Fetch data from API and save to local file">
-                                    Refresh Locally
+                                    Cognito Pull
                                     <span id="refreshLocalSpinner" style="display:none; width:12px; height:12px; border:2px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite;"></span>
                                 </button>
                                 ` : ''}
                             </div>
+                            ${ showRefreshLocal ? `
+                            <div id="refreshLocalStatus" style="display:none; margin-top:6px; font-family: monospace; font-size: 11px; color: var(--text-secondary);"></div>
+                            ` : ''}
                             ` : ''}
 
                         </div>

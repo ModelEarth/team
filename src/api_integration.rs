@@ -537,7 +537,10 @@ async fn read_merge_source_data(
     merge_data_map
 }
 
-// Read existing CSV and extract Latitude/Longitude values
+// Preserve Latitude/Longitude already saved in the local CSV (e.g. visits.csv) before it is
+// overwritten by a fresh API fetch. Read BEFORE the refresh so coordinates the API doesn't
+// return (they're rarely filled in via the upstream form) aren't lost on refresh. Keyed by
+// merge_column (e.g. "City") so each refreshed row can look up its prior coordinates.
 async fn read_existing_coordinates(local_file_path: &str, merge_column: &str) -> std::collections::HashMap<String, (String, String)> {
     use std::collections::HashMap;
 
@@ -794,13 +797,27 @@ pub async fn refresh_local_file(
 
     log::info!("Converting {} entries to CSV", entries.len());
 
-    // Read existing coordinates from the current CSV so they are preserved and not re-looked up
+    // Coordinate resolution has three tiers, in priority order:
+    //   1. Whatever the fresh API entry already provides (untouched below).
+    //   2. Fall back to the value already saved for this key in the CURRENT local CSV
+    //      (this step) — read now, before the file on disk gets overwritten.
+    //   3. Fall back further to the geoDataset reference file (e.g. cities.csv), applied
+    //      later in the "Merge geo data" step below.
+    // Later tiers only ever fill a gap; they never overwrite a value a higher tier set.
+
+    // Step 2 (read): snapshot Latitude/Longitude already saved in the local CSV, keyed by
+    // merge_column, before this refresh overwrites that file.
     let step_start = std::time::Instant::now();
     let existing_coords = read_existing_coordinates(local_file_path, &req.merge_column).await;
-    log::info!("Preserved {} existing coordinate pairs from current CSV", existing_coords.len());
+    log::info!(
+        "Preserving coordinates from existing local file {}: {} entries have saved Latitude/Longitude",
+        local_file_path, existing_coords.len()
+    );
     timings.push(("Read existing coords".to_string(), step_start.elapsed().as_millis()));
 
-    // Apply existing coordinates to entries that are missing them
+    // Step 2 (apply): for each freshly-fetched entry missing Latitude/Longitude, backfill
+    // from the preserved local-CSV values above. Entries that already have coordinates from
+    // the API response are left as-is.
     let step_start = std::time::Instant::now();
     let entries: Vec<serde_json::Value> = entries.into_iter().map(|mut entry| {
         if let Some(obj) = entry.as_object_mut() {
@@ -822,10 +839,11 @@ pub async fn refresh_local_file(
     }).collect();
     timings.push(("Apply coords".to_string(), step_start.elapsed().as_millis()));
 
-    // Merge data from source file if a geoDataset is provided
+    // Step 3: for entries still missing fields (including Latitude/Longitude) after steps 1
+    // and 2, backfill from the geoDataset reference file (e.g. cities.csv), if configured.
     let step_start = std::time::Instant::now();
     let entries_with_merged_data = if req.merge_source_file.is_some() && !merge_data_map.is_empty() {
-        log::info!("Merging data from geoDataset into entries");
+        log::info!("Merging data from geoDataset into entries still missing fields after steps 1-2");
         merge_data(
             entries.clone(),
             merge_data_map,

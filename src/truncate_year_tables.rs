@@ -9,9 +9,13 @@
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 
+mod env_paths;
+
 #[tokio::main]
 async fn main() {
-    dotenv::from_path("../docker/.env").ok();
+    if let Some(env_path) = env_paths::resolve_env_file_path() {
+        dotenv::from_path(&env_path).ok();
+    }
 
     let years: Vec<String> = env::args().skip(1).collect();
     if years.is_empty() {
