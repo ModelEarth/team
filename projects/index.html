@@ -1579,6 +1579,21 @@
             transition: all 0.2s ease;
         }
 
+        .llms-disabled-msg {
+            align-self: center;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: var(--bg-tertiary, #f1f3f5);
+            color: var(--text-secondary, #6b7280);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .dark .llms-disabled-msg {
+            background: var(--bg-tertiary, #2a2a2a);
+            color: var(--text-secondary, #aaa);
+        }
+
         #insights-btn:hover {
             opacity: 1 !important;
             filter: brightness(1.15);
@@ -3195,6 +3210,7 @@
                 <div style="display: flex; gap: 10px;">
                     <button id="contribs-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleContributions()">Repos</button>
                     <button id="insights-btn" class="btn btn-secondary view-btn" style="display: none;" onclick="toggleInsights()">Insights</button>
+                    <span id="llms-disabled-msg" class="llms-disabled-msg" style="display: none;">LLMs are not enabled</span>
                     <a href="edit.html?add=visit" id="add-visit-btn" class="btn btn-secondary view-btn" style="display: none;">Add City Visit</a>
                     <a href="map/#list=cities" id="map-btn" class="btn btn-primary view-btn" style="display: none;">Map</a>
                     <button id="sign-in-btn" class="btn btn-primary" style="display: none;" onclick="showAuthModal()">Sign In</button>
@@ -4275,6 +4291,34 @@
         // Auto-initialize caches when script loads
         initializeLLMCaches();
 
+        // Set once loadLLMConfig() has resolved, so the Insights button isn't judged on a config still loading
+        let llmConfigReady = false;
+
+        function hasLLMs() {
+            return Array.isArray(LLM_CONFIGS) && LLM_CONFIGS.length > 0;
+        }
+
+        // Hide the Insights button and panel, and show "LLMs are not enabled", when no LLMs are configured
+        function updateInsightsAvailability() {
+            const insightsBtn = document.getElementById('insights-btn');
+            const disabledMsg = document.getElementById('llms-disabled-msg');
+            const aiInsights = document.getElementById('aiInsights');
+            if (!llmConfigReady) {
+                if (insightsBtn) insightsBtn.style.display = 'none';
+                if (disabledMsg) disabledMsg.style.display = 'none';
+                return false;
+            }
+            if (hasLLMs()) {
+                if (insightsBtn) insightsBtn.style.display = 'inline-block';
+                if (disabledMsg) disabledMsg.style.display = 'none';
+                return true;
+            }
+            if (insightsBtn) insightsBtn.style.display = 'none';
+            if (disabledMsg) disabledMsg.style.display = 'inline-block';
+            if (aiInsights) aiInsights.style.setProperty('display', 'none', 'important');
+            return false;
+        }
+
         // Initialize LLM Insight Buttons
         async function initializeLLMButtons() {
             // Wait for LLM configuration to load
@@ -4282,12 +4326,20 @@
                 await loadLLMConfig();
             }
 
+            llmConfigReady = true;
+            updateInsightsAvailability();
+
             const insightsStatus = document.getElementById('insightsStatus');
             if (!insightsStatus) return;
 
             // Ensure LLM_CONFIGS is populated
-            if (!LLM_CONFIGS || LLM_CONFIGS.length === 0) {
+            if (!hasLLMs()) {
                 console.warn('⚠️ No LLM configurations available');
+                insightsStatus.innerHTML = '';
+                const insightsContent = document.getElementById('insightsContent');
+                if (insightsContent) {
+                    insightsContent.innerHTML = '<div style="color: var(--text-secondary); font-style: italic; padding: 20px;">LLMs are not enabled</div>';
+                }
                 return;
             }
 
@@ -4308,6 +4360,14 @@
 
             // Insert title and buttons into insightsStatus
             insightsStatus.innerHTML = titleHTML + buttonsHTML;
+
+            // Set the Insights button count now that it's visible
+            const insightsBtn = document.getElementById('insights-btn');
+            const aiInsights = document.getElementById('aiInsights');
+            if (insightsBtn && aiInsights) {
+                const isHidden = window.getComputedStyle(aiInsights).display !== 'block';
+                insightsBtn.textContent = getInsightsButtonText(isHidden);
+            }
         }
 
         // Generic insights click handler
@@ -4331,7 +4391,7 @@
             if (aiInsights && window.participantsData && window.participantsData.length > 0) {
                 // Only show if insights=all is in URL, otherwise respect the hidden state
                 const insightsParam = getHash().insights;
-                if (insightsParam === 'all') {
+                if (insightsParam === 'all' && !(llmConfigReady && !hasLLMs())) {
                     aiInsights.style.setProperty('display', 'block', 'important');
                 }
                 showAIInsightsButtons();
@@ -11874,9 +11934,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 }
             }
             
-            // Always show insights button for all lists
-            if (insightsBtn) {
-                insightsBtn.style.display = 'inline-block';
+            // Show insights button for all lists when LLMs are available
+            if (insightsBtn && updateInsightsAvailability()) {
                 // Update button text with count if panel is hidden
                 const aiInsights = document.getElementById('aiInsights');
                 if (aiInsights) {
@@ -11966,7 +12025,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                 return;
             }
 
-            if (insightsParam === 'all') {
+            if (insightsParam === 'all' && !(llmConfigReady && !hasLLMs())) {
                 aiInsights.style.setProperty('display', 'block', 'important');
                 if (insightsBtn) {
                     insightsBtn.textContent = 'Hide Insights';

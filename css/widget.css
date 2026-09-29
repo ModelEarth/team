@@ -2,7 +2,7 @@
   displayX: none !important;
 }
 #showSideFromHeader {
-  display: none !important;
+  display: none;
 }
 
 * {
