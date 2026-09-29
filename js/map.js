@@ -5341,7 +5341,8 @@ Do not include any explanation or additional text.`;
         const style = styles[styleKey];
         const baseLayer = L.tileLayer(style.url, {
             attribution: style.attribution,
-            maxZoom: 18
+            maxZoom: 18,
+            maxNativeZoom: style.maxNativeZoom || 18 // Esri Canvas tiles stop at 16
         }).addTo(this.detailMap);
         this.detailMapTileLayer = baseLayer;
 
@@ -5349,6 +5350,7 @@ Do not include any explanation or additional text.`;
             this.detailMapOverlayLayer = L.tileLayer(style.overlayUrl, {
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
+                maxNativeZoom: style.maxNativeZoom || 18,
                 minZoom: 8
             }).addTo(this.detailMap);
         } else {

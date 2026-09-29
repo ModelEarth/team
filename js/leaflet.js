@@ -111,137 +111,159 @@ class LeafletMapManager {
         this.hasCustomCenter = options.defaultLat !== undefined || options.defaultLng !== undefined;
         this.hasCustomZoom = options.defaultZoom !== undefined;
         
-        // Map style configurations
-        this.mapStyles = {
-            monochrome: {
-                name: 'Monochrome',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors',
-                filter: 'grayscale(1) contrast(1.3) brightness(0.9)'
-            },
-            coral: {
-                name: 'Coral Reef',
-                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                filter: 'hue-rotate(330deg) saturate(1.4) contrast(1.1) brightness(1.1)'
-            },
-            light: {
-                name: 'Light Mode',
-                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        const buildMapStyles = () => {
+            // CARTO styles need window.cartoApiKey, set in localsite/js/localsite.js (see notes there).
+            // Without a working key, CARTO returns a watermark tile, so equivalent Esri tiles (no key) are used instead.
+            const cartoKey = window.cartoApiKey || '';
+            const carto = (path, fallback) => cartoKey ? {
+                url: 'https://{s}.basemaps.cartocdn.com/' + path + '/{z}/{x}/{y}{r}.png?key=' + cartoKey,
                 attribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            dark: {
-                name: 'Dark Mode',
-                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            darkmatter: {
-                name: 'Dark Matter',
-                url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            openstreetmap: {
-                name: 'OpenStreetMap',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors'
-            },
-            satellite: {
-                name: 'Satellite',
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
-                overlayUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+            } : fallback;
+            const esriStreets = { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri, HERE, Garmin, © OpenStreetMap contributors' };
+            const esriLightGray = { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri, HERE, Garmin, © OpenStreetMap contributors', maxNativeZoom: 16 };
+            const esriDarkGray = { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri, HERE, Garmin, © OpenStreetMap contributors', maxNativeZoom: 16 };
+            const labelOverlay = cartoKey ? {
+                overlayUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png?key=' + cartoKey,
                 overlayAttribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            terrain: {
-                name: 'Terrain',
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenTopoMap contributors'
-            },
-            voyager: {
-                name: 'Voyager',
-                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            positron: {
-                name: 'Positron',
-                url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            vintage: {
-                name: 'Vintage',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors',
-                filter: 'sepia(0.8) contrast(1.2) brightness(0.9) hue-rotate(15deg)'
-            },
-            sunset: {
-                name: 'Sunset',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors',
-                filter: 'sepia(0.5) saturate(1.8) hue-rotate(15deg) brightness(0.9) contrast(1.1)'
-            },
-            forest: {
-                name: 'Forest',
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenTopoMap contributors',
-                filter: 'hue-rotate(80deg) saturate(1.5) contrast(1.1) brightness(0.9)'
-            },
-            infrared: {
-                name: 'Infrared',
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics',
-                filter: 'hue-rotate(180deg) saturate(2.5) contrast(1.4)',
-                overlayUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
-                overlayAttribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            emerald: {
-                name: 'Emerald City',
-                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                filter: 'hue-rotate(120deg) saturate(1.8) contrast(1.2) brightness(0.9)'
-            },
-            sepia: {
-                name: 'Old Map',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors',
-                filter: 'sepia(1) saturate(0.8) contrast(1.2) brightness(0.8)'
-            },
-            desert: {
-                name: 'Desert',
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenTopoMap contributors',
-                filter: 'hue-rotate(25deg) saturate(1.2) contrast(1.1) brightness(1.1)'
-            },
-            autumn: {
-                name: 'Autumn Leaves',
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenTopoMap contributors',
-                filter: 'hue-rotate(15deg) saturate(1.6) contrast(1.1) brightness(1.0) sepia(0.3)'
-            },
-            thermal: {
-                name: 'Thermal Vision',
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics',
-                filter: 'hue-rotate(60deg) saturate(3) contrast(1.8) brightness(1.2)',
-                overlayUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
-                overlayAttribution: '© OpenStreetMap contributors, © CARTO'
-            },
-            sage: {
-                name: 'Sage',
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenTopoMap contributors',
-                filter: 'hue-rotate(90deg) saturate(0.7) contrast(1.0) brightness(0.95)'
-            },
-            bronze: {
-                name: 'Bronze Age',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '© OpenStreetMap contributors',
-                filter: 'sepia(0.4) hue-rotate(35deg) saturate(1.1) contrast(1.1) brightness(0.9)'
-            }
+            } : {
+                overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                overlayAttribution: '© Esri'
+            };
+
+            // Map style configurations
+            return {
+                monochrome: {
+                    name: 'Monochrome',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors',
+                    filter: 'grayscale(1) contrast(1.3) brightness(0.9)'
+                },
+                coral: {
+                    name: 'Coral Reef',
+                    ...carto('rastertiles/voyager', esriStreets),
+                    filter: 'hue-rotate(330deg) saturate(1.4) contrast(1.1) brightness(1.1)'
+                },
+                light: {
+                    name: 'Light Mode',
+                    ...carto('light_all', { ...esriLightGray, ...labelOverlay }),
+                },
+                dark: {
+                    name: 'Dark Mode',
+                    ...carto('dark_all', { ...esriDarkGray, overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', overlayAttribution: '© Esri' }),
+                },
+                darkmatter: {
+                    name: 'Dark Matter',
+                    ...carto('dark_nolabels', esriDarkGray),
+                },
+                openstreetmap: {
+                    name: 'OpenStreetMap',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors'
+                },
+                satellite: {
+                    name: 'Satellite',
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+                    ...labelOverlay
+                },
+                terrain: {
+                    name: 'Terrain',
+                    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenTopoMap contributors'
+                },
+                voyager: {
+                    name: 'Voyager',
+                    ...carto('rastertiles/voyager', esriStreets),
+                },
+                positron: {
+                    name: 'Positron',
+                    ...carto('light_nolabels', esriLightGray),
+                },
+                vintage: {
+                    name: 'Vintage',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors',
+                    filter: 'sepia(0.8) contrast(1.2) brightness(0.9) hue-rotate(15deg)'
+                },
+                sunset: {
+                    name: 'Sunset',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors',
+                    filter: 'sepia(0.5) saturate(1.8) hue-rotate(15deg) brightness(0.9) contrast(1.1)'
+                },
+                forest: {
+                    name: 'Forest',
+                    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenTopoMap contributors',
+                    filter: 'hue-rotate(80deg) saturate(1.5) contrast(1.1) brightness(0.9)'
+                },
+                infrared: {
+                    name: 'Infrared',
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics',
+                    filter: 'hue-rotate(180deg) saturate(2.5) contrast(1.4)',
+                    ...labelOverlay
+                },
+                emerald: {
+                    name: 'Emerald City',
+                    ...carto('light_all', { ...esriLightGray, ...labelOverlay }),
+                    filter: 'hue-rotate(120deg) saturate(1.8) contrast(1.2) brightness(0.9)'
+                },
+                sepia: {
+                    name: 'Old Map',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors',
+                    filter: 'sepia(1) saturate(0.8) contrast(1.2) brightness(0.8)'
+                },
+                desert: {
+                    name: 'Desert',
+                    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenTopoMap contributors',
+                    filter: 'hue-rotate(25deg) saturate(1.2) contrast(1.1) brightness(1.1)'
+                },
+                autumn: {
+                    name: 'Autumn Leaves',
+                    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenTopoMap contributors',
+                    filter: 'hue-rotate(15deg) saturate(1.6) contrast(1.1) brightness(1.0) sepia(0.3)'
+                },
+                thermal: {
+                    name: 'Thermal Vision',
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics',
+                    filter: 'hue-rotate(60deg) saturate(3) contrast(1.8) brightness(1.2)',
+                    ...labelOverlay
+                },
+                sage: {
+                    name: 'Sage',
+                    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenTopoMap contributors',
+                    filter: 'hue-rotate(90deg) saturate(0.7) contrast(1.0) brightness(0.95)'
+                },
+                bronze: {
+                    name: 'Bronze Age',
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    attribution: '© OpenStreetMap contributors',
+                    filter: 'sepia(0.4) hue-rotate(35deg) saturate(1.1) contrast(1.1) brightness(0.9)'
+                }
+            };
         };
+        this.mapStyles = buildMapStyles();
 
         window.leafletMapStyles = this.mapStyles;
-        
+
         this.init();
+
+        // cartoKeyCheck (localsite.js) clears window.cartoApiKey when the key is invalid, over quota or domain restricted.
+        if (window.cartoApiKey && typeof cartoKeyCheck === 'function') {
+            cartoKeyCheck().then(works => {
+                if (works) return;
+                this.mapStyles = buildMapStyles(); // Now Esri
+                console.warn("CARTO basemap check failed. Swapped team map styles to Esri tiles.");
+                window.leafletMapStyles = this.mapStyles;
+                if (this.map && this.currentMapStyle) this.setMapStyle(this.currentMapStyle);
+            });
+        }
     }
     
     init() {
@@ -415,7 +437,8 @@ class LeafletMapManager {
         // Add base tile layer
         const tileLayer = L.tileLayer(style.url, {
             attribution: style.attribution,
-            maxZoom: 18
+            maxZoom: 18,
+            maxNativeZoom: style.maxNativeZoom || 18 // Esri Canvas tiles stop at 16, then scale up
         }).addTo(this.map);
         
         // Add overlay layer if specified (for labels on satellite imagery)
@@ -424,6 +447,7 @@ class LeafletMapManager {
             const overlayLayer = L.tileLayer(style.overlayUrl, {
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
+                maxNativeZoom: style.maxNativeZoom || 18,
                 minZoom: 8  // Only show labels at zoom 8+
             }).addTo(this.map);
             
