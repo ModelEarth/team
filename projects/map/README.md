@@ -5,9 +5,9 @@ Add a team/js/leaflet.js file used by team/projects/map/index.html to show a map
 Include background styles:
 
 Coral Reef
-Light Mode
+Grayscale
 Dark Mode
-Dark Matter
+Darker Mode
 OpenStreetMap
 Satellite
 Terrain
@@ -67,7 +67,7 @@ Prompts to undo:
 
 ### Key Features Implemented
 
-- 5 background map styles: OpenStreetMap, Satellite, Terrain, Dark Mode, Light Mode
+- 5 background map styles: OpenStreetMap, Satellite, Terrain, Darker Mode, Grayscale
 - Dynamic markers: Created from latitude/longitude data in listings
 - Curved corner popups: Show listing details when markers are clicked
 - Auto-coordinate detection: Supports various field names (latitude/lat/LAT, longitude/lng/lon/LON, etc.)

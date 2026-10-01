@@ -144,16 +144,22 @@ class LeafletMapManager {
                     filter: 'hue-rotate(330deg) saturate(1.4) contrast(1.1) brightness(1.1)'
                 },
                 light: {
-                    name: 'Light Mode',
+                    name: 'Grayscale',
                     ...carto('light_all', { ...esriLightGray, ...labelOverlay }),
                 },
-                dark: {
+                darkgray: { // CARTO dark_all brightened: near-white roads over black to charcoal greys, so features stay visible
                     name: 'Dark Mode',
-                    ...carto('dark_all', { ...esriDarkGray, overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', overlayAttribution: '© Esri' }),
+                    ...carto('dark_all', {
+                        ...esriDarkGray,
+                        overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+                        overlayAttribution: '© Esri',
+                        filter: 'brightness(1.15) contrast(2.4)' // Esri fallback has lighter tiles, so a gentler filter
+                    }),
+                    ...(cartoKey && { filter: 'brightness(4.2) contrast(1.25)' })
                 },
-                darkmatter: {
-                    name: 'Dark Matter',
-                    ...carto('dark_nolabels', esriDarkGray),
+                dark: {
+                    name: 'Darker Mode',
+                    ...carto('dark_all', { ...esriDarkGray, overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', overlayAttribution: '© Esri' }),
                 },
                 openstreetmap: {
                     name: 'OpenStreetMap',
