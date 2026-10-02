@@ -13,6 +13,9 @@ pub struct UnifiedInsightsRequest {
     pub model: String,
     pub prompt: String,
     pub dataset_info: Option<Value>,
+    /// "cli" runs the local Claude Code CLI (subscription login); otherwise ANTHROPIC_API_KEY is used
+    #[serde(default)]
+    pub key_source: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,6 +48,7 @@ pub async fn analyze_with_llm(
             let claude_req = claude_insights::ClaudeAnalysisRequest {
                 prompt: req.prompt.clone(),
                 dataset_info: req.dataset_info.clone(),
+                key_source: req.key_source.clone(),
             };
             claude_insights::analyze_with_claude_cli(data, web::Json(claude_req)).await
         }

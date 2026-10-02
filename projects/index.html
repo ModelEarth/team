@@ -6358,7 +6358,8 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     const requestBody = {
                         model: aiType,
                         prompt: prompt,
-                        dataset_info: datasetInfo
+                        dataset_info: datasetInfo,
+                        key_source: selectedKey === 'use-rust' ? 'cli' : 'env'
                     };
 
                     const response = await fetch(`${GEMINI_API_BASE}${LLM_API_ENDPOINT}`, {
