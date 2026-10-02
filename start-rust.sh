@@ -23,8 +23,11 @@ if ! command -v cargo > /dev/null 2>&1; then
     exit 1
 fi
 
-if [ ! -f ../docker/.env ]; then
-    cp ../docker/.env.example ../docker/.env
+# Secrets come from the .env named by env_file in CloudRoot/automation/paths.yaml or ../automation/paths.yaml
+if [ ! -f ../../CloudRoot/automation/paths.yaml ] && [ ! -f ../automation/paths.yaml ]; then
+    echo "Note: no automation/paths.yaml found, so the server will start without .env settings."
+    echo "  Copy ../automation/paths.example.yaml to ../automation/paths.yaml and set env_file"
+    echo "  to a .env outside webroot (template: ../automation/.env.example)."
 fi
 
 nohup cargo run --bin partner_tools -- serve > server.log 2>&1 &

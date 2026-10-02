@@ -412,7 +412,7 @@ function updateLocalhostAccessNotice() {
     notice.innerHTML = `
         <div class="alert alert-danger" style="margin-top: 10px; margin-bottom: 6px; font-size: 13px;">
             <div>
-                <strong>Turn on your Localhost Backend</strong> for Rust endpoints and local API Keys. <!--<code>docker/.env</code> are unavailable here because <code>model.earth</code> does not currently expose the team Rust API endpoints.-->
+                <strong>Turn on your Localhost Backend</strong> for Rust endpoints and local API Keys. <!--Server <code>.env</code> keys are unavailable here because <code>model.earth</code> does not currently expose the team Rust API endpoints.-->
             </div>
         </div>
     `;
@@ -424,10 +424,18 @@ function createGeminiResourcesHTML() {
 <div id="gemini-resources" class="card" style="margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
     <h4 style="margin: 0 0 8px 0;" id="gemini-key-title">Add Gemini Key</h4>
     <div id="gemini-key-content">
-        Add it in docker/.env
+        Add it in your server .env (set by env_file in automation/paths.yaml)
     </div>
 </div>
     `;
+}
+
+// Server lists provider ids whose keys are set (e.g. ['google']); older servers sent gemini_api_key_present
+function hasGeminiEnvKey(config) {
+    if (Array.isArray(config.env_keys_present)) {
+        return config.env_keys_present.includes('google');
+    }
+    return !!config.gemini_api_key_present;
 }
 
 // Function to check Gemini key status and update UI
@@ -441,8 +449,9 @@ async function checkGeminiKeyStatus() {
         const response = await fetch(`${API_BASE}/config/current`);
         if (response.ok) {
             const config = await response.json();
-            updateGeminiKeyUI(config.gemini_api_key_present);
-            return config.gemini_api_key_present;
+            const geminiKeyPresent = hasGeminiEnvKey(config);
+            updateGeminiKeyUI(geminiKeyPresent);
+            return geminiKeyPresent;
         } else {
             // If API call fails, assume key is not available
             updateGeminiKeyUI(false);
@@ -505,7 +514,7 @@ function updateGeminiKeyUI(keyIsAvailable) {
         const buttonText = cachedKey ? 'Change Key' : 'Add Key';
         const titlePrefix = cachedKey ? '🟡 Insights Key Available (Browser Cache)' : '🔴 Add Insights Key';
         const storageText = cachedKey ? 'Your key is stored in your browser cache only' : 'Your key will be stored in your browser cache only';
-        const envText = cachedKey ? `To use additional keys residing in docker/.env, <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to docker/.env and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
+        const envText = cachedKey ? `To use additional keys residing in your server .env (set in automation/paths.yaml), <a href="${adminServerPath}">start the Rust API server</a>.` : `Or add your key to your server .env (set in automation/paths.yaml) and <a href="${adminServerPath}">start the Rust API server</a> to detect it.`;
         const linkText = cachedKey ? 'Get another Gemini key' : 'Get your Gemini key';
 
         titleElement.innerHTML = titlePrefix;
@@ -716,7 +725,7 @@ async function isGeminiKeyAvailable() {
         const response = await fetch(`${API_BASE}/config/current`);
         if (response.ok) {
             const config = await response.json();
-            return config.gemini_api_key_present;
+            return hasGeminiEnvKey(config);
         }
         return false;
     } catch (error) {
@@ -2341,7 +2350,7 @@ env\\\\Scripts\\\\activate
                     <ul style="color: var(--text-secondary); margin: 0 0 4px 20px;">
                         <li>Automatically creates a virtual environment in <code>desktop/install/env/</code> if it doesn't exist</li>
                         <li>Activates the virtual environment</li>
-                        <li>Checks for Claude API key configuration in <code>docker/.env</code></li>
+                        <li>Checks for Claude API key configuration in the <code>.env</code> set by <code>automation/paths.yaml</code></li>
                         <li>Installs the <code>anthropic</code> package if API key is present</li>
                         <li>Starts the Python HTTP server with server-side execution access via server.py on port ${localhostPort}</li>
                     </ul>

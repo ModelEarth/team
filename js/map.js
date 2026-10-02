@@ -1771,7 +1771,7 @@ Do not include any explanation or additional text.`;
                         <li>Test from server: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">curl https://www.cognitoforms.com/api/forms</code></li>
                         ` : ''}
                         <li>Verify server is running: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">curl http://localhost:8081/api/health</code></li>
-                        <li>Check API credentials in <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">docker/.env</code></li>
+                        <li>Check API credentials in the <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">.env</code> set by <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">automation/paths.yaml</code></li>
                         <li>Check server logs: <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">tail -f server.log</code></li>
                     </ul>
                 </details>

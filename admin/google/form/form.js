@@ -30,7 +30,7 @@ let sheetsConfig = null;
 let cachedGoogleProjectId = null;
 
 // API_BASE (from common.js) points at the Rust API on port 8081. NodeJS
-// (the "chat" repo) serves the same docker/.env-backed endpoints on port 3700
+// (the "chat" repo) serves the same .env-backed endpoints on port 3700
 // as a second option — either backend can answer, so we probe both and stick
 // with whichever responds first.
 const NODE_API_BASE = 'http://localhost:3700/api';
@@ -276,7 +276,7 @@ async function checkOAuthConfiguration() {
         }
     }
 
-    // Check docker/.env file client ID via API (tries Rust, then NodeJS)
+    // Check the server .env file client ID via API (tries Rust, then NodeJS)
     try {
         const response = await fetchConfigEnv();
         if (response && response.ok) {
@@ -321,7 +321,7 @@ async function checkOAuthConfiguration() {
                     if (!envData.better_auth_base_url) missing.push('BASE_URL');
                     if (!envData.better_auth_allowed_origins) missing.push('ALLOWED_ORIGINS');
                     if (missing.length > 0) {
-                        statusMsg += `<br>⚠ Better Auth: missing from docker/.env: <code>${missing.join(', ')}</code>`;
+                        statusMsg += `<br>⚠ Better Auth: missing from server .env: <code>${missing.join(', ')}</code>`;
                     } else {
                         statusMsg += '<br>✓ Better Auth variables configured.';
                     }
@@ -361,19 +361,19 @@ function showOAuthConfigWarning(configClientId, envClientId, envProjectId, envCh
     // .env status
     if (envClientId) {
         if (envClientId === 'your-google-client-id.apps.googleusercontent.com') {
-            message += '• docker/.env file: Contains placeholder value<br>';
+            message += '• Server .env file: Contains placeholder value<br>';
         } else {
-            message += `• docker/.env file: "${envClientId}" (invalid format)<br>`;
+            message += `• Server .env file: "${envClientId}" (invalid format)<br>`;
         }
     } else {
-        message += '• docker/.env file: No GOOGLE_CLIENT_ID found<br>';
+        message += '• Server .env file: No GOOGLE_CLIENT_ID found<br>';
     }
 
     // GOOGLE_PROJECT_ID status (the Google Cloud project that owns the client ID above)
     if (envProjectId) {
-        message += `• docker/.env file: GOOGLE_PROJECT_ID = "${envProjectId}"<br>`;
+        message += `• Server .env file: GOOGLE_PROJECT_ID = "${envProjectId}"<br>`;
     } else {
-        message += '• docker/.env file: No GOOGLE_PROJECT_ID found<br>';
+        message += '• Server .env file: No GOOGLE_PROJECT_ID found<br>';
     }
 
     message += '<br><button class="btn btn-secondary" onclick="toggleGoogleAuthSteps(this)">Show Steps</button>';
@@ -441,7 +441,7 @@ function hideBackendStatusPanel() {
 }
 
 // Copy the command that starts the chat repo's NodeJS server (serves the same
-// docker/.env-backed endpoints as Rust, on port 3700) to the clipboard.
+// .env-backed endpoints as Rust, on port 3700) to the clipboard.
 function copyStartNodeCommand(btn) {
     const command = 'pnpm --prefix chat dev:webroot';
     const resetLabel = () => { btn.textContent = 'Start NodeJS'; };

@@ -14,7 +14,7 @@ Use [NET.md](../host/net/NET.md) for the shared .NET workflow across this webroo
 - `core/` is legacy .NET Core-era code.
 - `host/net/` is the newer cross-platform .NET host for local development.
 - The legacy `net/` and `core/` modules are intended to share a separate `.NET 4.x` backend on port `8004`.
-- Shared local .NET settings should go in `../docker/.env`, not new XML-only local config files.
+- Shared local .NET settings should go in the `.env` set by `env_file` in `automation/paths.yaml` (outside webroot), not new XML-only local config files.
 
 ### Build and Run
 - `cargo build` - Build the project
@@ -101,7 +101,7 @@ nohup ./desktop/install/quickstart.sh --cli --port 8887 > /dev/null 2>&1 &
 The quickstart.sh script automatically:
 - Creates a virtual environment in `desktop/install/env/` if it doesn't exist
 - Activates the virtual environment
-- Checks for Claude API key configuration in `docker/.env`
+- Checks for Claude API key configuration in the `.env` set by `env_file` in `automation/paths.yaml`
 - Installs the `anthropic` package if API key is configured
 - Starts the Python HTTP server with server-side execution access via server.py on port 8887 (or next available port if 8887 is in use)
 
@@ -130,7 +130,7 @@ lsof -ti:8887 > /dev/null 2>&1 || \
 
 **IMPORTANT**: `--cpu` disables local GPU/model inference. All LLM calls go through
 external APIs configured at http://localhost:8887/chat/keys/ (stored in local cache
-or `docker/.env`). No local model checkpoint files are needed.
+or the `.env` set by `automation/paths.yaml`). No local model checkpoint files are needed.
 
 **What this command does:**
 - Starts ComfyUI's aiohttp server on port 8887
@@ -265,7 +265,7 @@ If you need to verify manually after startup, use:
 curl http://localhost:8081/api/health
 ```
 
-Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. The .env file resides in the docker directory (docker/.env relative to root) and is created from .env.example only if it doesn't already exist. If port `8081` is already occupied by some other process, the script exits with an error instead of claiming the Rust API started successfully.
+Note: The team repository is a submodule located in the repository root directory. The Rust API server runs on port 8081. Requires Rust/Cargo to be installed on the system. Settings come from the `.env` named by `env_file` in `CloudRoot/automation/paths.yaml`, or the webroot's `automation/paths.yaml` when CloudRoot isn't present; the script warns if neither exists. If port `8081` is already occupied by some other process, the script exits with an error instead of claiming the Rust API started successfully.
 
 ### Start .NET Server
 When you type "start net", run:
@@ -278,7 +278,7 @@ Notes:
 - The shared .NET host uses `host/net/` and serves the current webroot root as the site root.
 - The shared `.NET 10` host is intended for everything outside `/net/` and `/core/` and defaults to port `8010`.
 - The legacy `/net/` and `/core/` paths are expected to be served by a `.NET 4.x` backend on port `8004`.
-- Shared settings are loaded from `docker/.env` through `host/net/net.sh`.
+- Shared settings are loaded from the `.env` set by `automation/paths.yaml` through `host/net/net.sh`.
 - If the SDK is missing, use `bash host/net/net.sh install-sdk` or `bash host/net/net.sh start --install-sdk`.
 - See `host/net/NET.md` for install, legacy `net` / `core`, and nginx manifest guidance.
 
@@ -302,15 +302,16 @@ lsof -ti:3700 > /dev/null 2>&1 || \
   nohup node chat/server.mjs > /tmp/chat-dev.log 2>&1 &
 ```
 
-**3. Start comfyui-deploy** (port 3001 — only if `CLERK_SECRET_KEY` is in `docker/.env`):
+**3. Start comfyui-deploy** (port 3001 — only if `CLERK_SECRET_KEY` is in the `.env` set by `automation/paths.yaml`):
 ```bash
-grep -q "CLERK_SECRET_KEY=sk_" docker/.env 2>/dev/null && \
+export ENV_FILE="automation/$(sed -n 's/^[[:space:]]*env_file:[[:space:]]*//p' automation/paths.yaml | sed 's/[[:space:]]#.*$//; s/["'\'']//g')"
+grep -q "CLERK_SECRET_KEY=sk_" "$ENV_FILE" 2>/dev/null && \
   { lsof -ti:3001 > /dev/null 2>&1 || \
-    nohup bash -c 'set -a; source docker/.env; set +a; PORT=3001 pnpm --prefix workflow/comfyui-deploy/web dev' \
+    nohup bash -c 'set -a; source "$ENV_FILE"; set +a; PORT=3001 pnpm --prefix workflow/comfyui-deploy/web dev' \
       > /tmp/comfydeploy-dev.log 2>&1 &; }
 ```
 
-comfyui-deploy does not auto-load `docker/.env`, so Clerk keys must be sourced explicitly.
+comfyui-deploy does not auto-load the `.env`, so Clerk keys must be sourced explicitly.
 
 Then confirm all are up:
 ```bash

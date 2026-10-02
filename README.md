@@ -104,8 +104,9 @@ team/
 2. **Configure shared environment in webroot**
    ```bash
    cd ..
-   cp docker/.env.example docker/.env
-   # Edit docker/.env with database and OAuth values
+   cp automation/paths.example.yaml automation/paths.yaml
+   # Set env_file in automation/paths.yaml to a .env outside webroot,
+   # create it from automation/.env.example, and add database and OAuth values
    cd team
    ```
 
@@ -123,7 +124,7 @@ The SQL schema is based on [SuiteCRM SQL (/profile/crm)](/profile/crm)
 
 4. **Configure environment variables**
 
-Set `COMMONS_HOST` and related values in `../docker/.env`.
+Set `COMMONS_HOST` and related values in the `.env` set by `env_file` in `automation/paths.yaml`.
 
 5. **Initialize database schema**
    ```bash
@@ -188,7 +189,7 @@ DATABASE_URL=postgresql://sqladmin@industry-server.database.windows.net/Industry
 ```
 
 ### Authentication Providers
-Configure OAuth providers in `docker/.env`:
+Configure OAuth providers in the `.env` set by `automation/paths.yaml`:
 - Google OAuth 2.0
 - GitHub OAuth
 - LinkedIn OAuth
