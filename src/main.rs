@@ -25,7 +25,7 @@ use std::sync::mpsc::channel;
 
 mod import;
 mod merge_years;
-mod gemini_insights;
+mod llm_insights;
 mod claude_insights;
 mod unified_insights;
 mod recommendations;
@@ -43,6 +43,8 @@ struct Config {
     database_url: String,
     gemini_api_key: String,
     anthropic_api_key: String,
+    #[serde(default)]
+    openai_api_key: String,
     server_host: String,
     server_port: u16,
     excel_file_path: String,
@@ -73,6 +75,8 @@ impl Config {
                 gemini_api_key: std::env::var("GEMINI_API_KEY")
                     .unwrap_or_else(|_| "dummy_key".to_string()),
                 anthropic_api_key: std::env::var("ANTHROPIC_API_KEY")
+                    .unwrap_or_default(),
+                openai_api_key: std::env::var("OPENAI_API_KEY")
                     .unwrap_or_default(),
                 server_host: std::env::var("SERVER_HOST")
                     .unwrap_or_else(|_| "127.0.0.1".to_string()),
@@ -420,10 +424,21 @@ const PROVIDER_ENV_VARS: &[(&str, &str)] = &[
     ("discord",    "DISCORD_BOT_TOKEN"),
 ];
 
+/// True for template values copied from .env.example, such as "your-openai-api-key".
+fn is_placeholder_key(value: &str) -> bool {
+    let v = value.trim().to_lowercase();
+    v.is_empty()
+        || v.starts_with("your")
+        || v.starts_with('<')
+        || ["dummy", "placeholder", "example", "changeme", "change_me", "replace", "get-key", "xxxx"]
+            .iter()
+            .any(|s| v.contains(s))
+}
+
 fn env_keys_present() -> Vec<String> {
     PROVIDER_ENV_VARS.iter()
         .filter(|(_, var)| {
-            std::env::var(var).map_or(false, |v| !v.is_empty() && v != "dummy_key")
+            std::env::var(var).map_or(false, |v| !is_placeholder_key(&v))
         })
         .map(|(id, _)| id.to_string())
         .collect()
@@ -4466,7 +4481,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                         web::scope("/gemini")
                             .route("/usage/cli", web::get().to(get_gemini_usage_cli))
                             .route("/usage/website", web::get().to(get_gemini_usage_website))
-                            .route("/analyze", web::post().to(gemini_insights::analyze_with_gemini))
+                            .route("/analyze", web::post().to(llm_insights::analyze_gemini))
                     )
                     .service(
                         web::scope("/insights")
@@ -4501,7 +4516,7 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             )
                             .service(
                                 web::scope("/gemini")
-                                    .route("/analyze", web::post().to(gemini_insights::analyze_with_gemini))
+                                    .route("/analyze", web::post().to(llm_insights::analyze_gemini))
                             )
                     )
                     .service(
@@ -4510,7 +4525,8 @@ async fn run_api_server(config: Config) -> anyhow::Result<()> {
                             .route("/env", web::get().to(get_env_config))
                             .route("/env", web::post().to(save_env_config))
                             .route("/env/create", web::post().to(create_env_config))
-                            .route("/gemini", web::get().to(gemini_insights::test_gemini_api))
+                            .route("/gemini", web::get().to(llm_insights::test_gemini))
+                            .route("/openai", web::get().to(llm_insights::test_openai))
                             .route("/restart", web::post().to(restart_server))
                             .route("/stop-webroot", web::post().to(stop_webroot_server))
                     )

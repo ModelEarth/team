@@ -3457,6 +3457,7 @@
                 <!-- API Key Management UI (shown when key is missing) -->
                 <div id="api-key-management" style="display: none; margin-bottom: 16px; padding: 16px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
                     <h4 style="margin: 0 0 12px 0; color: var(--text-primary);" id="api-key-title">API Key Required</h4>
+                    <div id="api-key-source" style="display: none; margin: -4px 0 12px 0; color: var(--text-secondary); font-size: 13px;"></div>
 
                     <!-- Radio buttons for key selection (shown when both cache and .env keys exist) -->
                     <div id="api-key-selection" style="display: none; margin-bottom: 12px;">
@@ -3471,7 +3472,7 @@
                         </label>
                         <label style="display: block; cursor: pointer;">
                             <input type="radio" name="key-source" value="env" style="margin-right: 8px;">
-                            <span>Docker .env Key</span>
+                            <span>Server .env Key</span>
                         </label>
                     </div>
 
@@ -5918,6 +5919,15 @@
             const isClaude = aiType === 'claude';
             const hasRustCli = isClaude; // Rust CLI is always available for Claude
             const hasAnyKey = hasCacheKey || hasEnvKey || hasRustCli;
+
+            // Say where the key comes from without revealing it
+            const keySource = document.getElementById('api-key-source');
+            const sources = [];
+            if (hasRustCli) sources.push('Claude Code CLI login on the Rust server');
+            if (hasEnvKey) sources.push(`${llmConfig.requiresApiKey || 'API key'} in the Rust server's .env (env_file in automation/paths.yaml)`);
+            if (hasCacheKey) sources.push('key saved in this browser');
+            keySource.textContent = sources.length ? `From: ${sources.join(' · ')}` : '';
+            keySource.style.display = sources.length ? 'block' : 'none';
 
             if (hasAnyKey) {
                 // Key is available - show Change Key button, hide input section

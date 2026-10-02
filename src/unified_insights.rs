@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 // Import existing LLM modules
 use crate::claude_insights;
-use crate::gemini_insights;
+use crate::llm_insights;
 use crate::ApiState;
 
 #[derive(Debug, Deserialize)]
@@ -52,33 +52,23 @@ pub async fn analyze_with_llm(
             };
             claude_insights::analyze_with_claude_cli(data, web::Json(claude_req)).await
         }
-        "gemini" => {
-            println!("Processing Gemini request...");
+        "gemini" | "openai" => {
+            let provider = if model_id == "openai" {
+                llm_insights::LlmProvider::OpenAI
+            } else {
+                llm_insights::LlmProvider::Gemini
+            };
+            println!("Processing {provider:?} request...");
 
-            // Format prompt with dataset context for Gemini
+            // Format prompt with dataset context inline
             let formatted_prompt = format_prompt_with_dataset(&req.prompt, &req.dataset_info);
             println!("Formatted prompt length: {} chars", formatted_prompt.len());
 
-            // Create Gemini request from unified request
-            let gemini_req = gemini_insights::GeminiAnalysisRequest {
+            let llm_req = llm_insights::LlmAnalysisRequest {
                 prompt: formatted_prompt,
                 data_context: None,
             };
-
-            println!("Calling Gemini handler...");
-            // Route to existing Gemini handler
-            let response = gemini_insights::analyze_with_gemini(data, web::Json(gemini_req)).await;
-            println!("Gemini handler returned, forwarding response");
-            response
-        }
-        "openai" => {
-            // OpenAI support - to be implemented
-            Ok(HttpResponse::Ok().json(UnifiedInsightsResponse {
-                success: false,
-                analysis: None,
-                error: Some("OpenAI integration coming soon. Please use Claude or Gemini for now.".to_string()),
-                token_usage: None,
-            }))
+            llm_insights::analyze_with_provider(provider, data, web::Json(llm_req)).await
         }
         _ => {
             Ok(HttpResponse::BadRequest().json(UnifiedInsightsResponse {
@@ -91,7 +81,7 @@ pub async fn analyze_with_llm(
     }
 }
 
-/// Format prompt with dataset context for LLMs that need it inline (like Gemini)
+/// Format prompt with dataset context for LLMs that need it inline (Gemini, OpenAI)
 fn format_prompt_with_dataset(prompt: &str, dataset_info: &Option<Value>) -> String {
     if let Some(dataset) = dataset_info {
         // Extract key dataset information

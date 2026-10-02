@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result};
 use serde::{Deserialize, Serialize};
 use crate::prompts::{build_semantic_search_prompt, ProjectData};
-use crate::gemini_insights::{self, GeminiAnalysisRequest};
+use crate::llm_insights::{self, LlmAnalysisRequest};
 use crate::claude_insights;
 use crate::ApiState;
 
@@ -69,8 +69,8 @@ pub struct TokenUsage {
     pub total_tokens: Option<u32>,
 }
 
-impl From<gemini_insights::TokenUsage> for TokenUsage {
-    fn from(usage: gemini_insights::TokenUsage) -> Self {
+impl From<llm_insights::TokenUsage> for TokenUsage {
+    fn from(usage: llm_insights::TokenUsage) -> Self {
         TokenUsage {
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
@@ -222,19 +222,19 @@ async fn call_gemini_for_search(
     prompt: &str,
 ) -> Result<HttpResponse> {
     // Use existing Gemini handler
-    let gemini_request = GeminiAnalysisRequest {
+    let gemini_request = LlmAnalysisRequest {
         prompt: prompt.to_string(),
         data_context: None,
     };
 
-    let response = gemini_insights::analyze_with_gemini(
+    let response = llm_insights::analyze_gemini(
         data,
         web::Json(gemini_request),
     ).await?;
 
     // Extract the response body
     if let Ok(body_bytes) = actix_web::body::to_bytes(response.into_body()).await {
-        if let Ok(gemini_response) = serde_json::from_slice::<gemini_insights::GeminiAnalysisResponse>(&body_bytes) {
+        if let Ok(gemini_response) = serde_json::from_slice::<llm_insights::LlmAnalysisResponse>(&body_bytes) {
             if gemini_response.success {
                 if let Some(analysis) = gemini_response.analysis {
                     // Parse AI response
