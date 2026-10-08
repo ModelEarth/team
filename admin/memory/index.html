@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Memory</title>
+<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link type="text/css" rel="stylesheet" href="/localsite/css/base.css" id="/localsite/css/base.css" />
+<script type="text/javascript" src="/localsite/js/localsite.js?showheader=true&showsearch=true"></script>
+<script>
+loadMarkdown("README.md", "readmeDiv", "_parent");
+</script>
+<style>
+  .memGrid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+  .memPanel { position: relative; flex: 1 1 320px; min-width: 0; padding: 16px 20px; border-radius: 12px; background: #f4f6f8; container-type: inline-size; }
+  .memPanel h3 { margin: 0 0 10px; font-size: 17px; }
+  .memMenuHolder { position: absolute; top: 10px; right: 10px; }
+  .memRow { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 14px; }
+  .memRow span:first-child { opacity: 0.7; }
+  .memBar { height: 8px; border-radius: 4px; background: #dde3e8; overflow: hidden; margin: 6px 0 10px; }
+  .memBar div { height: 100%; border-radius: 4px; background: #3b82f6; }
+  .memBar div.warn { background: #f59e0b; }
+  .memBar div.danger { background: #ef4444; }
+  .memNote { font-size: 13px; opacity: 0.75; margin-top: 8px; }
+  .memWide { flex-basis: 100%; }
+  .portRow { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px; gap: 4px 12px; align-items: center; padding: 6px 0; font-size: 14px; }
+  .portRow .memBar { grid-column: 1 / -1; margin: 0; }
+  .portRow .portCmd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.8; }
+  .portRow .portMem { text-align: right; }
+  @container (max-width: 420px) { .portRow { grid-template-columns: 90px minmax(0, 1fr) 70px; font-size: 13px; } }
+  .memUrl { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 14px; }
+  .memUrl code { padding: 2px 6px; border-radius: 6px; background: #e6eaee; }
+  .memUrl button { border: 0; border-radius: 6px; padding: 3px 10px; cursor: pointer; background: #dde3e8; font-size: 12px; }
+  @container (max-width: 360px) { .memRow { flex-direction: column; gap: 0; } }
+  .dark .memPanel { background: #1f2937; color: #e5e7eb; }
+  .dark .memBar { background: #374151; }
+  .dark .memUrl code, .dark .memUrl button { background: #374151; color: #e5e7eb; }
+</style>
+</head>
+
+<body>
+<div class="content contentpadding large-list">
+  <h1>Memory</h1>
+  <div class="memGrid">
+    <div class="memPanel" id="browserPanel">
+      <div class="memMenuHolder"></div>
+      <h3 id="browserTitle">Your browser</h3>
+      <div id="browserInfo">Checking...</div>
+    </div>
+    <div class="memPanel" id="nodePanel">
+      <div class="memMenuHolder"></div>
+      <h3>Node.js dev server (port 3700)</h3>
+      <div id="nodeInfo">Checking...</div>
+    </div>
+    <div class="memPanel memWide" id="portsPanel">
+      <div class="memMenuHolder"></div>
+      <h3>Active ports</h3>
+      <div id="portsInfo">Checking...</div>
+    </div>
+  </div>
+  <div id="readmeDiv"></div>
+</div>
+
+<script>
+// Live numbers for the README below: this browser's own pages for finding a
+// heavy tab, this tab's JavaScript memory, and the CloudRoot dev server's
+// memory from http://localhost:3700/api/server-memory (chat/server.mjs).
+
+const NODE_MEMORY_URLS = ["/api/server-memory", "http://localhost:3700/api/server-memory"];
+const PORT_MEMORY_URLS = ["/api/port-memory", "http://localhost:3700/api/port-memory"];
+
+function row(label, value) {
+  return `<div class="memRow"><span>${label}</span><span>${value}</span></div>`;
+}
+
+function bar(used, limit, level) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  if (level === undefined) level = pct >= 85 ? "danger" : pct >= 65 ? "warn" : "";
+  return `<div class="memBar"><div class="${level}" style="width:${pct}%"></div></div>`;
+}
+
+function copyUrl(url) {
+  return `<div class="memUrl"><code>${url}</code><button type="button" data-copy="${url}">Copy</button></div>`;
+}
+
+// Internal pages for each browser family. Pages can't link to these, so
+// they're shown with a Copy button to paste into the address bar.
+async function detectBrowser() {
+  const brands = (navigator.userAgentData?.brands || []).map((b) => b.brand).join(" ");
+  const ua = navigator.userAgent;
+  if (navigator.brave && (await navigator.brave.isBrave())) return { name: "Brave", scheme: "brave" };
+  if (/Edg\//.test(ua) || /Microsoft Edge/.test(brands)) return { name: "Edge", scheme: "edge" };
+  if (/OPR\//.test(ua) || /Opera/.test(brands)) return { name: "Opera", scheme: "opera" };
+  if (/Vivaldi/.test(ua)) return { name: "Vivaldi", scheme: "vivaldi" };
+  if (/Firefox\//.test(ua)) return { name: "Firefox", scheme: "about", firefox: true };
+  if (/Chrome\//.test(ua)) return { name: "Chrome", scheme: "chrome" };
+  if (/Safari\//.test(ua)) return { name: "Safari", scheme: "", safari: true };
+  return { name: "this browser", scheme: "chrome" };
+}
+
+async function showBrowser() {
+  const b = await detectBrowser();
+  const isMac = /Mac/.test(navigator.platform);
+  document.getElementById("browserTitle").textContent = `Your browser: ${b.name}`;
+  let html = "";
+  if (b.firefox) {
+    html += row("Task manager", "about:processes") + copyUrl("about:processes") + copyUrl("about:memory");
+  } else if (b.safari) {
+    html += row("Task manager", "Activity Monitor, or Develop menu → Show Web Inspector → Timelines");
+  } else {
+    html += row("Task manager", isMac ? "Menu ⋮ → More tools → Task manager" : "Shift+Esc");
+    html += copyUrl(`${b.scheme}://discards`);
+  }
+  if (performance.memory) {
+    const m = performance.memory;
+    const used = m.usedJSHeapSize / 1048576, limit = m.jsHeapSizeLimit / 1048576;
+    html += `<div class="memNote" style="margin-top:12px">This tab's JavaScript memory</div>` + bar(used, limit);
+    html += row("Used", `${Math.round(used)} MB of ${Math.round(limit)} MB`);
+  }
+  if (navigator.deviceMemory) html += row("Device memory (reported)", `${navigator.deviceMemory} GB or more`);
+  document.getElementById("browserInfo").innerHTML = html;
+}
+
+async function fetchFirst(urls) {
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (response.ok) return await response.json();
+    } catch (error) { /* try the next URL */ }
+  }
+  return null;
+}
+
+async function showNode() {
+  const data = await fetchFirst(NODE_MEMORY_URLS);
+  const el = document.getElementById("nodeInfo");
+  if (!data) {
+    el.innerHTML = `<div class="memNote">Not running, or too old to report memory. Start it from the CloudRoot folder:</div>`
+      + `<div class="memUrl"><code>NODE_OPTIONS=--max-old-space-size=8192 PORT=3700 node chat/server.mjs</code></div>`;
+    return;
+  }
+  const hours = Math.floor(data.uptimeSeconds / 3600), minutes = Math.floor((data.uptimeSeconds % 3600) / 60);
+  el.innerHTML = `<div class="memNote">JavaScript heap used of its limit</div>`
+    + bar(data.heapUsedMB, data.heapLimitMB)
+    + row("Heap used", `${data.heapUsedMB} MB of ${data.heapLimitMB} MB`)
+    + row("Process memory (RSS)", `${data.rssMB} MB`)
+    + row("Up", `${hours}h ${minutes}m`)
+    + row("Node.js", `${data.node}, pid ${data.pid}`)
+    + row("Unused system memory", `${(data.systemFreeMB / 1024).toFixed(1)} GB of ${Math.round(data.systemTotalMB / 1024)} GB (macOS keeps most in use as cache)`)
+    + row("Load average", data.loadAverage.join(", "))
+    + `<div class="memNote">Updates every 10 seconds. Steady growth while files change is the dev server; growth while idle could be a leak.</div>`;
+}
+
+// One row per process listening on a local port (from chat/server.mjs).
+// Bars are out of a fixed 4 GB, so a full bar means 4 GB or more; amber from
+// 2 GB, red from 4 GB.
+const PORT_BAR_FULL_MB = 4096;
+function escapeText(value) {
+  return String(value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+async function showPorts() {
+  const data = await fetchFirst(PORT_MEMORY_URLS);
+  const el = document.getElementById("portsInfo");
+  if (!data) {
+    el.innerHTML = `<div class="memNote">Listed by the CloudRoot dev server on port 3700, which isn't reachable.</div>`;
+    return;
+  }
+  el.innerHTML = data.ports.map((p) => {
+    const mb = p.rssMB ?? 0;
+    const level = mb >= 4096 ? "danger" : mb >= 2048 ? "warn" : "";
+    const size = mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+    return `<div class="portRow"><span>${p.ports.join(", ")}</span>`
+      + `<span class="portCmd" title="${escapeText(p.command)} (pid ${p.pid})">${escapeText(p.command)}</span>`
+      + `<span class="portMem">${size}</span>${bar(mb, PORT_BAR_FULL_MB, level)}</div>`;
+  }).join("") + `<div class="memNote">${data.ports.length} processes listening. A full bar is 4 GB; amber from 2 GB, red from 4 GB.</div>`;
+}
+
+document.addEventListener("click", (event) => {
+  const text = event.target.dataset?.copy;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    event.target.textContent = "Copied";
+    setTimeout(() => { event.target.textContent = "Copy"; }, 1500);
+  });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  showBrowser();
+  showNode();
+  showPorts();
+  setInterval(() => { showNode(); showPorts(); }, 10000);
+  if (typeof addPanelMenu === "function") {
+    for (const id of ["browserPanel", "nodePanel", "portsPanel"]) {
+      addPanelMenu({ panelType: "Content", targetPanelId: id, containerSelector: `#${id} .memMenuHolder`, inline: true }).render();
+    }
+  }
+});
+</script>
+</body>
+</html>
