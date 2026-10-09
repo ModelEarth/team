@@ -489,6 +489,10 @@ class ListingsDisplay {
         if (path.startsWith('http')) {
             return path;
         }
+        // display/data/show.json is loaded from locations.georgia.org/display
+        if (path.replace(/^\/+/, '') === 'display/data/show.json') {
+            return 'https://locations.georgia.org/display/data/show.json';
+        }
         if (path.startsWith('/')) {
             return this.getWebrootBasePath() + path.replace(/^\/+/, '');
         }
@@ -6572,6 +6576,7 @@ Do not include any explanation or additional text.`;
                     </div>
                 </div>
             `;
+            this.moveMapToCatch();
         }
 
 
@@ -6690,7 +6695,9 @@ Do not include any explanation or additional text.`;
                     window.panelMenuOptions.locationDetails || {},
                     {
                         panelType: 'Details',
-                        panelLabel: 'Details'
+                        panelLabel: 'Details',
+                        // "Hide Details" also drops the listing from the hash
+                        onHide: () => goHash({ id: '', detail: '' })
                     }
                 );
                 if (useImageOnlyTour) {
@@ -7268,6 +7275,44 @@ Do not include any explanation or additional text.`;
                 data,
                 options
             );
+
+            // Pages with an #upperRightIcons placeholder (e.g. requests/engine) show the icons there.
+            // Registered once; the icons are looked up when the placeholder appears, since renders replace the header.
+            if (!rightTeamControls && !this._upperRightIconsWait) {
+                this._upperRightIconsWait = waitForElm('#upperRightIcons').then((upperRight) => {
+                    const source = document.getElementById('map-print-download-icons');
+                    if (!source) return;
+                    while (source.firstChild) {
+                        upperRight.appendChild(source.firstChild);
+                    }
+                });
+            }
+        }
+    }
+
+    // Pages with a #mapCatch placeholder (e.g. requests/engine) show #pageMap there instead of in #listwidget.
+    // render() rebuilds #listwidget each time, so a #pageMap already caught (holding the live Leaflet map)
+    // is kept and the freshly rendered duplicate is removed. Waits once for #mapCatch if not yet present.
+    moveMapToCatch() {
+        const mapCatch = document.getElementById('mapCatch');
+        if (!mapCatch) {
+            if (!this._mapCatchWait) {
+                this._mapCatchWait = waitForElm('#mapCatch').then(() => this.moveMapToCatch());
+            }
+            return;
+        }
+        const rendered = document.querySelector('#listwidget #pageMap');
+        if (!rendered) return;
+        // The emptied right column (map's former home) is hidden so the listings take the full width
+        const rightColumn = rendered.closest('.right-column');
+        if (rightColumn) rightColumn.style.display = 'none';
+        if (mapCatch.querySelector('#pageMap')) {
+            rendered.remove();
+        } else {
+            mapCatch.appendChild(rendered);
+            if (window.leafletMap && window.leafletMap.map) {
+                window.leafletMap.map.invalidateSize();
+            }
         }
     }
 

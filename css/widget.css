@@ -39,11 +39,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: #fff;
     overflow: visible;
-}
-.dark #widgetDetailsControls {
-    background: #333;
 }
 .dark #widgetDetails a:not(.btn):link, .dark #widgetDetails a:not(.btn):visited {
     color: #acb;
@@ -142,6 +138,22 @@ body {
 .search-fields-btn.active {
     border-color: #007bff;
     background: #f0f8ff;
+}
+
+.dark .search-fields-btn {
+    background: #2a2a2a;
+    border-color: #555;
+    color: #fff;
+}
+
+.dark .search-fields-btn:hover {
+    border-color: #4a90e2;
+    background: #363636;
+}
+
+.dark .search-fields-btn.active {
+    border-color: #4a90e2;
+    background: rgba(74, 144, 226, 0.15);
 }
 
 /* Responsive filters button - show icon only when parent container < 800px */
@@ -531,7 +543,6 @@ body {
 
 .listings-scroll-container {
     position: relative;
-    background: #fff;
     overflow-y: auto;
     max-height: calc(100vh - 100px);
     flex: 1 1 auto;
@@ -539,9 +550,6 @@ body {
     /* min-height: 300px; Caused too much space above .no-results-content */
     margin-top: -20px; /* Places under control fade out */
     padding-top: 15px;
-}
-.dark .listings-scroll-container {
-    background: #333;
 }
 
 /* A-Z jump rail, positioned to the left of .listings-scroll-container in the
@@ -1002,6 +1010,11 @@ body {
 #widgetHero #widgetmap {
     width: 100% !important;
     height: 100% !important;
+}
+
+/* Dark backing behind map tiles (replaces Leaflet's light gray #ddd) */
+.dark #widgetmap {
+    background: #2a2a2a;
 }
 /*
 #detailHero #detailmapWrapper {
