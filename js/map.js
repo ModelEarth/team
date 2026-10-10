@@ -235,6 +235,13 @@ class ListingsDisplay {
             const detailsTrigger = e.target.closest('.view-details-btn, .listing-title');
             if (detailsTrigger) {
                 const scrollToDetails = () => {
+                    // With a map in Full Screen the details float over the map, so go to the top of the page
+                    // (header, then the map) rather than to the details
+                    const mapInFullScreen = Object.keys(this.getMapScreenTargets()).some(t => this.getMapScreen(t) === 'full');
+                    if (mapInFullScreen) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        return;
+                    }
                     const section = document.querySelector('.locationDetails');
                     if (section) { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
                 };
@@ -4176,6 +4183,7 @@ Do not include any explanation or additional text.`;
 
                 this.setupGalleryNavigation(section, galleryImages, galleryImages);
                 this.ensureGalleryImageModal();
+                this.syncFloatingGalleryToLocation(galleryImages);
                 this.updateDetailMap(listing);
 
                 // Remove fading class to fade back in
@@ -4219,6 +4227,7 @@ Do not include any explanation or additional text.`;
 
             this.setupGalleryNavigation(section, galleryImages, galleryImages);
             this.ensureGalleryImageModal();
+            this.syncFloatingGalleryToLocation(galleryImages);
             this.updateDetailMap(listing);
         }
 
@@ -4952,7 +4961,7 @@ Do not include any explanation or additional text.`;
                 <div class="image-stack" data-current-set="0" data-count="${Math.min(3, images.length)}">
                     ${navImages.map((img, index) => `
                         <div class="image-item" data-image-index="${index}">
-                            <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
+                            <img loading="lazy" src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
                             ${this.shouldShowGallerySource(images, img) ? `<div class="image-source">${this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
@@ -4975,7 +4984,7 @@ Do not include any explanation or additional text.`;
                 <div class="gallery-grid">
                     ${images.map((img, index) => `
                         <div class="gallery-item" data-gallery-index="${index}">
-                            <img src="${img.url}" alt="Gallery image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
+                            <img loading="lazy" src="${img.url}" alt="Gallery image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
                             ${this.shouldShowGallerySource(images, img) ? `<div class="gallery-image-source">${this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path)}</div>` : ''}
                         </div>
                     `).join('')}
@@ -5133,24 +5142,30 @@ Do not include any explanation or additional text.`;
         } catch (error) {}
     }
 
-    // Moves the floating image, keeping at least part of it on screen so it can be dragged back
-    placeDraggableGalleryImage(modal, left = null, top = null) {
-        const content = modal.querySelector(".product-image-modal-content");
-        if (!content) {
-            return;
+    // Floating boxes (the draggable gallery image, the floating #locationDetails) sit in a layer
+    // anchored to the page, so they scroll with the page and map. left/top are window (client)
+    // coordinates, clamped so part of the box stays on screen, then converted to the layer's coordinates.
+    placeFloatingBox(box, left = null, top = null) {
+        const layer = box.offsetParent;
+        if (!layer) {
+            return; // hidden
         }
-        // left/top are window (client) coordinates, clamped to the window. The floating box is
-        // positioned within the page (the modal root, see .image-float in widget.css), so the stored
-        // offsets are converted to the root's coordinates and the image scrolls with the page and map.
-        const rect = content.getBoundingClientRect();
-        const rootRect = modal.getBoundingClientRect();
+        const rect = box.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
         const x = left === null ? rect.left : left;
         const y = top === null ? rect.top : top;
         const keep = 60;
         const clientX = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x));
         const clientY = Math.min(window.innerHeight - keep, Math.max(0, y));
-        content.style.left = (clientX - rootRect.left) + "px";
-        content.style.top = (clientY - rootRect.top) + "px";
+        box.style.left = (clientX - layerRect.left) + "px";
+        box.style.top = (clientY - layerRect.top) + "px";
+    }
+
+    placeDraggableGalleryImage(modal, left = null, top = null) {
+        const content = modal.querySelector(".product-image-modal-content");
+        if (content) {
+            this.placeFloatingBox(content, left, top);
+        }
     }
 
     // fixed: centered with the page dimmed behind it. draggable: floats over the page (the map stays
@@ -5194,18 +5209,17 @@ Do not include any explanation or additional text.`;
         this.adjustGalleryImageModalNav(modal);
     }
 
-    // Toss: on release the image glides on in the drag's direction and eases to a stop.
+    // Toss: on release a floating box glides on in the drag's direction and eases to a stop.
     // Velocity comes from the last ~100ms of pointer movement; skipped for reduced motion.
-    tossDraggableGalleryImage(modal, samples) {
-        const content = modal.querySelector(".product-image-modal-content");
+    tossFloatingBox(box, samples, onRest = () => {}) {
         const first = samples[0];
         const last = samples[samples.length - 1];
         const elapsed = last.t - first.t;
         const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         // A pause before letting go (no recent movement) means no toss
         const stale = performance.now() - last.t > 60;
-        if (!content || reducedMotion || stale || elapsed < 16) {
-            if (content) this.saveGalleryImageFloat(content);
+        if (reducedMotion || stale || elapsed < 16) {
+            onRest();
             return;
         }
 
@@ -5213,7 +5227,7 @@ Do not include any explanation or additional text.`;
         let vx = Math.max(-maxSpeed, Math.min(maxSpeed, (last.x - first.x) / elapsed));
         let vy = Math.max(-maxSpeed, Math.min(maxSpeed, (last.y - first.y) / elapsed));
         if (Math.hypot(vx, vy) < 0.2) {
-            this.saveGalleryImageFloat(content);
+            onRest();
             return;
         }
 
@@ -5222,19 +5236,66 @@ Do not include any explanation or additional text.`;
         const step = (now) => {
             const dt = Math.min(48, now - previous);
             previous = now;
-            const rect = content.getBoundingClientRect();
-            this.placeDraggableGalleryImage(modal, rect.left + vx * dt, rect.top + vy * dt);
+            const rect = box.getBoundingClientRect();
+            this.placeFloatingBox(box, rect.left + vx * dt, rect.top + vy * dt);
             const decay = Math.pow(friction, dt / 16);
             vx *= decay;
             vy *= decay;
-            if (Math.hypot(vx, vy) < 0.02 || !modal.classList.contains("active")) {
-                content._tossFrame = null;
-                this.saveGalleryImageFloat(content);
+            if (Math.hypot(vx, vy) < 0.02 || !box.offsetParent) {
+                box._tossFrame = null;
+                onRest();
                 return;
             }
-            content._tossFrame = requestAnimationFrame(step);
+            box._tossFrame = requestAnimationFrame(step);
         };
-        content._tossFrame = requestAnimationFrame(step);
+        box._tossFrame = requestAnimationFrame(step);
+    }
+
+    // Drag a floating box (by its handle, or anywhere in it), tossing it on release.
+    // ignore: targets that keep their own behavior; the native resize corner is left alone too.
+    setupFloatingDrag(box, { handle = null, canDrag = () => true, ignore = "button, a, input, textarea, select", onRest = () => {} } = {}) {
+        (handle || box).addEventListener("pointerdown", (event) => {
+            if (!canDrag() || event.button !== 0 || event.target.closest(ignore)) {
+                return;
+            }
+            const rect = box.getBoundingClientRect();
+            if (event.clientX > rect.right - 18 && event.clientY > rect.bottom - 18) {
+                return; // native resize corner
+            }
+            event.preventDefault();
+            if (box._tossFrame) {
+                cancelAnimationFrame(box._tossFrame); // a new drag catches a tossed box
+                box._tossFrame = null;
+            }
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const samples = [{ x: startX, y: startY, t: performance.now() }];
+            const target = handle || box;
+            target.setPointerCapture(event.pointerId);
+            box.classList.add("dragging");
+            const move = (moveEvent) => {
+                this.placeFloatingBox(box, rect.left + moveEvent.clientX - startX, rect.top + moveEvent.clientY - startY);
+                const now = performance.now();
+                samples.push({ x: moveEvent.clientX, y: moveEvent.clientY, t: now });
+                while (samples.length > 2 && now - samples[0].t > 100) {
+                    samples.shift(); // keep the last ~100ms for the release velocity
+                }
+            };
+            const end = (endEvent) => {
+                target.removeEventListener("pointermove", move);
+                target.removeEventListener("pointerup", end);
+                target.removeEventListener("pointercancel", end);
+                box.classList.remove("dragging");
+                if (endEvent.type === "pointerup") {
+                    this.tossFloatingBox(box, samples, onRest);
+                } else {
+                    onRest();
+                }
+            };
+            target.addEventListener("pointermove", move);
+            target.addEventListener("pointerup", end);
+            target.addEventListener("pointercancel", end);
+        });
     }
 
     // Drag the floating image by any part of it except its buttons, caption and resize corner
@@ -5243,49 +5304,10 @@ Do not include any explanation or additional text.`;
         if (!content) {
             return;
         }
-        content.addEventListener("pointerdown", (event) => {
-            if (!modal.classList.contains("image-float") || event.button !== 0) {
-                return;
-            }
-            if (event.target.closest("button, a, .product-image-modal-caption")) {
-                return;
-            }
-            const rect = content.getBoundingClientRect();
-            if (event.clientX > rect.right - 18 && event.clientY > rect.bottom - 18) {
-                return; // native resize corner
-            }
-            event.preventDefault();
-            if (content._tossFrame) {
-                cancelAnimationFrame(content._tossFrame); // a new drag catches a tossed image
-                content._tossFrame = null;
-            }
-            const startX = event.clientX;
-            const startY = event.clientY;
-            const samples = [{ x: startX, y: startY, t: performance.now() }];
-            content.setPointerCapture(event.pointerId);
-            content.classList.add("dragging");
-            const move = (moveEvent) => {
-                this.placeDraggableGalleryImage(modal, rect.left + moveEvent.clientX - startX, rect.top + moveEvent.clientY - startY);
-                const now = performance.now();
-                samples.push({ x: moveEvent.clientX, y: moveEvent.clientY, t: now });
-                while (samples.length > 2 && now - samples[0].t > 100) {
-                    samples.shift(); // keep the last ~100ms for the release velocity
-                }
-            };
-            const end = (endEvent) => {
-                content.removeEventListener("pointermove", move);
-                content.removeEventListener("pointerup", end);
-                content.removeEventListener("pointercancel", end);
-                content.classList.remove("dragging");
-                if (endEvent.type === "pointerup") {
-                    this.tossDraggableGalleryImage(modal, samples);
-                } else {
-                    this.saveGalleryImageFloat(content);
-                }
-            };
-            content.addEventListener("pointermove", move);
-            content.addEventListener("pointerup", end);
-            content.addEventListener("pointercancel", end);
+        this.setupFloatingDrag(content, {
+            canDrag: () => modal.classList.contains("image-float"),
+            ignore: "button, a, .product-image-modal-caption",
+            onRest: () => this.saveGalleryImageFloat(content)
         });
 
         // Remember a size set with the resize corner
@@ -5347,13 +5369,15 @@ Do not include any explanation or additional text.`;
     }
 
     // options.float: open in the draggable mode without changing the remembered mode
+    // options.keepTour: don't stop a running tour (Start Tour)
     async openGalleryImageModal(imageUrl, imageList = null, startIndex = null, options = {}) {
         if (!imageUrl) {
             return;
         }
 
+        // Clicking an image stops a running tour; options.keepTour (the floating image during a tour) doesn't
         const hash = (typeof getHash === 'function') ? getHash() : {};
-        if (hash && hash.detailplay === 'true' && typeof window.stopImageDetailPlay === 'function') {
+        if (!options.keepTour && hash && hash.detailplay === 'true' && typeof window.stopImageDetailPlay === 'function') {
             window.stopImageDetailPlay();
         }
 
@@ -5390,6 +5414,186 @@ Do not include any explanation or additional text.`;
         return modal;
     }
 
+    // The floating (draggable) gallery follows the current location: each new location replaces its
+    // images, starting at the first. With no images for the location, it closes. While a map is in
+    // Full Screen it opens as soon as a location has images, even if earlier locations had none.
+    syncFloatingGalleryToLocation(images) {
+        // Choosing a location (e.g. a listing's Details button) while scrolled down below a Full Screen
+        // map scrolls back up to the top of the page (header, then the map) first, so the gallery opens over the map rather
+        // than over the lower page. Not for tour stops, so the tour doesn't pull the page back up.
+        const fullscreen = document.getElementById('fullscreen');
+        const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
+        const mapInFullScreen = Object.keys(this.getMapScreenTargets()).some(t => this.getMapScreen(t) === 'full');
+        if (mapInFullScreen && fullscreen && !touring && fullscreen.getBoundingClientRect().top < -1) {
+            window.scrollTo({ top: 0 }); // top of the page: header, then the map
+        }
+
+        const modal = document.getElementById('gallery-image-modal');
+        const floating = modal && modal.classList.contains('active') && modal.classList.contains('image-float');
+        if (!floating) {
+            const centeredOpen = modal && modal.classList.contains('active'); // leave a centered image alone
+            if (mapInFullScreen && fullscreen && images && images.length && !centeredOpen) {
+                this.floatLocationImageOverMap(fullscreen);
+            }
+            return;
+        }
+        if (!images || !images.length) {
+            this.stopFloatingGallerySlides();
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            return;
+        }
+        modal._imageList = images.map(img => img.url);
+        modal._imageData = images;
+        modal._imageIndex = 0;
+        this.updateGalleryImageModal(modal);
+        this.startFloatingGallerySlides(modal);
+
+        // Already floating but not over the Full Screen map (e.g. left over the lower page): bring it back
+        if (mapInFullScreen && fullscreen) {
+            const box = modal.querySelector('.product-image-modal-content').getBoundingClientRect();
+            const mapRect = fullscreen.getBoundingClientRect();
+            const overMap = box.bottom > mapRect.top && box.top < mapRect.bottom;
+            if (!overMap) {
+                this.placeGalleryOverMap(modal, fullscreen);
+                requestAnimationFrame(() => this.moveGalleryClearOfLocationDetails(modal, fullscreen));
+            }
+        }
+    }
+
+    // During Start Tour the floating gallery advances through the location's images on its own,
+    // 4 seconds per image. When the tour moves on, any images not yet shown are skipped.
+    startFloatingGallerySlides(modal) {
+        this.stopFloatingGallerySlides();
+        const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
+        const count = (modal._imageList || []).length;
+        if (!touring || count < 2) {
+            return;
+        }
+        const interval = 4000;
+        this.floatingGallerySlideTimer = setInterval(() => {
+            const stillTouring = typeof getHash === 'function' && getHash().detailplay === 'true';
+            if (!stillTouring || !modal.classList.contains('active') || !modal.classList.contains('image-float')) {
+                this.stopFloatingGallerySlides();
+                return;
+            }
+            this.fadeGalleryImageModalTo(modal, (modal._imageIndex + 1) % modal._imageList.length);
+        }, interval);
+    }
+
+    // Cross-fade for the playing gallery: preload the next image, lay a copy of the current one over
+    // the image, switch the image underneath (already cached, so it shows at once), then fade the
+    // copy away, so one image dissolves into the next with no blank between (widget.css: .product-image-modal-fade-out)
+    fadeGalleryImageModalTo(modal, index) {
+        const image = modal.querySelector('.product-image-modal-img');
+        const list = modal._imageList || [];
+        if (!image || !list[index]) {
+            return;
+        }
+        const next = new Image();
+        const swap = () => {
+            const outgoing = image.cloneNode(false);
+            outgoing.className = 'product-image-modal-fade-out';
+            outgoing.alt = '';
+            outgoing.removeAttribute('id');
+            image.after(outgoing); // over the image, under the caption, arrows and buttons
+            modal._imageIndex = index;
+            this.updateGalleryImageModal(modal);
+            outgoing.getBoundingClientRect(); // start the fade from full opacity
+            outgoing.style.opacity = '0';
+            const remove = () => outgoing.remove();
+            outgoing.addEventListener('transitionend', remove, { once: true });
+            setTimeout(remove, 1500); // in case transitionend doesn't fire
+        };
+        next.onload = swap;
+        next.onerror = swap;
+        next.src = list[index];
+    }
+
+    stopFloatingGallerySlides() {
+        if (this.floatingGallerySlideTimer) {
+            clearInterval(this.floatingGallerySlideTimer);
+            this.floatingGallerySlideTimer = null;
+        }
+    }
+
+    // Full Screen map with a location in the hash (#id=): #locationDetails moves into a floating panel
+    // over the map's lower left. Drag it by its handle and toss it, like the floating image.
+    // It returns to its place when no map is in Full Screen (returnLocationDetails).
+    floatLocationDetailsOverMap(container) {
+        const hash = (typeof getHash === 'function') ? getHash() : {};
+        const details = document.getElementById('locationDetails');
+        if (!(hash.id || hash.detail) || !details || details.style.display === 'none') {
+            return;
+        }
+
+        let layer = document.getElementById('locationFloatLayer');
+        if (!layer) {
+            layer = document.createElement('div');
+            layer.id = 'locationFloatLayer';
+            layer.innerHTML = `
+                <div class="location-float" id="locationFloat">
+                    <div class="location-float-handle" title="Drag to move (toss to throw)">
+                        <span class="material-icons">drag_indicator</span>
+                    </div>
+                    <div class="location-float-body"></div>
+                </div>`;
+            document.body.appendChild(layer);
+            const box = layer.querySelector('.location-float');
+            this.setupFloatingDrag(box, { handle: box.querySelector('.location-float-handle') });
+        }
+        const box = layer.querySelector('.location-float');
+        const body = layer.querySelector('.location-float-body');
+
+        if (!body.contains(details)) {
+            this.locationDetailsHome = { parent: details.parentNode, next: details.nextSibling };
+            body.appendChild(details);
+        }
+        layer.style.display = '';
+
+        // Lower left of the visible part of the map: 24px from its left, 60px up from its bottom
+        requestAnimationFrame(() => {
+            const mapRect = container.getBoundingClientRect();
+            const boxRect = box.getBoundingClientRect();
+            const leftMargin = 24;
+            const bottomMargin = 60;
+            const bottom = Math.min(mapRect.bottom, window.innerHeight);
+            this.placeFloatingBox(box, mapRect.left + leftMargin, bottom - boxRect.height - bottomMargin);
+        });
+    }
+
+    returnLocationDetails() {
+        const home = this.locationDetailsHome;
+        const layer = document.getElementById('locationFloatLayer');
+        if (layer) {
+            layer.style.display = 'none';
+        }
+        if (!home) {
+            return;
+        }
+        const details = document.querySelector('#locationFloatLayer #locationDetails');
+        if (details && home.parent) {
+            const next = home.next && home.next.parentNode === home.parent ? home.next : null;
+            home.parent.insertBefore(details, next);
+        }
+        this.locationDetailsHome = null;
+    }
+
+    // render() rebuilds #listwidget, creating a fresh #locationDetails. While floating, the fresh one
+    // replaces the floated copy so there's only one.
+    refloatLocationDetails() {
+        if (!this.locationDetailsHome) {
+            return;
+        }
+        const floated = document.querySelector('#locationFloatLayer #locationDetails');
+        const fresh = [...document.querySelectorAll('#locationDetails')].find(el => !el.closest('#locationFloatLayer'));
+        if (!floated || !fresh) {
+            return;
+        }
+        this.locationDetailsHome = { parent: fresh.parentNode, next: fresh.nextSibling };
+        floated.replaceWith(fresh);
+    }
+
     // Full Screen map: float the current location's images (#id= in the hash) over the
     // map's upper right (about 13% + 30px from its top, 6% from its right), if the location has any
     async floatLocationImageOverMap(container) {
@@ -5401,20 +5605,85 @@ Do not include any explanation or additional text.`;
         if (!images.length) {
             return;
         }
-        const modal = await this.openGalleryImageModal(images[0].url, images, 0, { float: true });
+        const modal = await this.openGalleryImageModal(images[0].url, images, 0, { float: true, keepTour: true });
         const content = modal && modal.querySelector(".product-image-modal-content");
         if (!content) {
             return;
         }
+        this.startFloatingGallerySlides(modal);
         requestAnimationFrame(() => {
-            const mapRect = container.getBoundingClientRect();
-            const width = content.getBoundingClientRect().width;
-            const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
-            // About 13% of the map's height plus 30px from its top, 6% of its width from its right side (kept below the header)
-            const left = mapRect.right - mapRect.width * 0.06 - width;
-            const top = Math.max(mapRect.top + mapRect.height * 0.133 + 30, headerOffset);
-            this.placeDraggableGalleryImage(modal, left, top);
+            this.placeGalleryOverMap(modal, container);
+
+            // Then move clear of the floating location details if they overlap. The details are placed
+            // in this same frame, so check on the next one, and again once the image has loaded
+            // (its height isn't known until then).
+            requestAnimationFrame(() => this.moveGalleryClearOfLocationDetails(modal, container));
+            const image = modal.querySelector(".product-image-modal-img");
+            if (image && !image.complete) {
+                image.addEventListener("load", () => this.moveGalleryClearOfLocationDetails(modal, container), { once: true });
+            }
         });
+    }
+
+    // Default spot for the floating gallery over a Full Screen map: about 13% of the map's height plus
+    // 30px from its top, 6% of its width from its right side (kept below the header)
+    placeGalleryOverMap(modal, container) {
+        const content = modal.querySelector(".product-image-modal-content");
+        if (!content) {
+            return;
+        }
+        const mapRect = container.getBoundingClientRect();
+        const width = content.getBoundingClientRect().width;
+        const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
+        const left = mapRect.right - mapRect.width * 0.06 - width;
+        const top = Math.max(mapRect.top + mapRect.height * 0.133 + 30, headerOffset);
+        this.placeDraggableGalleryImage(modal, left, top);
+    }
+
+    // If the floating gallery overlaps the floating location details (#locationFloat), move it to the
+    // first clear spot over the visible map: the upper right, right of the details, above the details,
+    // then the upper left. If none is clear, it stays where it is.
+    moveGalleryClearOfLocationDetails(modal, container) {
+        const content = modal.querySelector(".product-image-modal-content");
+        const details = document.getElementById("locationFloat");
+        const layer = document.getElementById("locationFloatLayer");
+        if (!content || !details || !modal.classList.contains("image-float") ||
+            !layer || getComputedStyle(layer).display === "none") {
+            return;
+        }
+        const gap = 16;
+        const box = content.getBoundingClientRect();
+        const panel = details.getBoundingClientRect();
+        const overlaps = (left, top) =>
+            left < panel.right + gap && left + box.width > panel.left - gap &&
+            top < panel.bottom + gap && top + box.height > panel.top - gap;
+        if (!overlaps(box.left, box.top)) {
+            return;
+        }
+
+        // Visible part of the map, below the header
+        const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
+        const mapRect = container.getBoundingClientRect();
+        const area = {
+            left: Math.max(mapRect.left, 0),
+            top: Math.max(mapRect.top, headerOffset),
+            right: Math.min(mapRect.right, window.innerWidth),
+            bottom: Math.min(mapRect.bottom, window.innerHeight)
+        };
+        const fits = (left, top) =>
+            left >= area.left && top >= area.top &&
+            left + box.width <= area.right && top + box.height <= area.bottom;
+
+        const candidates = [
+            [area.right - box.width - gap, area.top + gap],      // upper right
+            [panel.right + gap, Math.max(panel.top, area.top + gap)], // right of the details
+            [panel.left, panel.top - box.height - gap],           // above the details
+            [area.left + gap, area.top + gap]                     // upper left
+        ];
+        const spot = candidates.find(([left, top]) => fits(left, top) && !overlaps(left, top));
+        if (spot) {
+            this.placeDraggableGalleryImage(modal, spot[0], spot[1]);
+        }
     }
 
     setupGalleryNavigation(container, images, galleryImages = []) {
@@ -5464,7 +5733,7 @@ Do not include any explanation or additional text.`;
                 const sourceLabel = this.getGalleryDisplayLabel(img) || this.formatGallerySourcePath(img.path);
                 return `
                     <div class="image-item" data-image-index="${index}">
-                        <img src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
+                        <img loading="lazy" src="${img.url}" alt="Gallery image" class="description-image" data-image-index="${index}" onerror="this.style.display='none'">
                         ${showSource ? `<div class="image-source">${sourceLabel}</div>` : ''}
                     </div>
                 `;
@@ -5629,6 +5898,138 @@ Do not include any explanation or additional text.`;
     }
 
     // save: false for light/dark swaps, so the viewer's chosen style stays cached
+    // Tour path: center and zoom at time t (0..1) of a glide from (fromCenter, fromZoom) to target —
+    // panning eased in/out, pulling out to peakZoom in the first half and in to endZoom in the second.
+    getTourPathView(map, fromCenter, fromZoom, target, t, { outZoom = 10, endZoom = 12 } = {}) {
+        const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+        const peakZoom = Math.min(outZoom, fromZoom);
+        const from = map.project(fromCenter, endZoom);
+        const to = map.project(target, endZoom);
+        const center = map.unproject(from.add(to.subtract(from).multiplyBy(easeInOut(t))), endZoom);
+        const zoom = t < 0.5
+            ? fromZoom + (peakZoom - fromZoom) * easeInOut(t / 0.5)
+            : peakZoom + (endZoom - peakZoom) * easeInOut((t - 0.5) / 0.5);
+        return { center, zoom };
+    }
+
+    // Tile URLs the map shows along a tour glide (sampled views plus the arrival), for each tile layer
+    getTourTileUrls(map, fromCenter, fromZoom, target, options = {}) {
+        const urls = new Set();
+        const layers = [];
+        map.eachLayer(layer => {
+            if (layer instanceof L.TileLayer && layer._url) layers.push(layer);
+        });
+        const size = map.getSize();
+        [0.15, 0.3, 0.5, 0.7, 0.85, 1].forEach(t => {
+            const { center, zoom } = this.getTourPathView(map, fromCenter, fromZoom, target, t, options);
+            layers.forEach(layer => {
+                const maxZoom = Math.min(layer.options.maxNativeZoom || layer.options.maxZoom || 18, layer.options.maxZoom || 18);
+                const tileZoom = Math.min(Math.round(zoom), maxZoom);
+                if (tileZoom < (layer.options.minZoom || 0)) return; // e.g. label overlays start at zoom 8
+                const tileSize = layer.getTileSize ? layer.getTileSize().x : 256;
+                const scale = Math.pow(2, tileZoom - zoom);
+                const centerPx = map.project(center, tileZoom);
+                const half = size.multiplyBy(scale / 2);
+                const min = centerPx.subtract(half).divideBy(tileSize).floor();
+                const max = centerPx.add(half).divideBy(tileSize).floor();
+                const count = Math.pow(2, tileZoom);
+                for (let x = min.x; x <= max.x; x++) {
+                    for (let y = Math.max(0, min.y); y <= Math.min(count - 1, max.y); y++) {
+                        const wrappedX = ((x % count) + count) % count;
+                        urls.add(L.Util.template(layer._url, L.extend({
+                            r: L.Browser.retina ? '@2x' : '',
+                            s: layer._getSubdomain ? layer._getSubdomain({ x: wrappedX, y }) : '',
+                            x: wrappedX,
+                            y,
+                            z: tileZoom
+                        }, layer.options)));
+                    }
+                }
+            });
+        });
+        return [...urls];
+    }
+
+    // Loads tile images into the browser cache; resolves when all finish or after maxWait ms
+    preloadTiles(urls, maxWait = 2500) {
+        this.preloadedTiles = this.preloadedTiles || new Set();
+        const pending = urls.filter(url => !this.preloadedTiles.has(url));
+        if (!pending.length) {
+            return Promise.resolve();
+        }
+        const loads = pending.map(url => new Promise(resolve => {
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                this.preloadedTiles.add(url);
+                resolve();
+            };
+            img.src = url;
+        }));
+        return Promise.race([
+            Promise.all(loads),
+            new Promise(resolve => setTimeout(resolve, maxWait)) // don't hold up the tour on slow tiles
+        ]);
+    }
+
+    // During the pause at a tour stop, preload the glide to the next stop
+    preloadNextTourStop(map, fromCenter, options = {}) {
+        const tour = window.tourState;
+        if (!tour || !tour.isPlaying || !Array.isArray(tour.listingIds) || !tour.listingIds.length) {
+            return;
+        }
+        const nextId = tour.listingIds[(tour.currentIndex + 1) % tour.listingIds.length];
+        const index = this.findListingIndexByHashId(nextId);
+        const listing = index !== null ? this.filteredListings[index] : null;
+        const coords = listing ? this.getListingCoordinates(listing) : null;
+        if (!coords) {
+            return;
+        }
+        const endZoom = options.endZoom || 12;
+        this.preloadTiles(this.getTourTileUrls(map, fromCenter, endZoom, L.latLng(coords.lat, coords.lng), options), 0);
+    }
+
+    // Tour transition: preloads the tiles along the way, then glides — pulling out to outZoom (or
+    // staying further out) while panning in the first half, moving in to arrive at endZoom on the next
+    // point. Uses Leaflet 1.9's internal _moveStart/_move/_moveEnd frame calls, as map.flyTo() does,
+    // so map.stop() cancels it too. On arrival it preloads the glide to the following stop.
+    async tourFlyTo(map, latlng, { outZoom = 10, endZoom = 12, duration = 4000 } = {}) {
+        const target = L.latLng(latlng);
+        const options = { outZoom, endZoom };
+        const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!map._loaded || reducedMotion || typeof map._move !== 'function') {
+            map.setView(target, endZoom);
+            return;
+        }
+        map.stop();
+        const flight = (this.tourFlight || 0) + 1;
+        this.tourFlight = flight;
+        const fromCenter = map.getCenter();
+        const fromZoom = map.getZoom();
+        if (map.project(fromCenter, endZoom).distanceTo(map.project(target, endZoom)) < 1 && Math.abs(fromZoom - endZoom) < 0.01) {
+            return;
+        }
+
+        await this.preloadTiles(this.getTourTileUrls(map, fromCenter, fromZoom, target, options), 2500);
+        if (this.tourFlight !== flight || !map._loaded) {
+            return; // a newer stop started while tiles loaded
+        }
+
+        const startTime = performance.now();
+        map._moveStart(true, false);
+        const frame = (now) => {
+            const t = Math.min(1, (now - startTime) / duration);
+            if (t >= 1) {
+                map._move(target, endZoom)._moveEnd(true);
+                this.preloadNextTourStop(map, target, options);
+                return;
+            }
+            const { center, zoom } = this.getTourPathView(map, fromCenter, fromZoom, target, t, options);
+            map._move(center, zoom, { flyTo: true });
+            map._flyToFrame = requestAnimationFrame(frame);
+        };
+        map._flyToFrame = requestAnimationFrame(frame);
+    }
+
     setDetailMapStyle(styleKey, { save = true } = {}) {
         if (!this.detailMap) {
             return;
@@ -6006,7 +6407,7 @@ Do not include any explanation or additional text.`;
 
     // Map screen modes ("Full Screen" / "Half Screen" in #detailmapMenu and #widgetmapWrapperMenu):
     //   full — #fullscreen, inserted just before #main-container
-    //   half — #halfscreen, at the start of #main-container
+    //   half — #halfscreen, immediately before #main-content
     // Both maps share the two containers; one map at a time per container.
     getMapScreenTargets() {
         return {
@@ -6092,8 +6493,11 @@ Do not include any explanation or additional text.`;
                 container = document.createElement('div');
                 container.id = containerId;
                 const mainContainer = document.getElementById('main-container');
+                const mainContent = document.getElementById('main-content');
                 if (mode === 'full' && mainContainer && mainContainer.parentNode) {
                     mainContainer.parentNode.insertBefore(container, mainContainer);
+                } else if (mode === 'half' && mainContent && mainContent.parentNode) {
+                    mainContent.parentNode.insertBefore(container, mainContent); // immediately before #main-content
                 } else {
                     (mainContainer || document.body).prepend(container);
                 }
@@ -6107,9 +6511,14 @@ Do not include any explanation or additional text.`;
             container.appendChild(wrapper);
             container.style.display = '';
             home.style.display = 'none';
-            container.scrollIntoView({ block: 'start' });
+            if (mode === 'half') {
+                window.scrollTo({ top: 0 }); // header and map in view; #main-content scrolls on its own
+            } else {
+                container.scrollIntoView({ block: 'start' });
+            }
             if (mode === 'full') {
                 this.floatLocationImageOverMap(container);
+                this.floatLocationDetailsOverMap(container);
             }
         } else {
             home.style.display = '';
@@ -6134,6 +6543,14 @@ Do not include any explanation or additional text.`;
                 }
             });
         });
+
+        // Half Screen: #main-content scrolls within the visible height, so the header and map stay put
+        document.body.classList.toggle('map-halfscreen-active', Object.keys(targets).some(t => this.getMapScreen(t) === 'half'));
+
+        // Location details float only while a map is in Full Screen
+        if (!Object.keys(targets).some(t => this.getMapScreen(t) === 'full')) {
+            this.returnLocationDetails();
+        }
 
         if (!this.mapScreenKeyHandler) {
             this.mapScreenKeyHandler = (event) => {
@@ -6388,7 +6805,14 @@ Do not include any explanation or additional text.`;
             }
         }
 
-        this.detailMap.setView([coords.lat, coords.lng], detailZoom);
+        // Start Tour: glide between points (out to zoom 9 while panning, in to zoom 12 on arrival)
+        const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
+        if (touring && this.detailMap._loaded) {
+            detailZoom = 12;
+            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 9, endZoom: detailZoom });
+        } else {
+            this.detailMap.setView([coords.lat, coords.lng], detailZoom);
+        }
         adjustDetailMapHeight();
         if (!this.detailMapRecenteringRequested) {
             this.detailMapRecenteringRequested = true;
@@ -7057,6 +7481,7 @@ Do not include any explanation or additional text.`;
                 </div>
             `;
             this.moveMapToCatch();
+            this.refloatLocationDetails();
         }
 
 

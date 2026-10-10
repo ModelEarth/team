@@ -1078,7 +1078,7 @@ body {
 }
 
 /* #detailmapMenu screen modes: Full Screen puts the detail map in #fullscreen (just before
-   #main-container), Half Screen in #halfscreen (at the start of #main-container) */
+   #main-container), Half Screen in #halfscreen (immediately before #main-content) */
 #fullscreen,
 #halfscreen {
   width: 100%;
@@ -1089,6 +1089,22 @@ body {
 #fullscreen,
 #halfscreen {
   height: calc(100vh - var(--headerbar-offset, var(--header-height)));
+}
+
+/* Half Screen: #main-container (flex row: map in #halfscreen just before #main-content, on its left)
+   is capped at the window height minus the header. #main-content scrolls within it, so the page
+   itself doesn't scroll and the header and map stay in view. */
+body.map-halfscreen-active #main-container {
+  /* #main-container is itself a flex item (flex: 1) in the #main-layout column, whose default
+     min-height: auto let it grow to its content and ignore this height */
+  flex: none;
+  min-height: 0;
+  height: calc(100vh - var(--headerbar-offset, var(--header-height)));
+  overflow: hidden;
+}
+
+body.map-halfscreen-active #main-content {
+  overflow-y: auto;
 }
 
 #fullscreen .detailmap-wrapper,
@@ -2413,6 +2429,19 @@ body {
   cursor: grabbing;
 }
 
+/* Playing gallery: the outgoing image fades away over the next one (fadeGalleryImageModalTo in map.js) */
+.product-image-modal-fade-out {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 1;
+  transition: opacity 0.9s ease-in-out;
+  pointer-events: none;
+}
+
 .product-image-modal.image-float .product-image-modal-img {
   display: block;
   width: 100%;
@@ -2512,4 +2541,96 @@ body {
     min-height: auto;
     padding-bottom: 18px;
   }
+}
+
+/* Full Screen map with a location (#id=): #locationDetails floats over the map's lower left
+   (floatLocationDetailsOverMap in map.js). Page-anchored layer, so it scrolls with the map;
+   clicks outside the panel reach the map. */
+#locationFloatLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  /* Above the map tiles (Leaflet panes, 400) but under the map's controls (Leaflet's control corners,
+     1000), so menus like the map's Level list open over this panel as the background menu does.
+     Also under the floating image (9999). */
+  z-index: 999;
+}
+
+/* Hidden while no location is shown (the map hides #locationDetails when #id= is cleared) */
+#locationFloatLayer:has(#locationDetails[style*="display: none"]) {
+  display: none;
+}
+
+.location-float {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: 94vw;
+  max-height: 60vh;
+  min-width: 240px;
+  min-height: 120px;
+  background: #f8fafc;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+  resize: both;
+}
+
+.location-float-handle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  cursor: grab;
+  touch-action: none;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.location-float.dragging .location-float-handle {
+  cursor: grabbing;
+}
+
+.location-float-handle .material-icons {
+  font-size: 18px;
+  transform: rotate(90deg);
+}
+
+.location-float-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.location-float .locationDetails {
+  margin: 0;
+  padding: 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* A map is already full screen, so the details' own map section is hidden here.
+   The image gallery (#location-nav, and its expanded grid) is hidden too: the location's
+   images float over the map on their own (floatLocationImageOverMap). */
+.location-float .location-map,
+.location-float #location-nav,
+.location-float .image-gallery {
+  display: none !important;
+}
+
+.dark .location-float {
+  background: #1e293b;
+}
+
+.dark .location-float-handle {
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.05);
 }
