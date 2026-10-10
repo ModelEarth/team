@@ -82,5 +82,24 @@
       "In County Name": "County"
     },
     "mapInfo": "Companies in India <!-- data pull by Sirishaupadhyayula -->"
+  },
+  "liaisons": {
+    "shortTitle": "Liaisons",
+    "menuTitle": "Camera Ready Liaisons",
+    "listTitle": "Camera Ready Communities",
+    "datatype": "csv",
+    "dataset": "https://raw.githubusercontent.com/GeorgiaFilm/cameraready_locations_curl/main/cameraready.json",
+    "markerType": "google",
+    "nameColumn": "name",
+    "id": "liaison_id",
+    "featuredColumns": ["Name", "Contact_Name", "Contact_Email", "Contact_Title", "Contact_Phone", "Office_Name", "Office_Phone"],
+    "featuredColumns2": ["Airport_Distance", "City", "State", "Zip", "Population"],
+    "citydata": ["/team/projects/map/cities.csv"],
+    "airportdata": ["/airports/us/ga/ga.csv"],
+    "airportdata_info": ["/display/data/airports/"],
+    "citylookup": "cities",
+    "nearby": ["Topography", "Filmography", "Lodging", "Shopping", "Restaurants", "Hospitals", "Media", "Notes"],
+    "omit_display": ["Address", "City", "State", "Zip", "Population", "tag", "listing_id", "liaison_id", "geo_json", "Photo1", "Phototext1", "Photo2", "Phototext2", "Photo3", "Phototext3", "Photo4", "Phototext4", "Photo5", "Phototext5", "Photo6", "Phototext6", "Photo7", "Phototext7", "Photo8", "Phototext8", "Photo9", "Phototext9", "Photo10", "Phototext10", "Photo11", "Phototext11", "Photo12", "Phototext12"],
+    "int_required": "liaison_id"
   }
 }

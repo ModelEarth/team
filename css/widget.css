@@ -1077,6 +1077,45 @@ body {
   margin-bottom: 16px;
 }
 
+/* #detailmapMenu screen modes: Full Screen puts the detail map in #fullscreen (just before
+   #main-container), Half Screen in #halfscreen (at the start of #main-container) */
+#fullscreen,
+#halfscreen {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Window height minus the header (--headerbar-offset is measured by initTopNavOffset() in localsite.js) */
+#fullscreen,
+#halfscreen {
+  height: calc(100vh - var(--headerbar-offset, var(--header-height)));
+}
+
+#fullscreen .detailmap-wrapper,
+#fullscreen .detailmap-wrap,
+#halfscreen .detailmap-wrapper,
+#halfscreen .detailmap-wrap {
+  height: 100%;
+}
+
+/* Widget map: LeafletMapManager sets a 500px inline height on #widgetmap */
+#fullscreen #widgetmapWrapper,
+#halfscreen #widgetmapWrapper,
+#fullscreen #widgetmap,
+#halfscreen #widgetmap {
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+#fullscreen #detailmap,
+#halfscreen #detailmap {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
 #detailHero {
   display: none;
   width: 100%;
@@ -2290,6 +2329,143 @@ body {
   position: static;
   transform: none;
   margin-top: 6px;
+}
+
+/* Caption + arrows wrapper: no box of its own in the fixed mode, an overlay in the draggable mode */
+.product-image-modal-overlay {
+  display: contents;
+}
+
+/* Mode button (fixed <-> draggable), beside the close button */
+.product-image-modal-mode {
+  position: absolute;
+  top: 12px;
+  right: 56px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.product-image-modal-mode .material-icons {
+  font-size: 20px;
+}
+
+.product-image-modal-mode:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.product-image-modal-close {
+  z-index: 2;
+}
+
+/* Draggable mode (class "image-float"; a plain "draggable" class collides with localsite's
+   .draggable panels in localsite/info/template-main.html): floats over the page (e.g. the map), which stays usable around it.
+   No margins; the caption and arrows float over the bottom of the image. */
+.product-image-modal.image-float {
+  pointer-events: none;
+}
+
+.product-image-modal.image-float .product-image-modal-backdrop {
+  display: none;
+}
+
+.product-image-modal.image-float .product-image-modal-content {
+  pointer-events: auto;
+  position: fixed;
+  display: block;
+  width: 360px;
+  min-width: 160px;
+  min-height: 0;
+  max-width: 94vw;
+  max-height: 90vh;
+  padding: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+  resize: both;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dark .product-image-modal.image-float .product-image-modal-content {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.product-image-modal.image-float .product-image-modal-content.dragging {
+  cursor: grabbing;
+}
+
+.product-image-modal.image-float .product-image-modal-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.product-image-modal.image-float .product-image-modal-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 10px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.product-image-modal.image-float .product-image-modal-overlay > * {
+  pointer-events: auto;
+}
+
+.product-image-modal.image-float .product-image-modal-caption {
+  margin: 0;
+  color: #fff;
+  font-size: 13px;
+}
+
+.product-image-modal.image-float .product-image-modal-caption-toggle {
+  color: #93c5fd;
+}
+
+.product-image-modal.image-float .product-image-modal-nav,
+.product-image-modal.image-float.nav-below .product-image-modal-nav {
+  position: static;
+  transform: none;
+  margin: 0;
+  padding: 4px 8px;
+  gap: 8px;
+}
+
+.product-image-modal.image-float .product-image-modal-close,
+.product-image-modal.image-float .product-image-modal-mode {
+  top: 8px;
+  width: 30px;
+  height: 30px;
+}
+
+.product-image-modal.image-float .product-image-modal-close {
+  right: 8px;
+}
+
+.product-image-modal.image-float .product-image-modal-mode {
+  right: 44px;
 }
 
 @media (max-width: 600px) {

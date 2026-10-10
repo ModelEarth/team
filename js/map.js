@@ -4999,22 +4999,27 @@ Do not include any explanation or additional text.`;
             modal.innerHTML = `
                 <div class="product-image-modal-backdrop"></div>
                 <div class="product-image-modal-content" role="dialog" aria-modal="true" aria-label="Gallery image preview">
+                    <button type="button" class="product-image-modal-mode" aria-label="Float image over the page" title="Float image over the page">
+                        <span class="material-icons">picture_in_picture_alt</span>
+                    </button>
                     <button type="button" class="product-image-modal-close" aria-label="Close image">
                         <span class="material-icons">close</span>
                     </button>
-                    <img class="product-image-modal-img" alt="Gallery image preview">
-                    <div class="product-image-modal-caption" aria-live="polite">
-                        <span class="product-image-modal-caption-text"></span>
-                        <button type="button" class="product-image-modal-caption-toggle" aria-expanded="false">More</button>
-                    </div>
-                    <div class="product-image-modal-nav" aria-hidden="true">
-                        <button type="button" class="product-image-modal-prev" aria-label="Previous image">
-                            <span class="material-icons">chevron_left</span>
-                        </button>
-                        <span class="product-image-modal-counter">1 / 1</span>
-                        <button type="button" class="product-image-modal-next" aria-label="Next image">
-                            <span class="material-icons">chevron_right</span>
-                        </button>
+                    <img class="product-image-modal-img" alt="Gallery image preview" draggable="false">
+                    <div class="product-image-modal-overlay">
+                        <div class="product-image-modal-caption" aria-live="polite">
+                            <span class="product-image-modal-caption-text"></span>
+                            <button type="button" class="product-image-modal-caption-toggle" aria-expanded="false">More</button>
+                        </div>
+                        <div class="product-image-modal-nav" aria-hidden="true">
+                            <button type="button" class="product-image-modal-prev" aria-label="Previous image">
+                                <span class="material-icons">chevron_left</span>
+                            </button>
+                            <span class="product-image-modal-counter">1 / 1</span>
+                            <button type="button" class="product-image-modal-next" aria-label="Next image">
+                                <span class="material-icons">chevron_right</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -5047,6 +5052,15 @@ Do not include any explanation or additional text.`;
 
         closeButton.addEventListener("click", closeModal);
         backdrop.addEventListener("click", closeModal);
+
+        // Mode button: fixed (centered, page behind dimmed) <-> draggable (floats over the page)
+        const modeButton = modal.querySelector(".product-image-modal-mode");
+        if (modeButton) {
+            modeButton.addEventListener("click", () => {
+                this.setGalleryImageModalMode(modal, !modal.classList.contains("image-float"));
+            });
+        }
+        this.setupGalleryImageModalDrag(modal);
         prevButton.addEventListener("click", () => stepImage(-1));
         nextButton.addEventListener("click", () => stepImage(1));
         if (captionToggle) {
@@ -5065,10 +5079,13 @@ Do not include any explanation or additional text.`;
             if (event.key === "Escape" && modal.classList.contains("active")) {
                 closeModal();
             }
-            if (event.key === "ArrowLeft" && modal.classList.contains("active")) {
+            // In draggable mode the arrows stay with the page (e.g. panning the map) unless the image has focus
+            const arrowsForImage = modal.classList.contains("active") &&
+                (!modal.classList.contains("image-float") || modal.contains(document.activeElement));
+            if (event.key === "ArrowLeft" && arrowsForImage) {
                 stepImage(-1);
             }
-            if (event.key === "ArrowRight" && modal.classList.contains("active")) {
+            if (event.key === "ArrowRight" && arrowsForImage) {
                 stepImage(1);
             }
         });
@@ -5076,6 +5093,9 @@ Do not include any explanation or additional text.`;
         window.addEventListener("resize", () => {
             if (modal.classList.contains("active")) {
                 this.adjustGalleryImageModalNav(modal);
+                if (modal.classList.contains("image-float")) {
+                    this.placeDraggableGalleryImage(modal);
+                }
             }
         });
 
@@ -5091,7 +5111,192 @@ Do not include any explanation or additional text.`;
 
         const rect = image.getBoundingClientRect();
         const isSmall = rect.width < 400 || rect.height < 400;
-        modal.classList.toggle("nav-below", isSmall);
+        modal.classList.toggle("nav-below", isSmall && !modal.classList.contains("image-float"));
+    }
+
+    // Draggable mode position/size, remembered between openings
+    loadGalleryImageFloat() {
+        try {
+            return JSON.parse(localStorage.getItem("galleryImageFloat") || "null") || {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    saveGalleryImageFloat(content) {
+        const rect = content.getBoundingClientRect();
+        const float = { left: Math.round(rect.left), top: Math.round(rect.top) };
+        if (content.style.width) float.width = content.style.width;
+        if (content.style.height) float.height = content.style.height;
+        try {
+            localStorage.setItem("galleryImageFloat", JSON.stringify(float));
+        } catch (error) {}
+    }
+
+    // Moves the floating image, keeping at least part of it on screen so it can be dragged back
+    placeDraggableGalleryImage(modal, left = null, top = null) {
+        const content = modal.querySelector(".product-image-modal-content");
+        if (!content) {
+            return;
+        }
+        const rect = content.getBoundingClientRect();
+        const x = left === null ? rect.left : left;
+        const y = top === null ? rect.top : top;
+        const keep = 60;
+        content.style.left = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x)) + "px";
+        content.style.top = Math.min(window.innerHeight - keep, Math.max(0, y)) + "px";
+    }
+
+    // fixed: centered with the page dimmed behind it. draggable: floats over the page (the map stays
+    // usable), no margins, caption and arrows over the image, drag to move, resize from the corner.
+    setGalleryImageModalMode(modal, draggable, { remember = true } = {}) {
+        const content = modal.querySelector(".product-image-modal-content");
+        const modeButton = modal.querySelector(".product-image-modal-mode");
+        modal.classList.toggle("image-float", draggable);
+        if (content) {
+            content.setAttribute("aria-modal", draggable ? "false" : "true");
+        }
+        if (modeButton) {
+            const label = draggable ? "Center image" : "Float image over the page";
+            modeButton.setAttribute("aria-label", label);
+            modeButton.title = label;
+            modeButton.querySelector(".material-icons").textContent = draggable ? "open_in_full" : "picture_in_picture_alt";
+        }
+        if (remember) {
+            try {
+                localStorage.setItem("galleryImageModalMode", draggable ? "draggable" : "fixed");
+            } catch (error) {}
+        }
+
+        if (!content) {
+            return;
+        }
+        if (draggable) {
+            const float = this.loadGalleryImageFloat();
+            content.style.width = float.width || "";
+            content.style.height = float.height || "";
+            const width = content.getBoundingClientRect().width;
+            const left = typeof float.left === "number" ? float.left : window.innerWidth - width - 24;
+            const top = typeof float.top === "number" ? float.top : 96;
+            this.placeDraggableGalleryImage(modal, left, top);
+        } else {
+            content.style.left = "";
+            content.style.top = "";
+            content.style.width = "";
+            content.style.height = "";
+        }
+        this.adjustGalleryImageModalNav(modal);
+    }
+
+    // Toss: on release the image glides on in the drag's direction and eases to a stop.
+    // Velocity comes from the last ~100ms of pointer movement; skipped for reduced motion.
+    tossDraggableGalleryImage(modal, samples) {
+        const content = modal.querySelector(".product-image-modal-content");
+        const first = samples[0];
+        const last = samples[samples.length - 1];
+        const elapsed = last.t - first.t;
+        const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        // A pause before letting go (no recent movement) means no toss
+        const stale = performance.now() - last.t > 60;
+        if (!content || reducedMotion || stale || elapsed < 16) {
+            if (content) this.saveGalleryImageFloat(content);
+            return;
+        }
+
+        const maxSpeed = 3; // px per ms
+        let vx = Math.max(-maxSpeed, Math.min(maxSpeed, (last.x - first.x) / elapsed));
+        let vy = Math.max(-maxSpeed, Math.min(maxSpeed, (last.y - first.y) / elapsed));
+        if (Math.hypot(vx, vy) < 0.2) {
+            this.saveGalleryImageFloat(content);
+            return;
+        }
+
+        const friction = 0.9; // velocity kept per 16ms frame
+        let previous = performance.now();
+        const step = (now) => {
+            const dt = Math.min(48, now - previous);
+            previous = now;
+            const rect = content.getBoundingClientRect();
+            this.placeDraggableGalleryImage(modal, rect.left + vx * dt, rect.top + vy * dt);
+            const decay = Math.pow(friction, dt / 16);
+            vx *= decay;
+            vy *= decay;
+            if (Math.hypot(vx, vy) < 0.02 || !modal.classList.contains("active")) {
+                content._tossFrame = null;
+                this.saveGalleryImageFloat(content);
+                return;
+            }
+            content._tossFrame = requestAnimationFrame(step);
+        };
+        content._tossFrame = requestAnimationFrame(step);
+    }
+
+    // Drag the floating image by any part of it except its buttons, caption and resize corner
+    setupGalleryImageModalDrag(modal) {
+        const content = modal.querySelector(".product-image-modal-content");
+        if (!content) {
+            return;
+        }
+        content.addEventListener("pointerdown", (event) => {
+            if (!modal.classList.contains("image-float") || event.button !== 0) {
+                return;
+            }
+            if (event.target.closest("button, a, .product-image-modal-caption")) {
+                return;
+            }
+            const rect = content.getBoundingClientRect();
+            if (event.clientX > rect.right - 18 && event.clientY > rect.bottom - 18) {
+                return; // native resize corner
+            }
+            event.preventDefault();
+            if (content._tossFrame) {
+                cancelAnimationFrame(content._tossFrame); // a new drag catches a tossed image
+                content._tossFrame = null;
+            }
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const samples = [{ x: startX, y: startY, t: performance.now() }];
+            content.setPointerCapture(event.pointerId);
+            content.classList.add("dragging");
+            const move = (moveEvent) => {
+                this.placeDraggableGalleryImage(modal, rect.left + moveEvent.clientX - startX, rect.top + moveEvent.clientY - startY);
+                const now = performance.now();
+                samples.push({ x: moveEvent.clientX, y: moveEvent.clientY, t: now });
+                while (samples.length > 2 && now - samples[0].t > 100) {
+                    samples.shift(); // keep the last ~100ms for the release velocity
+                }
+            };
+            const end = (endEvent) => {
+                content.removeEventListener("pointermove", move);
+                content.removeEventListener("pointerup", end);
+                content.removeEventListener("pointercancel", end);
+                content.classList.remove("dragging");
+                if (endEvent.type === "pointerup") {
+                    this.tossDraggableGalleryImage(modal, samples);
+                } else {
+                    this.saveGalleryImageFloat(content);
+                }
+            };
+            content.addEventListener("pointermove", move);
+            content.addEventListener("pointerup", end);
+            content.addEventListener("pointercancel", end);
+        });
+
+        // Remember a size set with the resize corner
+        if (typeof ResizeObserver === "function") {
+            let saveFrame = null;
+            new ResizeObserver(() => {
+                if (!modal.classList.contains("image-float") || !modal.classList.contains("active") || saveFrame) {
+                    return;
+                }
+                saveFrame = requestAnimationFrame(() => {
+                    saveFrame = null;
+                    if (content.style.width || content.style.height) {
+                        this.saveGalleryImageFloat(content);
+                    }
+                });
+            }).observe(content);
+        }
     }
 
     updateGalleryImageModal(modal) {
@@ -5135,7 +5340,8 @@ Do not include any explanation or additional text.`;
         this.adjustGalleryImageModalNav(modal);
     }
 
-    async openGalleryImageModal(imageUrl, imageList = null, startIndex = null) {
+    // options.float: open in the draggable mode without changing the remembered mode
+    async openGalleryImageModal(imageUrl, imageList = null, startIndex = null, options = {}) {
         if (!imageUrl) {
             return;
         }
@@ -5165,6 +5371,44 @@ Do not include any explanation or additional text.`;
         this.updateGalleryImageModal(modal);
         modal.classList.add("active");
         modal.setAttribute("aria-hidden", "false");
+
+        if (options.float) {
+            this.setGalleryImageModalMode(modal, true, { remember: false });
+            return modal;
+        }
+        let savedMode = "fixed";
+        try {
+            savedMode = localStorage.getItem("galleryImageModalMode") || "fixed";
+        } catch (error) {}
+        this.setGalleryImageModalMode(modal, savedMode === "draggable");
+        return modal;
+    }
+
+    // Full Screen map: float the current location's images (#id= in the hash) over the
+    // map's upper right (about 13% + 30px from its top, 6% from its right), if the location has any
+    async floatLocationImageOverMap(container) {
+        const hash = (typeof getHash === 'function') ? getHash() : {};
+        if (!(hash.id || hash.detail)) {
+            return;
+        }
+        const images = this.getListingImages(this.getSelectedListing());
+        if (!images.length) {
+            return;
+        }
+        const modal = await this.openGalleryImageModal(images[0].url, images, 0, { float: true });
+        const content = modal && modal.querySelector(".product-image-modal-content");
+        if (!content) {
+            return;
+        }
+        requestAnimationFrame(() => {
+            const mapRect = container.getBoundingClientRect();
+            const width = content.getBoundingClientRect().width;
+            const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
+            // About 13% of the map's height plus 30px from its top, 6% of its width from its right side (kept below the header)
+            const left = mapRect.right - mapRect.width * 0.06 - width;
+            const top = Math.max(mapRect.top + mapRect.height * 0.133 + 30, headerOffset);
+            this.placeDraggableGalleryImage(modal, left, top);
+        });
     }
 
     setupGalleryNavigation(container, images, galleryImages = []) {
@@ -5681,6 +5925,8 @@ Do not include any explanation or additional text.`;
         setTimeout(() => {
             if (typeof buildMenuConfig === 'function' && typeof document !== 'undefined') {
                 const menuItems = buildMenuConfig('Map', 'detailmap', '');
+                // "Full Screen" and "Half Screen" above "Expand Map" (see toggleMapScreen)
+                this.addMapScreenMenuItems('detail', menuItems);
                 let menuHtml = `<div id="detailmapMenu" class="menuToggleMenu" style="display:none;">`;
                 menuItems.forEach(item => {
                     if (item.divider) {
@@ -5718,6 +5964,11 @@ Do not include any explanation or additional text.`;
                 if (typeof setupPanelMenuEvents === 'function') {
                     setupPanelMenuEvents('detailmap', 'Map');
                 }
+                ['full', 'half'].forEach(mode => {
+                    document.querySelector(`#detailmapMenu [data-action="${mode}screen"]`)?.addEventListener('click', () => {
+                        this.toggleMapScreen('detail', mode);
+                    });
+                });
                 if (!window.panelMenuOptions) {
                     window.panelMenuOptions = {};
                 }
@@ -5730,6 +5981,10 @@ Do not include any explanation or additional text.`;
                     toggleExpand: () => this.toggleDetailMapHero(),
                     // "Hide Map" also hides #detailHero; an expanded map first returns to its placeholder
                     onHide: () => {
+                        const screenMode = this.getMapScreen('detail');
+                        if (screenMode) {
+                            this.toggleMapScreen('detail', screenMode);
+                        }
                         if (this.isDetailMapInHero()) {
                             this.toggleDetailMapHero();
                         }
@@ -5741,6 +5996,154 @@ Do not include any explanation or additional text.`;
                 };
             }
         }, 100);
+    }
+
+    // Map screen modes ("Full Screen" / "Half Screen" in #detailmapMenu and #widgetmapWrapperMenu):
+    //   full — #fullscreen, inserted just before #main-container
+    //   half — #halfscreen, at the start of #main-container
+    // Both maps share the two containers; one map at a time per container.
+    getMapScreenTargets() {
+        return {
+            detail: {
+                wrapperId: 'detailmapWrapper',
+                homeId: 'detailmapPlaceholder',
+                menuId: 'detailmapMenu',
+                inHero: () => this.isDetailMapInHero(),
+                leaveHero: () => this.toggleDetailMapHero(),
+                map: () => this.detailMap
+            },
+            widget: {
+                wrapperId: 'widgetmapWrapper',
+                homeId: 'pageMap',
+                menuId: 'widgetmapWrapperMenu',
+                inHero: () => {
+                    const hero = document.getElementById('widgetHero');
+                    const wrapper = document.getElementById('widgetmapWrapper');
+                    return !!(hero && wrapper && hero.contains(wrapper) && hero.style.display !== 'none');
+                },
+                leaveHero: () => {
+                    if (typeof handlePanelAction === 'function') handlePanelAction('collapse', 'widgetmapWrapper', 'Map');
+                },
+                map: () => (window.leafletMap ? window.leafletMap.map : null)
+            }
+        };
+    }
+
+    getMapScreenContainerId(mode) {
+        return mode === 'full' ? 'fullscreen' : 'halfscreen';
+    }
+
+    // Which screen mode holds the target's map ('detail' or 'widget'), if any
+    getMapScreen(target = 'detail') {
+        const wrapper = document.getElementById(this.getMapScreenTargets()[target].wrapperId);
+        if (!wrapper) return null;
+        return ['full', 'half'].find(mode => {
+            const container = document.getElementById(this.getMapScreenContainerId(mode));
+            return container && container.contains(wrapper);
+        }) || null;
+    }
+
+    getMapScreenItem(target, mode) {
+        const active = this.getMapScreen(target) === mode;
+        const name = mode === 'full' ? 'Full Screen' : 'Half Screen';
+        return {
+            label: active ? `Exit ${name}` : name,
+            icon: active ? 'fullscreen_exit' : (mode === 'full' ? 'fullscreen' : 'splitscreen')
+        };
+    }
+
+    // Menu items for a map's panel menu, placed above "Expand"
+    addMapScreenMenuItems(target, menuItems) {
+        const expandIndex = menuItems.findIndex(item => item.action === 'expand');
+        const screenItems = ['full', 'half'].map(mode => {
+            const { label, icon } = this.getMapScreenItem(target, mode);
+            return { label, action: `${mode}screen`, icon };
+        });
+        menuItems.splice(expandIndex >= 0 ? expandIndex : 0, 0, ...screenItems);
+        return menuItems;
+    }
+
+    // Moves the target map's wrapper into the mode's container, or back home when that mode is
+    // already active. Switching between Full and Half moves it directly. Escape also exits.
+    toggleMapScreen(target, mode) {
+        const targets = this.getMapScreenTargets();
+        const config = targets[target];
+        const wrapper = document.getElementById(config.wrapperId);
+        const home = document.getElementById(config.homeId);
+        if (!wrapper || !home) {
+            return;
+        }
+
+        const entering = this.getMapScreen(target) !== mode;
+
+        if (entering) {
+            if (config.inHero()) {
+                config.leaveHero(); // return from the hero first
+            }
+            const containerId = this.getMapScreenContainerId(mode);
+            let container = document.getElementById(containerId);
+            if (!container) {
+                container = document.createElement('div');
+                container.id = containerId;
+                const mainContainer = document.getElementById('main-container');
+                if (mode === 'full' && mainContainer && mainContainer.parentNode) {
+                    mainContainer.parentNode.insertBefore(container, mainContainer);
+                } else {
+                    (mainContainer || document.body).prepend(container);
+                }
+            }
+            // The other map goes home if it's using this container
+            Object.keys(targets).forEach(other => {
+                if (other !== target && this.getMapScreen(other) === mode) {
+                    this.toggleMapScreen(other, mode);
+                }
+            });
+            container.appendChild(wrapper);
+            container.style.display = '';
+            home.style.display = 'none';
+            container.scrollIntoView({ block: 'start' });
+            if (mode === 'full') {
+                this.floatLocationImageOverMap(container);
+            }
+        } else {
+            home.style.display = '';
+            home.appendChild(wrapper);
+        }
+
+        // Hide screen containers left empty
+        ['full', 'half'].forEach(m => {
+            const container = document.getElementById(this.getMapScreenContainerId(m));
+            if (container && !container.children.length) {
+                container.style.display = 'none';
+            }
+        });
+
+        // Menu labels: "Exit …" for the active mode
+        Object.keys(targets).forEach(t => {
+            ['full', 'half'].forEach(m => {
+                const item = document.querySelector(`#${targets[t].menuId} [data-action="${m}screen"]`);
+                if (item) {
+                    const { label, icon } = this.getMapScreenItem(t, m);
+                    item.innerHTML = `<i class="material-icons">${icon}</i>${label}`;
+                }
+            });
+        });
+
+        if (!this.mapScreenKeyHandler) {
+            this.mapScreenKeyHandler = (event) => {
+                if (event.key !== 'Escape') return;
+                Object.keys(this.getMapScreenTargets()).forEach(t => {
+                    const activeMode = this.getMapScreen(t);
+                    if (activeMode) this.toggleMapScreen(t, activeMode);
+                });
+            };
+            document.addEventListener('keydown', this.mapScreenKeyHandler);
+        }
+
+        const map = config.map();
+        if (map) {
+            requestAnimationFrame(() => map.invalidateSize());
+        }
     }
 
     isDetailMapInHero() {
@@ -5770,6 +6173,10 @@ Do not include any explanation or additional text.`;
     }
 
     toggleDetailMapHero(button) {
+        const screenMode = this.getMapScreen('detail');
+        if (screenMode) {
+            this.toggleMapScreen('detail', screenMode); // leave full/half screen before expanding into the hero
+        }
         const wrapper = document.getElementById('detailmapWrapper');
         const placeholder = document.getElementById('detailmapPlaceholder');
         const heroContainer = document.getElementById('detailHero');
@@ -6721,7 +7128,23 @@ Do not include any explanation or additional text.`;
                 const mapMenu = addPanelMenu({
                     panelType: 'Map',
                     targetPanelId: 'widgetmapWrapper',
-                    containerSelector: '#widgetmapWrapper'
+                    containerSelector: '#widgetmapWrapper',
+                    // "Full Screen" and "Half Screen" above "Expand Map", as in #detailmapMenu
+                    menuItems: this.addMapScreenMenuItems('widget', buildMenuConfig('Map', 'widgetmapWrapper', '', 'Map')),
+                    onAction: (action) => {
+                        if (action === 'fullscreen' || action === 'halfscreen') {
+                            this.toggleMapScreen('widget', action === 'fullscreen' ? 'full' : 'half');
+                            return true;
+                        }
+                        // While in full/half screen the menu reads "Collapse Map" (the map has left #pageMap):
+                        // bring the map home rather than expanding it into the hero
+                        const screenMode = this.getMapScreen('widget');
+                        if ((action === 'expand' || action === 'collapse') && screenMode) {
+                            this.toggleMapScreen('widget', screenMode);
+                            return true;
+                        }
+                        return false;
+                    }
                 });
                 mapMenu.render();
             }
