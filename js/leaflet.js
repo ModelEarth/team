@@ -65,6 +65,32 @@ window.mapIconUtils = window.mapIconUtils || {
     }
 };
 
+// Map style for the site's light/dark mode (body.dark, set by localsite's setSitelook), matching
+// basemapForSitelook() in localsite/js/localsite.js: in dark mode a grayscale style shows as Dark Mode,
+// and in light mode Dark Mode or Darker Mode shows as Grayscale. Used for #widgetmap and #detailmap.
+// At zoom 8 and above, dark mode uses Dark Mode rather than Darker Mode, so street detail stays visible.
+function leafletStyleForSitelook(styleKey, styles, zoom) {
+    const dark = document.body.classList.contains('dark');
+    if (dark && (styleKey === 'light' || styleKey === 'monochrome') && styles.darkgray) {
+        return 'darkgray';
+    }
+    if (dark && styleKey === 'dark' && zoom >= 8 && styles.darkgray) {
+        return 'darkgray';
+    }
+    if (!dark && (styleKey === 'darkgray' || styleKey === 'dark') && styles.light) {
+        return 'light';
+    }
+    return styleKey;
+}
+
+// On a light/dark toggle, swap the current widget map's background. The viewer's saved style is kept,
+// so it returns when the mode switches back. (Bound once; window.leafletMap is the live instance.)
+document.addEventListener('sitelookchange', () => {
+    if (window.leafletMap && typeof window.leafletMap.applySitelookStyle === 'function') {
+        window.leafletMap.applySitelookStyle();
+    }
+});
+
 class LeafletMapManager {
     constructor(containerId = 'map', options = {}) {
         // Debug: track when map is being created/recreated
@@ -352,8 +378,9 @@ class LeafletMapManager {
             this.currentMapStyle = cachedStyle;
         }
         
-        // Add initial tile layer
-        this.setMapStyle(this.currentMapStyle);
+        // Add initial tile layer, following the site's light/dark mode
+        this.preferredMapStyle = this.currentMapStyle;
+        this.setMapStyle(leafletStyleForSitelook(this.currentMapStyle, this.mapStyles, this.map.getZoom()));
         
         // Add zoom event listener for dynamic icon sizing and user zoom tracking
         this.map.on('zoomend', () => {
@@ -417,6 +444,7 @@ class LeafletMapManager {
             // Handle style changes
             const select = div.querySelector('.map-style-select');
             select.addEventListener('change', (e) => {
+                this.preferredMapStyle = e.target.value;
                 this.setMapStyle(e.target.value);
                 this.saveCachedMapStyle(e.target.value);
             });
@@ -427,6 +455,16 @@ class LeafletMapManager {
         styleControl.addTo(this.map);
     }
     
+    // Light/dark toggle: show the style for the new mode without changing the saved choice
+    applySitelookStyle() {
+        if (!this.map || !document.body.contains(this.map.getContainer())) return;
+        const styleKey = leafletStyleForSitelook(this.preferredMapStyle || this.currentMapStyle, this.mapStyles, this.map.getZoom());
+        if (styleKey === this.currentMapStyle) return;
+        this.setMapStyle(styleKey);
+        const select = this.map.getContainer().querySelector('.map-style-select');
+        if (select) select.value = styleKey;
+    }
+
     setMapStyle(styleKey) {
         if (!this.mapStyles[styleKey]) return;
         

@@ -1197,8 +1197,10 @@ body {
 
 .location-content {
   display: flex;
+  flex-wrap: wrap; /* .location-map falls below the details when narrow */
   gap: 24px;
   align-items: flex-start;
+  container: location-content / inline-size;
 }
 
 .locationDetails.detailmap-expanded .location-content {
@@ -1215,13 +1217,23 @@ body {
 }
 
 .location-details {
-  flex: 1;
+  flex: 1 1 300px;
   min-width: 0;
 }
 
+/* 420px wide when there's room. As .location-content narrows it shrinks toward 260px
+   (its high flex-grow fills it to 420px before the details grow), then wraps below the details. */
 .location-map {
-  width: 323px;
-  flex-shrink: 0;
+  flex: 100 0 260px;
+  max-width: 420px;
+}
+
+/* Narrow (below 300px details + 24px gap + 260px map): the map sits below the details at full width */
+@container location-content (max-width: 583px) {
+  .location-map {
+    flex-basis: 100%;
+    max-width: none;
+  }
 }
 
 #detailmap {
@@ -2291,6 +2303,7 @@ body {
 
   .location-map {
     width: 100%;
+    max-width: none;
   }
 }
 

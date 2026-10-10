@@ -5314,7 +5314,7 @@ Do not include any explanation or additional text.`;
         const cachedStyle = window.leafletMap && typeof window.leafletMap.loadCachedMapStyle === 'function'
             ? window.leafletMap.loadCachedMapStyle()
             : null;
-        const preferredStyle = cachedStyle || (window.leafletMap ? window.leafletMap.currentMapStyle : null);
+        const preferredStyle = cachedStyle || (window.leafletMap ? (window.leafletMap.preferredMapStyle || window.leafletMap.currentMapStyle) : null);
 
         if (preferredStyle && styles[preferredStyle]) {
             return preferredStyle;
@@ -5324,7 +5324,26 @@ Do not include any explanation or additional text.`;
         return styleKeys.length ? styleKeys[0] : 'openstreetmap';
     }
 
-    setDetailMapStyle(styleKey) {
+    // Style for the site's light/dark mode (leafletStyleForSitelook in team/js/leaflet.js)
+    detailStyleForSitelook(styleKey) {
+        return typeof leafletStyleForSitelook === 'function'
+            ? leafletStyleForSitelook(styleKey, this.getDetailMapStyles(), this.detailMap ? this.detailMap.getZoom() : 0)
+            : styleKey;
+    }
+
+    // Light/dark toggle: swap the detail map background, keeping the viewer's saved style
+    applyDetailMapSitelook() {
+        if (!this.detailMap || !this.detailMapCurrentStyle) {
+            return;
+        }
+        const styleKey = this.detailStyleForSitelook(this.detailMapPreferredStyle || this.detailMapCurrentStyle);
+        if (styleKey !== this.detailMapCurrentStyle) {
+            this.setDetailMapStyle(styleKey, { save: false });
+        }
+    }
+
+    // save: false for light/dark swaps, so the viewer's chosen style stays cached
+    setDetailMapStyle(styleKey, { save = true } = {}) {
         if (!this.detailMap) {
             return;
         }
@@ -5374,7 +5393,7 @@ Do not include any explanation or additional text.`;
             });
         }
 
-        if (window.leafletMap && typeof window.leafletMap.saveCachedMapStyle === 'function') {
+        if (save && window.leafletMap && typeof window.leafletMap.saveCachedMapStyle === 'function') {
             window.leafletMap.saveCachedMapStyle(styleKey);
         }
 
@@ -5427,7 +5446,8 @@ Do not include any explanation or additional text.`;
             }
             this.refreshDetailMapStyleOptions();
             const defaultStyle = this.getDetailMapDefaultStyleKey();
-            this.setDetailMapStyle(defaultStyle);
+            this.detailMapPreferredStyle = defaultStyle;
+            this.setDetailMapStyle(this.detailStyleForSitelook(defaultStyle), { save: false });
         };
 
         requestAnimationFrame(waitForStyles);
@@ -5478,6 +5498,7 @@ Do not include any explanation or additional text.`;
             });
 
             select.addEventListener('change', (event) => {
+                this.detailMapPreferredStyle = event.target.value;
                 this.setDetailMapStyle(event.target.value);
                 this.closeDetailMapControl(div);
             });
@@ -5670,7 +5691,17 @@ Do not include any explanation or additional text.`;
                     expandBehavior: 'custom',
                     siblingPanelId: 'detailmapWrapper',
                     isExpanded: () => this.isDetailMapInHero(),
-                    toggleExpand: () => this.toggleDetailMapHero()
+                    toggleExpand: () => this.toggleDetailMapHero(),
+                    // "Hide Map" also hides #detailHero; an expanded map first returns to its placeholder
+                    onHide: () => {
+                        if (this.isDetailMapInHero()) {
+                            this.toggleDetailMapHero();
+                        }
+                        const heroContainer = document.getElementById('detailHero');
+                        if (heroContainer) {
+                            heroContainer.style.display = 'none';
+                        }
+                    }
                 };
             }
         }, 100);
@@ -7442,6 +7473,14 @@ Do not include any explanation or additional text.`;
         });
     }
 }
+
+// Light/dark toggle (localsite setSitelook): swap the #detailmap background.
+// #widgetmap is handled in team/js/leaflet.js.
+document.addEventListener('sitelookchange', () => {
+    if (window.listingsApp && typeof window.listingsApp.applyDetailMapSitelook === 'function') {
+        window.listingsApp.applyDetailMapSitelook();
+    }
+});
 
 // Initialize the application when DOM is loaded or immediately if already loaded
 function initializeWidget() {
