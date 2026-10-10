@@ -360,6 +360,22 @@ class LeafletMapManager {
             this.map.zoomControl.setPosition('bottomright');
         }
 
+        // Re-measure whenever the map's container changes size (Expand Map into #widgetHero, Collapse,
+        // moving into #mapCatch), so Leaflet loads tiles for the whole visible area, not just the old size.
+        if (typeof ResizeObserver === 'function') {
+            const map = this.map;
+            let resizeFrame = null;
+            const resizeObserver = new ResizeObserver(() => {
+                if (resizeFrame) return;
+                resizeFrame = requestAnimationFrame(() => {
+                    resizeFrame = null;
+                    if (map._loaded) map.invalidateSize();
+                });
+            });
+            resizeObserver.observe(map.getContainer());
+            map.on('unload', () => resizeObserver.disconnect());
+        }
+
         
         // Add click event to toggle scroll zoom
         this.map.on('click', () => {

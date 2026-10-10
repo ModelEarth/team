@@ -513,13 +513,18 @@ body {
     padding: 24px;
 }
 
+/* The error renders inside .listings-grid, so span every grid column rather than one 350px+ cell */
+.listing-error {
+    grid-column: 1 / -1;
+}
+
 .error-box {
     background: #fef2f2;
     border: 1px solid #fecaca;
     color: #dc2626;
     padding: 16px;
     border-radius: 8px;
-    display: inline-block;
+    display: block; /* full width (was inline-block, which shrank to the text) */
 }
 
 .error-title {
@@ -885,7 +890,6 @@ body {
     min-heightX: calc(100vh - 200px); /* Account for header space */
     min-height: 400px;
     gap: 16px;
-    margin-bottom: 20px;
     overflow: visible;
 }
 

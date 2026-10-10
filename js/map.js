@@ -690,7 +690,23 @@ class ListingsDisplay {
         // Clear any previous geo merge info
         this.geoMergeInfo = null;
         
-        let data = await this.loadDataFromConfig(showConfig);
+        let data;
+        try {
+            data = await this.loadDataFromConfig(showConfig);
+        } catch (err) {
+            // Dataset file missing or unreadable (e.g. "Failed to load Excel: 404 File not found"):
+            // show the error inline (renderListings) instead of an uncaught promise rejection
+            console.error('Dataset load failed:', err);
+            const datasetPath = showConfig.dataset || showConfig.googleCSV || '';
+            const esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            this.dataLoadError = esc(err.message) + (datasetPath ? '<br>' + esc(datasetPath) : '');
+            this.listings = [];
+            this.filteredListings = [];
+            this.loading = false;
+            this.dataLoaded = true;
+            this.render();
+            return;
+        }
         
         // Merge geoDataset if specified in showConfig
         if (showConfig.geoDataset && showConfig.geoColumns && showConfig.geoColumns.length > 0) {
@@ -1417,7 +1433,27 @@ Do not include any explanation or additional text.`;
         return [];
     }
 
+    // Loads SheetJS on demand (same version as team/js/list.js), so Excel datasets work on pages
+    // that don't include it themselves. Reuses a pending load if one is already in progress.
+    loadXlsxLibrary() {
+        if (window.XLSX) return Promise.resolve();
+        if (!window.xlsxLibraryPromise) {
+            window.xlsxLibraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                script.onload = () => resolve();
+                script.onerror = () => {
+                    window.xlsxLibraryPromise = null;
+                    reject(new Error('XLSX library failed to load'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        return window.xlsxLibraryPromise;
+    }
+
     async loadExcelData(url, config = null) {
+        await this.loadXlsxLibrary();
         if (!window.XLSX) {
             throw new Error('XLSX library not loaded');
         }
