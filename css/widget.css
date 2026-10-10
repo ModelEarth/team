@@ -2369,7 +2369,15 @@ body {
 /* Draggable mode (class "image-float"; a plain "draggable" class collides with localsite's
    .draggable panels in localsite/info/template-main.html): floats over the page (e.g. the map), which stays usable around it.
    No margins; the caption and arrows float over the bottom of the image. */
+/* Anchored to the page rather than the window, so the floating image scrolls with the map */
 .product-image-modal.image-float {
+  position: absolute;
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -2379,7 +2387,7 @@ body {
 
 .product-image-modal.image-float .product-image-modal-content {
   pointer-events: auto;
-  position: fixed;
+  position: absolute;
   display: block;
   width: 360px;
   min-width: 160px;

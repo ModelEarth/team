@@ -5139,12 +5139,18 @@ Do not include any explanation or additional text.`;
         if (!content) {
             return;
         }
+        // left/top are window (client) coordinates, clamped to the window. The floating box is
+        // positioned within the page (the modal root, see .image-float in widget.css), so the stored
+        // offsets are converted to the root's coordinates and the image scrolls with the page and map.
         const rect = content.getBoundingClientRect();
+        const rootRect = modal.getBoundingClientRect();
         const x = left === null ? rect.left : left;
         const y = top === null ? rect.top : top;
         const keep = 60;
-        content.style.left = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x)) + "px";
-        content.style.top = Math.min(window.innerHeight - keep, Math.max(0, y)) + "px";
+        const clientX = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x));
+        const clientY = Math.min(window.innerHeight - keep, Math.max(0, y));
+        content.style.left = (clientX - rootRect.left) + "px";
+        content.style.top = (clientY - rootRect.top) + "px";
     }
 
     // fixed: centered with the page dimmed behind it. draggable: floats over the page (the map stays
