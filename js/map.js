@@ -4738,6 +4738,36 @@ Do not include any explanation or additional text.`;
                     ${notesText ? `<div class="location-notes">${notesText}</div>` : ''}
                     ${sharedRowsMarkup ? `<div class="location-summary">${sharedRowsMarkup}</div>` : ''}
                 </div>
+                <!-- "More" and "Even More" rows open above the buttons -->
+                ${hasMetaRows || moreCount || evenMoreCount ? `
+                    <div class="location-meta" id="${metaId}">
+                        ${metaRows.filteredRows.filter(row => {
+                            // Omit Airport Distance if it's shown in the dedicated Airports section
+                            if (hasAirportDistance && row.label && row.label.toLowerCase().replace(/\s+/g, '') === 'airportdistance') {
+                                return false;
+                            }
+                            return true;
+                        }).map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value}</span>
+                            </div>
+                        `).join('')}
+                        ${(isDevMode && evenMoreCount > moreCount) ? `
+                            <div style="margin-top:10px">
+                                <button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount - moreCount})" data-toggle-type="meta">Even More (${evenMoreCount - moreCount})</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="location-meta" id="${evenMetaId}">
+                        ${metaRows.unfilteredRows.map(row => `
+                            <div class="location-row">
+                                <span class="location-label">${row.label}</span>
+                                <span class="location-value">${row.value || '-'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
                 ${(options.showMetaButtons && (viewDetailsButton || hasNearby || hasAirportDistance || moreCount)) ? `
                     <div class="details-more-actions" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -4787,35 +4817,6 @@ Do not include any explanation or additional text.`;
                             const content = [csvLink, infoText].filter(Boolean).join(' | ');
                             return `<div class="location-row no-label" style="margin-top: 8px;"><span>${content}</span></div>`;
                         })() : ''}
-                    </div>
-                ` : ''}
-                ${hasMetaRows || moreCount || evenMoreCount ? `
-                    <div class="location-meta" id="${metaId}">
-                        ${metaRows.filteredRows.filter(row => {
-                            // Omit Airport Distance if it's shown in the dedicated Airports section
-                            if (hasAirportDistance && row.label && row.label.toLowerCase().replace(/\s+/g, '') === 'airportdistance') {
-                                return false;
-                            }
-                            return true;
-                        }).map(row => `
-                            <div class="location-row">
-                                <span class="location-label">${row.label}</span>
-                                <span class="location-value">${row.value}</span>
-                            </div>
-                        `).join('')}
-                        ${(isDevMode && evenMoreCount > moreCount) ? `
-                            <div style="margin-top:10px">
-                                <button class="location-more-toggle location-btn meta-toggle" type="button" data-group="${metaGroup}" data-target="${evenMetaId}" data-label="Even More (${evenMoreCount - moreCount})" data-toggle-type="meta">Even More (${evenMoreCount - moreCount})</button>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="location-meta" id="${evenMetaId}">
-                        ${metaRows.unfilteredRows.map(row => `
-                            <div class="location-row">
-                                <span class="location-label">${row.label}</span>
-                                <span class="location-value">${row.value || '-'}</span>
-                            </div>
-                        `).join('')}
                     </div>
                 ` : ''}
                 ${!hasMetaRows && !hasNearby && !hasAirportDistance && !moreCount && !evenMoreCount ? '<div class="location-empty">No details available.</div>' : ''}

@@ -660,6 +660,11 @@ body {
     margin: 0;
 }
 
+/* Outranks panel heading margins such as the engine page's .ae-panel h3 (margin-bottom: 14px) */
+.listing-card .listing-title {
+    margin: 0;
+}
+
 .dark .listing-content,
 .dark .listing-title,
 .dark .listing-name {
@@ -1504,6 +1509,11 @@ body.map-halfscreen-active #main-content {
 
 .location-summary {
   margin-top: 10px;
+}
+
+/* Just a little space above the first field (e.g. .location-summary when a listing has no contact or address) */
+#generalFields > :first-child {
+  margin-top: 2px;
 }
 
 .location-meta {
