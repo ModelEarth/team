@@ -12,7 +12,8 @@ class PrintDownloadWidget {
                     margin: 0 5px;
                 }
                 
-                .print-download-icon {
+                /* a: selectors keep link icons grey instead of the site's blue link color */
+                .print-download-icon, a.print-download-icon:link, a.print-download-icon:visited {
                     display: inline-block;
                     vertical-align: middle;
                     width: 32px;
@@ -37,18 +38,18 @@ class PrintDownloadWidget {
                     user-select: none;
                 }
 
-                .print-download-icon:hover {
+                .print-download-icon:hover, a.print-download-icon:hover {
                     background: #e5e5e5;
                     color: #666;
                 }
 
-                .dark .print-download-icon {
+                .dark .print-download-icon, .dark a.print-download-icon:link, .dark a.print-download-icon:visited {
                     background: #3a3a3a;
                     border-color: #555;
                     color: #888;
                 }
 
-                .dark .print-download-icon:hover {
+                .dark .print-download-icon:hover, .dark a.print-download-icon:hover {
                     background: #4a4a4a;
                     color: #aaa;
                 }
@@ -151,9 +152,17 @@ class PrintDownloadWidget {
     static createLinkIcon(containerId, options = {}) {
         this.createPrintDownloadIcons();
 
+        // "View Film" opens the page outside the iframe, so it shows only when this page is in an iframe
+        let inIframe = false;
+        try {
+            inIframe = window.self !== window.top;
+        } catch (error) {
+            inIframe = true; // a cross-origin parent blocks the check, which means we're framed
+        }
+
         const linkIcon = `
-            <div class="print-download-container">
-                <a class="print-download-icon local" href="/explore/film/iframe-content.html" target="_blank" rel="noopener" title="View Film" style="display:none">
+            <div class="print-download-container" id="viewOutsideIFrame"${inIframe ? '' : ' style="display:none"'}>
+                <a class="print-download-icon" href="/explore/film/iframe-content.html" target="_blank" rel="noopener" title="View Film">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
@@ -240,7 +249,7 @@ class PrintDownloadWidget {
         
         const printIcon = `
             <div class="print-download-container">
-                <div class="print-download-icon local" title="Print Options" style="display:none">
+                <div class="print-download-icon" title="Print Options">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6,9 6,2 18,2 18,9"></polyline>
                         <path d="M6,18 L4,18 C2.9,18 2,17.1 2,16 L2,11 C2,9.9 2.9,9 4,9 L20,9 C21.1,9 22,9.9 22,11 L22,16 C22,17.1 21.1,18 20,18 L18,18"></path>
@@ -390,17 +399,12 @@ class PrintDownloadWidget {
         };
         
         document.addEventListener('click', this.clickHandlers[containerId]);
+        this.applyPrintMode(options);
     }
     
-    static handlePrint(printType, options = {}) {
-        // Hide print/download controls during printing
-        const printControls = document.querySelectorAll('.print-download-container');
-        printControls.forEach(control => control.style.display = 'none');
-        
-        // Apply print-specific styles
-        const printStyles = document.createElement('style');
-        printStyles.setAttribute('media', 'print');
-        
+    // CSS rules for a print layout (map, list or content), without an @media wrapper,
+    // so handlePrint can apply them to printing and printmode can apply them on screen.
+    static getPrintRules(printType, options = {}) {
         // Marker colors (.marker-pin, .marker-dot, .marker-dot-tiny in leaflet.js) are plain
         // background colors, which browsers strip by default when printing unless told to
         // keep them exactly - without this the map pins print as an empty white teardrop.
@@ -411,73 +415,274 @@ class PrintDownloadWidget {
                 color-adjust: exact !important;
             }
         `;
+        // Page headers that every print layout leaves out: localsite's site header and
+        // the engine page's title, menus and icons
+        const hideHeaderCSS = `
+            #main-header, #aeHeader { display: none !important; }
+        `;
+        // Map controls: Leaflet's zoom/layer controls and the panel menu button (the div holding #widgetmapWrapperMenuControl)
+        const hideMapControlsCSS = `
+            .leaflet-control-container, #widgetmapWrapper > div:has(> #widgetmapWrapperMenuControl),
+            #widgetmapWrapperMenu { display: none !important; }
+        `;
+
+        // The List layout: only the listings (plus the engine page's Locations heading) show
+        const listCSS = `
+            ${hideHeaderCSS}
+            body * { visibility: hidden; }
+            .listings-grid, .listings-grid *, .tabulator, .tabulator * { visibility: visible; }
+            /* The engine page's Locations heading (place icon + #locationsTitle) */
+            #locationsPanel > h3, #locationsPanel > h3 * { visibility: visible; }
+            /* Every container around the list (html down to .listings-scroll-container) grows to fit it.
+               A fixed height or a clipping overflow on any of them crops the list to its visible part,
+               since a scrolling or clipped box doesn't continue onto the next printed page. */
+            :has(.listings-grid), .listings-scroll-container {
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
+            }
+            .search-container, .widgetHeader, nav, .print-download-container { display: none !important; }
+            /* The engine page's Projects panel would otherwise leave a blank area too */
+            #projectsPanel { display: none !important; }
+            /* Engine page: the panels below Locations and the "About Our Engine" line
+               would otherwise print as blank space */
+            #locationsPanel ~ *, .ae-container:has(#locationsPanel) ~ * { display: none !important; }
+            #widgetDetailsParent { flex: 1 1 100% !important; width: 100% !important; }
+            #alphabetRail { display: none !important; }
+            .listings-margin-left { margin-left: 0 !important; }
+            .listing-card {
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                padding: 8px 4px !important;
+                break-inside: avoid;
+            }
+            /* Two columns with tighter line spacing */
+            .listings-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                column-gap: 24px !important;
+                row-gap: 0 !important;
+            }
+            .listing-content { gap: 0 !important; }
+            .listing-content, .listing-content * { line-height: 1.25 !important; }
+            .listing-secondary, .listing-tertiary { margin-top: 0 !important; }
+            .address-section { gap: 0 !important; }
+            /* Card buttons (Details, More, Nearby, Airports, image count) don't work on paper */
+            .listing-card .details-more-actions { display: none !important; }
+        `;
+        // The map's column: .right-column on most pages, .ae-right (holding #mapCatch) on the engine page.
+        // visibility:hidden alone keeps its layout box, leaving a large blank area next to the list.
+        const hideMapColumnCSS = `
+            .right-column, .ae-container:has(#locationsPanel) .ae-right { display: none !important; }
+        `;
+        // Moves the map column above the list, showing only the map in it
+        const mapAboveListCSS = `
+            ${preserveMarkerColorsCSS}
+            ${hideMapControlsCSS}
+            #widgetmapWrapper, #widgetmapWrapper * { visibility: visible; }
+            #widgetGalleryParent { display: none !important; }
+            #widgetContent { flex-direction: column !important; }
+            .right-column {
+                order: -1;
+                flex: none !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                position: static !important;
+            }
+            .ae-container:has(#locationsPanel) { display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important; }
+            .ae-container:has(#locationsPanel) > .ae-left,
+            .ae-container:has(#locationsPanel) > .ae-right { flex: none !important; width: 100% !important; }
+            .ae-container:has(#locationsPanel) > .ae-right { order: -1; }
+            .ae-right > :not(#mapCatch) { display: none !important; }
+            #pageMap { height: 420px !important; break-inside: avoid; }
+        `;
 
         switch (printType) {
             case 'map':
                 if (options.showMap) {
-                    printStyles.textContent = `
-                        @media print {
-                            ${preserveMarkerColorsCSS}
-                            body * { visibility: hidden; }
-                            #widgetmapWrapper, #widgetmapWrapper * { visibility: visible; }
-                            #widgetmapWrapper { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; }
-                            .leaflet-control-container { display: none !important; }
+                    return `
+                        /* No @page size: setting an orientation hides Chrome's Layout option, so the user picks
+                           portrait or landscape. The map fills the page width and centers vertically in either. */
+                        @page { margin: 0.3in; }
+                        ${preserveMarkerColorsCSS}
+                        ${hideMapControlsCSS}
+                        /* moveMapToPrintHolder() puts the map in #printMapHolder directly under <body>,
+                           so everything else can be removed, leaving one page */
+                        body > *:not(#printMapHolder) { display: none !important; }
+                        /* In print, html's 100% height is the page area, so body can center the map vertically on the page.
+                           1px short of the page, since content exactly as tall as the page can spill a blank second page. */
+                        html, body { margin: 0 !important; padding: 0 !important; min-height: 0 !important; }
+                        html { height: 100% !important; }
+                        body {
+                            height: calc(100% - 1px) !important;
+                            display: flex !important;
+                            flex-direction: column !important;
+                            justify-content: center !important;
                         }
+                        #printMapHolder {
+                            position: static !important;
+                            flex: none !important;
+                            width: 100% !important;
+                            height: ${this.MAP_PRINT_SIZE.height} !important;
+                        }
+                        #printMapHolder #widgetmapWrapper { border-radius: 0 !important; }
+                        /* Leaflet fades tiles in, so tiles loaded just before printing can print see-through white */
+                        #widgetmapWrapper .leaflet-tile { opacity: 1 !important; transition: none !important; }
                     `;
                 }
-                break;
+                return '';
             case 'list':
-                printStyles.textContent = `
-                    @media print {
-                        body * { visibility: hidden; }
-                        .listings-grid, .listings-grid *, .tabulator, .tabulator * { visibility: visible; }
-                        .listings-scroll-container {
-                            overflow: visible !important;
-                            max-height: none !important;
-                        }
-                        .search-container, .widgetHeader, nav, .print-download-container { display: none !important; }
-                        /* .right-column holds #pageGallery/#pageMap; visibility:hidden alone keeps
-                           its layout box, leaving a large blank area next to the list. */
-                        .right-column { display: none !important; }
-                        #widgetDetailsParent { flex: 1 1 100% !important; width: 100% !important; }
-                        #alphabetRail { display: none !important; }
-                        .listings-margin-left { margin-left: 0 !important; }
-                        .listing-card {
-                            border: none !important;
-                            border-radius: 0 !important;
-                            box-shadow: none !important;
-                            border-bottom: 1px solid #e5e5e5 !important;
-                        }
-                    }
-                `;
-                break;
+                return listCSS + hideMapColumnCSS;
             case 'content':
-                printStyles.textContent = `
-                    @media print {
-                        ${preserveMarkerColorsCSS}
-                        .search-container, .widgetHeader nav, .print-download-container { display: none !important; }
-                        body { font-size: 12pt; line-height: 1.4; }
-                    }
-                `;
-                break;
+                // Print Map and Print List together: the map above the list
+                return listCSS + (options.showMap ? mapAboveListCSS : hideMapColumnCSS);
+        }
+        return '';
+    }
+
+    // Print Map's area on a landscape page inside 0.3in margins: Letter is 10.4in x 7.9in, A4 is 11.09in x 7.67in.
+    // The height fits both. The map is this size on screen before printing so Leaflet loads its tiles.
+    static MAP_PRINT_SIZE = { width: '10.4in', height: '7.6in' };
+
+    // Moves the widget map into #printMapHolder, directly under <body>, at its print size.
+    // Under <body>, none of the map's usual containers can limit its size. Full Screen moves the map the same way.
+    static moveMapToPrintHolder() {
+        const wrapper = document.getElementById('widgetmapWrapper');
+        if (!wrapper) return false;
+        if (this.mapPrintHome) return true;
+
+        this.mapPrintHome = { parent: wrapper.parentNode, next: wrapper.nextSibling, style: wrapper.style.cssText };
+        const holder = document.createElement('div');
+        holder.id = 'printMapHolder';
+        Object.assign(holder.style, {
+            position: 'fixed', left: '0', top: '0', zIndex: '100000',
+            width: this.MAP_PRINT_SIZE.width, height: this.MAP_PRINT_SIZE.height
+        });
+        document.body.appendChild(holder);
+        holder.appendChild(wrapper);
+        Object.assign(wrapper.style, { width: '100%', height: '100%' });
+
+        const map = window.leafletMap && window.leafletMap.map;
+        if (map) map.invalidateSize();
+        return true;
+    }
+
+    // Puts the widget map back where moveMapToPrintHolder() found it
+    static returnMapFromPrintHolder() {
+        const home = this.mapPrintHome;
+        if (!home) return;
+        this.mapPrintHome = null;
+        const wrapper = document.getElementById('widgetmapWrapper');
+        if (wrapper) {
+            home.parent.insertBefore(wrapper, home.next && home.next.parentNode === home.parent ? home.next : null);
+            wrapper.style.cssText = home.style;
+        }
+        const holder = document.getElementById('printMapHolder');
+        if (holder) holder.remove();
+        const map = window.leafletMap && window.leafletMap.map;
+        if (map) map.invalidateSize();
+    }
+
+    // Moves the map to its print size, then waits for the tiles of the larger area (at most 3 seconds).
+    // Returns a function that puts the map back.
+    static async prepareMapForPrint() {
+        const keepInHolder = this.getPrintMode() === 'map'; // printmode=map already shows the map this way
+        if (!this.moveMapToPrintHolder()) return () => {};
+
+        const map = window.leafletMap && window.leafletMap.map;
+        if (map) {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            const loading = [];
+            map.eachLayer(layer => {
+                if (layer instanceof L.TileLayer && layer.isLoading()) {
+                    loading.push(new Promise(resolve => layer.once('load', resolve)));
+                }
+            });
+            await Promise.race([Promise.all(loading), new Promise(resolve => setTimeout(resolve, 3000))]);
+        }
+
+        return keepInHolder ? () => {} : () => this.returnMapFromPrintHolder();
+    }
+
+    static async handlePrint(printType, options = {}) {
+        // Hide print/download controls during printing
+        // Remember each control's inline display, so hidden ones (like #viewOutsideIFrame outside an iframe) stay hidden after
+        const printControls = Array.from(document.querySelectorAll('.print-download-container'));
+        const priorDisplays = printControls.map(control => control.style.display);
+        printControls.forEach(control => control.style.display = 'none');
+        
+        // Apply print-specific styles
+        const printStyles = document.createElement('style');
+        printStyles.setAttribute('media', 'print');
+        const printRules = this.getPrintRules(printType, options);
+        if (printRules) {
+            printStyles.textContent = `@media print { ${printRules} }`;
         }
         
         document.head.appendChild(printStyles);
         
+        // The printed map is larger than on screen, so load its tiles first
+        const restoreMap = printType === 'map' && options.showMap
+            ? await this.prepareMapForPrint()
+            : () => {};
+
         // Trigger print
         setTimeout(() => {
             window.print();
+            restoreMap();
             
             // Restore controls after printing
             setTimeout(() => {
                 if (document.head.contains(printStyles)) {
                     document.head.removeChild(printStyles);
                 }
-                printControls.forEach(control => control.style.display = 'inline-block');
+                printControls.forEach((control, i) => control.style.display = priorDisplays[i]);
             }, 1000);
         }, 100);
     }
     
+    // #printmode=1 (or ?printmode=1) shows the print layout on screen for inspecting it.
+    // 1 uses the List layout. map, list or content picks a layout.
+    static getPrintMode() {
+        const hash = typeof getHash === 'function' ? getHash() : {};
+        const value = hash.printmode || new URLSearchParams(window.location.search).get('printmode');
+        if (!value || value === '0' || value === 'false') return '';
+        return ['map', 'list', 'content'].includes(value) ? value : 'list';
+    }
+
+    static applyPrintMode(options = this.printModeOptions || {}) {
+        this.printModeOptions = options;
+        const printType = this.getPrintMode();
+        let printModeStyles = document.getElementById('printmode-styles');
+        if (printType === 'map' && options.showMap) {
+            this.moveMapToPrintHolder();
+        } else {
+            this.returnMapFromPrintHolder();
+        }
+        if (!printType) {
+            if (printModeStyles) printModeStyles.remove();
+            document.body.classList.remove('printmode');
+            return;
+        }
+        if (!printModeStyles) {
+            printModeStyles = document.createElement('style');
+            printModeStyles.id = 'printmode-styles';
+            document.head.appendChild(printModeStyles);
+        }
+        // The print controls are hidden when printing, so hide them here too
+        printModeStyles.textContent = `
+            .print-download-container { display: none !important; }
+            ${this.getPrintRules(printType, options)}
+        `;
+        document.body.classList.add('printmode');
+
+        if (!this.printModeListening) {
+            this.printModeListening = true;
+            document.addEventListener('hashChangeEvent', () => this.applyPrintMode());
+        }
+    }
+
     static handleDownload(downloadType, data, options = {}) {
         if (!data || data.length === 0) {
             alert('No data available for download');

@@ -2438,8 +2438,12 @@ Do not include any explanation or additional text.`;
         ]);
         const contactAddress = contactAddressInfo.value || recognized.address;
         const addressLine = contactAddress ? this.formatFieldValue(contactAddress) : '';
-        const cityStateZip = this.formatCityStateZip(recognized);
         const titleLine = displayData.primary || recognized.name || 'Listing';
+        // Omit the city/state line when it repeats the title
+        const cityStateZipRaw = this.formatCityStateZip(recognized);
+        const cityStateZip = cityStateZipRaw && cityStateZipRaw.toString().trim().toLowerCase() !== titleLine.toString().trim().toLowerCase()
+            ? cityStateZipRaw
+            : '';
 
         const lines = [
             titleLine ? `<div class="location-title">${this.formatFieldValue(titleLine)}</div>` : '',
@@ -4422,7 +4426,11 @@ Do not include any explanation or additional text.`;
             ? contactNameRaw
             : '';
         const addressLine = contactAddress && !omitAddress ? this.formatFieldValue(contactAddress) : '';
-        const cityStateZip = !omitCityStateZip ? this.formatCityStateZip(recognized) : '';
+        const cityStateZipRaw = !omitCityStateZip ? this.formatCityStateZip(recognized) : '';
+        // Omit the city/state line when it repeats the listing title
+        const cityStateZip = cityStateZipRaw && cityStateZipRaw.toString().trim().toLowerCase() !== titleText.toString().trim().toLowerCase()
+            ? cityStateZipRaw
+            : '';
 
         // Get truncation length from options (100 for list, 255 for detail view)
         const truncateLength = options.truncateLength || 255;
