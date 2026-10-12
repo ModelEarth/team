@@ -5907,18 +5907,20 @@ Do not include any explanation or additional text.`;
     }
 
     // save: false for light/dark swaps, so the viewer's chosen style stays cached
-    // Tour path: center and zoom at time t (0..1) of a glide from (fromCenter, fromZoom) to target —
-    // panning eased in/out, pulling out to peakZoom in the first half and in to endZoom in the second.
+    // Tour path: center and zoom at time t (0..1) of a glide from (fromCenter, fromZoom) to target.
+    // First half: pans to the target while pulling out to peakZoom (outZoom, or further out if already so).
+    // Second half: stays on the target, zooming in to endZoom. tourFlyTo pauses between the halves.
     getTourPathView(map, fromCenter, fromZoom, target, t, { outZoom = 10, endZoom = 12 } = {}) {
         const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
         const peakZoom = Math.min(outZoom, fromZoom);
+        if (t >= 0.5) {
+            return { center: target, zoom: peakZoom + (endZoom - peakZoom) * easeInOut((t - 0.5) / 0.5) };
+        }
         const from = map.project(fromCenter, endZoom);
         const to = map.project(target, endZoom);
-        const center = map.unproject(from.add(to.subtract(from).multiplyBy(easeInOut(t))), endZoom);
-        const zoom = t < 0.5
-            ? fromZoom + (peakZoom - fromZoom) * easeInOut(t / 0.5)
-            : peakZoom + (endZoom - peakZoom) * easeInOut((t - 0.5) / 0.5);
-        return { center, zoom };
+        const e = easeInOut(t / 0.5);
+        const center = map.unproject(from.add(to.subtract(from).multiplyBy(e)), endZoom);
+        return { center, zoom: fromZoom + (peakZoom - fromZoom) * e };
     }
 
     // Tile URLs the map shows along a tour glide (sampled views plus the arrival), for each tile layer
@@ -5997,11 +5999,12 @@ Do not include any explanation or additional text.`;
         this.preloadTiles(this.getTourTileUrls(map, fromCenter, endZoom, L.latLng(coords.lat, coords.lng), options), 0);
     }
 
-    // Tour transition: preloads the tiles along the way, then glides — pulling out to outZoom (or
-    // staying further out) while panning in the first half, moving in to arrive at endZoom on the next
-    // point. Uses Leaflet 1.9's internal _moveStart/_move/_moveEnd frame calls, as map.flyTo() does,
-    // so map.stop() cancels it too. On arrival it preloads the glide to the following stop.
-    async tourFlyTo(map, latlng, { outZoom = 10, endZoom = 12, duration = 4000 } = {}) {
+    // Tour transition: preloads the tiles along the way, then glides — panning to the next point while
+    // pulling out to outZoom (or staying further out), pausing there for pauseMs, then zooming in to
+    // endZoom on the point. The legs take outMs and inMs (each duration / 2 by default). Uses Leaflet 1.9's internal
+    // _moveStart/_move/_moveEnd frame calls, as map.flyTo() does, so map.stop() cancels it too.
+    // On arrival it preloads the glide to the following stop.
+    async tourFlyTo(map, latlng, { outZoom = 10, endZoom = 12, duration = 4000, outMs = duration / 2, inMs = duration / 2, pauseMs = 0 } = {}) {
         const target = L.latLng(latlng);
         const options = { outZoom, endZoom };
         const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -6023,20 +6026,41 @@ Do not include any explanation or additional text.`;
             return; // a newer stop started while tiles loaded
         }
 
-        const startTime = performance.now();
-        map._moveStart(true, false);
-        const frame = (now) => {
-            const t = Math.min(1, (now - startTime) / duration);
-            if (t >= 1) {
-                map._move(target, endZoom)._moveEnd(true);
-                this.preloadNextTourStop(map, target, options);
+        // Runs path times fromT..toT over legMs; resolves false if a newer stop began
+        // (map.stop() cancels _flyToFrame, which leaves the leg unresolved so nothing follows it)
+        const runLeg = (fromT, toT, legMs) => new Promise(resolve => {
+            const startTime = performance.now();
+            map._moveStart(true, false);
+            const frame = (now) => {
+                if (this.tourFlight !== flight) {
+                    resolve(false);
+                    return;
+                }
+                const progress = Math.min(1, (now - startTime) / legMs);
+                const { center, zoom } = this.getTourPathView(map, fromCenter, fromZoom, target, fromT + (toT - fromT) * progress, options);
+                if (progress >= 1) {
+                    map._move(center, zoom)._moveEnd(true); // lets the tiles at this view load
+                    resolve(true);
+                    return;
+                }
+                map._move(center, zoom, { flyTo: true });
+                map._flyToFrame = requestAnimationFrame(frame);
+            };
+            map._flyToFrame = requestAnimationFrame(frame);
+        });
+
+        if (!await runLeg(0, 0.5, outMs)) {
+            return;
+        }
+        if (pauseMs) {
+            await new Promise(resolve => setTimeout(resolve, pauseMs)); // hold at outZoom over the point
+            if (this.tourFlight !== flight || !map._loaded) {
                 return;
             }
-            const { center, zoom } = this.getTourPathView(map, fromCenter, fromZoom, target, t, options);
-            map._move(center, zoom, { flyTo: true });
-            map._flyToFrame = requestAnimationFrame(frame);
-        };
-        map._flyToFrame = requestAnimationFrame(frame);
+        }
+        if (await runLeg(0.5, 1, inMs)) {
+            this.preloadNextTourStop(map, target, options);
+        }
     }
 
     setDetailMapStyle(styleKey, { save = true } = {}) {
@@ -6295,6 +6319,21 @@ Do not include any explanation or additional text.`;
 
     applyDetailMapZoomControlIcons() {}
 
+    // Place the open #detailmapMenu just below #detailmapMenuControl, right-aligned to it
+    positionDetailMapMenu() {
+        const menu = document.getElementById('detailmapMenu');
+        const holder = document.getElementById('detailmapMenuControl');
+        if (!menu || !holder || menu.style.display === 'none') {
+            return;
+        }
+        const rect = holder.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = `${rect.bottom + 4}px`;
+        menu.style.right = `${document.documentElement.clientWidth - rect.right}px`;
+        menu.style.left = 'auto';
+        menu.style.zIndex = '10001';
+    }
+
     addDetailMapExpandToggle() {
         if (!this.detailMap) {
             return;
@@ -6325,6 +6364,9 @@ Do not include any explanation or additional text.`;
                 if (menu) {
                     const isVisible = menu.style.display !== 'none';
                     menu.style.display = isVisible ? 'none' : 'block';
+                    if (!isVisible) {
+                        this.positionDetailMapMenu();
+                    }
                     if (typeof refreshPanelToggleIcon === 'function') {
                         refreshPanelToggleIcon('detailmapMenuControl', 'detailmap');
                     }
@@ -6367,13 +6409,14 @@ Do not include any explanation or additional text.`;
                     existingMenu.remove();
                 }
 
-                // Add menu to the map wrapper container
-                const mapWrapper = document.getElementById('detailmapWrapper');
-                if (mapWrapper) {
-                    mapWrapper.insertAdjacentHTML('beforeend', menuHtml);
-                } else {
-                    // Fallback to body if wrapper not found
-                    document.body.insertAdjacentHTML('beforeend', menuHtml);
+                // Add menu to the body, fixed under its control (positionDetailMapMenu), so it isn't
+                // trapped in the map's stacking context and appears in front of the gallery image modal
+                document.body.insertAdjacentHTML('beforeend', menuHtml);
+                if (!this.detailMapMenuRepositionBound) {
+                    this.detailMapMenuRepositionBound = true;
+                    const reposition = () => this.positionDetailMapMenu();
+                    window.addEventListener('scroll', reposition, true);
+                    window.addEventListener('resize', reposition);
                 }
 
                 // Setup event listeners using the shared function
@@ -6814,11 +6857,11 @@ Do not include any explanation or additional text.`;
             }
         }
 
-        // Start Tour: glide between points (out to zoom 9 while panning, in to zoom 12 on arrival)
+        // Start Tour: glide between points (out to zoom 7 while panning over 3 seconds, pause 2 seconds, in to zoom 12)
         const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
         if (touring && this.detailMap._loaded) {
             detailZoom = 12;
-            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 9, endZoom: detailZoom });
+            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, outMs: 3000, inMs: 1800, pauseMs: 2000 });
         } else {
             this.detailMap.setView([coords.lat, coords.lng], detailZoom);
         }
