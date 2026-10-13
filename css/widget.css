@@ -493,6 +493,12 @@ body {
     padding: 48px;
 }
 
+/* Dataset dropdown under "The requested dataset … was not found" (loadShowData in map.js) */
+.loading .map-selector {
+    display: inline-block;
+    margin-top: 8px;
+}
+
 .spinner {
     width: 32px;
     height: 32px;
@@ -543,7 +549,8 @@ body {
 .listings-grid {
     display: grid;
     gap: 24px;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    /* min() lets a column narrower than 350px shrink to one full-width card instead of overflowing */
+    grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
 }
 
 .listings-scroll-container {
@@ -1096,6 +1103,18 @@ body {
   height: calc(100vh - var(--headerbar-offset, var(--header-height)));
 }
 
+/* Full Screen (body.map-fullscreen-active, set by toggleMapScreen in map.js): scrolling down by the header's
+   height puts the map at the top of the window. The map is the window height minus the header, which leaves
+   the top of the content below it in view. For that, #main-header scrolls away rather than sticking, and
+   #headerbar keeps its height: localsite's navigation.js hides it on a fast scroll down, and its collapse
+   would make the browser's scroll anchoring pull the page back to the top, where it shows again. */
+body.map-fullscreen-active #main-header {
+  position: relative;
+}
+body.map-fullscreen-active #headerbar {
+  display: block !important; /* over .headerbarhide and jQuery .hide() */
+}
+
 /* Half Screen: #main-container (flex row: map in #halfscreen just before #main-content, on its left)
    is capped at the window height minus the header. #main-content scrolls within it, so the page
    itself doesn't scroll and the header and map stay in view. */
@@ -1475,7 +1494,7 @@ body.map-halfscreen-active #main-content {
   font-size: 0.85em;
 }
 
-.location-title {
+.detailmap-popup-title {
   font-size: 1.2em;
   color: #0f172a;
   margin-bottom: 6px;
@@ -1647,7 +1666,7 @@ body.map-halfscreen-active #main-content {
 }
 
 .dark .location-header h2,
-.dark .location-title {
+.dark .detailmap-popup-title {
   color: #e2e8f0;
 }
 
@@ -2604,6 +2623,15 @@ body.map-halfscreen-active #main-content {
   background: rgba(15, 23, 42, 0.04);
 }
 
+/* The whole panel drags (setupFloatingDrag in map.js), with links and buttons keeping their own cursor */
+.location-float {
+  cursor: grab;
+}
+.location-float a,
+.location-float button {
+  cursor: pointer;
+}
+.location-float.dragging,
 .location-float.dragging .location-float-handle {
   cursor: grabbing;
 }

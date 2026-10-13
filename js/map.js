@@ -553,6 +553,33 @@ class ListingsDisplay {
         `;
     }
 
+    // Dataset dropdown (#mapDataSelect), shown with showmapselect=true or on localhost.
+    // In the widget's controls (render) and under the "not found" message (loadShowData).
+    renderMapDataSelect() {
+        if (!(window.param.showmapselect == "true" || window.location.hostname === 'localhost')) {
+            return '';
+        }
+        return `
+            <div class="map-selector">
+                <select id="mapDataSelect" class="map-select ls-select">
+                    <option value="">Selected map...</option>
+                    ${Object.keys(this.showConfigs).map(key =>
+                        `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
+                    ).join('')}
+                </select>
+            </div>
+        `;
+    }
+
+    handleMapDataSelectChange(e) {
+        const defaultShow = window.param.map || window.param.show;
+        if (e.target.value === defaultShow) {
+            goHash({'summarize': ''}, 'show'); // Default - remove show from hash
+        } else {
+            goHash({'show': e.target.value, 'summarize': ''});
+        }
+    }
+
     getNotFoundMessage(listName) {
         return `
             <span class="material-icons" style="font-size: 48px; color: #999;">search_off</span>
@@ -658,12 +685,20 @@ class ListingsDisplay {
             this.dataLoadError = this.getNotFoundMessage(this.currentShow);
             this.loading = false;
 
-            // Replace the loading spinner with error message
+            // Replace the loading spinner with error message, followed by the dataset dropdown
+            // (#mapDataSelect) so another dataset can be chosen without editing the URL
+            const notFound = this.getNotFoundMessage(this.currentShow) + this.renderMapDataSelect();
+            // (Not showLoadingState, which would keep its spinner and wrap the dropdown in a <p>)
             const spinner = document.querySelector("#listwidget .loading");
+            const listwidget = document.getElementById('listwidget');
             if (spinner) {
-                spinner.innerHTML = this.getNotFoundMessage(this.currentShow);
-            } else {
-                this.showLoadingState(this.getNotFoundMessage(this.currentShow));
+                spinner.innerHTML = notFound;
+            } else if (listwidget) {
+                listwidget.innerHTML = `<div class="loading">${notFound}</div>`;
+            }
+            const showSelect = document.querySelector('#listwidget #mapDataSelect');
+            if (showSelect) {
+                showSelect.addEventListener('change', (e) => this.handleMapDataSelectChange(e));
             }
 
             return;
@@ -2446,7 +2481,7 @@ Do not include any explanation or additional text.`;
             : '';
 
         const lines = [
-            titleLine ? `<div class="location-title">${this.formatFieldValue(titleLine)}</div>` : '',
+            titleLine ? `<div class="detailmap-popup-title">${this.formatFieldValue(titleLine)}</div>` : '',
             addressLine ? `<div class="location-address">${addressLine}</div>` : '',
             cityStateZip ? `<div class="location-citystate">${cityStateZip}</div>` : ''
         ].filter(Boolean);
@@ -3305,6 +3340,7 @@ Do not include any explanation or additional text.`;
         } else {
             this.updateListingsDisplay();
         }
+        this.showDetailForNewDataset();
         
         // Update map with new dataset and fit to new points
         if (window.leafletMap) {
@@ -3333,6 +3369,27 @@ Do not include any explanation or additional text.`;
             //this.initializeMap('FROM_CHANGESHOW');
         }, 100);
         */
+    }
+
+    // After a dataset change (render() is skipped, and the hash's id may not have changed), the location
+    // detail and its map load from the new data right away: the listing at the hash's id, or the first
+    // listing when the new data doesn't have that id
+    showDetailForNewDataset() {
+        if (typeof getHash !== 'function') {
+            return;
+        }
+        const hash = getHash();
+        const hashId = hash.id || hash.detail;
+        this.selectedListingIndex = null; // an index into the previous dataset
+        if (!hashId || !this.filteredListings.length) {
+            return;
+        }
+        const index = this.findListingIndexByHashId(hashId);
+        if (index !== null && this.filteredListings[index]) {
+            this.showListingDetailsByIndex(index);
+        } else if (typeof goHash === 'function') {
+            goHash({ id: this.getListingHashId(this.filteredListings[0], 0) });
+        }
     }
 
     attachSearchInputListener() {
@@ -4188,6 +4245,7 @@ Do not include any explanation or additional text.`;
                 this.setupGalleryNavigation(section, galleryImages, galleryImages);
                 this.ensureGalleryImageModal();
                 this.syncFloatingGalleryToLocation(galleryImages);
+                this.floatLocationDetailsIfFullScreen();
                 this.updateDetailMap(listing);
 
                 // Remove fading class to fade back in
@@ -4232,6 +4290,7 @@ Do not include any explanation or additional text.`;
             this.setupGalleryNavigation(section, galleryImages, galleryImages);
             this.ensureGalleryImageModal();
             this.syncFloatingGalleryToLocation(galleryImages);
+            this.floatLocationDetailsIfFullScreen();
             this.updateDetailMap(listing);
         }
 
@@ -5271,6 +5330,10 @@ Do not include any explanation or additional text.`;
             if (event.clientX > rect.right - 18 && event.clientY > rect.bottom - 18) {
                 return; // native resize corner
             }
+            const pressed = event.target;
+            if (pressed.clientWidth && (event.offsetX > pressed.clientWidth || event.offsetY > pressed.clientHeight)) {
+                return; // a scrollbar within the box
+            }
             event.preventDefault();
             if (box._tossFrame) {
                 cancelAnimationFrame(box._tossFrame); // a new drag catches a tossed box
@@ -5527,7 +5590,7 @@ Do not include any explanation or additional text.`;
     }
 
     // Full Screen map with a location in the hash (#id=): #locationDetails moves into a floating panel
-    // over the map's lower left. Drag it by its handle and toss it, like the floating image.
+    // over the map's upper left. Drag it by any part and toss it, like the floating image.
     // It returns to its place when no map is in Full Screen (returnLocationDetails).
     floatLocationDetailsOverMap(container) {
         const hash = (typeof getHash === 'function') ? getHash() : {};
@@ -5548,8 +5611,10 @@ Do not include any explanation or additional text.`;
                     <div class="location-float-body"></div>
                 </div>`;
             document.body.appendChild(layer);
+            // Dragged (and tossed) by any part of it, not only the handle. Links, buttons, form fields and
+            // the scrollbar keep their own behavior.
             const box = layer.querySelector('.location-float');
-            this.setupFloatingDrag(box, { handle: box.querySelector('.location-float-handle') });
+            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary' });
         }
         const box = layer.querySelector('.location-float');
         const body = layer.querySelector('.location-float-body');
@@ -5560,15 +5625,57 @@ Do not include any explanation or additional text.`;
         }
         layer.style.display = '';
 
-        // Lower left of the visible part of the map: 24px from its left, 60px up from its bottom
+        // Upper left of the visible part of the map (below the header): 60px from its left, at its top
         requestAnimationFrame(() => {
             const mapRect = container.getBoundingClientRect();
-            const boxRect = box.getBoundingClientRect();
-            const leftMargin = 24;
-            const bottomMargin = 60;
-            const bottom = Math.min(mapRect.bottom, window.innerHeight);
-            this.placeFloatingBox(box, mapRect.left + leftMargin, bottom - boxRect.height - bottomMargin);
+            const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
+            const leftMargin = 60;
+            this.placeFloatingBox(box, mapRect.left + leftMargin, Math.max(mapRect.top, headerOffset));
+            this.locationFloatMapLeft = mapRect.left;
         });
+        this.followMapWithLocationFloat(container);
+    }
+
+    // Any map in Full Screen: a location shown after entering it (a tour's first stop, a listing's Details,
+    // a new dataset) floats its details over the map too, not only one shown when Full Screen began
+    floatLocationDetailsIfFullScreen() {
+        const fullscreen = document.getElementById('fullscreen');
+        const mapInFullScreen = Object.keys(this.getMapScreenTargets()).some(t => this.getMapScreen(t) === 'full');
+        if (mapInFullScreen && fullscreen && !this.locationDetailsHome) {
+            this.floatLocationDetailsOverMap(fullscreen);
+        }
+    }
+
+    // The floating details are anchored to the page, not the map. When the map's left edge moves (opening
+    // or closing #side-nav narrows or widens the Full Screen map), the box moves by the same amount, staying
+    // over the same part of the map instead of under the side nav.
+    followMapWithLocationFloat(container) {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        if (!this.locationFloatResize) {
+            this.locationFloatResize = new ResizeObserver(() => {
+                const layer = document.getElementById('locationFloatLayer');
+                const box = layer && layer.querySelector('.location-float');
+                const map = this.locationFloatMap;
+                if (!box || !map || layer.style.display === 'none') {
+                    return;
+                }
+                const left = map.getBoundingClientRect().left;
+                if (this.locationFloatMapLeft !== undefined && left !== this.locationFloatMapLeft) {
+                    box.style.left = ((parseFloat(box.style.left) || 0) + left - this.locationFloatMapLeft) + 'px';
+                }
+                this.locationFloatMapLeft = left;
+            });
+        }
+        if (this.locationFloatMap !== container) {
+            if (this.locationFloatMap) {
+                this.locationFloatResize.unobserve(this.locationFloatMap);
+            }
+            this.locationFloatMap = container;
+            this.locationFloatMapLeft = container.getBoundingClientRect().left;
+            this.locationFloatResize.observe(container);
+        }
     }
 
     returnLocationDetails() {
@@ -5627,26 +5734,34 @@ Do not include any explanation or additional text.`;
             // in this same frame, so check on the next one, and again once the image has loaded
             // (its height isn't known until then).
             requestAnimationFrame(() => this.moveGalleryClearOfLocationDetails(modal, container));
+            // Its bottom is placed from its height, so it's placed again once the image loads (unless dragged by then)
             const image = modal.querySelector(".product-image-modal-img");
             if (image && !image.complete) {
-                image.addEventListener("load", () => this.moveGalleryClearOfLocationDetails(modal, container), { once: true });
+                image.addEventListener("load", () => {
+                    if (content.style.top === content.dataset.placedTop) {
+                        this.placeGalleryOverMap(modal, container);
+                    }
+                    this.moveGalleryClearOfLocationDetails(modal, container);
+                }, { once: true });
             }
         });
     }
 
-    // Default spot for the floating gallery over a Full Screen map: about 13% of the map's height plus
-    // 30px from its top, 6% of its width from its right side (kept below the header)
+    // Default spot for the floating gallery over a Full Screen map: its bottom 20px below the bottom of the
+    // visible map, 6% of the map's width less 60px from its right side (kept below the header)
     placeGalleryOverMap(modal, container) {
         const content = modal.querySelector(".product-image-modal-content");
         if (!content) {
             return;
         }
         const mapRect = container.getBoundingClientRect();
-        const width = content.getBoundingClientRect().width;
+        const box = content.getBoundingClientRect();
         const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
-        const left = mapRect.right - mapRect.width * 0.06 - width;
-        const top = Math.max(mapRect.top + mapRect.height * 0.133 + 30, headerOffset);
+        const bottomMargin = -20;
+        const left = mapRect.right - mapRect.width * 0.06 + 60 - box.width;
+        const top = Math.max(Math.min(mapRect.bottom, window.innerHeight) - bottomMargin - box.height, headerOffset);
         this.placeDraggableGalleryImage(modal, left, top);
+        content.dataset.placedTop = content.style.top; // to tell whether it has moved since (see floatLocationImageOverMap)
     }
 
     // If the floating gallery overlaps the floating location details (#locationFloat), move it to the
@@ -5908,7 +6023,9 @@ Do not include any explanation or additional text.`;
 
     // save: false for light/dark swaps, so the viewer's chosen style stays cached
     // Tour path: center and zoom at time t (0..1) of a glide from (fromCenter, fromZoom) to target.
-    // First half: pans to the target while pulling out to peakZoom (outZoom, or further out if already so).
+    // First half: pulls out to peakZoom (outZoom, or further out if already so), mostly early (ease-out),
+    // revealing more of the map. Panning starts at 30%, while still pulling out, and both end together with
+    // the target centered, so the motion doesn't stop and then creep the last of the way.
     // Second half: stays on the target, zooming in to endZoom. tourFlyTo pauses between the halves.
     getTourPathView(map, fromCenter, fromZoom, target, t, { outZoom = 10, endZoom = 12 } = {}) {
         const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
@@ -5918,9 +6035,11 @@ Do not include any explanation or additional text.`;
         }
         const from = map.project(fromCenter, endZoom);
         const to = map.project(target, endZoom);
-        const e = easeInOut(t / 0.5);
-        const center = map.unproject(from.add(to.subtract(from).multiplyBy(e)), endZoom);
-        return { center, zoom: fromZoom + (peakZoom - fromZoom) * e };
+        const u = t / 0.5;
+        const zoomProgress = 1 - Math.pow(1 - u, 3); // ease-out cubic
+        const panProgress = easeInOut(Math.max(0, (u - 0.3) / 0.7));
+        const center = map.unproject(from.add(to.subtract(from).multiplyBy(panProgress)), endZoom);
+        return { center, zoom: fromZoom + (peakZoom - fromZoom) * zoomProgress };
     }
 
     // Tile URLs the map shows along a tour glide (sampled views plus the arrival), for each tile layer
@@ -6012,6 +6131,14 @@ Do not include any explanation or additional text.`;
             map.setView(target, endZoom);
             return;
         }
+        // A repeat call for the stop already gliding (e.g. the detail re-rendering) would halt it short of
+        // the point and restart, so it's skipped while that glide could still be running
+        const now = performance.now();
+        if (this.tourFlightTarget && this.tourFlightTarget.equals(target) && now < this.tourFlightUntil) {
+            return;
+        }
+        this.tourFlightTarget = target;
+        this.tourFlightUntil = now + 2500 + outMs + pauseMs + inMs + 500; // tile preload cap + legs + slack
         map.stop();
         const flight = (this.tourFlight || 0) + 1;
         this.tourFlight = flight;
@@ -6060,6 +6187,16 @@ Do not include any explanation or additional text.`;
         }
         if (await runLeg(0.5, 1, inMs)) {
             this.preloadNextTourStop(map, target, options);
+        }
+    }
+
+    // Halts a tourFlyTo glide where it is: a newer flight number ends its tile wait, legs and pause,
+    // and map.stop() cancels the current frame. The target is cleared so resuming glides to it again.
+    stopTourFlight(map) {
+        this.tourFlight = (this.tourFlight || 0) + 1;
+        this.tourFlightTarget = null;
+        if (map) {
+            map.stop();
         }
     }
 
@@ -6598,6 +6735,8 @@ Do not include any explanation or additional text.`;
 
         // Half Screen: #main-content scrolls within the visible height, so the header and map stay put
         document.body.classList.toggle('map-halfscreen-active', Object.keys(targets).some(t => this.getMapScreen(t) === 'half'));
+        // Full Screen: the header scrolls away instead of sticking, at its full height (see widget.css)
+        document.body.classList.toggle('map-fullscreen-active', Object.keys(targets).some(t => this.getMapScreen(t) === 'full'));
 
         // Location details float only while a map is in Full Screen
         if (!Object.keys(targets).some(t => this.getMapScreen(t) === 'full')) {
@@ -6837,6 +6976,24 @@ Do not include any explanation or additional text.`;
                 dragging: true,
                 scrollWheelZoom: false
             });
+            // Clicking the map while the tour plays pauses it. Clicking again doesn't restart it.
+            // (Leaflet's map click skips its controls and markers, so the menu's play/pause still toggles.)
+            this.detailMap.on('click', () => {
+                const tour = window.tourState;
+                if (tour && tour.isPlaying && typeof stopTour === 'function') {
+                    stopTour(tour.panelId || 'locationDetails');
+                }
+            });
+            // Pausing the tour (the map click above, the pause buttons, or any stopTour call in localsite.js)
+            // halts a glide in motion where it is
+            if (!this._tourStoppedBound) {
+                this._tourStoppedBound = true;
+                document.addEventListener('tourStopped', () => {
+                    if (this.detailMap) {
+                        this.stopTourFlight(this.detailMap);
+                    }
+                });
+            }
             this.initializeDetailMapControls();
             if (this.detailMapExpandControl?.button) {
                 setFullscreenToggleState(this.detailMapExpandControl.button, !!this.detailMapExpanded);
@@ -6857,11 +7014,11 @@ Do not include any explanation or additional text.`;
             }
         }
 
-        // Start Tour: glide between points (out to zoom 7 while panning over 3 seconds, pause 2 seconds, in to zoom 12)
+        // Start Tour: glide between points (out to zoom 7 then panning over 3.5 seconds, pause 2 seconds, in to zoom 12)
         const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
         if (touring && this.detailMap._loaded) {
             detailZoom = 12;
-            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, outMs: 3000, inMs: 1800, pauseMs: 2000 });
+            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, outMs: 3500, inMs: 1800, pauseMs: 2000 });
         } else {
             this.detailMap.setView([coords.lat, coords.lng], detailZoom);
         }
@@ -7412,16 +7569,7 @@ Do not include any explanation or additional text.`;
                         <!-- Controls -->
                         <div id="widgetDetailsControls" class="basePanelTop basePanelPadding basePanelFadeOut basePanelBackground">
                             <div class="search-container">
-                                ${ (window.param.showmapselect == "true" || window.location.hostname === 'localhost') ? `
-                                <div class="map-selector">
-                                    <select id="mapDataSelect" class="map-select ls-select">
-                                        <option value="">Selected map...</option>
-                                        ${Object.keys(this.showConfigs).map(key => 
-                                            `<option value="${key}" ${key === this.currentShow ? 'selected' : ''}>${this.showConfigs[key].menuTitle || this.showConfigs[key].shortTitle || this.showConfigs[key].listTitle || key}</option>`
-                                        ).join('')}
-                                    </select>
-                                </div>
-                                ` : ''}
+                                ${this.renderMapDataSelect()}
                                 <div class="search-wrapper">
                                     <div class="search-box">
                                         <input
@@ -7557,14 +7705,7 @@ Do not include any explanation or additional text.`;
             // Re-attach search input listener after render (lost when DOM updates)
             this.attachSearchInputListener();
             if (showSelect) {
-                showSelect.addEventListener('change', (e) => {
-                    const defaultShow = window.param.map || window.param.show;
-                    if (e.target.value === defaultShow) {
-                        goHash({'summarize': ''}, 'show'); // Default - remove show from hash
-                    } else {
-                        goHash({'show': e.target.value, 'summarize': ''});
-                    }
-                });
+                showSelect.addEventListener('change', (e) => this.handleMapDataSelectChange(e));
             }
             
             // Skip map initialization during filtering to prevent map recreation
@@ -8249,14 +8390,16 @@ Do not include any explanation or additional text.`;
                 options
             );
 
-            // Pages with an #upperRightIcons placeholder (e.g. requests/engine) show the icons there.
+            // Pages with an #upperRightIcons placeholder (e.g. requests/engine) show the icons there: before its
+            // [data-after-print-icons] element when present (so the icons from it on stay to the right), else at the end.
             // Registered once; the icons are looked up when the placeholder appears, since renders replace the header.
             if (!rightTeamControls && !this._upperRightIconsWait) {
                 this._upperRightIconsWait = waitForElm('#upperRightIcons').then((upperRight) => {
                     const source = document.getElementById('map-print-download-icons');
                     if (!source) return;
+                    const after = upperRight.querySelector(':scope > [data-after-print-icons]');
                     while (source.firstChild) {
-                        upperRight.appendChild(source.firstChild);
+                        upperRight.insertBefore(source.firstChild, after);
                     }
                 });
             }
