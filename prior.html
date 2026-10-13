@@ -1924,7 +1924,7 @@
             }
             issuesWidget.innerHTML = '<p style="margin: 0; color: var(--text-secondary);">Loading project widget...</p>';
 
-            loadScript('../projects/js/issues.js', function () {
+            loadScript('../engine/js/projects.js', function () {
                 if (typeof initIssuesManager === 'function') {
                     try {
                         const manager = initIssuesManager(issuesWidget);

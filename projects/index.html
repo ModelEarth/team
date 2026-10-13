@@ -155,7 +155,7 @@
 
     <!-- Include Projects Hub Issues Manager for GitHub Auth -->
     <!-- Only loads in minimal mode when list=modelteam -->
-    <script src="../../projects/js/issues.js"></script>
+    <script src="../../engine/js/projects.js"></script>
 
     <!--
     Activate after default map turned off
@@ -683,8 +683,9 @@
             color: var(--text-primary);
         }
         
-        #settings-toggle svg {
-            stroke-width: 1;
+        #settings-toggle .material-icons {
+            font-size: 20px;
+            vertical-align: middle;
         }
         
         /* Dark mode styles for settings toggle */
@@ -3092,7 +3093,7 @@
                 </div>
                 <div class="page-controls-actions">
                     <button class="btn btn-secondary" id="settings-toggle" onclick="toggleReadmeSection()" style="padding: 4px 6px; font-size: 14px; color: var(--text-secondary); min-width: 32px; height: 32px;" title="Documentation & Cache">
-                        <i data-feather="settings"></i>
+                        <i class="material-icons" aria-hidden="true">settings</i>
                     </button>
                     <div class="menu-container">
                         <button class="menu-button" id="menu-toggle">

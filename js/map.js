@@ -5722,11 +5722,13 @@ Do not include any explanation or additional text.`;
                     <div class="location-float-body"></div>
                 </div>`;
             document.body.appendChild(layer);
-            // Dragged (and tossed) by any part of it, not only the handle. Links, buttons, form fields,
-            // the panel menu icon and its menu, the tour arrows and the scrollbar keep their own behavior
-            // (a drag captures the pointer, which would send their clicks to the box instead).
+            // Dragged (and tossed) by its handle and the margins around the details. The details' header
+            // and content (.location-header, .location-content) aren't drag areas, so their text can be
+            // selected and copied. Links, buttons, form fields, the panel menu icon and its menu, the tour
+            // arrows and the scrollbar keep their own behavior too (a drag captures the pointer, which would
+            // send their clicks to the box instead).
             const box = layer.querySelector('.location-float');
-            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary, .menuIconHolder, .menuToggleMenu, #detailArrows' });
+            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary, .menuIconHolder, .menuToggleMenu, #detailArrows, .location-header, .location-content' });
         }
         const box = layer.querySelector('.location-float');
         const body = layer.querySelector('.location-float-body');

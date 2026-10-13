@@ -2631,9 +2631,14 @@ body.map-halfscreen-active #main-content {
   background: rgba(15, 23, 42, 0.04);
 }
 
-/* The whole panel drags (setupFloatingDrag in map.js), with links and buttons keeping their own cursor */
+/* The panel drags by its handle and margins (setupFloatingDrag in map.js), with links and buttons keeping their own cursor */
 .location-float {
   cursor: grab;
+}
+/* Text in the details' header and content can be selected (not drag areas) */
+.location-float .location-header,
+.location-float .location-content {
+  cursor: auto;
 }
 .location-float a,
 .location-float button {
