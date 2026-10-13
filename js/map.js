@@ -5175,6 +5175,7 @@ Do not include any explanation or additional text.`;
             if (modal.classList.contains("active")) {
                 this.adjustGalleryImageModalNav(modal);
                 if (modal.classList.contains("image-float")) {
+                    this.fitGalleryImageFloat(modal);
                     this.placeDraggableGalleryImage(modal);
                 }
             }
@@ -5204,11 +5205,15 @@ Do not include any explanation or additional text.`;
         }
     }
 
+    // The size saved is the frame set with a corner (fitGalleryImageFloat), not the size fit to the current image
     saveGalleryImageFloat(content) {
         const rect = content.getBoundingClientRect();
         const float = { left: Math.round(rect.left), top: Math.round(rect.top) };
-        if (content.style.width) float.width = content.style.width;
-        if (content.style.height) float.height = content.style.height;
+        const frame = content.closest(".product-image-modal")._fitFrame;
+        if (frame) {
+            float.width = frame.width + "px";
+            float.height = frame.height + "px";
+        }
         try {
             localStorage.setItem("galleryImageFloat", JSON.stringify(float));
         } catch (error) {}
@@ -5217,6 +5222,8 @@ Do not include any explanation or additional text.`;
     // Floating boxes (the draggable gallery image, the floating #locationDetails) sit in a layer
     // anchored to the page, so they scroll with the page and map. left/top are window (client)
     // coordinates, clamped so part of the box stays on screen, then converted to the layer's coordinates.
+    // The top stops at the header's bottom edge while the header is in view, so a drag or toss can't
+    // slide the box under it (the header is in front of #locationFloatLayer).
     placeFloatingBox(box, left = null, top = null) {
         const layer = box.offsetParent;
         if (!layer) {
@@ -5227,8 +5234,10 @@ Do not include any explanation or additional text.`;
         const x = left === null ? rect.left : left;
         const y = top === null ? rect.top : top;
         const keep = 60;
+        const header = document.getElementById('main-header');
+        const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
         const clientX = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x));
-        const clientY = Math.min(window.innerHeight - keep, Math.max(0, y));
+        const clientY = Math.min(window.innerHeight - keep, Math.max(headerBottom, y));
         box.style.left = (clientX - layerRect.left) + "px";
         box.style.top = (clientY - layerRect.top) + "px";
     }
@@ -5266,8 +5275,12 @@ Do not include any explanation or additional text.`;
         }
         if (draggable) {
             const float = this.loadGalleryImageFloat();
+            if (!modal._fitFrame && parseFloat(float.width) && parseFloat(float.height)) {
+                modal._fitFrame = { width: parseFloat(float.width), height: parseFloat(float.height) };
+            }
             content.style.width = float.width || "";
             content.style.height = float.height || "";
+            this.fitGalleryImageFloat(modal);
             const width = content.getBoundingClientRect().width;
             const left = typeof float.left === "number" ? float.left : window.innerWidth - width - 24;
             const top = typeof float.top === "number" ? float.top : 96;
@@ -5323,16 +5336,91 @@ Do not include any explanation or additional text.`;
         box._tossFrame = requestAnimationFrame(step);
     }
 
+    // The corner of a floating box under the pointer ("nw", "ne", "sw" or "se"), or "" away from the corners
+    floatingBoxCorner(box, event, size = 14) {
+        const rect = box.getBoundingClientRect();
+        const x = event.clientX - rect.left < size ? "w" : rect.right - event.clientX < size ? "e" : "";
+        const y = event.clientY - rect.top < size ? "n" : rect.bottom - event.clientY < size ? "s" : "";
+        return x && y ? y + x : "";
+    }
+
+    // Resize a floating box from one of its corners, with the opposite corner staying put.
+    // Kept within the box's CSS min/max sizes, with its top below the header's bottom edge.
+    resizeFloatingBox(box, event, corner, onEnd = () => {}) {
+        const rect = box.getBoundingClientRect();
+        const style = getComputedStyle(box);
+        const px = (value, fallback) => {
+            const number = parseFloat(value);
+            return isNaN(number) ? fallback : number;
+        };
+        const minWidth = Math.max(60, px(style.minWidth, 0));
+        const minHeight = Math.max(60, px(style.minHeight, 0));
+        const maxWidth = px(style.maxWidth, Infinity);
+        const maxHeight = px(style.maxHeight, Infinity);
+        const header = document.getElementById('main-header');
+        const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        box.setPointerCapture(event.pointerId);
+        box.classList.add("resizing");
+        const move = (moveEvent) => {
+            const dx = moveEvent.clientX - startX;
+            const dy = moveEvent.clientY - startY;
+            const width = Math.min(maxWidth, Math.max(minWidth, rect.width + (corner.includes("e") ? dx : -dx)));
+            let height = Math.min(maxHeight, Math.max(minHeight, rect.height + (corner.includes("s") ? dy : -dy)));
+            const left = corner.includes("w") ? rect.right - width : rect.left;
+            let top = corner.includes("n") ? rect.bottom - height : rect.top;
+            if (corner.includes("n") && top < headerBottom) {
+                top = headerBottom;
+                height = rect.bottom - top;
+            }
+            const layerRect = box.offsetParent.getBoundingClientRect();
+            box.style.width = width + "px";
+            box.style.height = height + "px";
+            box.style.left = (left - layerRect.left) + "px";
+            box.style.top = (top - layerRect.top) + "px";
+        };
+        const end = () => {
+            box.removeEventListener("pointermove", move);
+            box.removeEventListener("pointerup", end);
+            box.removeEventListener("pointercancel", end);
+            box.classList.remove("resizing");
+            onEnd();
+        };
+        box.addEventListener("pointermove", move);
+        box.addEventListener("pointerup", end);
+        box.addEventListener("pointercancel", end);
+    }
+
     // Drag a floating box (by its handle, or anywhere in it), tossing it on release.
-    // ignore: targets that keep their own behavior; the native resize corner is left alone too.
-    setupFloatingDrag(box, { handle = null, canDrag = () => true, ignore = "button, a, input, textarea, select", onRest = () => {} } = {}) {
+    // Any of its four corners resizes it instead (no grip icon; the cursor changes over them), then onResize.
+    // ignore: targets that keep their own behavior.
+    setupFloatingDrag(box, { handle = null, canDrag = () => true, ignore = "button, a, input, textarea, select", onRest = () => {}, onResize = () => {} } = {}) {
+        // Resize cursor over the corners (widget.css: .float-resize-nwse, .float-resize-nesw)
+        box.addEventListener("pointermove", (event) => {
+            if (event.buttons || event.pointerType !== "mouse") {
+                return;
+            }
+            const corner = canDrag() && !event.target.closest(ignore) ? this.floatingBoxCorner(box, event) : "";
+            box.classList.toggle("float-resize-nwse", corner === "nw" || corner === "se");
+            box.classList.toggle("float-resize-nesw", corner === "ne" || corner === "sw");
+        });
+        box.addEventListener("pointerleave", () => box.classList.remove("float-resize-nwse", "float-resize-nesw"));
+
         (handle || box).addEventListener("pointerdown", (event) => {
             if (!canDrag() || event.button !== 0 || event.target.closest(ignore)) {
                 return;
             }
             const rect = box.getBoundingClientRect();
-            if (event.clientX > rect.right - 18 && event.clientY > rect.bottom - 18) {
-                return; // native resize corner
+            const corner = this.floatingBoxCorner(box, event);
+            if (corner) {
+                event.preventDefault();
+                if (box._tossFrame) {
+                    cancelAnimationFrame(box._tossFrame);
+                    box._tossFrame = null;
+                }
+                this.resizeFloatingBox(box, event, corner, onResize);
+                return;
             }
             const pressed = event.target;
             if (pressed.clientWidth && (event.offsetX > pressed.clientWidth || event.offsetY > pressed.clientHeight)) {
@@ -5374,7 +5462,8 @@ Do not include any explanation or additional text.`;
         });
     }
 
-    // Drag the floating image by any part of it except its buttons, caption and resize corner
+    // Drag the floating image by any part of it except its buttons and caption; resize it from any corner.
+    // A corner resize sets the frame (modal._fitFrame) each image is then fit within.
     setupGalleryImageModalDrag(modal) {
         const content = modal.querySelector(".product-image-modal-content");
         if (!content) {
@@ -5383,24 +5472,38 @@ Do not include any explanation or additional text.`;
         this.setupFloatingDrag(content, {
             canDrag: () => modal.classList.contains("image-float"),
             ignore: "button, a, .product-image-modal-caption",
-            onRest: () => this.saveGalleryImageFloat(content)
+            onRest: () => this.saveGalleryImageFloat(content),
+            onResize: () => {
+                const rect = content.getBoundingClientRect();
+                modal._fitFrame = { width: Math.round(rect.width), height: Math.round(rect.height) };
+                this.fitGalleryImageFloat(modal);
+                this.saveGalleryImageFloat(content);
+            }
         });
+    }
 
-        // Remember a size set with the resize corner
-        if (typeof ResizeObserver === "function") {
-            let saveFrame = null;
-            new ResizeObserver(() => {
-                if (!modal.classList.contains("image-float") || !modal.classList.contains("active") || saveFrame) {
-                    return;
-                }
-                saveFrame = requestAnimationFrame(() => {
-                    saveFrame = null;
-                    if (content.style.width || content.style.height) {
-                        this.saveGalleryImageFloat(content);
-                    }
-                });
-            }).observe(content);
+    // Draggable mode: after a corner resize, the box takes each image's shape. The size set with the corner
+    // (modal._fitFrame, stored before the first fit) is kept in memory, and each image, as the gallery
+    // advances, is fit within it, with one side reduced to the image's aspect ratio. Fitting within the
+    // last image's box instead would shrink the box a little more with each image of a different shape.
+    fitGalleryImageFloat(modal) {
+        const content = modal.querySelector(".product-image-modal-content");
+        const image = modal.querySelector(".product-image-modal-img");
+        const frame = modal._fitFrame;
+        if (!frame || !content || !image || !image.naturalWidth || !modal.classList.contains("image-float")) {
+            return;
         }
+        const ratio = image.naturalWidth / image.naturalHeight;
+        const maxWidth = Math.min(frame.width, window.innerWidth * 0.94); // widget.css max-width and max-height
+        const maxHeight = Math.min(frame.height, window.innerHeight * 0.9);
+        let width = maxWidth;
+        let height = width / ratio;
+        if (height > maxHeight) {
+            height = maxHeight;
+            width = height * ratio;
+        }
+        content.style.width = Math.round(Math.max(160, width)) + "px"; // widget.css min-width
+        content.style.height = Math.round(height) + "px";
     }
 
     updateGalleryImageModal(modal) {
@@ -5439,8 +5542,12 @@ Do not include any explanation or additional text.`;
             }
         }
         image.onload = () => {
+            this.fitGalleryImageFloat(modal);
             requestAnimationFrame(() => this.adjustGalleryImageModalNav(modal));
         };
+        if (image.complete) {
+            this.fitGalleryImageFloat(modal); // the same image again (no load event)
+        }
         this.adjustGalleryImageModalNav(modal);
     }
 
@@ -5615,10 +5722,11 @@ Do not include any explanation or additional text.`;
                     <div class="location-float-body"></div>
                 </div>`;
             document.body.appendChild(layer);
-            // Dragged (and tossed) by any part of it, not only the handle. Links, buttons, form fields and
-            // the scrollbar keep their own behavior.
+            // Dragged (and tossed) by any part of it, not only the handle. Links, buttons, form fields,
+            // the panel menu icon and its menu, the tour arrows and the scrollbar keep their own behavior
+            // (a drag captures the pointer, which would send their clicks to the box instead).
             const box = layer.querySelector('.location-float');
-            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary' });
+            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary, .menuIconHolder, .menuToggleMenu, #detailArrows' });
         }
         const box = layer.querySelector('.location-float');
         const body = layer.querySelector('.location-float-body');
@@ -5629,15 +5737,42 @@ Do not include any explanation or additional text.`;
         }
         layer.style.display = '';
 
-        // Upper left of the visible part of the map (below the header): 60px from its left, at its top
-        requestAnimationFrame(() => {
-            const mapRect = container.getBoundingClientRect();
-            const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
-            const leftMargin = 60;
-            this.placeFloatingBox(box, mapRect.left + leftMargin, Math.max(mapRect.top, headerOffset));
-            this.locationFloatMapLeft = mapRect.left;
-        });
+        requestAnimationFrame(() => this.placeLocationFloat(box, container));
         this.followMapWithLocationFloat(container);
+        this.keepLocationFloatBelowHeader(box);
+    }
+
+    // Upper left of the visible part of the map: 75px from its left, 60px below the header's bottom edge
+    // (or the map's top, if lower). The header is measured where it is on the page, so this is the same
+    // spot whether or not the page has scrolled the header out of view.
+    placeLocationFloat(box, container) {
+        const mapRect = container.getBoundingClientRect();
+        const header = document.getElementById('main-header');
+        const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+        const leftMargin = 75;
+        const topMargin = 60;
+        this.placeFloatingBox(box, mapRect.left + leftMargin, Math.max(mapRect.top, headerBottom) + topMargin);
+        this.locationFloatMapLeft = mapRect.left;
+    }
+
+    // On page load the box can be placed before #main-header is added or reaches its full height, leaving
+    // the box's top under the header (which is in front of it). When the header appears or changes height,
+    // a box whose top is under it is placed again, 60px below the header.
+    keepLocationFloatBelowHeader(box) {
+        if (this.locationFloatHeaderResize || typeof ResizeObserver === 'undefined' || typeof waitForElm !== 'function') {
+            return;
+        }
+        this.locationFloatHeaderResize = new ResizeObserver(() => {
+            const layer = document.getElementById('locationFloatLayer');
+            const header = document.getElementById('main-header');
+            if (!layer || layer.style.display === 'none' || !header) {
+                return;
+            }
+            if (box.getBoundingClientRect().top < header.getBoundingClientRect().bottom && this.locationFloatMap) {
+                this.placeLocationFloat(box, this.locationFloatMap);
+            }
+        });
+        waitForElm('#main-header').then(header => this.locationFloatHeaderResize.observe(header));
     }
 
     // Closing the side panel (sidetab removed from the hash) widens the page. With detailfull=true, the
@@ -6768,6 +6903,16 @@ Do not include any explanation or additional text.`;
         // Location details float only while a map is in Full Screen
         if (!Object.keys(targets).some(t => this.getMapScreen(t) === 'full')) {
             this.returnLocationDetails();
+        }
+
+        // Exit Full Screen (or Escape) also closes the gallery image, as a location with no images does
+        if (!entering && mode === 'full') {
+            const galleryModal = document.getElementById('gallery-image-modal');
+            if (galleryModal && galleryModal.classList.contains('active')) {
+                this.stopFloatingGallerySlides();
+                galleryModal.classList.remove('active');
+                galleryModal.setAttribute('aria-hidden', 'true');
+            }
         }
 
         if (!this.mapScreenKeyHandler) {

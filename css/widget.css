@@ -2441,21 +2441,30 @@ body.map-halfscreen-active #main-content {
   max-height: 90vh;
   padding: 0;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(4px);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45);
   overflow: hidden;
-  resize: both;
   cursor: grab;
   touch-action: none;
 }
 
-.dark .product-image-modal.image-float .product-image-modal-content {
-  background: rgba(0, 0, 0, 0.3);
-}
-
 .product-image-modal.image-float .product-image-modal-content.dragging {
   cursor: grabbing;
+}
+
+/* Floating boxes (the floating image, .location-float) resize from any of their four corners
+   (setupFloatingDrag in map.js), with no grip icon: the cursor shows the resize over a corner */
+.float-resize-nwse,
+.float-resize-nwse * {
+  cursor: nwse-resize !important;
+}
+.float-resize-nesw,
+.float-resize-nesw * {
+  cursor: nesw-resize !important;
+}
+.resizing {
+  user-select: none;
 }
 
 /* Playing gallery: the outgoing image fades away over the next one (fadeGalleryImageModalTo in map.js) */
@@ -2608,7 +2617,6 @@ body.map-halfscreen-active #main-content {
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
   overflow: hidden;
-  resize: both;
 }
 
 .location-float-handle {
