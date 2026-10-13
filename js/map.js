@@ -413,6 +413,7 @@ class ListingsDisplay {
         document.addEventListener('hashChangeEvent', () => {
             this.applyHashDetailSelection();
             this.applyHashViewSelection();
+            this.refreshFullScreenMapAfterSidetab();
         });
     }
     
@@ -4301,10 +4302,13 @@ Do not include any explanation or additional text.`;
             });
         }
 
-        // Restart tour to set timeout for next slide (if tour is playing)
+        // Restart tour to set timeout for next slide (if tour is playing).
+        // Skipped if it was paused in the meantime (stopTour removes detailplay from the hash).
         if (isTourPlaying && typeof startTour === 'function') {
             setTimeout(() => {
-                startTour('locationDetails', true);
+                if (this.getCurrentHash().detailplay === 'true') {
+                    startTour('locationDetails', true);
+                }
             }, 100);
         }
 
@@ -5634,6 +5638,29 @@ Do not include any explanation or additional text.`;
             this.locationFloatMapLeft = mapRect.left;
         });
         this.followMapWithLocationFloat(container);
+    }
+
+    // Closing the side panel (sidetab removed from the hash) widens the page. With detailfull=true, the
+    // Full Screen map is refreshed for its new size on the next frame, once the panel's removal is laid out
+    // (closeSideTabs() updates the hash before it hides the panel).
+    refreshFullScreenMapAfterSidetab() {
+        if (typeof getHash !== 'function') {
+            return;
+        }
+        const hash = getHash();
+        const prior = window.priorHash || {};
+        if (!prior.sidetab || hash.sidetab || hash.detailfull !== 'true') {
+            return;
+        }
+        requestAnimationFrame(() => {
+            const targets = this.getMapScreenTargets();
+            Object.keys(targets).forEach(target => {
+                const map = this.getMapScreen(target) === 'full' && targets[target].map();
+                if (map) {
+                    map.invalidateSize();
+                }
+            });
+        });
     }
 
     // Any map in Full Screen: a location shown after entering it (a tour's first stop, a listing's Details,
@@ -7829,7 +7856,9 @@ Do not include any explanation or additional text.`;
                     // Increased delay to ensure menu is fully rendered
                     if (typeof startTour === 'function') {
                         setTimeout(() => {
-                            startTour('locationDetails', true);
+                            if (this.getCurrentHash().detailplay === 'true') { // not paused meanwhile
+                                startTour('locationDetails', true);
+                            }
                         }, 800);
                     }
                 }
