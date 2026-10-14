@@ -284,7 +284,7 @@ Notes:
 
 ### Start Arts Engine / Chat Server
 - `start art` — Arts Engine Axum Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
-- `start chat` — **ask the user which mode first: webroot or chat repo** (see `chat/AGENTS.md`). Webroot mode = `node chat/server.mjs` from the webroot root (port **3700**; serves the chat app + sibling static repos + the mounted `sanity/` site at `/sanity`). Chat-repo mode = `pnpm --prefix chat dev` (port **3700**; chat app only). In both, the chat app is at the server root — no `/chat` repo prefix. First run: `pnpm --prefix chat install` (and `bun --cwd sanity install` for webroot mode)
+- `start chat` — **ask the user which mode first: webroot or chat repo** (see `chat/AGENTS.md`). Webroot mode = `node chat/server.mjs` from the webroot root (port **3700**; serves the chat app + sibling static repos). Chat-repo mode = `pnpm --prefix chat dev` (port **3700**; chat app only). In both, the chat app is at the server root — no `/chat` repo prefix. First run: `pnpm --prefix chat install`
 
 ### Start Workflow
 When you type "start workflow", run both steps below from the webroot root folder:
