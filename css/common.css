@@ -21,7 +21,7 @@
 .dark {
     --bg-primary: #222;
     --bg-secondary: #555;
-    --bg-tertiary: #555;
+    --bg-tertiary: #313131;
     --text-primary: #aaa;
     --text-secondary: #eee;
 }
@@ -186,7 +186,7 @@ div.breadcrumb .material-icons {
     box-sizing: border-box;
 }
 .dark .card {
-    background: #555;
+    background: #4545;
 }
 
 .side-padding {

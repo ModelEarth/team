@@ -43,6 +43,27 @@
     --claude-radius-xl: 16px;
 }
 
+/* Dark mode */
+.dark {
+    --claude-bg-primary: #222;
+    --claude-bg-secondary: #2b2b2b;
+    --claude-bg-tertiary: #313131;
+    --claude-bg-card: #2b2b2b;
+    --claude-accent-tertiary: #3a2a1c;
+    --claude-text-primary: #e5e5e5;
+    --claude-text-secondary: #bbb;
+    --claude-text-muted: #888;
+    --claude-border-light: rgba(255, 255, 255, 0.08);
+    --claude-border-medium: rgba(255, 255, 255, 0.15);
+    --claude-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.dark pre,
+.dark code,
+.dark .log-output {
+    background: #111 !important;
+    color: #e5e5e5 !important;
+}
+
 /* Global Body Styling */
 body {
     background-color: var(--claude-bg-primary) !important;

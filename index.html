@@ -382,8 +382,14 @@
         }
         @media (min-width: 601px) {
             .header-center h1 {
-                font-size: 38px !important; 
+                font-size: 38px !important;
             }
+        }
+        .dark .header-center p a {
+            color: #6CB4F0;
+        }
+        #readmeDiv a {
+            color: var(--accent-green);
         }
     </style>
     <!-- Auth sign-in is sourced from the auth repo via localsite showAuthModal() -->
@@ -395,7 +401,7 @@
             <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
             <div class="header-center geo-x">
                 <div class="large-list"><h1 style="justify-content: center; color:#555; font-weight: 700 !important; letter-spacing: -0.03em; font-family: Raleway, Lato, Helvetica Neue, Helvetica, sans-serif !important"><span style="color:#999;">CodeChat</span> <span class="heroTitleContrast">Partner Tools</span></h1></div>
-                <p class="hideMobile">Collaboration on model.earth datascapes and AI insight profiles - <a href="/codechat">codechat</a>.</p>
+                <p class="hideMobile">Collaboration on model.earth datascapes and AI insight profiles - <a href="/codechat">codechat</a></p>
             </div>
         </div>
 
@@ -636,7 +642,7 @@
         <br><br>
 
         <div id="system-status" style="margin-top: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
-            <h3 style="margin-bottom: 16px; color: var(--text-primary);">🛡️ Admin Access Information</h3>
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">🛡️ Admin Access Information</h3>
             <p style="color: var(--text-secondary); font-size: 14px;">
                 <strong>Database:</strong> <span id="db-status">Checking...</span> • 
                 <strong>API Server:</strong> <span id="api-status">Checking...</span>
@@ -645,7 +651,7 @@
         </div>
 
         <div style="margin-top: 24px; margin-bottom: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
-            <h3 style="margin-bottom: 16px; color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
             <div id="readmeDiv" class="readme-content">
                 <p style="color: var(--text-secondary); font-style: italic;">
                     Loading README.md...
