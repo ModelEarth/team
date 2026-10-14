@@ -188,7 +188,7 @@ class PrintDownloadWidget {
         return darkModeToggle;
     }
 
-    // Mirrors the dark mode toggle process used in cms/themes/index.html so the
+    // Mirrors the dark mode toggle process used in localsite/css/themes/index.html so the
     // toggle stays in sync with the sitelook cookie whether or not the widget is embedded.
     static isDarkModeActive() {
         if (document.body.classList.contains('dark')) {
