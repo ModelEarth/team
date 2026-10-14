@@ -1,1 +1,1 @@
-This content has moved to the chat repo: [chat/auth/oauth-setup.md](/chat/auth/oauth-setup.md)
+This content has moved to the auth repo: [auth/oauth-setup.md](/auth/oauth-setup.md)
