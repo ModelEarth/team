@@ -5,7 +5,7 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 ## Development Commands
 
-See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. Typically not used since agents handle "commit and push" effectively.
+See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. No longer used unless "git.sh" is directly requested; agents commit and push with direct git commands.
 
 ## .NET / C#
 
@@ -334,7 +334,7 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 - Only commit/push when the user explicitly asks.
 - **CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
-- See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. Typically not used since agents handle "commit and push" effectively.
+- See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. No longer used unless "git.sh" is directly requested; agents commit and push with direct git commands.
 
 **Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
 
