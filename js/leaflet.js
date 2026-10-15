@@ -627,6 +627,7 @@ class LeafletMapManager {
         // Add base tile layer
         const tileLayer = L.tileLayer(style.url, {
             isMapStyle: true,
+            zIndex: typeof MAP_BACKGROUND_ZINDEX === 'number' ? MAP_BACKGROUND_ZINDEX : -1, // Below all other tiles (localsite/js/localsite.js)
             attribution: style.attribution,
             maxZoom: 18,
             maxNativeZoom: style.maxNativeZoom || 18 // Esri Canvas tiles stop at 16, then scale up
@@ -638,6 +639,7 @@ class LeafletMapManager {
         if (style.overlayUrl) {
             const overlayLayer = L.tileLayer(style.overlayUrl, {
                 isMapStyle: true,
+                zIndex: typeof MAP_TITLES_ZINDEX === 'number' ? MAP_TITLES_ZINDEX : 99, // Above background and transit tiles
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
                 maxNativeZoom: style.maxNativeZoom || 18,

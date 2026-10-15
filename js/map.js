@@ -6415,6 +6415,7 @@ Do not include any explanation or additional text.`;
 
         const style = styles[styleKey];
         const baseLayer = L.tileLayer(style.url, {
+            zIndex: typeof MAP_BACKGROUND_ZINDEX === 'number' ? MAP_BACKGROUND_ZINDEX : -1, // Below all other tiles
             attribution: style.attribution,
             maxZoom: 18,
             maxNativeZoom: style.maxNativeZoom || 18 // Esri Canvas tiles stop at 16
@@ -6426,6 +6427,7 @@ Do not include any explanation or additional text.`;
         if (titlesLayer) titlesLayer.clearLayers();
         if (style.overlayUrl) {
             this.detailMapOverlayLayer = L.tileLayer(style.overlayUrl, {
+                zIndex: typeof MAP_TITLES_ZINDEX === 'number' ? MAP_TITLES_ZINDEX : 99, // Above the background tiles
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
                 maxNativeZoom: style.maxNativeZoom || 18,
