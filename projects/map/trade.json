@@ -1,8 +1,8 @@
 {
   "airports": {
     "shortTitle": "Airports",
-    "menuTitle": "Airports Sample Data",
-    "listTitle": "Airports Sample",
+    "menuTitle": "Georgia Airports",
+    "listTitle": "Georgia Airports",
     "datatype": "csv",
     "dataset": "/airports/us/ga/ga.csv",
     "dataadmin": "/display/data/airports/",

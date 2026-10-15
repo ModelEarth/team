@@ -542,6 +542,13 @@ class ListingsDisplay {
 
         //this.render();
         this.setupEventListeners();
+
+        // Full Screen or Half Screen from the screen hash, on load and when the hash's screen value is edited
+        this.restoreMapScreenFromHash();
+        document.addEventListener('hashChangeEvent', () => {
+            const prior = typeof priorHash === 'object' && priorHash ? priorHash : {};
+            if ((getHash().screen || '') !== (prior.screen || '')) this.restoreMapScreenFromHash(true);
+        });
     }
     
     showLoadingState(message) {
@@ -570,6 +577,25 @@ class ListingsDisplay {
                 </select>
             </div>
         `;
+    }
+
+    // Datasets for the map's layer checkboxes: those in #mapDataSelect, else only the active one
+    getMapLayerDatasets() {
+        const keys = this.renderMapDataSelect() ? Object.keys(this.showConfigs) : [this.currentShow];
+        return keys.filter(key => this.showConfigs[key]).map(key => {
+            const config = this.showConfigs[key];
+            return { key, title: config.menuTitle || config.shortTitle || config.listTitle || key };
+        });
+    }
+
+    // Loads a dataset that's checked on the map but isn't the active one
+    async loadMapLayerDataset(key) {
+        const config = this.showConfigs[key];
+        let data = await this.loadDataFromConfig(config);
+        if (config.geoDataset && config.geoColumns && config.geoColumns.length > 0) {
+            data = await this.mergeGeoDataset(data, config); // Coordinates from a lookup, as in loadShowData
+        }
+        return { data: this.normalizeCoordinateFields(data || []), config };
     }
 
     handleMapDataSelectChange(e) {
@@ -6159,6 +6185,11 @@ Do not include any explanation or additional text.`;
             : null;
         const preferredStyle = cachedStyle || (window.leafletMap ? (window.leafletMap.preferredMapStyle || window.leafletMap.currentMapStyle) : null);
 
+        // tiles2 in the hash (localsite/js/localsite.js) names the detail map's style
+        const hashStyle = typeof tilesFromHash === 'function' ? tilesFromHash('tiles2', styles) : null;
+        if (hashStyle) {
+            return hashStyle;
+        }
         if (preferredStyle && styles[preferredStyle]) {
             return preferredStyle;
         }
@@ -6390,15 +6421,21 @@ Do not include any explanation or additional text.`;
         }).addTo(this.detailMap);
         this.detailMapTileLayer = baseLayer;
 
+        // The style's titles (place names) go in the Map Titles checkbox's layer (localsite/js/localsite.js)
+        const titlesLayer = this.detailMapStyleControl?.titlesLayer;
+        if (titlesLayer) titlesLayer.clearLayers();
         if (style.overlayUrl) {
             this.detailMapOverlayLayer = L.tileLayer(style.overlayUrl, {
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
                 maxNativeZoom: style.maxNativeZoom || 18,
                 minZoom: 8
-            }).addTo(this.detailMap);
+            }).addTo(titlesLayer || this.detailMap);
         } else {
             this.detailMapOverlayLayer = null;
+        }
+        if (titlesLayer) {
+            syncMapTitles(this.detailMap, this.detailMapStyleControl.control, titlesLayer, Boolean(style.overlayUrl), false);
         }
 
         if (style.filter) {
@@ -6418,9 +6455,7 @@ Do not include any explanation or additional text.`;
             window.leafletMap.saveCachedMapStyle(styleKey);
         }
 
-        if (this.detailMapStyleControl?.select) {
-            this.detailMapStyleControl.select.value = styleKey;
-        }
+        this.syncDetailStyleRadio(styleKey);
     }
 
     toggleDetailMapControl(container, isOpen) {
@@ -6435,27 +6470,37 @@ Do not include any explanation or additional text.`;
         if (!container) {
             return;
         }
+        if (this.detailMapStyleControl && container === this.detailMapStyleControl.container) {
+            this.detailMapStyleControl.control.close();
+            return;
+        }
         container.classList.remove('is-open');
     }
 
+    // One radio button per style, rebuilt once the shared styles are ready
     refreshDetailMapStyleOptions() {
-        if (!this.detailMapStyleControl?.select) {
+        const styleControl = this.detailMapStyleControl;
+        if (!styleControl) {
             return;
         }
-        const select = this.detailMapStyleControl.select;
-        const styles = this.getDetailMapStyles();
-        const currentValue = select.value;
-        select.innerHTML = Object.entries(styles).map(([key, style]) =>
-            `<option value="${key}">${style.name}</option>`
-        ).join('');
-
-        if (currentValue && styles[currentValue]) {
-            select.value = currentValue;
+        Object.values(styleControl.placeholders).forEach(layer => {
+            styleControl.control.removeLayer(layer);
+            if (this.detailMap.hasLayer(layer)) this.detailMap.removeLayer(layer);
+        });
+        styleControl.placeholders = {};
+        Object.entries(this.getDetailMapStyles()).forEach(([key, style]) => {
+            const placeholder = L.layerGroup();
+            placeholder.mapStyleKey = key;
+            styleControl.placeholders[key] = placeholder;
+            styleControl.control.addBaseLayer(placeholder, style.name);
+        });
+        if (this.detailMapCurrentStyle) {
+            this.syncDetailStyleRadio(this.detailMapCurrentStyle);
         }
     }
 
     ensureDetailMapStylesReady() {
-        if (!this.detailMap || !this.detailMapStyleControl?.select) {
+        if (!this.detailMap || !this.detailMapStyleControl) {
             return;
         }
 
@@ -6474,62 +6519,46 @@ Do not include any explanation or additional text.`;
         requestAnimationFrame(waitForStyles);
     }
 
+    // Map style button and tiles panel (createLayersControl in localsite/js/localsite.js), the same control as
+    // the widget map's. Each style's radio button is an empty placeholder layer; choosing one calls
+    // setDetailMapStyle. The choice is kept in the tiles2 hash.
     addDetailMapStyleSelector() {
-        if (!this.detailMap) {
+        if (!this.detailMap || typeof createLayersControl !== 'function') {
             return;
         }
-
-        const control = L.control({ position: 'bottomleft' });
-
-        control.onAdd = () => {
-            const div = L.DomUtil.create('div', 'map-style-selector detail-map-style-selector');
-            const styles = this.getDetailMapStyles();
-            div.innerHTML = `
-                <button type="button" class="map-style-icon mapPopButton" title="Map style" aria-label="Map style">
-                    <span class="material-icons" aria-hidden="true">layers</span>
-                </button>
-                <select class="map-style-select mapPopButton" aria-label="Map style">
-                    ${Object.entries(styles).map(([key, style]) =>
-                        `<option value="${key}">${style.name}</option>`
-                    ).join('')}
-                </select>
-            `;
-
-            L.DomEvent.disableClickPropagation(div);
-            L.DomEvent.disableScrollPropagation(div);
-
-            const button = div.querySelector('.map-style-icon');
-            const select = div.querySelector('.map-style-select');
-
-            div.addEventListener('click', (event) => event.stopPropagation());
-
-            button.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                this.toggleDetailMapControl(div);
-                this.closeDetailMapControl(this.detailMapZoomControl?.container);
-                if (div.classList.contains('is-open')) {
-                    select.focus();
-                    if (typeof select.showPicker === 'function') {
-                        select.showPicker();
-                    } else {
-                        select.click();
-                    }
-                }
-            });
-
-            select.addEventListener('change', (event) => {
-                this.detailMapPreferredStyle = event.target.value;
-                this.setDetailMapStyle(event.target.value);
-                this.closeDetailMapControl(div);
-            });
-
-            this.detailMapStyleControl = { control, container: div, select, button };
-            return div;
-        };
-
+        const control = createLayersControl({}, {}, { position: 'bottomleft' });
         control.addTo(this.detailMap);
+        this.detailMapStyleControl = { control, container: control.getContainer(), placeholders: {}, titlesLayer: createMapTitlesLayer() };
+        this.refreshDetailMapStyleOptions();
+
+        this.detailMap.on('baselayerchange', (e) => {
+            if (this.syncingDetailStyleRadio || !e.layer.mapStyleKey) {
+                return;
+            }
+            this.detailMapPreferredStyle = e.layer.mapStyleKey;
+            this.setDetailMapStyle(e.layer.mapStyleKey);
+            if (typeof goHashQuiet === 'function') goHashQuiet({ 'tiles2': e.layer.mapStyleKey });
+        });
+        // Opening the panel closes the zoom levels list
+        this.detailMap.on('layerstilesopen', () => this.closeDetailMapControl(this.detailMapZoomControl?.container));
         this.ensureDetailMapStylesReady();
+    }
+
+    // Checks the style's radio button without treating it as the viewer's choice
+    syncDetailStyleRadio(styleKey) {
+        const placeholders = this.detailMapStyleControl?.placeholders;
+        if (!placeholders || !this.detailMap) {
+            return;
+        }
+        this.syncingDetailStyleRadio = true;
+        Object.entries(placeholders).forEach(([key, layer]) => {
+            if (key === styleKey) {
+                if (!this.detailMap.hasLayer(layer)) this.detailMap.addLayer(layer);
+            } else if (this.detailMap.hasLayer(layer)) {
+                this.detailMap.removeLayer(layer);
+            }
+        });
+        this.syncingDetailStyleRadio = false;
     }
 
     generateDetailMapZoomLevels(currentZoom) {
@@ -6931,6 +6960,49 @@ Do not include any explanation or additional text.`;
         const map = config.map();
         if (map) {
             requestAnimationFrame(() => map.invalidateSize());
+        }
+        this.saveMapScreenHash();
+    }
+
+    // The screen hash: screen=full or screen=left (Half Screen) while either map is in that mode.
+    // Updated without a history entry (goHashQuiet in localsite/js/localsite.js), so Back skips layout changes.
+    saveMapScreenHash() {
+        if (typeof goHashQuiet !== 'function' || typeof getHash !== 'function') return;
+        const targets = Object.keys(this.getMapScreenTargets());
+        const mode = ['full', 'half'].find(m => targets.some(t => this.getMapScreen(t) === m));
+        const value = mode === 'full' ? 'full' : (mode === 'half' ? 'left' : '');
+        if (value === (getHash().screen || '')) return;
+        if (value) {
+            goHashQuiet({ 'screen': value });
+        } else {
+            goHashQuiet({}, 'screen');
+        }
+    }
+
+    // Loads the layout in the screen hash: the detail map when a location (id) is in the hash, otherwise
+    // the main map. leaveWhenAbsent (for hash edits) leaves Full or Half Screen when screen is removed.
+    restoreMapScreenFromHash(leaveWhenAbsent = false) {
+        if (typeof getHash !== 'function') return;
+        const hash = getHash();
+        const mode = hash.screen === 'full' ? 'full' : (hash.screen === 'left' ? 'half' : null);
+        const targets = this.getMapScreenTargets();
+        if (!mode) {
+            if (leaveWhenAbsent) {
+                Object.keys(targets).forEach(t => {
+                    const active = this.getMapScreen(t);
+                    if (active) this.toggleMapScreen(t, active);
+                });
+            }
+            return;
+        }
+        const target = (hash.id || hash.detail) ? 'detail' : 'widget';
+        const apply = () => {
+            if (this.getMapScreen(target) !== mode) this.toggleMapScreen(target, mode);
+        };
+        if (document.getElementById(targets[target].wrapperId)) {
+            apply();
+        } else if (typeof onElmReady === 'function') {
+            onElmReady('#' + targets[target].wrapperId, apply);
         }
     }
 
@@ -8107,12 +8179,24 @@ Do not include any explanation or additional text.`;
                     if (this.config?.zoom) {
                         mapOptions.defaultZoom = parseInt(this.config.zoom);
                     }
+                    // The lat, lon and level hash (localsite/js/localsite.js) take priority for the first view
+                    const hashView = typeof mapViewFromHash === 'function' ? mapViewFromHash() : null;
+                    if (hashView) {
+                        mapOptions.defaultLat = hashView.center[0];
+                        mapOptions.defaultLng = hashView.center[1];
+                        if (hashView.zoom) mapOptions.defaultZoom = hashView.zoom;
+                    }
 
                     window.leafletMap = new LeafletMapManager('widgetmap', mapOptions);
                 } else {
                     debugAlert("🔄 SKIPPING MAP RECREATION - using existing map to avoid tile reload. Map exists: " + !!window.leafletMap);
                 }
                 
+                // Dataset checkboxes in the map's layers control (team/js/leaflet.js)
+                if (window.leafletMap && typeof window.leafletMap.setDatasetLayers === 'function') {
+                    window.leafletMap.setDatasetLayers(this.getMapLayerDatasets(), this.currentShow, key => this.loadMapLayerDataset(key));
+                }
+
                 // Update map with current listings data - only send current page data
                 console.log("Update map with current listings data - only send current page data")
                 if (this.listings && this.listings.length > 0) {

@@ -1359,19 +1359,9 @@ body.map-halfscreen-active #main-content {
 #widgetmap .mapPopButton {
   min-height: 26px;
 }
-#widgetmap .map-style-selector .map-style-select.mapPopButton {
-  height: 26px !important;
-  min-height: 26px !important;
-  padding: 2px 8px 2px 6px !important;
-  font-size: 12px !important;
-  line-height: 1.1 !important;
-  border-radius: 4px !important;
-}
-#detailmap .map-style-selector {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Map style button (createLayersControl in localsite/js/localsite.js, styled in localsite/css/map.css),
+   sized to match the detail map's zoom level button */
+#detailmap .layers-tiles-control {
   order: 1;
 }
 
@@ -1379,48 +1369,15 @@ body.map-halfscreen-active #main-content {
   order: 2;
 }
 
-#detailmap .map-style-selector .map-style-select {
-  display: none;
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 2;
-  min-width: 140px;
-}
-
-#detailmap .map-style-selector.is-open .map-style-select {
-  display: inline-flex;
-}
-
-#detailmap .map-style-selector .map-style-icon {
+#detailmap .layers-tiles-button {
   width: 22px;
   height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 4px;
+  background: #555;
 }
 
-#detailmap .map-style-selector .map-style-icon .material-icons {
+#detailmap .layers-tiles-button .material-icons {
   font-size: 16px;
-  line-height: 1;
-}
-
-#detailmap .map-style-selector .map-style-select {
-  min-height: 22px;
-  font-size: 12px;
-  padding: 2px 8px 2px 6px;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: none;
-  color: transparent;
-  text-shadow: 0 0 0 transparent;
-}
-
-#detailmap .map-style-selector.is-open .map-style-select {
-  display: inline-flex;
-  color: inherit;
-  text-shadow: none;
 }
 
 #detailmap .detail-map-zoom-display .zoom-display-current {

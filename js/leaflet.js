@@ -169,9 +169,13 @@ class LeafletMapManager {
                     ...carto('rastertiles/voyager', esriStreets),
                     filter: 'hue-rotate(330deg) saturate(1.4) contrast(1.1) brightness(1.1)'
                 },
-                light: {
+                light: { // Esri's light gray titles (dark text with light edges), not labelOverlay's, which suit dark maps and imagery
                     name: 'Grayscale',
-                    ...carto('light_all', { ...esriLightGray, ...labelOverlay }),
+                    ...carto('light_all', {
+                        ...esriLightGray,
+                        overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+                        overlayAttribution: '© Esri'
+                    }),
                 },
                 darkgray: { // CARTO dark_all brightened: near-white roads over black to charcoal greys, so features stay visible
                     name: 'Dark Mode',
@@ -183,9 +187,9 @@ class LeafletMapManager {
                     }),
                     ...(cartoKey && { filter: 'brightness(4.2) contrast(1.25)' })
                 },
-                dark: {
+                dark: { // Titles in white with dark edges (World_Boundaries_and_Places), as in localsite's Darker Mode
                     name: 'Darker Mode',
-                    ...carto('dark_all', { ...esriDarkGray, overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', overlayAttribution: '© Esri' }),
+                    ...carto('dark_all', { ...esriDarkGray, overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', overlayAttribution: '© Esri' }),
                 },
                 openstreetmap: {
                     name: 'OpenStreetMap',
@@ -359,6 +363,11 @@ class LeafletMapManager {
         if (this.map.zoomControl && typeof this.map.zoomControl.setPosition === 'function') {
             this.map.zoomControl.setPosition('bottomright');
         }
+        // Markers for the active dataset ("show"). Moves into that dataset's checkbox layer once the
+        // dataset checkboxes are added (setDatasetLayers).
+        this.activeMarkerGroup = L.layerGroup().addTo(this.map);
+        // Holds the style's titles (place names) layer, for the Map Titles checkbox (localsite/js/localsite.js)
+        this.titlesLayer = typeof createMapTitlesLayer === 'function' ? createMapTitlesLayer() : null;
 
         // Re-measure whenever the map's container changes size (Expand Map into #widgetHero, Collapse,
         // moving into #mapCatch), so Leaflet loads tiles for the whole visible area, not just the old size.
@@ -393,10 +402,12 @@ class LeafletMapManager {
         if (cachedStyle && this.mapStyles[cachedStyle]) {
             this.currentMapStyle = cachedStyle;
         }
+        // A style in the tiles hash is used as is
+        const hashStyle = typeof tilesFromHash === 'function' ? tilesFromHash('tiles', this.mapStyles) : null;
         
         // Add initial tile layer, following the site's light/dark mode
-        this.preferredMapStyle = this.currentMapStyle;
-        this.setMapStyle(leafletStyleForSitelook(this.currentMapStyle, this.mapStyles, this.map.getZoom()));
+        this.preferredMapStyle = hashStyle || this.currentMapStyle;
+        this.setMapStyle(hashStyle || leafletStyleForSitelook(this.currentMapStyle, this.mapStyles, this.map.getZoom()));
         
         // Add zoom event listener for dynamic icon sizing and user zoom tracking
         this.map.on('zoomend', () => {
@@ -439,36 +450,156 @@ class LeafletMapManager {
 
     applyZoomControlIcons() {}
     
+    // Layers control: checkboxes for transit lines and datasets (the layers hash), listed before radio buttons
+    // for the background styles (the tiles hash). Each style's radio button is an empty placeholder layer,
+    // and choosing one calls setMapStyle, which adds the style's tiles, label tiles and filter.
+    // The hash helpers (createLayersControl, goHashQuiet, ...) reside in localsite/js/localsite.js.
     addMapStyleSelector() {
-        // Create style selector control
-        const styleControl = L.control({ position: 'bottomleft' });
-        
-        styleControl.onAdd = (map) => {
-            const div = L.DomUtil.create('div', 'map-style-selector');
-            div.innerHTML = `
-                <select class="map-style-select mapPopButton">
-                    ${Object.entries(this.mapStyles).map(([key, style]) => 
-                        `<option value="${key}" ${key === this.currentMapStyle ? 'selected' : ''}>${style.name}</option>`
-                    ).join('')}
-                </select>
-            `;
-            
-            // Prevent map interaction when clicking selector
-            L.DomEvent.disableClickPropagation(div);
-            L.DomEvent.disableScrollPropagation(div);
-            
-            // Handle style changes
-            const select = div.querySelector('.map-style-select');
-            select.addEventListener('change', (e) => {
-                this.preferredMapStyle = e.target.value;
-                this.setMapStyle(e.target.value);
-                this.saveCachedMapStyle(e.target.value);
+        const hashHelpers = typeof goHashQuiet === 'function' && typeof createLayersControl === 'function';
+        this.styleRadioLayers = {};
+        const basemaps = {};
+        Object.entries(this.mapStyles).forEach(([key, style]) => {
+            const placeholder = L.layerGroup();
+            placeholder.mapStyleKey = key;
+            this.styleRadioLayers[key] = placeholder;
+            basemaps[style.name] = placeholder;
+        });
+        const options = { position: 'bottomleft' };
+        this.layersControl = hashHelpers ? createLayersControl(basemaps, {}, options) : L.control.layers(basemaps, {}, options);
+        this.layersControl.addTo(this.map);
+        if (typeof syncMapTransitLayers === 'function') {
+            syncMapTransitLayers(this.map, this.layersControl, this.transitStates()); // MARTA (state=GA), Public Transit, Freight Rail
+        }
+        if (this.titlesLayer) {
+            syncMapTitles(this.map, this.layersControl, this.titlesLayer, Boolean(this.mapStyles[this.currentMapStyle]?.overlayUrl)); // Map Titles, last
+        }
+        L.DomEvent.disableScrollPropagation(this.layersControl.getContainer());
+
+        this.map.on('baselayerchange', (e) => {
+            if (this.syncingStyleRadio || !e.layer.mapStyleKey) return;
+            this.preferredMapStyle = e.layer.mapStyleKey;
+            this.setMapStyle(e.layer.mapStyleKey);
+            this.saveCachedMapStyle(e.layer.mapStyleKey);
+            if (hashHelpers) goHashQuiet({ 'tiles': e.layer.mapStyleKey });
+        });
+        this.syncStyleRadio(this.currentMapStyle);
+
+        if (hashHelpers) {
+            applyMapLayersFromHash(this.map, this.layersControl, this.activeDatasetIds()); // Transit checkboxes. Datasets follow in setDatasetLayers.
+            trackMapLayersHash(this.map, this.layersControl, () => this.activeDatasetIds());
+            trackMapView(this.map);
+            // Checkboxes follow edits to the layers hash, without reloading
+            document.addEventListener('hashChangeEvent', () => {
+                if (!this.map || !document.body.contains(this.map.getContainer())) return;
+                const hash = getHash();
+                const prior = typeof priorHash === 'object' && priorHash ? priorHash : {};
+                if (hash.state !== prior.state) {
+                    syncMapTransitLayers(this.map, this.layersControl, this.transitStates()); // MARTA comes and goes with GA
+                }
+                if (hash.layers !== prior.layers && (hash.map || hash.show) === (prior.map || prior.show)) {
+                    applyMapLayersFromHash(this.map, this.layersControl, this.activeDatasetIds());
+                }
             });
-            
-            return div;
-        };
-        
-        styleControl.addTo(this.map);
+        }
+    }
+
+    // Checks the radio button for a style without treating it as the viewer's choice
+    syncStyleRadio(styleKey) {
+        if (!this.styleRadioLayers || !this.map) return;
+        this.syncingStyleRadio = true;
+        Object.entries(this.styleRadioLayers).forEach(([key, layer]) => {
+            if (key === styleKey) {
+                if (!this.map.hasLayer(layer)) this.map.addLayer(layer);
+            } else if (this.map.hasLayer(layer)) {
+                this.map.removeLayer(layer);
+            }
+        });
+        this.syncingStyleRadio = false;
+    }
+
+    // States for transit checkboxes (MARTA with GA): the state hash or param
+    transitStates() {
+        const hash = typeof getHash === 'function' ? getHash() : {};
+        return hash.state || (window.param && window.param.state) || '';
+    }
+
+    // Active dataset id(s) for the layers hash
+    activeDatasetIds() {
+        if (this.activeDatasetKey) return [this.activeDatasetKey];
+        const hash = typeof getHash === 'function' ? getHash() : {};
+        const show = hash.map || hash.show || (window.param && (window.param.map || window.param.show)) || '';
+        return String(show).split(',').map(id => id.trim()).filter(Boolean);
+    }
+
+    // Dataset checkboxes, after the transit ones. datasets is [{key, title}].
+    // The active dataset's checkbox holds activeMarkerGroup. Other datasets load (with loadDataset) the
+    // first time they're checked, as small circles in their own color.
+    setDatasetLayers(datasets, activeKey, loadDataset) {
+        if (!this.layersControl || !activeKey) return;
+        this.loadDataset = loadDataset;
+        this.datasetLayers = this.datasetLayers || {};
+        datasets.forEach(({ key, title }) => {
+            if (this.datasetLayers[key]) return;
+            const group = L.layerGroup();
+            group.mapLayerId = key;
+            group.on('add', () => this.loadDatasetLayer(key));
+            this.datasetLayers[key] = group;
+            this.layersControl.addOverlay(group, title);
+        });
+        if (activeKey === this.activeDatasetKey) return;
+
+        const firstSetup = !this.activeDatasetKey;
+        const previous = this.datasetLayers[this.activeDatasetKey];
+        const active = this.datasetLayers[activeKey];
+        this.activeDatasetKey = activeKey;
+        this.map.restoringLayers = true;
+        if (previous) {
+            previous.removeLayer(this.activeMarkerGroup);
+            this.map.removeLayer(previous); // The newly shown dataset replaces the prior one
+        } else {
+            this.map.removeLayer(this.activeMarkerGroup);
+        }
+        if (active) {
+            active.clearLayers(); // Drop circles it loaded while it wasn't the active dataset
+            active.extraLoaded = false;
+            active.addLayer(this.activeMarkerGroup);
+        } else {
+            this.activeMarkerGroup.addTo(this.map);
+        }
+        this.map.restoringLayers = false;
+
+        if (typeof applyMapLayersFromHash !== 'function') {
+            if (active) this.map.addLayer(active);
+        } else if (firstSetup) {
+            applyMapLayersFromHash(this.map, this.layersControl, [activeKey]); // The layers hash can leave the dataset unchecked
+        } else {
+            if (active) this.map.addLayer(active); // A newly shown dataset is checked
+            saveMapLayersHash(this.map, this.layersControl, [activeKey]);
+        }
+    }
+
+    loadDatasetLayer(key) {
+        const group = this.datasetLayers[key];
+        if (key === this.activeDatasetKey || group.extraLoaded || group.extraLoading || !this.loadDataset) return;
+        group.extraLoading = true;
+        const keys = Object.keys(this.datasetLayers);
+        const palette = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#9a6324', '#469990', '#808000'];
+        const color = palette[keys.indexOf(key) % palette.length];
+        this.loadDataset(key).then(({ data, config }) => {
+            group.extraLoading = false;
+            if (key === this.activeDatasetKey) return;
+            (data || []).forEach(item => {
+                const coords = this.extractCoordinates(item);
+                if (!coords.lat || !coords.lng) return;
+                L.circleMarker([coords.lat, coords.lng], { radius: 5, color: '#fff', weight: 1, fillColor: color, fillOpacity: 0.85 })
+                    .bindPopup(this.createPopupContent(item, config || {}), this.popupOptions)
+                    .addTo(group);
+            });
+            group.extraLoaded = true;
+        }).catch(error => {
+            group.extraLoading = false; // Retry the next time it's checked
+            console.warn('Map layer ' + key + ' could not load: ' + error.message);
+        });
     }
     
     // Light/dark toggle: show the style for the new mode without changing the saved choice
@@ -477,8 +608,6 @@ class LeafletMapManager {
         const styleKey = leafletStyleForSitelook(this.preferredMapStyle || this.currentMapStyle, this.mapStyles, this.map.getZoom());
         if (styleKey === this.currentMapStyle) return;
         this.setMapStyle(styleKey);
-        const select = this.map.getContainer().querySelector('.map-style-select');
-        if (select) select.value = styleKey;
     }
 
     setMapStyle(styleKey) {
@@ -487,34 +616,41 @@ class LeafletMapManager {
         const style = this.mapStyles[styleKey];
         this.currentMapStyle = styleKey;
         
-        // Remove existing tile layers
+        // Remove the prior style's tiles (not tile overlays such as Freight Rail)
         this.map.eachLayer((layer) => {
-            if (layer instanceof L.TileLayer) {
+            if (layer instanceof L.TileLayer && layer.options.isMapStyle) {
                 this.map.removeLayer(layer);
             }
         });
+        this.syncStyleRadio(styleKey);
         
         // Add base tile layer
         const tileLayer = L.tileLayer(style.url, {
+            isMapStyle: true,
             attribution: style.attribution,
             maxZoom: 18,
             maxNativeZoom: style.maxNativeZoom || 18 // Esri Canvas tiles stop at 16, then scale up
         }).addTo(this.map);
         
-        // Add overlay layer if specified (for labels on satellite imagery)
+        // Add the style's titles (place names) layer if specified, within the Map Titles checkbox's layer
         // Only show labels at zoom level 8 and above
+        if (this.titlesLayer) this.titlesLayer.clearLayers();
         if (style.overlayUrl) {
             const overlayLayer = L.tileLayer(style.overlayUrl, {
+                isMapStyle: true,
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
                 maxNativeZoom: style.maxNativeZoom || 18,
                 minZoom: 8  // Only show labels at zoom 8+
-            }).addTo(this.map);
+            }).addTo(this.titlesLayer || this.map);
             
             // Store reference to overlay for dynamic visibility
             this.currentOverlay = overlayLayer;
         } else {
             this.currentOverlay = null;
+        }
+        if (this.titlesLayer && this.layersControl && typeof syncMapTitles === 'function') {
+            syncMapTitles(this.map, this.layersControl, this.titlesLayer, Boolean(style.overlayUrl));
         }
         
         // Apply CSS filter if specified
@@ -823,7 +959,7 @@ class LeafletMapManager {
             this.configureHoverPopup(marker, 500, 1000);
             
             // Add to map and store reference
-            marker.addTo(this.map);
+            marker.addTo(this.activeMarkerGroup || this.map);
             this.applyMarkerHighlight(marker);
             this.markers.push(marker);
             
@@ -1003,6 +1139,7 @@ class LeafletMapManager {
     
     clearMarkers() {
         this.markers.forEach(marker => {
+            if (this.activeMarkerGroup) this.activeMarkerGroup.removeLayer(marker);
             this.map.removeLayer(marker);
         });
         this.markers = [];
@@ -1673,15 +1810,6 @@ class LeafletMapManager {
             }
 
             
-            /* Map Style Selector */
-            .map-style-selector {
-                background: transparent;
-                padding: 0;
-                border-radius: 0;
-                box-shadow: none;
-                margin-bottom: 0;
-            }
-
             
             /* Fullscreen Toggle */
             .fullscreen-toggle-container {
