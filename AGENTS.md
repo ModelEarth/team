@@ -5,7 +5,7 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 ## Development Commands
 
-See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. No longer used unless "git.sh" is directly requested; agents commit and push with direct git commands.
+For pull, push and submodules, see the webroot's [AGENTS.md](../AGENTS.md). [AGENTS-GitSh.md](AGENTS-GitSh.md) covers the git.sh scripted workflow, which is no longer used unless "git.sh" is directly requested.
 
 ## .NET / C#
 
@@ -326,133 +326,9 @@ When you type "restart", run this single command to restart the server in second
 cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && NODE_ENV=production nohup node index.js > /dev/null 2>&1 &)
 ```
 
-## Git Workflow
+## Git, Submodules and Site Repos
 
-### Git Commit Policy
-
-**NEVER add Claude Code attribution or co-authored-by lines to commits**
-
-- Only commit/push when the user explicitly asks.
-- **CRITICAL**: Always pull before pushing to ensure you have the latest changes and avoid conflicts.
-- See [AGENTS-GitSh.md](AGENTS-GitSh.md) for the git.sh scripted push/pull workflow. No longer used unless "git.sh" is directly requested; agents commit and push with direct git commands.
-
-**Merge conflicts**: Automatically resolve only when the solution is clear and unambiguous. For complex conflicts, analyze the specific issues and present resolution options for the user to choose from.
-
-### Submodule Detached HEAD
-
-After a pull, submodules will be in detached HEAD state because `git submodule update` checks out a pinned commit, not a branch. Before staging or committing work in a submodule, always reattach:
-
-```bash
-git -C <submodule> checkout main
-```
-
-### Submodule Version Conflicts
-
-When a submodule's local commit is older than the remote (origin/main), **do not silently overwrite local work**. Instead:
-
-1. **Identify the divergence**: Compare the local submodule commit with origin/main to understand what changed on each side.
-2. **Merge, don't replace**: Use your intelligence to merge the remote changes into the local submodule branch:
-   ```bash
-   git -C <submodule> checkout main
-   git -C <submodule> merge origin/main
-   ```
-3. **Resolve conflicts intelligently**: If merge conflicts arise, analyze the diff and resolve them — keeping both the remote improvements and the user's local changes where possible.
-4. **Commit the merge in the submodule**, then update the parent repo's submodule pointer to the merged commit.
-5. **Never use "preserve local" as a reason to let the local (older) commit overwrite what is already on GitHub** — that would push a regression. Preserving local work means merging it forward, not pushing it backward over the remote.
-
-**Goal**: The result should be a commit that is newer than both the local and remote versions, containing both sets of changes, pushed to the submodule's origin/main.
-
-6. **Before pushing, if a merge or overwrite occurred**, provide a localhost review link so the user can inspect the result:
-   - Ensure the HTTP server is running on port 8887 (start it if needed — see Start HTTP Server above)
-   - Output the relevant localhost URL, e.g.:
-     `http://localhost:8887/<submodule>/<changed-path>/`
-   - Wait for the user to confirm before pushing.
-   - If no merge or overwrite occurred (already up to date), proceed with the push without waiting.
-
-### Push Reporting Guidelines
-
-- Include commit info in push reports
-- Keep commit messages clean and focused on the actual changes
-- **ONLY report what was pushed in the current push operation**
-- Do NOT describe or reference previous commits or earlier implementations
-- Focus on the specific files and changes that were just committed
-- Keep push summaries factual and limited to the immediate operation
-
-#### Commit Message Requirements:
-- **Repository-specific**: Each commit message describes only that repository's changes
-- **No cross-references**: Don't mention other repositories' changes in individual commits
-- **No Claude attribution**: Never include Claude Code credits or co-authored-by lines
-- **Concise and factual**: Focus on what was changed, not implementation details
-
-### Quick Commands for Repositories
-- **"push [name] [nopr]"**: Intelligent push with PR fallback - tries submodule → standalone repo → root folder fallback
-- **"pull [name]"**: Pull changes for specific repository (root folder, submodule, or extra repo)
-- **"PR [submodule name]"**: Create pull request workflow
-- **"push submodules [nopr]"**: Push all submodules with PR fallback when push fails
-- **"push forks [nopr]"**: Push all extra repo forks and create PRs to parent repos
-- **"push [nopr]"** or **"push all [nopr]"**: Complete push workflow with PR fallback - pushes root folder, all submodules, and all forks
-
-**PR Fallback Behavior**: All push commands automatically create pull requests when direct push fails due to permission restrictions. Add 'nopr' or 'No PR' (case insensitive) at the end of any push command to skip PR creation.
-
-**Repository-not-found on pull/fetch**: If `git fetch`/pull fails with "Repository not found" for the active `gh` account (e.g. the repo is private and that account lacks access), run `gh auth status` to see other logged-in accounts. If `ModelEarth` is already among them, switch to it with `gh auth switch --user ModelEarth` and retry — do not log out/log in a new account or prompt for credentials unless `ModelEarth` isn't already authenticated.
-
-## Submodule Management
-
-This repository contains git submodules configured in `.gitmodules` including:
-- **localsite** - https://github.com/ModelEarth/localsite
-- **feed** - https://github.com/modelearth/feed  
-- **swiper** - https://github.com/modelearth/swiper
-- **home** - https://github.com/ModelEarth/home
-- **products** - https://github.com/modelearth/products
-- **comparison** - https://github.com/modelearth/comparison
-- **team** - https://github.com/modelearth/team
-- **projects** - https://github.com/modelearth/projects
-- **realitystream** - https://github.com/modelearth/realitystream
-- **cloud** - https://github.com/modelearth/cloud
-- **trade** - https://github.com/modelearth/trade
-- **codechat** - https://github.com/modelearth/codechat
-- **exiobase** - https://github.com/modelearth/exiobase
-- **io** - https://github.com/modelearth/io
-- **profile** - https://github.com/modelearth/profile
-- **reports** - https://github.com/modelearth/reports
-- **community-forecasting** - https://github.com/modelearth/community-forecasting
-
-**IMPORTANT**: All directories listed above are git submodules, not regular directories. They appear as regular directories when browsing but are actually git submodule references. Always treat them as submodules in git operations.
-
-### Upstream Repository Policy
-**CRITICAL**: The maximum upstream level for all repositories is `modelearth`
-
-- **Root folder and Submodules**: Upstream should point to `modelearth` or `ModelEarth` repositories only
-- **Industry Repositories**: Upstream should point to `modelearth` repositories only  
-- **Repository Hierarchy**: `user-fork` → `modelearth` (STOP - do not go higher)
-
-### Repository Root Navigation
-The CLI session is already pointed to the root folder directory. Do **not** prefix commands with `cd $(git rev-parse --show-toplevel)` — the `$()` substitution triggers unnecessary approval prompts. Run git commands directly from the root folder.
-
-To verify you're in the correct root repository:
-```bash
-git remote -v
-# Should show: origin pointing to the root repo (folder name matches repo name)
-```
-
-**IMPORTANT FILE PATH POLICY**:
-- **NEVER hardcode specific file paths** from any user's computer in code or documentation
-- **NEVER include paths like `/Users/username/` or `C:\Users\`** in any commands or examples
-- Always use relative paths, environment variables, or git commands to determine paths dynamically
-
-### Supported Repository Names
-- **Root repo**: current folder name — use `git remote -v` or `pwd` to confirm, not `$(basename $(git rev-parse --show-toplevel))`
-- **Submodules**: Defined in `.gitmodules` file
-- **Site Repos**: Defined in `.siterepos` file
-
-## Site Repositories
-
-### Site Repo List
-Site repositories are used for specialized functionality and are cloned to the root folder directory (not submodules). These repositories are defined in the `.siterepos` file in the root folder using the same format as `.gitmodules`.
-
-**IMPORTANT**: These site repos are cloned to the root folder directory and are NOT submodules. They provide specialized functionality that is only needed for the current instance of the root folder.
-
-**Submodule note**: `data-pipeline` is a submodule (defined in `.gitmodules`) and should not be included in `.siterepos`.
+Pull, push, submodule and site repo guidance is in the webroot's [AGENTS.md](../AGENTS.md) under "Git: Pull, Push and Submodules".
 
 ## Development Standards
 

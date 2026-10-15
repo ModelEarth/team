@@ -2,7 +2,7 @@
 
 `git.sh` is an optional scripted approach to committing and pushing changes across this repo's submodules and site repos, with built-in PR fallback and multi-account handling. It is not necessary now that Claude and other agents handle "commit and push" effectively with direct `git` commands — this file is kept for reference and for cases where the script is preferred over direct git.
 
-See [AGENTS.md](AGENTS.md) for the standard (non-git.sh) git workflow.
+See the webroot's [AGENTS.md](../AGENTS.md) for the standard (non-git.sh) git workflow.
 
 ## Using git.sh
 
@@ -13,7 +13,7 @@ When push or pull requests are received, ask the user:
 
 The ./git.sh commands are `./git.sh push` and `./git.sh pull`
 
-**IMPORTANT**: Always navigate to the root folder before running git.sh (see Repository Root Navigation in AGENTS.md).
+**IMPORTANT**: Always navigate to the root folder before running git.sh (see "Git: Pull, Push and Submodules" in the webroot's [AGENTS.md](../AGENTS.md)).
 
 - In a git.sh push, include commit info
 - **Do NOT assume a PR was created** when git.sh reports "fork workflow" — if the current account is a collaborator on the target repo, the push succeeds directly without a PR. Only mention a PR if git.sh explicitly confirms one was created.
@@ -95,4 +95,4 @@ When you switch GitHub accounts, the script will:
 
 ### Submodule Version Conflicts (git.sh detection)
 
-`git.sh safe_submodule_update` detects when a submodule's local commit is older than the remote (origin/main) during a git.sh pull. See AGENTS.md's "Submodule Version Conflicts" section for the merge-forward resolution steps to follow when this happens — those steps apply the same way whether the divergence was detected by git.sh or noticed directly.
+`git.sh safe_submodule_update` detects when a submodule's local commit is older than the remote (origin/main) during a git.sh pull. See the "Version Conflicts" section in the webroot's [AGENTS.md](../AGENTS.md) for the merge-forward resolution steps to follow when this happens — those steps apply the same way whether the divergence was detected by git.sh or noticed directly.
