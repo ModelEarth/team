@@ -5,7 +5,7 @@ It applies to both this "team" submodule and its parent root folder and the root
 
 ## Development Commands
 
-For pull, push and submodules, see the webroot's [AGENTS.md](../AGENTS.md). [AGENTS-GitSh.md](AGENTS-GitSh.md) covers the git.sh scripted workflow, which is no longer used unless "git.sh" is directly requested.
+For pull, push and submodules, see the webroot's [AGENTS.md](../AGENTS.md) (or https://github.com/ModelEarth/webroot/blob/main/AGENTS.md when `team` is cloned on its own). [AGENTS-GitSh.md](AGENTS-GitSh.md) covers the git.sh scripted workflow, which is no longer used unless "git.sh" is directly requested.
 
 ## .NET / C#
 
@@ -328,7 +328,7 @@ cd $(git rev-parse --show-toplevel) && pkill -f "node.*index.js"; (cd server && 
 
 ## Git, Submodules and Site Repos
 
-Pull, push, submodule and site repo guidance is in the webroot's [AGENTS.md](../AGENTS.md) under "Git: Pull, Push and Submodules".
+Pull, push, submodule and site repo guidance is in the webroot's [AGENTS.md](../AGENTS.md) (or https://github.com/ModelEarth/webroot/blob/main/AGENTS.md when `team` is cloned on its own) under "Git: Pull, Push and Submodules".
 
 ## Development Standards
 
