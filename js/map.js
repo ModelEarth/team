@@ -5828,6 +5828,35 @@ Do not include any explanation or additional text.`;
         }
     }
 
+    // Menus and popups that close on a click elsewhere: the page's .ae-mode-menu menus (e.g. #changeViewMenu in
+    // requests/engine), the print and download popups, the Map style panel, the panel menus (localsite.js), and the
+    // detail map's open style and zoom menus
+    isPopupOpen() {
+        const selector = '.ae-mode-menu, .print-download-popup, .layers-tiles-panel, .menuToggleMenu, .menuToggleMenuInline, #detailmap .is-open';
+        return [...document.querySelectorAll(selector)].some(el => el.getClientRects().length > 0); // shown
+    }
+
+    // Notes whether a popup was open as each press begins, before the click that follows closes it
+    trackPopupAtPress() {
+        if (this.popupPressTracked) {
+            return;
+        }
+        this.popupPressTracked = true;
+        document.addEventListener('pointerdown', () => {
+            this.popupOpenAtPress = this.isPopupOpen();
+        }, true);
+    }
+
+    // Tour Motion (localStorage tourMotion; #tourMotionSelect in requests/engine): "smoother" (the default) zooms
+    // and pans one at a time in the tour's glide, "zoompan" does both at once (getTourPathView)
+    tourMotionSmoother() {
+        try {
+            return localStorage.getItem("tourMotion") !== "zoompan";
+        } catch (error) {
+            return true;
+        }
+    }
+
     // Time each image shows during Start Tour: 4 seconds at the original pace, divided by Tour Speed (localsite.js)
     tourImageMs() {
         return 4000 / (typeof tourSpeed === 'function' ? tourSpeed() : 1);
@@ -6509,11 +6538,14 @@ Do not include any explanation or additional text.`;
 
     // save: false for light/dark swaps, so the viewer's chosen style stays cached
     // Tour path: center and zoom at time t (0..1) of a glide from (fromCenter, fromZoom) to target.
-    // First half: pulls out to peakZoom (outZoom, or further out if already so), mostly early (ease-out),
-    // revealing more of the map. Panning starts at 30%, while still pulling out, and both end together with
-    // the target centered, so the motion doesn't stop and then creep the last of the way.
+    // First half: pulls out to peakZoom (outZoom, or further out if already so) and pans to the target.
+    //   separate (Tour Motion "Smoother"): pulls out over the starting point in the first 40%, then pans at that
+    //   zoom, so the map never zooms and pans at once, which can jitter as the tiles change level.
+    //   Otherwise ("Zoom and Pan"): pulls out mostly early (ease-out), revealing more of the map. Panning starts at
+    //   30%, while still pulling out, and both end together with the target centered, so the motion doesn't stop
+    //   and then creep the last of the way.
     // Second half: stays on the target, zooming in to endZoom. tourFlyTo pauses between the halves.
-    getTourPathView(map, fromCenter, fromZoom, target, t, { outZoom = 10, endZoom = 12 } = {}) {
+    getTourPathView(map, fromCenter, fromZoom, target, t, { outZoom = 10, endZoom = 12, separate = false } = {}) {
         const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
         const peakZoom = Math.min(outZoom, fromZoom);
         if (t >= 0.5) {
@@ -6522,6 +6554,13 @@ Do not include any explanation or additional text.`;
         const from = map.project(fromCenter, endZoom);
         const to = map.project(target, endZoom);
         const u = t / 0.5;
+        if (separate) {
+            if (u < 0.4) {
+                return { center: fromCenter, zoom: fromZoom + (peakZoom - fromZoom) * easeInOut(u / 0.4) };
+            }
+            const center = map.unproject(from.add(to.subtract(from).multiplyBy(easeInOut((u - 0.4) / 0.6))), endZoom);
+            return { center, zoom: peakZoom };
+        }
         const zoomProgress = 1 - Math.pow(1 - u, 3); // ease-out cubic
         const panProgress = easeInOut(Math.max(0, (u - 0.3) / 0.7));
         const center = map.unproject(from.add(to.subtract(from).multiplyBy(panProgress)), endZoom);
@@ -6660,9 +6699,9 @@ Do not include any explanation or additional text.`;
     // endZoom on the point. The legs take outMs and inMs (each duration / 2 by default). Uses Leaflet 1.9's internal
     // _moveStart/_move/_moveEnd frame calls, as map.flyTo() does, so map.stop() cancels it too.
     // On arrival it preloads the glide to the following stop.
-    async tourFlyTo(map, latlng, { outZoom = 10, endZoom = 12, duration = 4000, outMs = duration / 2, inMs = duration / 2, pauseMs = 0 } = {}) {
+    async tourFlyTo(map, latlng, { outZoom = 10, endZoom = 12, duration = 4000, outMs = duration / 2, inMs = duration / 2, pauseMs = 0, separate = false } = {}) {
         const target = L.latLng(latlng);
-        const options = { outZoom, endZoom };
+        const options = { outZoom, endZoom, separate };
         const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (!map._loaded || reducedMotion || typeof map._move !== 'function') {
             map.setView(target, endZoom);
@@ -7318,7 +7357,7 @@ Do not include any explanation or additional text.`;
     }
 
     // Map screen modes ("Full Screen" / "Half Screen" in #detailmapMenu and #widgetmapWrapperMenu):
-    //   full — #fullscreen, inserted just before #main-container
+    //   full — #fullscreen, at the top of #main-content
     //   half — #halfscreen, immediately before #main-content
     // Both maps share the two containers; one map at a time per container.
     getMapScreenTargets() {
@@ -7406,8 +7445,8 @@ Do not include any explanation or additional text.`;
                 container.id = containerId;
                 const mainContainer = document.getElementById('main-container');
                 const mainContent = document.getElementById('main-content');
-                if (mode === 'full' && mainContainer && mainContainer.parentNode) {
-                    mainContainer.parentNode.insertBefore(container, mainContainer);
+                if (mode === 'full' && mainContent) {
+                    mainContent.prepend(container);
                 } else if (mode === 'half' && mainContent && mainContent.parentNode) {
                     mainContent.parentNode.insertBefore(container, mainContent); // immediately before #main-content
                 } else {
@@ -7768,9 +7807,11 @@ Do not include any explanation or additional text.`;
             });
             // Clicking the map while the tour plays pauses it. Clicking again doesn't restart it.
             // (Leaflet's map click skips its controls and markers, so the menu's play/pause still toggles.)
+            // A click that closes an open menu or popup (popupOpenAtPress) only closes it.
+            this.trackPopupAtPress();
             this.detailMap.on('click', () => {
                 const tour = window.tourState;
-                if (tour && tour.isPlaying && typeof stopTour === 'function') {
+                if (tour && tour.isPlaying && typeof stopTour === 'function' && !this.popupOpenAtPress) {
                     stopTour(tour.panelId || 'locationDetails');
                 }
             });
@@ -7816,7 +7857,7 @@ Do not include any explanation or additional text.`;
             detailZoom = fromArrows ? 7 : 12;
             const speed = typeof tourSpeed === 'function' ? tourSpeed() : 1; // Tour Speed (localsite.js)
             const glide = { outMs: 3500 / speed, pauseMs: 2000 / speed, inMs: 1800 / speed };
-            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, ...glide });
+            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, separate: this.tourMotionSmoother(), ...glide });
             // The tour stays for the glide (plus its tile loading) and 3 seconds on the point, whatever Per Location is
             if (typeof setTourStopInfo === 'function') {
                 setTourStopInfo({ minMs: glide.outMs + glide.pauseMs + glide.inMs + 3000 });

@@ -1099,8 +1099,8 @@ body {
   margin-bottom: 16px;
 }
 
-/* #detailmapMenu screen modes: Full Screen puts the detail map in #fullscreen (just before
-   #main-container), Half Screen in #halfscreen (immediately before #main-content) */
+/* #detailmapMenu screen modes: Full Screen puts the detail map in #fullscreen (at the top of
+   #main-content), Half Screen in #halfscreen (immediately before #main-content) */
 #fullscreen,
 #halfscreen {
   width: 100%;
@@ -2668,18 +2668,32 @@ body.map-halfscreen-active #main-content {
   transform: rotate(90deg);
 }
 
+/* The details fill the body (a flex column), and their content grows to fill the details, so the
+   bottom bar (.location-controls) sits at the panel's bottom edge even when the details are shorter
+   than the panel. Longer details scroll in the body, with the sticky bar staying at the bottom. */
 .location-float-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .location-float .locationDetails {
   --details-padding: 16px;
+  flex: 1 0 auto;
   margin: 0;
   border: none;
   border-radius: 0;
   background: transparent;
+}
+/* Over the section's inline display (block), except while it's hidden */
+.location-float .locationDetails:not([style*="display: none"]) {
+  display: flex !important;
+  flex-direction: column;
+}
+.location-float .location-content {
+  flex: 1 0 auto;
 }
 
 /* A map is already full screen, so the details' own map section is hidden here.
