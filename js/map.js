@@ -649,14 +649,17 @@ class ListingsDisplay {
         // Check for source parameter from param object (set in localsite.js)
         let listsJson = (typeof param !== 'undefined' && param.source) ? param.source : null;
 
-        // If no source parameter, use default logic
+        // If no source parameter, use default logic. Waits for the site config, since on localhost the
+        // site (model.georgia or another) comes from support/site/config.yaml, which loads on its own.
         if (!listsJson) {
             const isGeoSiteDetected = (typeof isGeoSite === 'function' && isGeoSite()) ||
                 location.host.indexOf("geo") >= 0 ||
-                location.host.indexOf("locations.pages.dev") >= 0;
+                location.host.indexOf("locations.pages.dev") >= 0 ||
+                (await this.resolveSiteFromConfig()) === 'model.georgia';
             listsJson = isGeoSiteDetected ? "/display/data/show.json" : "/team/projects/map/trade.json";
         }
         const configUrl = this.resolveConfigUrl(listsJson);
+        this.showConfigsUrl = configUrl;
         console.log('map.js: local_app.web_root() =', local_app.web_root());
         console.log(`Loading configuration from: ${configUrl}`);
         const response = await fetch(configUrl);
@@ -670,6 +673,33 @@ class ListingsDisplay {
         }
         // message here maybe
 
+    }
+
+    // The site in support/site/config.yaml (window.loadWebrootYaml in localsite.js), matched as navigation.js
+    // does: the modelsite param or cookie when the config defines it, then domain_contains, then the default.
+    // '' without a config.
+    async resolveSiteFromConfig() {
+        if (typeof window.loadWebrootYaml !== 'function') {
+            return '';
+        }
+        try {
+            const result = await window.loadWebrootYaml();
+            const sites = result.sites || {};
+            const chosen = (typeof param !== 'undefined' && param.modelsite) ||
+                (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function' ? Cookies.get('modelsite') : '');
+            if (chosen && sites[chosen]) {
+                return chosen;
+            }
+            for (const id in sites) {
+                const domains = String(sites[id].domain_contains || '').split(',').map(d => d.trim()).filter(Boolean);
+                if (domains.some(d => location.href.indexOf(d) >= 0)) {
+                    return id;
+                }
+            }
+            return result.default && sites[result.default] ? result.default : '';
+        } catch (error) {
+            return '';
+        }
     }
 
     async loadShowData() {
@@ -3890,12 +3920,9 @@ Do not include any explanation or additional text.`;
         return `
             <section class="locationDetails images-cropped" id="locationDetails" style="display: ${initialDisplay};">
                 <div class="location-header">
-                    <div class="location-controls">
-                        <div id="detailArrows">
-                            <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
-                            <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
-                        </div>
-                        <div id="locationDetailsMenuMount"></div>
+                    <div id="detailArrows">
+                        <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
+                        <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
                     </div>
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
@@ -3913,6 +3940,9 @@ Do not include any explanation or additional text.`;
                             </div>
                         </div>
                     </div>
+                </div>
+                <div class="location-controls">
+                    <div id="locationDetailsMenuMount"></div>
                 </div>
             </section>
         `;
@@ -4058,13 +4088,7 @@ Do not include any explanation or additional text.`;
             return;
         }
 
-        // Build mapping dynamically from buttons to avoid hardcoded IDs
-        const viewToTargetId = {
-            'nearby': 'map-gallery-nearby',
-            'airports': 'map-gallery-airports',
-            'more': 'location-meta',
-            'evenmore': 'location-meta-even'
-        };
+        const viewToTargetId = this.getDetailViewTargets();
 
         // Parse comma-separated view values
         const activeViews = viewValue ? viewValue.split(',').map(v => v.trim()).filter(Boolean) : [];
@@ -4078,6 +4102,29 @@ Do not include any explanation or additional text.`;
             // Fallback if waitForElm is not available
             this.updateViewSections(locationSection, viewToTargetId, activeViews);
         }
+    }
+
+    // The view hash's sections in the details (More, Even More, Nearby, Airports)
+    getDetailViewTargets() {
+        return {
+            'nearby': 'map-gallery-nearby',
+            'airports': 'map-gallery-airports',
+            'more': 'location-meta',
+            'evenmore': 'location-meta-even'
+        };
+    }
+
+    // Opens the view hash's sections right after the details are rebuilt, before the browser paints them.
+    // (applyHashViewSelection waits for the elements, so advancing with More open showed the next location's
+    // details closed for a moment, then opened them.)
+    applyViewSectionsNow() {
+        const locationSection = document.getElementById('locationDetails');
+        if (!locationSection || typeof getHash !== 'function') {
+            return;
+        }
+        const viewValue = getHash()?.view;
+        const activeViews = viewValue ? viewValue.split(',').map(v => v.trim()).filter(Boolean) : [];
+        this.updateViewSections(locationSection, this.getDetailViewTargets(), activeViews);
     }
 
     updateViewSections(locationSection, viewToTargetId, activeViews) {
@@ -4252,6 +4299,7 @@ Do not include any explanation or additional text.`;
                         showCroppedButton: galleryImages.length >= 2
                     })}
                 `;
+                this.applyViewSectionsNow();
 
                 // Insert gallery markup after .location-content
                 const locationContent = document.querySelector('.location-content');
@@ -4297,6 +4345,7 @@ Do not include any explanation or additional text.`;
                     showCroppedButton: galleryImages.length >= 2
                 })}
             `;
+            this.applyViewSectionsNow();
 
             // Insert gallery markup after .location-content
             const locationContent = document.querySelector('.location-content');
@@ -4378,6 +4427,7 @@ Do not include any explanation or additional text.`;
                         if (typeof goHash === 'function') {
                             // Set temporary flag to prevent scrolling
                             this.arrowNavigation = true;
+                            this.detailArrowZoom = true; // wide view of the next location (updateDetailMap)
                             goHash({ id: previousId, view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
                         }
                     } else if (currentIndex === 0) {
@@ -4386,6 +4436,7 @@ Do not include any explanation or additional text.`;
                         if (typeof goHash === 'function') {
                             // Set temporary flag to prevent scrolling
                             this.arrowNavigation = true;
+                            this.detailArrowZoom = true; // wide view of the next location (updateDetailMap)
                             goHash({ id: '', view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
                         }
                     } else {
@@ -4438,6 +4489,7 @@ Do not include any explanation or additional text.`;
                         if (typeof goHash === 'function') {
                             // Set temporary flag to prevent scrolling
                             this.arrowNavigation = true;
+                            this.detailArrowZoom = true; // wide view of the next location (updateDetailMap)
                             goHash({ id: nextId, view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
                         }
                     } else if (currentIndex === listingIds.length - 1) {
@@ -4446,6 +4498,7 @@ Do not include any explanation or additional text.`;
                         if (typeof goHash === 'function') {
                             // Set temporary flag to prevent scrolling
                             this.arrowNavigation = true;
+                            this.detailArrowZoom = true; // wide view of the next location (updateDetailMap)
                             goHash({ id: listingIds[0], view: currentHash.view || '', detailplay: currentHash.detailplay || '' });
                         }
                     } else {
@@ -5358,12 +5411,7 @@ Do not include any explanation or additional text.`;
         }
         if (draggable) {
             const float = this.loadGalleryImageFloat();
-            if (!modal._fitFrame && parseFloat(float.width) && parseFloat(float.height)) {
-                modal._fitFrame = { width: parseFloat(float.width), height: parseFloat(float.height) };
-            }
-            content.style.width = float.width || "";
-            content.style.height = float.height || "";
-            this.fitGalleryImageFloat(modal);
+            this.applyGalleryFloatSize(modal);
             const width = content.getBoundingClientRect().width;
             const mine = this.myLayoutOn(); // the dropped spot with My Layout on, else the default
             const left = mine && typeof float.left === "number" ? float.left : window.innerWidth - width - 80; // 80px from the right side
@@ -5574,6 +5622,28 @@ Do not include any explanation or additional text.`;
                 this.saveGalleryOverMap(content);
             }
         });
+    }
+
+    // Floating image size: with My Layout on, the size set with a corner (saved in galleryImageFloat), else
+    // the default frame (fitGalleryImageFloat). Then fit to the current image.
+    applyGalleryFloatSize(modal) {
+        const content = modal.querySelector(".product-image-modal-content");
+        if (!content) {
+            return;
+        }
+        const float = this.loadGalleryImageFloat();
+        const width = parseFloat(float.width);
+        const height = parseFloat(float.height);
+        if (this.myLayoutOn() && width && height) {
+            modal._fitFrame = { width, height };
+            content.style.width = float.width;
+            content.style.height = float.height;
+        } else {
+            modal._fitFrame = null; // fitGalleryImageFloat sets the default frame from the image
+            content.style.width = "";
+            content.style.height = "";
+        }
+        this.fitGalleryImageFloat(modal);
     }
 
     // Draggable mode: after a corner resize, the box takes each image's shape. The size set with the corner
@@ -5918,8 +5988,9 @@ Do not include any explanation or additional text.`;
     }
 
     // My Layout (localStorage mapMyLayout, on unless "0"): the floating image and location details go where
-    // they were last dropped. Off, they take their default spots, and the dropped spots are kept for turning
-    // it back on. Dropping a panel turns it on. A page's toggle (e.g. #myLayoutToggle in requests/engine)
+    // they were last dropped, and the image takes the size set with a corner. Off, they take their default
+    // spots and the image its default size, and the saved ones are kept for turning it back on. Dropping or
+    // resizing a panel turns it on. A page's toggle (e.g. #myLayoutToggle in requests/engine)
     // sets it by firing "mylayoutchange" with detail { on }, and follows drops through the same event.
     myLayoutOn() {
         try {
@@ -5963,6 +6034,7 @@ Do not include any explanation or additional text.`;
             const content = modal.querySelector(".product-image-modal-content");
             const fullscreen = document.getElementById("fullscreen");
             if (content && fullscreen && this.galleryFloatBottomLimit(content) !== null) {
+                this.applyGalleryFloatSize(modal); // the saved size, or the default size
                 this.placeGalleryOverMap(modal, fullscreen);
                 requestAnimationFrame(() => this.moveGalleryClearOfLocationDetails(modal, fullscreen));
             } else {
@@ -7366,6 +7438,9 @@ Do not include any explanation or additional text.`;
         if (!mapEl) {
             return;
         }
+        // Set by the tour arrows (#detailArrows): show the next location at level 7, a wide view
+        const fromArrows = Boolean(this.detailArrowZoom);
+        this.detailArrowZoom = false;
         this.setDetailMapExpandedState(this.detailMapExpanded);
 
         const adjustDetailMapHeight = () => {
@@ -7421,6 +7496,16 @@ Do not include any explanation or additional text.`;
         if (!coords) {
             if (window.leafletMap && typeof window.leafletMap.setDetailMarker === 'function') {
                 window.leafletMap.setDetailMarker(null);
+            }
+            // No listing (e.g. "Hide Details" cleared #id=): the map stays where it is, without the listing's marker.
+            // In Full Screen it's the map filling the screen.
+            if (!listing && this.detailMap) {
+                if (this.detailMapMarker) {
+                    this.detailMap.removeLayer(this.detailMapMarker);
+                    this.detailMapMarker = null;
+                }
+                this.detailMap.closePopup();
+                return;
             }
             if (this.detailMap) {
                 this.detailMap.remove();
@@ -7493,10 +7578,15 @@ Do not include any explanation or additional text.`;
             }
         }
 
-        // Start Tour: glide between points (out to zoom 7 then panning over 3.5 seconds, pause 2 seconds, in to zoom 12)
+        if (fromArrows) {
+            detailZoom = 7;
+        }
+
+        // Start Tour: glide between points (out to zoom 7 then panning over 3.5 seconds, pause 2 seconds, in to zoom 12,
+        // or to level 7 when advanced with the arrows)
         const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
         if (touring && this.detailMap._loaded) {
-            detailZoom = 12;
+            detailZoom = fromArrows ? 7 : 12;
             this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, outMs: 3500, inMs: 1800, pauseMs: 2000 });
         } else {
             this.detailMap.setView([coords.lat, coords.lng], detailZoom);
@@ -7629,12 +7719,8 @@ Do not include any explanation or additional text.`;
             details += `• Current dataset: <code>${this.currentShow}</code><br>`;
         }
         
-        // Show config source
-        const isGeoSiteDetected = (typeof isGeoSite === 'function' && isGeoSite()) ||
-            location.host.indexOf("geo") >= 0 ||
-            location.host.indexOf("locations.pages.dev") >= 0;
-        const listsJson = isGeoSiteDetected ? '/display/data/show.json' : 'trade.json';
-        const configPath = this.resolveConfigUrl(listsJson);
+        // Show config source (the one loadShowConfigs loaded)
+        const configPath = this.showConfigsUrl || 'not loaded';
         details += `• Config file: <code>${configPath}</code><br>`;
         
         // Show dataset path if config exists

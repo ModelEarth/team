@@ -413,6 +413,15 @@ body {
     gap: 12px;
     position: relative;
 }
+/* The listings' pagination stays one row. Pages like requests/engine also load engine/css/projects.css, whose
+   .pagination-container (for its issues list) is a padded column with a top border. */
+#widgetDetailsBottom .pagination-container,
+#widgetTop .pagination-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0;
+    border-top: none;
+}
 
 .add-visit-btn {
     margin-left: 16px;
@@ -1074,10 +1083,11 @@ body {
     display: none !important;
 }
 
-/* From location.css */
+/* From location.css. --details-padding is also the bottom bar's overhang (.location-controls). */
 .locationDetails {
+  --details-padding: 24px;
   margin-top: 16px;
-  padding: 24px;
+  padding: var(--details-padding);
   background: #f8fafc;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
@@ -1201,17 +1211,53 @@ body.map-halfscreen-active #main-content {
   width: 100%;
 }
 
-/* Above the title, on the right: the tour arrows, then the panel menu (addPanelMenu in localsite.js
-   places its circle 8px in from the mount's upper right, and opens its menu below) */
+.location-header .location-title {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Bar along the bottom of the location details, holding the panel menu (addPanelMenu in localsite.js
+   places its circle 8px in from the mount's upper right). Sticky, so it stays in view while the
+   details scroll, in the page and in the floating details (.location-float-body). It reaches across the
+   details' padding to their edges. */
 .location-controls {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-bottom: 4px;
+  margin: 16px calc(-1 * var(--details-padding, 24px)) calc(-1 * var(--details-padding, 24px));
+  padding: 4px var(--details-padding, 24px);
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 16px 16px;
+}
+.dark .location-controls {
+  background: #1e293b;
+  border-top-color: #334155;
+}
+.location-float .location-controls {
+  border-radius: 0; /* the floating panel rounds its own corners */
+}
+/* The panel menu opens upward from the bar */
+.location-controls .menuToggleMenu {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
+/* Tour arrows: first in .location-header, above the title on the right. They sit in the details' top
+   padding (--details-padding, on .locationDetails), from its top edge, so the title stays at the top of
+   the header. 4px of top padding lowers them, and they reach 10px past the header's right edge. */
 #detailArrows {
+  position: absolute;
+  top: calc(-1 * var(--details-padding, 24px));
+  right: -10px;
+  z-index: 1;
+  box-sizing: border-box;
+  height: calc(var(--details-padding, 24px) + 4px); /* the top padding is added, so the arrows move down 4px */
+  padding-top: 4px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2512,7 +2558,7 @@ body.map-halfscreen-active #main-content {
 
 @media (max-width: 600px) {
   .locationDetails {
-    padding: 16px;
+    --details-padding: 16px;
   }
 
   .description-images-nav {
@@ -2629,8 +2675,8 @@ body.map-halfscreen-active #main-content {
 }
 
 .location-float .locationDetails {
+  --details-padding: 16px;
   margin: 0;
-  padding: 16px;
   border: none;
   border-radius: 0;
   background: transparent;
