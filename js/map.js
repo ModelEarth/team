@@ -3890,13 +3890,15 @@ Do not include any explanation or additional text.`;
         return `
             <section class="locationDetails images-cropped" id="locationDetails" style="display: ${initialDisplay};">
                 <div class="location-header">
+                    <div class="location-controls">
+                        <div id="detailArrows">
+                            <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
+                            <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
+                        </div>
+                        <div id="locationDetailsMenuMount"></div>
+                    </div>
                     <h2 class="location-title">Listing Details</h2>
                     <div id="detailHero"></div>
-                    <div id="detailArrows">
-                        <div id="tourBackArrow" class="tour-back-arrow"><span class="material-icons">arrow_left</span></div>
-                        <div id="tourForwardArrow" class="tour-forward-arrow"><span class="material-icons">arrow_right</span></div>
-                    </div>
-                    <div id="locationDetailsMenuMount" style="position: absolute; right: 0; top: 4px;"></div>
                 </div>
                 <div class="location-content">
                     <div class="location-details" id="location-details">
@@ -5208,6 +5210,7 @@ Do not include any explanation or additional text.`;
         });
 
         modal.dataset.ready = "true";
+        this.bindMyLayoutChange();
         return modal;
     }
 
@@ -5243,6 +5246,7 @@ Do not include any explanation or additional text.`;
         try {
             localStorage.setItem("galleryImageFloat", JSON.stringify(float));
         } catch (error) {}
+        this.setMyLayout(true, "drag");
     }
 
     // Floating boxes (the draggable gallery image, the floating #locationDetails) sit in a layer
@@ -5269,8 +5273,40 @@ Do not include any explanation or additional text.`;
         if (bottomLimit !== null) {
             clientY = Math.max(headerBottom, Math.min(clientY, bottomLimit - rect.height));
         }
+        const detailsLimit = this.locationFloatBottomLimit(box);
+        if (detailsLimit !== null) {
+            const minHeight = parseFloat(getComputedStyle(box).minHeight) || 0;
+            clientY = Math.max(headerBottom, Math.min(clientY, detailsLimit - minHeight)); // shrinks to its min-height, then stops
+        }
         box.style.left = (clientX - layerRect.left) + "px";
         box.style.top = (clientY - layerRect.top) + "px";
+        if (detailsLimit !== null) {
+            this.fitLocationFloatHeight(box, clientY);
+        }
+    }
+
+    // Lowest the floating location details' bottom may go: 70px above the map's bottom edge, clear of
+    // the map's controls in its lower left corner. In window coordinates; null for other boxes.
+    locationFloatBottomLimit(box) {
+        if (!box.classList.contains("location-float") || !this.locationFloatMap) {
+            return null;
+        }
+        return this.locationFloatMap.getBoundingClientRect().bottom - 70;
+    }
+
+    // The details' max-height reaches down to locationFloatBottomLimit, within its CSS max-height
+    // (widget.css, or the taller one while #introFloatPanel shows), so a drag down shortens it.
+    fitLocationFloatHeight(box, top = box.getBoundingClientRect().top) {
+        const limit = this.locationFloatBottomLimit(box);
+        if (limit === null) {
+            return;
+        }
+        box.style.maxHeight = "";
+        const style = getComputedStyle(box);
+        const cssMax = parseFloat(style.maxHeight);
+        const minHeight = parseFloat(style.minHeight) || 0;
+        const available = limit - top;
+        box.style.maxHeight = Math.max(minHeight, isNaN(cssMax) ? available : Math.min(cssMax, available)) + "px";
     }
 
     // Lowest the floating image's bottom may go while a map is in Full Screen with a location (#id=):
@@ -5329,8 +5365,9 @@ Do not include any explanation or additional text.`;
             content.style.height = float.height || "";
             this.fitGalleryImageFloat(modal);
             const width = content.getBoundingClientRect().width;
-            const left = typeof float.left === "number" ? float.left : window.innerWidth - width - 24;
-            const top = typeof float.top === "number" ? float.top : 96;
+            const mine = this.myLayoutOn(); // the dropped spot with My Layout on, else the default
+            const left = mine && typeof float.left === "number" ? float.left : window.innerWidth - width - 80; // 80px from the right side
+            const top = mine && typeof float.top === "number" ? float.top : 96;
             this.placeDraggableGalleryImage(modal, left, top);
         } else {
             content.style.left = "";
@@ -5406,7 +5443,8 @@ Do not include any explanation or additional text.`;
         const maxHeight = px(style.maxHeight, Infinity);
         const header = document.getElementById('main-header');
         const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
-        const bottomLimit = this.galleryFloatBottomLimit(box);
+        const galleryLimit = this.galleryFloatBottomLimit(box);
+        const bottomLimit = galleryLimit !== null ? galleryLimit : this.locationFloatBottomLimit(box);
         const startX = event.clientX;
         const startY = event.clientY;
         box.setPointerCapture(event.pointerId);
@@ -5423,13 +5461,14 @@ Do not include any explanation or additional text.`;
                 height = rect.bottom - top;
             }
             if (corner.includes("s") && bottomLimit !== null && top + height > bottomLimit) {
-                height = Math.max(minHeight, bottomLimit - top); // the floating image over a Full Screen map
+                height = Math.max(minHeight, bottomLimit - top); // the floating image over a Full Screen map, or the details
             }
             const layerRect = box.offsetParent.getBoundingClientRect();
             box.style.width = width + "px";
             box.style.height = height + "px";
             box.style.left = (left - layerRect.left) + "px";
             box.style.top = (top - layerRect.top) + "px";
+            this.fitLocationFloatHeight(box, top);
         };
         const end = () => {
             box.removeEventListener("pointermove", move);
@@ -5523,12 +5562,16 @@ Do not include any explanation or additional text.`;
         this.setupFloatingDrag(content, {
             canDrag: () => modal.classList.contains("image-float"),
             ignore: "button, a, .product-image-modal-caption",
-            onRest: () => this.saveGalleryImageFloat(content),
+            onRest: () => {
+                this.saveGalleryImageFloat(content);
+                this.saveGalleryOverMap(content);
+            },
             onResize: () => {
                 const rect = content.getBoundingClientRect();
                 modal._fitFrame = { width: Math.round(rect.width), height: Math.round(rect.height) };
                 this.fitGalleryImageFloat(modal);
                 this.saveGalleryImageFloat(content);
+                this.saveGalleryOverMap(content);
             }
         });
     }
@@ -5537,14 +5580,20 @@ Do not include any explanation or additional text.`;
     // (modal._fitFrame, stored before the first fit) is kept in memory, and each image, as the gallery
     // advances, is fit within it, with one side reduced to the image's aspect ratio. Fitting within the
     // last image's box instead would shrink the box a little more with each image of a different shape.
+    // Without a size set with a corner (or saved), the first image sets a default frame: 100px wider and 80px
+    // taller than the image shown 360px wide. Each image fits within it, so one side gains the full amount.
     fitGalleryImageFloat(modal) {
         const content = modal.querySelector(".product-image-modal-content");
         const image = modal.querySelector(".product-image-modal-img");
-        const frame = modal._fitFrame;
-        if (!frame || !content || !image || !image.naturalWidth || !modal.classList.contains("image-float")) {
+        if (!content || !image || !image.naturalWidth || !modal.classList.contains("image-float")) {
             return;
         }
         const ratio = image.naturalWidth / image.naturalHeight;
+        if (!modal._fitFrame) {
+            const baseWidth = 360;
+            modal._fitFrame = { width: baseWidth + 100, height: Math.round(baseWidth / ratio) + 80 };
+        }
+        const frame = modal._fitFrame;
         const maxWidth = Math.min(frame.width, window.innerWidth * 0.94); // widget.css max-width and max-height
         const maxHeight = Math.min(frame.height, window.innerHeight * 0.9);
         let width = maxWidth;
@@ -5782,13 +5831,17 @@ Do not include any explanation or additional text.`;
                     <div class="location-float-body"></div>
                 </div>`;
             document.body.appendChild(layer);
+            this.bindMyLayoutChange();
             // Dragged (and tossed) by its handle and the margins around the details. The details' header
             // and content (.location-header, .location-content) aren't drag areas, so their text can be
             // selected and copied. Links, buttons, form fields, the panel menu icon and its menu, the tour
             // arrows and the scrollbar keep their own behavior too (a drag captures the pointer, which would
             // send their clicks to the box instead).
             const box = layer.querySelector('.location-float');
-            this.setupFloatingDrag(box, { ignore: 'button, a, input, textarea, select, label, summary, .menuIconHolder, .menuToggleMenu, #detailArrows, .location-header, .location-content' });
+            this.setupFloatingDrag(box, {
+                ignore: 'button, a, input, textarea, select, label, summary, .menuIconHolder, .menuToggleMenu, #detailArrows, .location-header, .location-content',
+                onRest: () => this.saveFloatOverMap('locationFloatOverMap', box, this.locationFloatMap)
+            });
         }
         const box = layer.querySelector('.location-float');
         const body = layer.querySelector('.location-float-body');
@@ -5801,20 +5854,129 @@ Do not include any explanation or additional text.`;
 
         requestAnimationFrame(() => this.placeLocationFloat(box, container));
         this.followMapWithLocationFloat(container);
+        // New details (each tour stop) or #introFloatPanel (a taller CSS max-height) refit its height
+        if (!this.locationFloatContentWatch) {
+            let frame = null;
+            this.locationFloatContentWatch = new MutationObserver(() => {
+                if (frame) return;
+                frame = requestAnimationFrame(() => {
+                    frame = null;
+                    if (layer.style.display !== 'none') this.fitLocationFloatHeight(box);
+                });
+            });
+            this.locationFloatContentWatch.observe(body, { childList: true, subtree: true });
+        }
         this.keepLocationFloatBelowHeader(box);
     }
 
     // Upper left of the visible part of the map: 75px from its left, 60px below the header's bottom edge
     // (or the map's top, if lower). The header is measured where it is on the page, so this is the same
     // spot whether or not the page has scrolled the header out of view.
+    // Once dragged, the details return to where they were dropped (localStorage locationFloatOverMap).
     placeLocationFloat(box, container) {
+        const mapRect = container.getBoundingClientRect();
+        const origin = this.mapFloatOrigin(container);
+        const saved = this.loadFloatOverMap('locationFloatOverMap');
+        const leftMargin = 75;
+        const topMargin = 60;
+        this.placeFloatingBox(box, origin.left + (saved ? saved.left : leftMargin), origin.top + (saved ? saved.top : topMargin));
+        this.locationFloatMapLeft = mapRect.left;
+    }
+
+    // Spots dragged to over a Full Screen map are kept relative to the visible map's upper left: the map's
+    // left edge, and its top or the header's bottom edge, whichever is lower. So they hold when the window
+    // size or the side nav changes.
+    mapFloatOrigin(container) {
         const mapRect = container.getBoundingClientRect();
         const header = document.getElementById('main-header');
         const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
-        const leftMargin = 75;
-        const topMargin = 60;
-        this.placeFloatingBox(box, mapRect.left + leftMargin, Math.max(mapRect.top, headerBottom) + topMargin);
-        this.locationFloatMapLeft = mapRect.left;
+        return { left: mapRect.left, top: Math.max(mapRect.top, headerBottom) };
+    }
+
+    loadFloatOverMap(key) {
+        if (!this.myLayoutOn()) {
+            return null; // the default spots
+        }
+        try {
+            const saved = JSON.parse(localStorage.getItem(key) || "null");
+            return saved && typeof saved.left === "number" && typeof saved.top === "number" ? saved : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    saveFloatOverMap(key, box, container) {
+        if (!container || !box.offsetParent) {
+            return;
+        }
+        const rect = box.getBoundingClientRect();
+        const origin = this.mapFloatOrigin(container);
+        try {
+            localStorage.setItem(key, JSON.stringify({ left: Math.round(rect.left - origin.left), top: Math.round(rect.top - origin.top) }));
+        } catch (error) {}
+        this.setMyLayout(true, "drag");
+    }
+
+    // My Layout (localStorage mapMyLayout, on unless "0"): the floating image and location details go where
+    // they were last dropped. Off, they take their default spots, and the dropped spots are kept for turning
+    // it back on. Dropping a panel turns it on. A page's toggle (e.g. #myLayoutToggle in requests/engine)
+    // sets it by firing "mylayoutchange" with detail { on }, and follows drops through the same event.
+    myLayoutOn() {
+        try {
+            return localStorage.getItem("mapMyLayout") !== "0";
+        } catch (error) {
+            return true;
+        }
+    }
+
+    setMyLayout(on, source) {
+        const changed = this.myLayoutOn() !== on;
+        try {
+            localStorage.setItem("mapMyLayout", on ? "1" : "0");
+        } catch (error) {}
+        if (changed && source === "drag") {
+            document.dispatchEvent(new CustomEvent("mylayoutchange", { detail: { on, source } }));
+        }
+    }
+
+    // A toggle's change moves the panels now showing to the spots it chose
+    bindMyLayoutChange() {
+        if (this.myLayoutChangeBound) {
+            return;
+        }
+        this.myLayoutChangeBound = true;
+        document.addEventListener("mylayoutchange", (event) => {
+            const detail = event.detail || {};
+            if (detail.source === "drag") {
+                return; // already where it was dropped
+            }
+            this.setMyLayout(Boolean(detail.on), "toggle");
+            const layer = document.getElementById("locationFloatLayer");
+            const box = layer && layer.querySelector(".location-float");
+            if (box && layer.style.display !== "none" && this.locationFloatMap) {
+                this.placeLocationFloat(box, this.locationFloatMap);
+            }
+            const modal = document.getElementById("gallery-image-modal");
+            if (!modal || !modal.classList.contains("active") || !modal.classList.contains("image-float")) {
+                return;
+            }
+            const content = modal.querySelector(".product-image-modal-content");
+            const fullscreen = document.getElementById("fullscreen");
+            if (content && fullscreen && this.galleryFloatBottomLimit(content) !== null) {
+                this.placeGalleryOverMap(modal, fullscreen);
+                requestAnimationFrame(() => this.moveGalleryClearOfLocationDetails(modal, fullscreen));
+            } else {
+                this.setGalleryImageModalMode(modal, true, { remember: false });
+            }
+        });
+    }
+
+    // The floating image's spot over a Full Screen map with a location (#id=), kept apart from its spot
+    // elsewhere (galleryImageFloat)
+    saveGalleryOverMap(content) {
+        if (this.galleryFloatBottomLimit(content) !== null) {
+            this.saveFloatOverMap('galleryImageFloatOverMap', content, document.getElementById('fullscreen'));
+        }
     }
 
     // On page load the box can be placed before #main-header is added or reaches its full height, leaving
@@ -5890,6 +6052,7 @@ Do not include any explanation or additional text.`;
                     box.style.left = ((parseFloat(box.style.left) || 0) + left - this.locationFloatMapLeft) + 'px';
                 }
                 this.locationFloatMapLeft = left;
+                this.placeFloatingBox(box); // keeps its bottom 70px above the map's bottom as the map's height changes
             });
         }
         if (this.locationFloatMap !== container) {
@@ -5971,8 +6134,9 @@ Do not include any explanation or additional text.`;
         });
     }
 
-    // Default spot for the floating gallery over a Full Screen map: its bottom 80px above the bottom of the
-    // visible map, 6% of the map's width less 60px from its right side (kept below the header)
+    // Default spot for the floating gallery over a Full Screen map: its bottom 60px above the bottom of the
+    // visible map, 80px from the visible map's right side (kept below the header).
+    // Once dragged, it returns to where it was dropped (localStorage galleryImageFloatOverMap).
     placeGalleryOverMap(modal, container) {
         const content = modal.querySelector(".product-image-modal-content");
         if (!content) {
@@ -5981,9 +6145,16 @@ Do not include any explanation or additional text.`;
         const mapRect = container.getBoundingClientRect();
         const box = content.getBoundingClientRect();
         const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
-        const bottomMargin = 80;
-        const left = mapRect.right - mapRect.width * 0.06 + 60 - box.width;
-        const top = Math.max(Math.min(mapRect.bottom, window.innerHeight) - bottomMargin - box.height, headerOffset);
+        const saved = this.loadFloatOverMap('galleryImageFloatOverMap');
+        const bottomMargin = 60;
+        const rightMargin = 80;
+        let left = Math.min(mapRect.right, window.innerWidth) - rightMargin - box.width;
+        let top = Math.max(Math.min(mapRect.bottom, window.innerHeight) - bottomMargin - box.height, headerOffset);
+        if (saved) {
+            const origin = this.mapFloatOrigin(container);
+            left = origin.left + saved.left;
+            top = origin.top + saved.top;
+        }
         this.placeDraggableGalleryImage(modal, left, top);
         content.dataset.placedTop = content.style.top; // to tell whether it has moved since (see floatLocationImageOverMap)
     }
@@ -5998,6 +6169,9 @@ Do not include any explanation or additional text.`;
         if (!content || !details || !modal.classList.contains("image-float") ||
             !layer || getComputedStyle(layer).display === "none") {
             return;
+        }
+        if (this.loadFloatOverMap('galleryImageFloatOverMap')) {
+            return; // left where the viewer dropped it
         }
         const gap = 16;
         const box = content.getBoundingClientRect();

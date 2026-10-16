@@ -1201,13 +1201,27 @@ body.map-halfscreen-active #main-content {
   width: 100%;
 }
 
+/* Above the title, on the right: the tour arrows, then the panel menu (addPanelMenu in localsite.js
+   places its circle 8px in from the mount's upper right, and opens its menu below) */
+.location-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 #detailArrows {
-  position: absolute;
-  right: 40px;
-  top: 4px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+#locationDetailsMenuMount {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
 }
 
 .location-close-btn {
@@ -2366,6 +2380,9 @@ body.map-halfscreen-active #main-content {
    No margins; the caption and arrows float over the bottom of the image. */
 /* Anchored to the page rather than the window, so the floating image scrolls with the map */
 .product-image-modal.image-float {
+  /* Over the floating location details (998), under the map's controls and the header (1000) and the
+     page's menus and popups, so they open over it. Centered, it stays over everything (9999). */
+  z-index: 999;
   position: absolute;
   inset: auto;
   top: 0;
@@ -2384,7 +2401,7 @@ body.map-halfscreen-active #main-content {
   pointer-events: auto;
   position: absolute;
   display: block;
-  width: 360px;
+  width: 460px; /* until the image loads; then fit to its frame (fitGalleryImageFloat in map.js) */
   min-width: 160px;
   min-height: 0;
   max-width: 94vw;
@@ -2544,8 +2561,9 @@ body.map-halfscreen-active #main-content {
   pointer-events: none;
   /* Above the map tiles (Leaflet panes, 400) but under the map's controls (Leaflet's control corners,
      1000), so menus like the map's Level list open over this panel as the background menu does.
-     Also under the floating image (9999). */
-  z-index: 999;
+     Also under the floating image (999), the header (1000) and the page's menus and popups
+     (panel menus 1001, header menus 1100, print and download 2000). */
+  z-index: 998;
 }
 
 /* Hidden while no location is shown (the map hides #locationDetails when #id= is cleared) */
