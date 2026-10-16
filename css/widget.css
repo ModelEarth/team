@@ -1360,7 +1360,7 @@ body.map-halfscreen-active #main-content {
   min-height: 26px;
 }
 /* Map style button (createLayersControl in localsite/js/localsite.js, styled in localsite/css/map.css),
-   sized to match the detail map's zoom level button */
+   the same size as on the widget map. The zoom level button beside it matches its 30px height. */
 #detailmap .layers-tiles-control {
   order: 1;
 }
@@ -1369,20 +1369,9 @@ body.map-halfscreen-active #main-content {
   order: 2;
 }
 
-#detailmap .layers-tiles-button {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: #555;
-}
-
-#detailmap .layers-tiles-button .material-icons {
-  font-size: 16px;
-}
-
 #detailmap .detail-map-zoom-display .zoom-display-current {
   width: 34px;
-  height: 22px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1413,11 +1402,15 @@ body.map-halfscreen-active #main-content {
   font-size: 10px;
 }
 
+/* 30px, the same size as the map style and zoom level buttons. The + and − sit low in their line box,
+   so the line height is the font size (over localsite/css/map.css's 26px) and the bottom padding raises them. */
 #detailmap .leaflet-control-zoom a {
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  font-size: 18px;
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  padding-bottom: 4px;
+  line-height: 1 !important;
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;

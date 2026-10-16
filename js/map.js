@@ -5250,6 +5250,7 @@ Do not include any explanation or additional text.`;
     // coordinates, clamped so part of the box stays on screen, then converted to the layer's coordinates.
     // The top stops at the header's bottom edge while the header is in view, so a drag or toss can't
     // slide the box under it (the header is in front of #locationFloatLayer).
+    // The floating image over a Full Screen map stops 5px beyond the map's bottom edge (galleryFloatBottomLimit).
     placeFloatingBox(box, left = null, top = null) {
         const layer = box.offsetParent;
         if (!layer) {
@@ -5263,9 +5264,29 @@ Do not include any explanation or additional text.`;
         const header = document.getElementById('main-header');
         const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
         const clientX = Math.min(window.innerWidth - keep, Math.max(keep - rect.width, x));
-        const clientY = Math.min(window.innerHeight - keep, Math.max(headerBottom, y));
+        let clientY = Math.min(window.innerHeight - keep, Math.max(headerBottom, y));
+        const bottomLimit = this.galleryFloatBottomLimit(box);
+        if (bottomLimit !== null) {
+            clientY = Math.max(headerBottom, Math.min(clientY, bottomLimit - rect.height));
+        }
         box.style.left = (clientX - layerRect.left) + "px";
         box.style.top = (clientY - layerRect.top) + "px";
+    }
+
+    // Lowest the floating image's bottom may go while a map is in Full Screen with a location (#id=):
+    // 5px beyond the map's bottom edge, in window coordinates. null for other boxes and other times.
+    galleryFloatBottomLimit(box) {
+        const modal = box.closest("#gallery-image-modal");
+        const fullscreen = document.getElementById("fullscreen");
+        if (!modal || !modal.classList.contains("image-float") || !fullscreen) {
+            return null;
+        }
+        const hash = typeof getHash === "function" ? getHash() : {};
+        const mapInFullScreen = Object.keys(this.getMapScreenTargets()).some(t => this.getMapScreen(t) === "full");
+        if (!(hash.id || hash.detail) || !mapInFullScreen) {
+            return null;
+        }
+        return fullscreen.getBoundingClientRect().bottom + 5;
     }
 
     placeDraggableGalleryImage(modal, left = null, top = null) {
@@ -5385,6 +5406,7 @@ Do not include any explanation or additional text.`;
         const maxHeight = px(style.maxHeight, Infinity);
         const header = document.getElementById('main-header');
         const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+        const bottomLimit = this.galleryFloatBottomLimit(box);
         const startX = event.clientX;
         const startY = event.clientY;
         box.setPointerCapture(event.pointerId);
@@ -5399,6 +5421,9 @@ Do not include any explanation or additional text.`;
             if (corner.includes("n") && top < headerBottom) {
                 top = headerBottom;
                 height = rect.bottom - top;
+            }
+            if (corner.includes("s") && bottomLimit !== null && top + height > bottomLimit) {
+                height = Math.max(minHeight, bottomLimit - top); // the floating image over a Full Screen map
             }
             const layerRect = box.offsetParent.getBoundingClientRect();
             box.style.width = width + "px";
@@ -5567,12 +5592,21 @@ Do not include any explanation or additional text.`;
                 captionToggle.textContent = "More";
             }
         }
+        // Each image's height can differ, so over a Full Screen map the box is kept above the map's bottom again
+        const keepAboveMapBottom = () => {
+            const content = modal.querySelector(".product-image-modal-content");
+            if (content && this.galleryFloatBottomLimit(content) !== null) {
+                this.placeDraggableGalleryImage(modal);
+            }
+        };
         image.onload = () => {
             this.fitGalleryImageFloat(modal);
+            keepAboveMapBottom();
             requestAnimationFrame(() => this.adjustGalleryImageModalNav(modal));
         };
         if (image.complete) {
             this.fitGalleryImageFloat(modal); // the same image again (no load event)
+            keepAboveMapBottom();
         }
         this.adjustGalleryImageModalNav(modal);
     }
@@ -5937,7 +5971,7 @@ Do not include any explanation or additional text.`;
         });
     }
 
-    // Default spot for the floating gallery over a Full Screen map: its bottom 20px below the bottom of the
+    // Default spot for the floating gallery over a Full Screen map: its bottom 80px above the bottom of the
     // visible map, 6% of the map's width less 60px from its right side (kept below the header)
     placeGalleryOverMap(modal, container) {
         const content = modal.querySelector(".product-image-modal-content");
@@ -5947,7 +5981,7 @@ Do not include any explanation or additional text.`;
         const mapRect = container.getBoundingClientRect();
         const box = content.getBoundingClientRect();
         const headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--headerbar-offset')) || 0;
-        const bottomMargin = -20;
+        const bottomMargin = 80;
         const left = mapRect.right - mapRect.width * 0.06 + 60 - box.width;
         const top = Math.max(Math.min(mapRect.bottom, window.innerHeight) - bottomMargin - box.height, headerOffset);
         this.placeDraggableGalleryImage(modal, left, top);
@@ -6407,14 +6441,16 @@ Do not include any explanation or additional text.`;
 
         this.detailMapCurrentStyle = styleKey;
 
+        // Remove the prior style's tiles (not tile overlays such as Freight Rail)
         this.detailMap.eachLayer((layer) => {
-            if (layer instanceof L.TileLayer) {
+            if (layer instanceof L.TileLayer && layer.options.isMapStyle) {
                 this.detailMap.removeLayer(layer);
             }
         });
 
         const style = styles[styleKey];
         const baseLayer = L.tileLayer(style.url, {
+            isMapStyle: true,
             zIndex: typeof MAP_BACKGROUND_ZINDEX === 'number' ? MAP_BACKGROUND_ZINDEX : -1, // Below all other tiles
             attribution: style.attribution,
             maxZoom: 18,
@@ -6427,6 +6463,7 @@ Do not include any explanation or additional text.`;
         if (titlesLayer) titlesLayer.clearLayers();
         if (style.overlayUrl) {
             this.detailMapOverlayLayer = L.tileLayer(style.overlayUrl, {
+                isMapStyle: true,
                 zIndex: typeof MAP_TITLES_ZINDEX === 'number' ? MAP_TITLES_ZINDEX : 99, // Above the background tiles
                 attribution: style.overlayAttribution || '',
                 maxZoom: 18,
@@ -6532,6 +6569,15 @@ Do not include any explanation or additional text.`;
         control.addTo(this.detailMap);
         this.detailMapStyleControl = { control, container: control.getContainer(), placeholders: {}, titlesLayer: createMapTitlesLayer() };
         this.refreshDetailMapStyleOptions();
+        this.syncDetailMapTransitLayers();
+        // MARTA comes and goes with GA in the state hash
+        if (!this.detailMapTransitHashBound) {
+            this.detailMapTransitHashBound = true;
+            document.addEventListener('hashChangeEvent', () => {
+                const prior = typeof priorHash === 'object' && priorHash ? priorHash : {};
+                if (getHash().state !== prior.state) this.syncDetailMapTransitLayers();
+            });
+        }
 
         this.detailMap.on('baselayerchange', (e) => {
             if (this.syncingDetailStyleRadio || !e.layer.mapStyleKey) {
@@ -6544,6 +6590,17 @@ Do not include any explanation or additional text.`;
         // Opening the panel closes the zoom levels list
         this.detailMap.on('layerstilesopen', () => this.closeDetailMapControl(this.detailMapZoomControl?.container));
         this.ensureDetailMapStylesReady();
+    }
+
+    // Layer checkboxes, as on the widget map (team/js/leaflet.js): MARTA (state=GA), Public Transit and
+    // Freight Rail, above Map Titles. The layers hash belongs to the widget map, so these start unchecked.
+    syncDetailMapTransitLayers() {
+        if (!this.detailMap || !this.detailMapStyleControl || typeof syncMapTransitLayers !== 'function') {
+            return;
+        }
+        const hash = typeof getHash === 'function' ? getHash() : {};
+        const states = hash.state || (window.param && window.param.state) || '';
+        syncMapTransitLayers(this.detailMap, this.detailMapStyleControl.control, states, false);
     }
 
     // Checks the style's radio button without treating it as the viewer's choice
