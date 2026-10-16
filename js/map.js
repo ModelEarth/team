@@ -5790,6 +5790,11 @@ Do not include any explanation or additional text.`;
             window.scrollTo({ top: 0 }); // top of the page: header, then the map
         }
 
+        // Per Location "All Images" (localsite.js) stays while each image shows once
+        if (touring && typeof setTourStopInfo === 'function') {
+            setTourStopInfo({ imagesMs: images && images.length ? images.length * this.tourImageMs() : 0 });
+        }
+
         const modal = document.getElementById('gallery-image-modal');
         const floating = modal && modal.classList.contains('active') && modal.classList.contains('image-float');
         if (!floating) {
@@ -5823,8 +5828,14 @@ Do not include any explanation or additional text.`;
         }
     }
 
-    // During Start Tour the floating gallery advances through the location's images on its own,
-    // 4 seconds per image. When the tour moves on, any images not yet shown are skipped.
+    // Time each image shows during Start Tour: 4 seconds at the original pace, divided by Tour Speed (localsite.js)
+    tourImageMs() {
+        return 4000 / (typeof tourSpeed === 'function' ? tourSpeed() : 1);
+    }
+
+    // During Start Tour the floating gallery advances through the location's images on its own (tourImageMs each).
+    // With Per Location "All Images" the tour stays until each has shown; otherwise, when the tour moves on,
+    // any images not yet shown are skipped.
     startFloatingGallerySlides(modal) {
         this.stopFloatingGallerySlides();
         const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
@@ -5832,7 +5843,7 @@ Do not include any explanation or additional text.`;
         if (!touring || count < 2) {
             return;
         }
-        const interval = 4000;
+        const interval = this.tourImageMs();
         this.floatingGallerySlideTimer = setInterval(() => {
             const stillTouring = typeof getHash === 'function' && getHash().detailplay === 'true';
             if (!stillTouring || !modal.classList.contains('active') || !modal.classList.contains('image-float')) {
@@ -6517,40 +6528,91 @@ Do not include any explanation or additional text.`;
         return { center, zoom: fromZoom + (peakZoom - fromZoom) * zoomProgress };
     }
 
-    // Tile URLs the map shows along a tour glide (sampled views plus the arrival), for each tile layer
+    // Tile URLs the map shows along a tour glide, for each tile layer.
+    // With Preload Zoom on: the tour backdrop's tiles all along the way (a few dozen, since they're coarse), plus the
+    // views at the pause and on arrival. The levels in between fill in over the backdrop as they load.
+    // Otherwise: sampled views plus the arrival.
     getTourTileUrls(map, fromCenter, fromZoom, target, options = {}) {
         const urls = new Set();
-        const layers = [];
-        map.eachLayer(layer => {
-            if (layer instanceof L.TileLayer && layer._url) layers.push(layer);
-        });
-        const size = map.getSize();
-        [0.15, 0.3, 0.5, 0.7, 0.85, 1].forEach(t => {
+        const add = (t, viewOptions) => {
             const { center, zoom } = this.getTourPathView(map, fromCenter, fromZoom, target, t, options);
-            layers.forEach(layer => {
-                const maxZoom = Math.min(layer.options.maxNativeZoom || layer.options.maxZoom || 18, layer.options.maxZoom || 18);
-                const tileZoom = Math.min(Math.round(zoom), maxZoom);
-                if (tileZoom < (layer.options.minZoom || 0)) return; // e.g. label overlays start at zoom 8
-                const tileSize = layer.getTileSize ? layer.getTileSize().x : 256;
-                const scale = Math.pow(2, tileZoom - zoom);
-                const centerPx = map.project(center, tileZoom);
-                const half = size.multiplyBy(scale / 2);
-                const min = centerPx.subtract(half).divideBy(tileSize).floor();
-                const max = centerPx.add(half).divideBy(tileSize).floor();
-                const count = Math.pow(2, tileZoom);
-                for (let x = min.x; x <= max.x; x++) {
-                    for (let y = Math.max(0, min.y); y <= Math.min(count - 1, max.y); y++) {
-                        const wrappedX = ((x % count) + count) % count;
-                        urls.add(L.Util.template(layer._url, L.extend({
-                            r: L.Browser.retina ? '@2x' : '',
-                            s: layer._getSubdomain ? layer._getSubdomain({ x: wrappedX, y }) : '',
-                            x: wrappedX,
-                            y,
-                            z: tileZoom
-                        }, layer.options)));
-                    }
+            this.getViewTileUrls(map, center, zoom, viewOptions).forEach(url => urls.add(url));
+        };
+        const backdrop = this.preloadZoomOn() && this.getMapScreen('detail') === 'full' && map === this.detailMap
+            ? this.addTourBackdrop(map, Math.min(fromZoom, options.outZoom || 10, options.endZoom || 12))
+            : null;
+        if (!backdrop) {
+            [0.15, 0.3, 0.5, 0.7, 0.85, 1].forEach(t => add(t));
+            return [...urls];
+        }
+        const detailed = layer => layer !== backdrop;
+        add(0.5, { layers: detailed });
+        add(1, { layers: detailed });
+        for (let i = 0; i <= 20; i++) {
+            add(i / 20, { layers: layer => layer === backdrop, pad: 1 });
+        }
+        return [...urls];
+    }
+
+    // Tour backdrop: during the tour with Preload Zoom on, a copy of the map's background tiles one level coarser than
+    // the furthest a glide pulls out to, under the detailed tiles. Wherever the detailed tiles are still loading as
+    // the map glides, it shows these (blurrier) instead of blank tiles. Removed when the tour stops or the style changes.
+    addTourBackdrop(map, peakZoom) {
+        const base = this.detailMapTileLayer;
+        if (!base || !map.hasLayer(base)) {
+            return null;
+        }
+        const level = Math.max(0, Math.floor(peakZoom) - 1);
+        const current = this.tourBackdrop;
+        if (current && map.hasLayer(current) && current._url === base._url && current.options.maxNativeZoom === level) {
+            return current;
+        }
+        this.removeTourBackdrop();
+        this.tourBackdrop = L.tileLayer(base._url, L.extend({}, base.options, {
+            maxNativeZoom: level,
+            zIndex: (base.options.zIndex || 0) - 1, // under the map's background tiles
+            attribution: '',
+            tourBackdrop: true // padded while gliding (enableZoomPreload)
+        })).addTo(map);
+        return this.tourBackdrop;
+    }
+
+    removeTourBackdrop() {
+        if (this.tourBackdrop && this.tourBackdrop._map) {
+            this.tourBackdrop._map.removeLayer(this.tourBackdrop);
+        }
+        this.tourBackdrop = null;
+    }
+
+    // Tile URLs the map shows at center and zoom, for each tile layer (or those layers(layer) accepts):
+    // at tileZoom (the nearest level by default), plus pad tiles beyond each edge
+    getViewTileUrls(map, center, zoom, { tileZoom: levelZoom = Math.round(zoom), pad = 0, layers = () => true } = {}) {
+        const urls = new Set();
+        const size = map.getSize();
+        map.eachLayer(layer => {
+            if (!(layer instanceof L.TileLayer) || !layer._url || !layers(layer)) return;
+            const maxZoom = Math.min(layer.options.maxNativeZoom || layer.options.maxZoom || 18, layer.options.maxZoom || 18);
+            const tileZoom = Math.min(levelZoom, maxZoom);
+            if (tileZoom < (layer.options.minZoom || 0)) return; // e.g. label overlays start at zoom 8
+            const tileSize = layer.getTileSize ? layer.getTileSize().x : 256;
+            const scale = Math.pow(2, tileZoom - zoom);
+            const centerPx = map.project(center, tileZoom);
+            const half = size.multiplyBy(scale / 2);
+            const min = centerPx.subtract(half).divideBy(tileSize).floor().subtract([pad, pad]);
+            const max = centerPx.add(half).divideBy(tileSize).floor().add([pad, pad]);
+            const count = Math.pow(2, tileZoom);
+            for (let x = min.x; x <= max.x; x++) {
+                for (let y = Math.max(0, min.y); y <= Math.min(count - 1, max.y); y++) {
+                    const wrappedX = ((x % count) + count) % count;
+                    urls.add(L.Util.template(layer._url, L.extend({
+                        r: L.Browser.retina ? '@2x' : '',
+                        s: layer._getSubdomain ? layer._getSubdomain({ x: wrappedX, y }) : '',
+                        x: wrappedX,
+                        y,
+                        z: tileZoom
+                    }, layer.options)));
                 }
-            });
+            }
         });
         return [...urls];
     }
@@ -6628,6 +6690,16 @@ Do not include any explanation or additional text.`;
             return; // a newer stop started while tiles loaded
         }
 
+        // With Preload Zoom on, each frame of the glide places the tour backdrop's tiles coming into view (Leaflet
+        // otherwise adds them at most every 200ms, leaving the leading edge blank meanwhile)
+        const updateTiles = () => {
+            const backdrop = this.tourBackdrop;
+            if (backdrop && backdrop._map === map && backdrop._tileZoom !== undefined) {
+                backdrop._update();
+            }
+        };
+        map.tourFlying = flight;
+
         // Runs path times fromT..toT over legMs; resolves false if a newer stop began
         // (map.stop() cancels _flyToFrame, which leaves the leg unresolved so nothing follows it)
         const runLeg = (fromT, toT, legMs) => new Promise(resolve => {
@@ -6646,33 +6718,186 @@ Do not include any explanation or additional text.`;
                     return;
                 }
                 map._move(center, zoom, { flyTo: true });
+                updateTiles();
                 map._flyToFrame = requestAnimationFrame(frame);
             };
             map._flyToFrame = requestAnimationFrame(frame);
         });
 
-        if (!await runLeg(0, 0.5, outMs)) {
-            return;
-        }
-        if (pauseMs) {
-            await new Promise(resolve => setTimeout(resolve, pauseMs)); // hold at outZoom over the point
-            if (this.tourFlight !== flight || !map._loaded) {
-                return;
+        const landed = await (async () => {
+            if (!await runLeg(0, 0.5, outMs)) {
+                return false;
             }
+            if (pauseMs) {
+                await new Promise(resolve => setTimeout(resolve, pauseMs)); // hold at outZoom over the point
+                if (this.tourFlight !== flight || !map._loaded) {
+                    return false;
+                }
+            }
+            return runLeg(0.5, 1, inMs);
+        })();
+        if (map.tourFlying === flight) {
+            map.tourFlying = null;
         }
-        if (await runLeg(0.5, 1, inMs)) {
+        if (landed) {
             this.preloadNextTourStop(map, target, options);
         }
     }
 
     // Halts a tourFlyTo glide where it is: a newer flight number ends its tile wait, legs and pause,
-    // and map.stop() cancels the current frame. The target is cleared so resuming glides to it again.
+    // and map.stop() cancels the current frame. The target is cleared so resuming glides to it again,
+    // and the tour backdrop goes.
     stopTourFlight(map) {
         this.tourFlight = (this.tourFlight || 0) + 1;
         this.tourFlightTarget = null;
+        this.removeTourBackdrop();
         if (map) {
             map.stop();
         }
+    }
+
+    // Preload Zoom (localStorage mapPreloadZoom, on unless "0"; #preloadZoomToggle in requests/engine):
+    // while the map is in Full Screen, the levels above and below the current view load ahead of time, and a zoom
+    // (the + and - buttons, double-click, the Level menu or a script) waits for any of the new view's tiles still
+    // missing, up to 1.5 seconds. A newer move replaces a zoom still waiting.
+    // Zooming in, the new tiles cross-fade over the enlarging ones as usual. Zooming out, Leaflet would place the
+    // new level only over the area shown before and add the edges after the zoom, leaving them blank; here the whole
+    // new view goes under the shrinking level as the zoom starts, and the shrinking level fades away as it zooms.
+    preloadZoomOn() {
+        try {
+            return localStorage.getItem("mapPreloadZoom") !== "0";
+        } catch (error) {
+            return true;
+        }
+    }
+
+    // target is 'detail' or 'widget' (getMapScreenTargets). Wraps the map's setView, which Leaflet's zooms go through,
+    // and two GridLayer internals of each tile layer (Leaflet 1.9).
+    enableZoomPreload(map, target) {
+        if (!map || map.zoomPreloadTarget) {
+            return;
+        }
+        map.zoomPreloadTarget = target;
+        const active = () => this.preloadZoomOn() && this.getMapScreen(target) === 'full';
+        this.preloadedTiles = this.preloadedTiles || new Set();
+        const missing = (center, zoom) => this.getViewTileUrls(map, center, zoom).filter(url => !this.preloadedTiles.has(url));
+
+        const setView = map.setView;
+        let request = 0;
+        let waitingZoom = null; // where a zoom waiting on tiles is headed
+        map.setView = (center, zoom, options) => {
+            const current = ++request;
+            waitingZoom = null;
+            if (!map._loaded || zoom === undefined || options === true || (options && options.reset) || map._animatingZoom || !active()) {
+                return setView.call(map, center, zoom, options);
+            }
+            const toZoom = map._limitZoom(zoom);
+            const toCenter = map._limitCenter(L.latLng(center), toZoom, map.options.maxBounds);
+            const urls = toZoom === map._zoom ? [] : missing(toCenter, toZoom);
+            if (!urls.length) {
+                return setView.call(map, center, zoom, options);
+            }
+            waitingZoom = toZoom;
+            this.preloadTiles(urls, 1500).then(() => {
+                if (current === request && map._loaded) {
+                    waitingZoom = null;
+                    setView.call(map, toCenter, toZoom, options);
+                }
+            });
+            return map;
+        };
+        // Repeated + or - clicks while a zoom waits step on from where it's headed
+        const zoomBy = (sign) => (delta, options) => {
+            delta = delta || (L.Browser.any3d ? map.options.zoomDelta : 1);
+            return map.setZoom((waitingZoom !== null ? waitingZoom : map._zoom) + sign * delta, options);
+        };
+        map.zoomIn = zoomBy(1);
+        map.zoomOut = zoomBy(-1);
+
+        // After each move, once the map's own tiles have loaded, the levels above and below load ahead of time
+        const preloadNeighbors = () => {
+            if (!map._loaded || !active() || map._animatingZoom) { // _loaded: the map has a view
+                return;
+            }
+            let loading = null;
+            map.eachLayer(layer => {
+                if (layer instanceof L.TileLayer && layer._loading) loading = layer;
+            });
+            if (loading) {
+                loading.once('load', preloadNeighbors);
+                return;
+            }
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            const urls = [zoom - 1, zoom + 1].filter(z => z >= map.getMinZoom() && z <= map.getMaxZoom()).flatMap(z => missing(center, z));
+            if (urls.length) {
+                this.preloadTiles(urls, 0);
+            }
+        };
+        map.on('moveend', preloadNeighbors);
+
+        const track = (layer) => {
+            if (!(layer instanceof L.TileLayer) || layer.zoomPreloadTracked) {
+                return;
+            }
+            layer.zoomPreloadTracked = true;
+            let outLevel = null; // the new level, under the shrinking ones, while zooming out
+            let fading = []; // the shrinking levels, fading away above it
+            layer.on('tileload', (event) => {
+                // Under the shrinking levels, the new tiles show at once rather than fading in
+                const tile = outLevel && event.coords.z === outLevel.zoom && layer._tiles[layer._tileCoordsToKey(event.coords)];
+                if (tile && tile.loaded) {
+                    tile.loaded -= 200;
+                }
+                this.preloadedTiles.add(event.tile.src);
+            });
+            // Zooming out, tiles go over the whole new view instead of only the area shown before
+            const tiledPixelBounds = layer._getTiledPixelBounds;
+            layer._getTiledPixelBounds = function (center) {
+                if (map._animatingZoom && map._animateToZoom < map._zoom && active()) {
+                    const pixelCenter = map.project(center, this._tileZoom).floor();
+                    const halfSize = map.getSize().divideBy(map.getZoomScale(map._animateToZoom, this._tileZoom) * 2);
+                    return new L.Bounds(pixelCenter.subtract(halfSize), pixelCenter.add(halfSize));
+                }
+                const bounds = tiledPixelBounds.call(this, center);
+                if (this.options.tourBackdrop && map.tourFlying && active()) {
+                    // While gliding (tourFlyTo), the tour backdrop places a tile beyond each edge, ready before it comes into view
+                    const pad = this.getTileSize();
+                    return new L.Bounds(bounds.min.subtract(pad), bounds.max.add(pad));
+                }
+                return bounds;
+            };
+            const layerSetView = layer._setView;
+            layer._setView = function (center, zoom, noPrune, noUpdate) {
+                const fromTileZoom = this._tileZoom;
+                const zoomingOut = map._animatingZoom && noPrune && !noUpdate && active() && this._clampZoom(Math.round(zoom)) < fromTileZoom;
+                const ending = outLevel && !map._animatingZoom;
+                layerSetView.call(this, center, zoom, noPrune, noUpdate);
+                if (zoomingOut && this._level && this._level.zoom === this._tileZoom && this._tileZoom < fromTileZoom) {
+                    // Zoom-out starting: the new level goes under the shrinking ones, which fade as they shrink
+                    // (keeping Leaflet's transform transition from leaflet.css alongside the fade)
+                    outLevel = this._level;
+                    outLevel.el.style.zIndex = 0;
+                    fading = Object.values(this._levels).filter(level => level !== outLevel);
+                    fading.forEach(level => {
+                        level.el.style.transition = 'transform 0.25s cubic-bezier(0,0,0.25,1), opacity 0.25s';
+                        level.el.style.opacity = 0;
+                    });
+                } else if (ending) {
+                    // Zoom-out ended: Leaflet puts the new level back on top and removes the old ones
+                    // (any kept to fill tiles still loading show again beneath it)
+                    outLevel = null;
+                    fading.forEach(level => {
+                        level.el.style.transition = '';
+                        level.el.style.opacity = '';
+                    });
+                    fading = [];
+                }
+            };
+        };
+        map.eachLayer(track);
+        map.on('layeradd', event => track(event.layer));
+        preloadNeighbors();
     }
 
     setDetailMapStyle(styleKey, { save = true } = {}) {
@@ -7204,6 +7429,7 @@ Do not include any explanation or additional text.`;
                 container.scrollIntoView({ block: 'start' });
             }
             if (mode === 'full') {
+                this.enableZoomPreload(config.map(), target);
                 this.floatLocationImageOverMap(container);
                 this.floatLocationDetailsOverMap(container);
             }
@@ -7558,6 +7784,7 @@ Do not include any explanation or additional text.`;
                     }
                 });
             }
+            this.enableZoomPreload(this.detailMap, 'detail');
             this.initializeDetailMapControls();
             if (this.detailMapExpandControl?.button) {
                 setFullscreenToggleState(this.detailMapExpandControl.button, !!this.detailMapExpanded);
@@ -7587,7 +7814,13 @@ Do not include any explanation or additional text.`;
         const touring = typeof getHash === 'function' && getHash().detailplay === 'true';
         if (touring && this.detailMap._loaded) {
             detailZoom = fromArrows ? 7 : 12;
-            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, outMs: 3500, inMs: 1800, pauseMs: 2000 });
+            const speed = typeof tourSpeed === 'function' ? tourSpeed() : 1; // Tour Speed (localsite.js)
+            const glide = { outMs: 3500 / speed, pauseMs: 2000 / speed, inMs: 1800 / speed };
+            this.tourFlyTo(this.detailMap, [coords.lat, coords.lng], { outZoom: 7, endZoom: detailZoom, ...glide });
+            // The tour stays for the glide (plus its tile loading) and 3 seconds on the point, whatever Per Location is
+            if (typeof setTourStopInfo === 'function') {
+                setTourStopInfo({ minMs: glide.outMs + glide.pauseMs + glide.inMs + 3000 });
+            }
         } else {
             this.detailMap.setView([coords.lat, coords.lng], detailZoom);
         }
