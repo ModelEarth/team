@@ -74,8 +74,6 @@ lsof -ti:8081 | xargs kill -9
 ### Start HTTP Server
 When you type "start server", use the appropriate command for your environment:
 
-**First check**: If `workflow/comfyui/main.py` exists, start ComfyUI on port 8887 instead of the standard HTTP server — ComfyUI provides its own web server. See below.
-
 #### Option 1: OpenAI Codex (and other agents without shell script support)
 
 ```bash
@@ -115,38 +113,6 @@ If `server.py` also does not exist, fall back to the simple HTTP server:
 ```bash
 nohup python3 -m http.server [requested-port] > /dev/null 2>&1 &
 ```
-
-#### Option 3: Workflow repo — ComfyUI as the server on port 8887
-
-When `workflow/comfyui/main.py` is present, start ComfyUI on port 8887 instead of
-the standard HTTP server. ComfyUI includes its own aiohttp web server and serves the
-workflow UI. Run from the webroot root folder:
-
-```bash
-lsof -ti:8887 > /dev/null 2>&1 || \
-  nohup workflow/env/bin/python3 workflow/comfyui/main.py \
-    --port 8887 --cpu > workflow/comfy.log 2>&1 &
-```
-
-**IMPORTANT**: `--cpu` disables local GPU/model inference. All LLM calls go through
-external APIs configured at http://localhost:8887/chat/keys/ (stored in local cache
-or the `.env` set by `automation/paths.yaml`). No local model checkpoint files are needed.
-
-**What this command does:**
-- Starts ComfyUI's aiohttp server on port 8887
-- Serves the ComfyUI graph UI and REST/WebSocket API
-- CPU-only mode — no local model loading
-- Logs to `workflow/comfy.log`
-
-**Before first use**, install Python dependencies into `workflow/env/` (one-time build):
-```bash
-workflow/env/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
-workflow/env/bin/pip install av --only-binary=:all:
-workflow/env/bin/pip install -r workflow/comfyui/requirements.txt \
-  --extra-index-url https://download.pytorch.org/whl/cpu
-```
-Note: `av` (video support) requires `pkg-config` + FFmpeg to build from source;
-`--only-binary=:all:` installs the available binary wheel and skips video if unavailable.
 
 ### Start HTTP Server (Simple)
 When you type "start http", run:
@@ -285,40 +251,6 @@ Notes:
 ### Start Arts Engine / Chat Server
 - `start art` — Arts Engine Axum Rust API in `requests/engine/rust-api/`; full command: `cargo run --manifest-path requests/engine/rust-api/Cargo.toml` (port 8082)
 - `start chat` — **ask the user which mode first: webroot or chat repo** (see `chat/AGENTS.md`). Webroot mode = `node chat/server.mjs` from the webroot root (port **3700**; serves the chat app + sibling static repos). Chat-repo mode = `pnpm --prefix chat dev` (port **3700**; chat app only). In both, the chat app is at the server root — no `/chat` repo prefix. First run: `pnpm --prefix chat install`
-
-### Start Workflow
-When you type "start workflow", run both steps below from the webroot root folder:
-
-**1. Start server** (Python / ComfyUI on port 8887 — Option 3 above):
-```bash
-lsof -ti:8887 > /dev/null 2>&1 || \
-  nohup workflow/env/bin/python3 workflow/comfyui/main.py \
-    --port 8887 --cpu > workflow/comfy.log 2>&1 &
-```
-
-**2. Start chat** (Node.js on port 3700 — see `chat/AGENTS.md`):
-```bash
-lsof -ti:3700 > /dev/null 2>&1 || \
-  nohup node chat/server.mjs > /tmp/chat-dev.log 2>&1 &
-```
-
-**3. Start comfyui-deploy** (port 3001 — only if `CLERK_SECRET_KEY` is in the `.env` set by `automation/paths.yaml`):
-```bash
-export ENV_FILE="automation/$(sed -n 's/^[[:space:]]*env_file:[[:space:]]*//p' automation/paths.yaml | sed 's/[[:space:]]#.*$//; s/["'\'']//g')"
-grep -q "CLERK_SECRET_KEY=sk_" "$ENV_FILE" 2>/dev/null && \
-  { lsof -ti:3001 > /dev/null 2>&1 || \
-    nohup bash -c 'set -a; source "$ENV_FILE"; set +a; PORT=3001 pnpm --prefix workflow/comfyui-deploy/web dev' \
-      > /tmp/comfydeploy-dev.log 2>&1 &; }
-```
-
-comfyui-deploy does not auto-load the `.env`, so Clerk keys must be sourced explicitly.
-
-Then confirm all are up:
-```bash
-sleep 6 && curl -s http://localhost:8887/system_stats | head -1 && \
-  curl -s -o /dev/null -w "chat: %{http_code}\n" http://localhost:3700 && \
-  curl -s -o /dev/null -w "deploy: %{http_code}\n" http://localhost:3001
-```
 
 ### Restart Server
 When you type "restart", run this single command to restart the server in seconds:
