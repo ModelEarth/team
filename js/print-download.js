@@ -179,7 +179,7 @@ class PrintDownloadWidget {
 
         const darkModeToggle = `
             <div class="print-download-container">
-                <div id="dark-mode-toggle-${containerId}" class="print-download-icon" title="Toggle dark mode">
+                <div id="dark-mode-toggle-${containerId}" class="print-download-icon darkModeToggle" role="button" title="Toggle dark mode" aria-pressed="false">
                     <i class="material-icons">light_mode</i>
                 </div>
             </div>
@@ -188,60 +188,20 @@ class PrintDownloadWidget {
         return darkModeToggle;
     }
 
-    // Mirrors the dark mode toggle process used in localsite/css/themes/index.html so the
-    // toggle stays in sync with the sitelook cookie whether or not the widget is embedded.
-    static isDarkModeActive() {
-        if (document.body.classList.contains('dark')) {
-            return true;
-        }
-        if (typeof Cookies === 'undefined') {
-            return false;
-        }
-        const sitelook = Cookies.get('sitelook') || 'default';
-        if (sitelook === 'dark') {
-            return true;
-        }
-        if (sitelook === 'computer') {
-            return window.matchMedia('(prefers-color-scheme: dark)').matches;
-        }
-        if (sitelook === 'default') {
-            return Cookies.get('modelsite') === 'dreamstudio'
-                || location.host.indexOf('dreamstudio') >= 0
-                || location.host.indexOf('planet.live') >= 0;
-        }
-        return false;
-    }
-
-    static updateDarkModeIcon(iconEl) {
-        if (!iconEl) return;
-        const isDark = this.isDarkModeActive();
-        iconEl.textContent = isDark ? 'dark_mode' : 'light_mode';
-        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-    }
-
+    // Clicks and sitelook changes are handled by darkModeToggle in localsite/js/localsite.js,
+    // the process shared with #goatIcons, /cv and localsite/css/themes.
     static setupDarkModeToggle(containerId) {
         const toggle = document.getElementById(`dark-mode-toggle-${containerId}`);
         if (!toggle || toggle.dataset.bound === 'true') return;
         toggle.dataset.bound = 'true';
 
-        const icon = toggle.querySelector('.material-icons');
-        this.updateDarkModeIcon(icon);
+        if (typeof updateDarkModeToggles === 'function') updateDarkModeToggles();
 
-        if (typeof waitForElm === 'function') {
-            waitForElm('#bodyloaded').then(() => this.updateDarkModeIcon(icon));
-        }
-
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const newLook = document.body.classList.contains('dark') ? 'default' : 'dark';
-            if (typeof Cookies !== 'undefined') Cookies.set('sitelook', newLook);
-            if (typeof setSitelook === 'function') setSitelook(newLook);
-            this.updateDarkModeIcon(icon);
-        });
-
-        new MutationObserver(() => {
-            this.updateDarkModeIcon(icon);
-        }).observe(document.body, { attributeFilter: ['class'] });
+        const syncDataTheme = () => {
+            document.documentElement.dataset.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+        };
+        syncDataTheme();
+        new MutationObserver(syncDataTheme).observe(document.body, { attributeFilter: ['class'] });
     }
 
     static createPrintIcon(containerId, options = {}) {

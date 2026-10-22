@@ -649,9 +649,8 @@
             background: #555;
         }
         
-        .dark-toggle i {
-            width: 16px;
-            height: 16px;
+        .dark-toggle .material-icons {
+            font-size: 18px;
         }
         
         @media (max-width: 768px) {
@@ -678,9 +677,8 @@
 </head>
 <body>
 
-<button class="dark-toggle" onclick="toggleDarkMode()">
-    <i data-feather="toggle-left" id="toggle-icon"></i>
-    <span id="toggle-text">Dark</span>
+<button class="dark-toggle darkModeToggle" type="button" title="Toggle dark mode" aria-pressed="false">
+    <i class="material-icons">light_mode</i>
 </button>
 
 <div id="formHolder" class="content contentpadding">
@@ -1781,46 +1779,6 @@
         // Feather icons handled by nav.js
     }
     
-    // Dark mode functionality
-    function toggleDarkMode() {
-        document.body.classList.toggle('dark');
-        const isDark = document.body.classList.contains('dark');
-        
-        // Update toggle button icon and text
-        const toggleIcon = document.getElementById('toggle-icon');
-        const toggleText = document.getElementById('toggle-text');
-        
-        if (isDark) {
-            toggleIcon.setAttribute('data-feather', 'toggle-right');
-            toggleText.textContent = 'Light';
-        } else {
-            toggleIcon.setAttribute('data-feather', 'toggle-left');
-            toggleText.textContent = 'Dark';
-        }
-        
-        // Re-initialize feather icons to update the changed icon
-        if (window.standaloneNav && window.standaloneNav.replaceFeatherIcons) {
-            window.standaloneNav.replaceFeatherIcons();
-        }
-        
-        // Save preference
-        localStorage.setItem('darkMode', isDark);
-    }
-    
-    // Load dark mode preference
-    function loadDarkModePreference() {
-        const isDark = localStorage.getItem('darkMode') === 'true';
-        if (isDark) {
-            document.body.classList.add('dark');
-            const toggleIcon = document.getElementById('toggle-icon');
-            const toggleText = document.getElementById('toggle-text');
-            toggleIcon.setAttribute('data-feather', 'toggle-right');
-            toggleText.textContent = 'Light';
-            // Re-initialize feather icons
-            // Feather icons handled by nav.js
-        }
-    }
-    
     // View state management
     let currentView = null;
     let tablesLoaded = false;
@@ -2011,7 +1969,7 @@
     
     // Initialize
     checkConnection();
-    loadDarkModePreference();
+    if (typeof updateDarkModeToggles === 'function') updateDarkModeToggles(); // darkModeToggle in localsite.js
     loadCSVData();
     setupNameLookup();
     initializeFromHash();
