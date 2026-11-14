@@ -4,15 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="img/logo/neighborhood/favicon.png">
-    <title>Partner Tools - Collaboration Across Teams</title>
+    <title>Dev - Collaboration Across Teams</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
     
     <link type="text/css" rel="stylesheet" href="../localsite/css/base.css" id="/localsite/css/base.css" />
     <script type="text/javascript" src="../localsite/js/localsite.js?showheader=true"></script>
 
+    <!-- StudioCraft styles shared with desktop/index.html -->
+    <link type="text/css" rel="stylesheet" href="../desktop/css/craft.css" />
+
     <style>
         :root {
-            --bg-primary: #F9FAFB;
+            --bg-primary: #f2f1ee;
             --bg-secondary: #FFFFFF;
             --bg-tertiary: #F3F4F6;
             --text-primary: #1A1A1A;
@@ -31,6 +34,20 @@
             --radius-lg: 12px;
         }
 
+        /* Map this page's variables onto the StudioCraft palette, which also covers .dark */
+        .craft {
+            --bg-secondary: var(--craft-raised);
+            --bg-tertiary: var(--craft-sunken);
+            --text-primary: var(--craft-ink);
+            --text-secondary: var(--craft-muted);
+            --text-muted: var(--craft-faint);
+            --accent-blue: var(--craft-accent);
+            --border-light: var(--craft-line);
+            --border-medium: var(--craft-line-strong);
+            --radius-md: var(--craft-radius-sm);
+            --radius-lg: var(--craft-radius);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -47,6 +64,7 @@
         .container {
             max-width: 1200px;
             padding: 0 20px;
+            container-type: inline-size;
         }
 
         .header {
@@ -73,39 +91,67 @@
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 24px;
             margin-top: 25px;
+            margin-bottom: 15px;
         }
 
         .admin-card {
             background: var(--bg-secondary);
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            padding: 32px;
+            padding: 24px;
             margin-bottom: .6px;
-            transition: all 0.3s ease;
+            transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
             border: 1px solid var(--border-light);
             position: relative;
+            overflow: hidden;
+        }
+
+        /* App color bar along the top, as on the desktop page's .craft-card */
+        .admin-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            background: var(--app);
+            opacity: 0;
+            transition: opacity 0.15s;
         }
 
         .admin-card:hover {
-            box-shadow: var(--shadow-md);
+            border-color: var(--app);
+            box-shadow: 0 10px 28px -14px var(--app);
             transform: translateY(-2px);
+        }
+
+        .admin-card:hover::before {
+            opacity: 1;
+        }
+
+        .admin-card {
+            --app-ink: var(--card-ink, var(--craft-accent-ink));
+        }
+
+        .dark .admin-card {
+            --app-ink: var(--app);
         }
 
         .admin-card-header {
             display: flex;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+            padding-right: 36px; /* Room for .admin-card-row-toggle */
         }
 
         .admin-card-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius-md);
+            width: 52px;
+            height: 52px;
+            flex-shrink: 0;
+            border-radius: 22%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 16px;
+            margin-right: 14px;
             font-size: 24px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
             transition: transform 0.2s ease;
         }
 
@@ -125,13 +171,18 @@
         }
 
         .admin-card h3 {
-            font-size: 20px;
-            font-weight: 600;
+            font-family: var(--craft-display);
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            line-height: 1.15;
             color: var(--text-primary);
-            margin-bottom: 4px;
+            margin: 2px 0 0 0;
+            transition: color 0.15s;
         }
 
         .admin-card p {
+            font-size: 14px;
             color: var(--text-secondary);
             line-height: 1.5;
         }
@@ -164,9 +215,13 @@
             align-items: center;
         }
 
+        .admin-card-features li {
+            font-size: 14px;
+        }
+
         .admin-card-features li:before {
             content: "✓";
-            color: var(--accent-green);
+            color: var(--app-ink);
             font-weight: bold;
             margin-right: 8px;
         }
@@ -212,41 +267,20 @@
 
         .clickable-card {
             cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .clickable-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
         }
 
         .clickable-card:hover .admin-card-icon {
             transform: scale(1.05);
-            transition: transform 0.2s ease;
         }
 
         .clickable-card:hover h3 {
-            color: var(--accent-blue);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 16px;
-        }
-
-        .status-badge.active {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--accent-green);
+            color: var(--app-ink);
         }
 
         .admin-card-row-toggle {
             position: absolute;
             right: 12px;
-            bottom: 12px;
+            top: 12px;
             width: 40px;
             height: 40px;
             border: none;
@@ -314,8 +348,30 @@
         }
 
         .tab-link.active {
-            color: var(--accent-blue);
-            border-bottom-color: var(--accent-blue);
+            color: var(--craft-accent-ink);
+            border-bottom-color: var(--craft-accent);
+        }
+
+        .usage-controls .craft-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .admin-info-panel {
+            margin-top: 24px;
+            padding: 22px 24px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+        }
+
+        .admin-info-panel h3 {
+            font-family: var(--craft-display);
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin: 6px 0 14px 0;
+            color: var(--text-primary);
         }
 
         .tab-content {
@@ -339,9 +395,6 @@
             .admin-card {
                 padding: 24px;
             }
-        }
-        .dark .heroTitleContrast {
-            color: #bbb;
         }
         #welcome-hero-geo-wrap {
             border-radius: 20px;
@@ -388,35 +441,98 @@
         .dark .header-center p a {
             color: #6CB4F0;
         }
-        #readmeDiv a {
-            color: var(--accent-green);
+        .craft .header-center .craft-title {
+            justify-content: center;
+            margin: 0 0 8px 0;
         }
+
+        /* Hero panel to the left of the tool cards. Narrower pages keep the stacked layout above. */
+        @container (min-width: 821px) {
+            .team-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+                gap: 24px;
+                align-items: start;
+                margin-top: 20px;
+            }
+            .team-layout #welcome-hero-geo-wrap {
+                position: sticky;
+                top: 20px;
+                margin-top: 0;
+                aspect-ratio: auto;
+                min-height: 320px;
+            }
+            .team-layout .admin-grid {
+                margin-top: 0;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+        }
+
+        /* #fullscreen (localsite/css/base.css), as on project/goals: fixed over the whole window, behind the header,
+           the search filters and the top of the page (.team-top). The Earth map (#mainEarthDisplay) goes in it when
+           #geoview=earth or the header's .showEarth opens it (placeEarthDisplay() in localsite.js, which adds
+           .earthShown), and it hides while the map is closed. It has no z-index of its own, so the positioned
+           sections after it (.team-top, .team-below) paint over it. */
+        html #fullscreen { position: fixed; inset: 0; height: auto; box-sizing: border-box; }
+        #fullscreen:not(.earthShown) { display: none; }
+        /* The map's circles in its upper right go 22px below where .team-top starts (--header-h, fitTeamTop()),
+           since #fullscreen's top is behind the header. */
+        html #fullscreen > #mainEarthDisplay .earth-zoom-controls { top: calc(var(--header-h, 0px) + 22px) !important; }
+        #filterFieldsHolder:not(.filterFieldsHolderFixed) { position: relative; z-index: 3; }
+        /* While the map's date picker is open (.earthDateOpen, localsite.js), the map is raised over the page. */
+        html.earthDateOpen #fullscreen { z-index: 2; }
+        /* The window's height below the header and search filters. While the map shows, .team-top fills it, less the
+           time sliders under it (#earthUnderMap, --team-sliders-height), so the sliders show at the window's bottom
+           and the panels in .team-below start below them. */
+        body { --fullscreen-height: calc(100vh - var(--header-h, var(--headerbar-offset, 0px))); }
+        .team-top { position: relative; }
+        #fullscreen.earthShown ~ .team-top {
+            min-height: calc(var(--fullscreen-height) - var(--team-sliders-height, 0px));
+            box-sizing: border-box;
+            padding-bottom: 24px;
+        }
+        /* The top section's empty space lets clicks through to the map, while its panels take them. */
+        .team-top, .team-layout, .admin-grid { pointer-events: none; }
+        .team-layout > :not(.admin-grid), .admin-grid > * { pointer-events: auto; }
+        /* After #fullscreen: the status and README panels, on the page's background, slide up over the map. */
+        .team-below { position: relative; background: var(--craft-bg); padding: 24px 0 1px 0; }
     </style>
     <!-- Auth sign-in is sourced from the auth repo via localsite showAuthModal() -->
 </head>
 <body>
-    <div class="container" style="max-width:1400px">
+    <!-- #fullscreen (localsite/css/base.css): fixed behind the header, search filters and .team-top. localsite's
+         placeEarthDisplay() puts the Earth map (#mainEarthDisplay) in it, with this play/pause button at its lower right. -->
+    <!-- .team-fullscreen-area keeps #fullscreen's siblings to .team-top, so placeEarthDisplay() puts the time sliders
+         (#earthUnderMap) after it, before .team-below. -->
+    <div class="team-fullscreen-area">
+    <div id="fullscreen">
+    <div id="earthPlayPauseButton" class="earthPlay playPauseButton" role="button" tabindex="0" title="Play" aria-label="Play"><i class="material-icons play-pause-icon" aria-hidden="true">play_arrow</i></div>
+    </div>
+
+    <div class="container craft team-top" style="max-width:1400px">
+
+        <div class="team-layout">
 
         <div id="welcome-hero-geo-wrap" class="admin-card" onclick="smartClick(event, function(){ window.location='/codechat'; })" style="cursor:pointer">
             <img src="img/banner.webp" class="geo welcome-hero-geo" style="width:100%;display:none">
             <div class="header-center geo-x">
-                <div class="large-list"><h1 style="justify-content: center; color:#555; font-weight: 700 !important; letter-spacing: -0.03em; font-family: Raleway, Lato, Helvetica Neue, Helvetica, sans-serif !important"><span style="color:#999;">CodeChat</span> <span class="heroTitleContrast">Partner Tools</span></h1></div>
-                <p class="hideMobile">Collaboration on model.earth datascapes and AI insight profiles - <a href="/codechat">codechat</a></p>
+                <div class="large-list"><h1 class="craft-title"><span class="craft-title-bright">CodeChat</span> <em>Dev</em></h1></div>
+                <p class="hideMobile">Collaboration on datascapes and insight profiles - <a href="/codechat">codechat</a></p>
             </div>
         </div>
 
         <div class="admin-grid">
 
             <div style="display:none" class="earth">
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='projects/#list=modelteam'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='projects/#list=modelteam'; })" style="--app:#8b5cf6; --card-ink:#6a3fd6;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon" style="background: linear-gradient(45deg, #4C1D95, #8B5CF6); color: white;">
                             <i data-feather="users"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">Team Meetups</div>
                             <h3>Meetup Integration</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
@@ -433,15 +549,15 @@
             </div>
             
             <div class="earth-x">
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='projects/#list=all'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='projects/#list=all'; })" style="--app:#8b5cf6; --card-ink:#6a3fd6;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon" style="background: linear-gradient(45deg, #4C1D95, #8B5CF6); color: white;">
                             <i data-feather="users"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">Data Exploration</div>
                             <h3>AI Insights</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
@@ -457,15 +573,15 @@
             </div>
             </div>
             
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='setup/'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='setup/'; })" style="--app:#2f7bf5; --card-ink:#1a5bc4;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon" style="background: linear-gradient(45deg, #1D4ED8, #60A5FA); color: white;">
                             <i data-feather="zap"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">Setup and Config</div>
                             <h3>Webroot Manager</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
@@ -481,19 +597,19 @@
             </div>
 
             <!-- Database Admin -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/sql/panel/'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/sql/panel/'; })" style="--app:#9b6a9c; --card-ink:#7a4a7b;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon database">
                             <i data-feather="database"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">PostgreSQL</div>
                             <h3>Database Admin</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
-                <p>Manage Azure PostgreSQL database connections, test queries, and explore table structures with real-time data.</p>
+                <p>Manage PostgreSQL database connections, test queries, and explore table structures with real-time data.</p>
                 <div class="admin-card-features">
                     <ul>
                         <li>Live database connection testing</li>
@@ -505,15 +621,15 @@
             </div>
 
             <!-- Data Import Tool -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/import-data.html'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/import-data.html'; })" style="--app:#10b981; --card-ink:#047857;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon excel">
                             <i data-feather="upload"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">Data Import</div>
                             <h3>FeedPlayer Datasets</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
@@ -529,15 +645,15 @@
             </div>
 
             <!-- Log Output Monitor -->
-            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/log-output/'; })">
+            <div class="admin-card clickable-card" onclick="smartClick(event, function() { window.location.href='admin/log-output/'; })" style="--app:#f59e0b; --card-ink:#a85d00;">
                 <div class="admin-card-header">
                     <div class="admin-card-header-content">
                         <div class="admin-card-icon logs">
                             <i data-feather="monitor"></i>
                         </div>
                         <div>
+                            <div class="craft-card-cat">Monitoring</div>
                             <h3>Log Output Monitor</h3>
-                            <span class="status-badge active">Active</span>
                         </div>
                     </div>
                 </div>
@@ -553,14 +669,14 @@
             </div>
 
             <!-- API Usage Monitor -->
-            <div class="admin-card" id="api-usage-card">
+            <div class="admin-card" id="api-usage-card" style="--app:#eab308; --card-ink:#8a6a00;">
                 <div class="admin-card-header">
                     <div class="admin-card-icon" style="background: linear-gradient(45deg, #EAB308, #FDE047); color: white;">
                         <i data-feather="activity"></i>
                     </div>
                     <div>
+                        <div class="craft-card-cat">Token Quotas</div>
                         <h3>API Usage Monitor</h3>
-                        <span class="status-badge active">Live</span>
                     </div>
                 </div>
                 <p>Monitor your API usage across both terminal CLI and website integrations with real-time quota tracking.</p>
@@ -592,11 +708,11 @@
                                 </div>
                             </div>
                             <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                                <button class="btn btn-primary" id="check-claude-usage-btn" onclick="checkUsage('claude')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
+                                <button class="craft-btn craft-btn-primary" id="check-claude-usage-btn" onclick="checkUsage('claude')">
                                     <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
                                     Check Usage
                                 </button>
-                                <a href="server/" class="btn btn-secondary" id="get-connected-claude-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
+                                <a href="server/" class="craft-btn" id="get-connected-claude-btn" style="display: none;">
                                     Get Connected
                                 </a>
                             </div>
@@ -624,11 +740,11 @@
                                 </div>
                             </div>
                             <div class="usage-controls" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                                <button class="btn btn-primary" id="check-gemini-usage-btn" onclick="checkUsage('gemini')" style="padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px;">
+                                <button class="craft-btn craft-btn-primary" id="check-gemini-usage-btn" onclick="checkUsage('gemini')">
                                     <i data-feather="refresh-cw" style="width: 16px; height: 16px; margin-right: 4px;"></i>
                                     Check Usage
                                 </button>
-                                <a href="server/" class="btn btn-secondary" id="get-connected-gemini-btn" style="padding: 8px 16px; background: linear-gradient(45deg, #CC5500, #E67300); color: white; border: 1px solid #CC5500; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; text-decoration: none; display: none;">
+                                <a href="server/" class="craft-btn" id="get-connected-gemini-btn" style="display: none;">
                                     Get Connected
                                 </a>
                             </div>
@@ -639,10 +755,17 @@
             </div>
 
         </div>
-        <br><br>
 
-        <div id="system-status" style="margin-top: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
-            <h3 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">🛡️ Admin Access Information</h3>
+        </div><!-- /.team-layout -->
+    </div>
+    </div><!-- /.team-fullscreen-area -->
+
+    <div class="craft team-below">
+    <div class="container craft" style="max-width:1400px">
+
+        <div id="system-status" class="admin-info-panel geo-x">
+            <div class="craft-eyebrow"><b>Status</b> / Local services</div>
+            <h3>Admin Access Information</h3>
             <p style="color: var(--text-secondary); font-size: 14px;">
                 <strong>Database:</strong> <span id="db-status">Checking...</span> • 
                 <strong>API Server:</strong> <span id="api-status">Checking...</span>
@@ -650,9 +773,10 @@
             <div id="api-connection-error" style="display: none;"></div>
         </div>
 
-        <div style="margin-top: 24px; margin-bottom: 24px; padding: 24px; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-light);" class="geo-x">
-            <h3 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">🛡️ Run Webserver Locally</h3>
-            <div id="readmeDiv" class="readme-content">
+        <div class="admin-info-panel geo-x" style="margin-bottom: 24px;">
+            <div class="craft-eyebrow"><b>Setup</b> / Developers</div>
+            <h3>Run Webserver Locally</h3>
+            <div id="readmeDiv" class="readme-content craft-prose">
                 <p style="color: var(--text-secondary); font-style: italic;">
                     Loading README.md...
                 </p>
@@ -661,6 +785,7 @@
 
         <a href="prior.html" class="btn local" style="display:none">Prior</a><br><br>
     </div>
+    </div><!-- /.team-below -->
 
     <!-- for .btn -->
     <link rel="stylesheet" href="css/common.css">
@@ -1154,6 +1279,28 @@
         });
 
         initAdminCardRowToggles();
+
+        // Where .team-top starts below the top of the page (the header and search filters above it), as --header-h
+        // for --fullscreen-height and the Earth map's controls (CSS above). Rechecked when they or the window resize.
+        function fitTeamTop() {
+            const teamTop = document.querySelector('.team-top');
+            if (!teamTop) return;
+            const top = Math.max(0, Math.round(teamTop.getBoundingClientRect().top + window.scrollY));
+            document.documentElement.style.setProperty('--header-h', top + 'px');
+        }
+        fitTeamTop();
+        window.addEventListener('resize', fitTeamTop);
+        if (typeof ResizeObserver === 'function') {
+            const teamTopResize = new ResizeObserver(fitTeamTop);
+            waitForElm('#main-header').then((elm) => teamTopResize.observe(elm));
+            waitForElm('#mapFilters').then((elm) => teamTopResize.observe(elm));
+            // The time sliders' height under the map, as --team-sliders-height for .team-top's height
+            waitForElm('#earthSlidersUnder').then((sliders) => {
+                new ResizeObserver(() => {
+                    document.documentElement.style.setProperty('--team-sliders-height', sliders.offsetHeight + 'px');
+                }).observe(sliders);
+            });
+        }
 
         // Check status on page load
         checkSystemStatus();
