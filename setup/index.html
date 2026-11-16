@@ -10,6 +10,7 @@
 <link type="text/css" rel="stylesheet" href="../css/common.css" />
 <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=false"></script>
 <script type="text/javascript" src="../js/common.js"></script>
+<script type="text/javascript" src="../js/team-tabs.js"></script>
 <script type="text/javascript" src="../js/setup.js"></script>
 
 <script>
@@ -232,8 +233,14 @@ waitForElm('#deployGitDiv h1, #deployGitDiv h2').then(() => {
 
 <body>
 <div class="content contentpadding">
-    <a href="../admin">Partner Tools</a>
-    <div class="large-list"><h1>Webroot Manager</h1></div>
+    <nav class="team-tabs" data-team-tabs aria-label="Team pages"><a class="team-tab" href="../../codechat/">CodeChat</a></nav>
+    <div class="page-title" style="--page-title-bg: linear-gradient(45deg, #1D4ED8, #60A5FA); --page-title-ink: #1a5bc4;">
+        <div class="page-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
+        <div>
+            <div class="page-title-cat">Setup and Config</div>
+            <h1 class="page-title-name">Webroot Manager</h1>
+        </div>
+    </div>
 
     <div class="card" id="textInPage">
       <div id="webrootSetup"></div>

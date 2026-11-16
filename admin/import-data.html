@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Import - Partner Admin</title>
+    <title>Feed Insights</title>
     <link rel="icon" type="image/x-icon" href="../img/logo/neighborhood/favicon.png">
 
     <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
@@ -19,6 +19,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="../js/list.js"></script>
+    <script src="../js/team-tabs.js"></script>
     
     <style>
 
@@ -691,12 +692,16 @@
 </head>
 <body>
     <div class="container">
-        <div class="breadcrumbs" style="display: block;">
-            <a class="breadcrumb" href="../">Partner Tools</a>
-        </div>
+        <nav class="team-tabs" data-team-tabs aria-label="Team pages"><a class="team-tab" href="../../codechat/">CodeChat</a></nav>
 
         <div class="header">
-            <h1>📊 Explore Feeds with AI Insights</h1>
+            <div class="page-title" style="--page-title-bg: linear-gradient(45deg, #059669, #10B981); --page-title-ink: #047857;">
+                <div class="page-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+                <div>
+                    <div class="page-title-cat">Agentic</div>
+                    <h1 class="page-title-name">Feed Insights</h1>
+                </div>
+            </div>
             <p>Combine data from Excel, CSV, JSON and RSS feeds with AI Insights.</p>
         </div>
 

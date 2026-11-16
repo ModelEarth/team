@@ -3081,9 +3081,7 @@
         </div>
 
             <div style="padding-bottom: 0px">
-            <div class="breadcrumbs" style="display: block;">
-                <a class="breadcrumb" href="../">Partner Tools</a>
-            </div>
+            <nav class="breadcrumbs team-tabs" data-team-tabs aria-label="Team pages" style="display: flex;"><a class="team-tab" href="../../codechat/">CodeChat</a></nav>
             <div id="pageControls" class="input-button-group" style="display:flex; width: 100%; align-items: center;">
                 <div class="page-controls-primary">
                     <select id="fileSelect" class="form-control" style="width: auto; min-width: 200px; max-width: calc(100% - 32px); flex: none;">
@@ -3148,10 +3146,14 @@
         </div>
 
         <div class="contentpadding" id="teamHeader" style="display: none; padding-bottom: 0px">
-            <h1>
-                Coding Meetup Integration
-            </h1>
-            <p>Filters a Google Sheet to share member details <a href="../admin/cloud/">during meetups</a>.
+            <div class="page-title" style="--page-title-bg: linear-gradient(45deg, #4C1D95, #8B5CF6); --page-title-ink: #6a3fd6;">
+                <div class="page-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+                <div>
+                    <div class="page-title-cat" id="teamHeaderCat">Team Meetups</div>
+                    <h1 class="page-title-name" id="teamHeaderName">Meetup Integration</h1>
+                </div>
+            </div>
+            <p id="teamHeaderMeetupText">Filters a Google Sheet to share member details <a href="../admin/cloud/">during meetups</a>.
                 <!--  will eventually pull a list from a Google Meetup to filter the  -->
             </p>
         </div>
@@ -3519,6 +3521,7 @@
     </div>
 
     <script src="../js/common.js"></script>
+    <script src="../js/team-tabs.js"></script>
     <script src="../js/setup.js"></script>
     <script src="../js/list.js"></script>
     <script src="../../keys/js/llm-configs.js"></script>
@@ -11729,8 +11732,18 @@ Column headers: ${dataInfo.headers.join(', ')}`;
                     isGroupList = Array.from(fileSelectElement.options).find(option => option.value === 'modelteam');
                 }
                 
-                const shouldShowHeader = (listParam === 'modelteam') && isGroupList;
+                const isMeetupList = (listParam === 'modelteam') && isGroupList;
+                const isAllList = listParam === 'all';
+                const shouldShowHeader = isMeetupList || isAllList;
                 header.style.display = shouldShowHeader ? 'block' : 'none';
+
+                // Match the panel names on the CodeChat page: Meetup Integration or AI Insights
+                const headerCat = document.getElementById('teamHeaderCat');
+                const headerName = document.getElementById('teamHeaderName');
+                const meetupText = document.getElementById('teamHeaderMeetupText');
+                if (headerCat) headerCat.textContent = isAllList ? 'Data Exploration' : 'Team Meetups';
+                if (headerName) headerName.textContent = isAllList ? 'AI Insights' : 'Meetup Integration';
+                if (meetupText) meetupText.style.display = isAllList ? 'none' : '';
                 console.log('🏠 Header visibility updated:', shouldShowHeader ? 'visible' : 'hidden', 
                            'for list:', listParam, 'modelteam available:', !!isGroupList, 
                            'fileSelect options count:', fileSelectElement?.options?.length || 0);
@@ -11941,7 +11954,7 @@ Column headers: ${dataInfo.headers.join(', ')}`;
             } else {
                 pageControls.style.display = 'flex';
                 if (breadcrumb) {
-                    breadcrumb.style.display = 'block';
+                    breadcrumb.style.display = 'flex';
                 }
                 if (addVisitBtn) {
                     addVisitBtn.style.display = 'none';

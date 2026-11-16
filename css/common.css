@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@700&display=swap');
+
 :root {
     --bg-primary: #F9FAFB;
     --bg-secondary: #FFFFFF;
@@ -647,4 +649,100 @@ pre code {
 /* Rust-not-started prompt (team/admin/google/form/) — no icon square, just the text */
 #rust-status::before {
     content: none;
+}
+
+/* Page title matching its panel on the CodeChat page: icon tile, category line and name.
+   Each page sets --page-title-bg (icon gradient) and --page-title-ink (category color). */
+.page-title {
+    display: flex;
+    align-items: center;
+    margin: 8px 0 12px 0;
+}
+.page-title-icon {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 22%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 14px;
+    background: var(--page-title-bg, linear-gradient(45deg, #1D4ED8, #60A5FA));
+    color: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.page-title-icon svg {
+    width: 24px;
+    height: 24px;
+}
+.page-title .page-title-cat {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--page-title-ink, #1a5bc4);
+}
+.dark .page-title .page-title-cat {
+    color: color-mix(in srgb, var(--page-title-ink, #1a5bc4) 55%, white);
+}
+.page-title .page-title-name {
+    font-family: "Archivo", system-ui, sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: var(--text-primary, #1A1A1A);
+    margin: 2px 0 0 0;
+    padding: 0;
+}
+
+/* Team page tabs, filled by renderTeamTabs() in js/team-tabs.js */
+.team-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 20px 0;
+    padding-top: 8px;
+}
+.team-tabs a.team-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: none;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04); /* Keeps white tabs visible on light backgrounds */
+    color: #4B5563;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+.team-tabs a.team-tab:hover,
+.team-tabs a.team-tab:focus-visible {
+    background: #F9FAFB;
+    color: var(--text-primary, #1A1A1A);
+    padding: 6px 12px;
+    outline: none;
+}
+.team-tabs a.team-tab.active,
+.team-tabs a.team-tab.active:hover {
+    background: #E5E7EB;
+    color: #1A1A1A;
+}
+.dark .team-tabs a.team-tab {
+    background: var(--bg-secondary, #555);
+    box-shadow: none;
+    color: var(--text-secondary, #bbb);
+}
+.dark .team-tabs a.team-tab:hover,
+.dark .team-tabs a.team-tab:focus-visible {
+    background: var(--bg-tertiary, #313131);
+    color: var(--text-primary, #fff);
+}
+.dark .team-tabs a.team-tab.active,
+.dark .team-tabs a.team-tab.active:hover {
+    background: #6B7280;
+    color: #FFFFFF;
 }

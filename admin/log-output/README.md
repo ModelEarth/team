@@ -1,4 +1,4 @@
-# Admin Log Output System
+# Log Output Monitor
 
 A specialized admin interface for monitoring file loading processes with detailed logging.
 

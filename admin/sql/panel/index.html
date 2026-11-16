@@ -435,11 +435,15 @@
 <body>
     <div class="container">
         <div class="header" style="text-align: left;">
-            <div class="breadcrumb">
-                <a href="../../">Partner Tools</a>
+            <nav class="team-tabs" data-team-tabs aria-label="Team pages"><a class="team-tab" href="../../../../codechat/">CodeChat</a></nav>
+            <div class="page-title" style="--page-title-bg: linear-gradient(45deg, #8B5A8C, #B794B8); --page-title-ink: #7a4a7b;">
+                <div class="page-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg></div>
+                <div>
+                    <div class="page-title-cat">PostgreSQL</div>
+                    <h1 class="page-title-name">Database Admin</h1>
+                </div>
             </div>
             <p>
-            <h1>Database Admin</h1>
             <strong>Azure PostgreSQL Database Connection</strong> - Test live connection and explore database tables.<br>
                 You can create your Azure database from our <a href="https://github.com/modelearth/team/blob/main/admin/sql/suitecrm-postgres.sql">SQL create script</a> and <a href="https://github.com/modelearth/team/blob/main/admin/sql/add_foreign_keys.sql">foreign keys script</a>.<br>
                 <a href="../../../projects/edit.html">Experiment with posting a row</a> in the Azure projects table.<br>
@@ -526,6 +530,7 @@
     </div>
 
     <script src="../../../js/common.js"></script>
+    <script src="../../../js/team-tabs.js"></script>
     <script src="db-admin.js"></script>
     <script>
         // Use shared combined Rust API Status panel from team/js/common.js

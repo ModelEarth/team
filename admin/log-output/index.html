@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="../../img/logo/neighborhood/favicon.png">
-    <title>Log Output</title>
+    <title>Log Output Monitor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.css">
     
     <link type="text/css" rel="stylesheet" href="../../../localsite/css/base.css" id="/localsite/css/base.css" />
@@ -134,13 +134,15 @@
 <body>
     <div id="admin-log-content">
         <div class="container">
-            <div class="breadcrumb">
-                <a href="../">
-                    Partner Tools
-                </a>
-            </div>
+            <nav class="team-tabs" data-team-tabs aria-label="Team pages"><a class="team-tab" href="../../../codechat/">CodeChat</a></nav>
             
-                <h1>📊 Admin Log Output</h1>
+                <div class="page-title" style="--page-title-bg: linear-gradient(45deg, #E67300, #F59E0B); --page-title-ink: #a85d00;">
+                    <div class="page-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                    <div>
+                        <div class="page-title-cat">Monitoring</div>
+                        <h1 class="page-title-name">Log Output Monitor</h1>
+                    </div>
+                </div>
                 <p>Real-time logging demonstration of the enhanced displayFile() function</p>
          
 
@@ -169,6 +171,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
     <script src="../../js/common.js"></script>
+    <script src="../../js/team-tabs.js"></script>
     <script src="../../admin/sql/panel/db-admin.js"></script>
     <!-- Side Nav -->
     <script src="../../../localsite/js/nav.js"></script>
