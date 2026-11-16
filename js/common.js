@@ -266,7 +266,7 @@ function updateFaviconPath() {
         const originalHref = faviconLink.getAttribute('href');
         if (originalHref && !/^(?:[a-z]+:)?\/\//i.test(originalHref) && originalHref.indexOf('data:') !== 0) {
             // Fix any incorrect /team/ paths for direct serving
-            if (originalHref.includes('/team/') && !window.location.pathname.includes('/team/')) {
+            if (originalHref.includes('/team/') && !originalHref.startsWith('../') && !window.location.pathname.includes('/team/')) {
                 faviconLink.href = originalHref.replace('/team/', '');
             } else {
                 faviconLink.href = fixRelativePath(originalHref);
@@ -1724,6 +1724,9 @@ function handleApiConnectionError(error, containerId) {
     } else if (currentPath.includes('/projects/') || currentPath.includes('/preferences/')) {
         // In subdirectories, go up one level then to admin/server
         adminPath = '../setup/';
+    } else if (currentPath.includes('/codechat')) {
+        // The CodeChat page (formerly team/index.html) uses the team folder's setup page
+        adminPath = '../team/setup/';
     } else {
         // From root team directory, path to admin/server
         adminPath = 'setup/';
@@ -2336,6 +2339,9 @@ function createRustApiStatusPanel(containerId, showConfigureLink = true) {
     } else if (currentPath.includes('/projects/') || currentPath.includes('/preferences/')) {
         // In subdirectories, go up one level then to admin/server
         adminPath = '../admin/server/';
+    } else if (currentPath.includes('/codechat')) {
+        // The CodeChat page (formerly team/index.html) uses the team folder's admin/server page
+        adminPath = '../team/admin/server/';
     } else {
         // From root team directory, path to admin/server
         adminPath = 'admin/server/';
